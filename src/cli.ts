@@ -11,7 +11,7 @@ import { handleState } from "./commands/state.js";
 import { supportsColor } from "./util/ansi.js";
 import { ExitCode } from "./util/exitCodes.js";
 
-type RawCommonOptions = {
+export type RawCommonOptions = {
   json?: boolean;
   debug?: boolean;
   color?: boolean;
@@ -21,19 +21,18 @@ function defaultProjectRoot(): string {
   return process.cwd();
 }
 
-function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandOptions {
+export function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandOptions {
   const projectRoot = defaultProjectRoot();
   const json = rawOptions.json ?? false;
-  const color = json
-    ? false
-    : rawOptions.color === false
-      ? false
-      : supportsColor(process.stdout, "auto");
+  const colorDisabled = json || rawOptions.color === false;
+  const color = colorDisabled ? false : supportsColor(process.stdout, "auto");
+  const stderrColor = colorDisabled ? false : supportsColor(process.stderr, "auto");
 
   return {
     json,
     debug: rawOptions.debug ?? true,
     color,
+    stderrColor,
     projectRoot,
     statePath: join(projectRoot, ".journey", "state.json"),
   };

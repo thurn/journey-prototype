@@ -4,6 +4,7 @@ import { ExitCode } from "../util/exitCodes.js";
 import { ansiTruecolor } from "../util/ansi.js";
 
 export type JourneyError = Error & { exitCode: number };
+type ErrorRenderOptions = RenderOptions & { stderrColor?: boolean };
 
 export function createJourneyError(
   message: string,
@@ -29,12 +30,12 @@ function messageFor(error: unknown): string {
 
 export function renderError(
   error: unknown,
-  options: RenderOptions,
+  options: ErrorRenderOptions,
 ): RenderedOutput & { exitCode: number } {
   const exitCode = hasExitCode(error) ? error.exitCode : ExitCode.InternalError;
   const message = messageFor(error);
   const prefixed = message.startsWith("Error: ") ? message : `Error: ${message}`;
-  const enabled = options.color && !options.json;
+  const enabled = (options.stderrColor ?? options.color) && !options.json;
 
   return {
     exitCode,

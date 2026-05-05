@@ -100,93 +100,19 @@ function formatPickCommands(manifest: JourneyManifest): string {
   return `Run ${head}, or \`${tail}\`.`;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
+function optionValueDebugLines(
+  value: JourneyManifest["debug"]["optionValues"][number],
+): string[] {
+  const [firstLine, ...remainingLines] = value.detail;
 
-function describeCost(value: unknown): string {
-  const record = asRecord(value);
-  if (!record) {
-    return "Cost";
+  if (!firstLine) {
+    return [`${value.optionNumber}.`];
   }
 
-  if (record.kind === "essence") {
-    return `Pay ${record.amount} essence`;
-  }
-
-  if (record.kind === "omens") {
-    return `Lose ${record.amount} omen${record.amount === 1 ? "" : "s"}`;
-  }
-
-  return String(record.kind ?? "Cost");
-}
-
-function describeEffect(value: unknown): string {
-  const record = asRecord(value);
-  if (!record) {
-    return "Effect";
-  }
-
-  if (record.kind === "gain_essence") {
-    return `Gain ${record.amount} essence`;
-  }
-
-  if (record.kind === "gain_omens") {
-    return `Gain ${record.amount} omen${record.amount === 1 ? "" : "s"}`;
-  }
-
-  if (record.kind === "card_draft") {
-    return `Draft ${record.takeCount ?? 1} of ${record.choiceCount} cards`;
-  }
-
-  if (record.kind === "dreamsign_draft") {
-    return `Choose one of ${record.choiceCount} Dreamsigns`;
-  }
-
-  if (record.kind === "starter_cleanup") {
-    return `Purge ${record.count} chosen starter card${record.count === 1 ? "" : "s"}`;
-  }
-
-  if (record.kind === "transfiguration") {
-    return `Apply ${record.transfigurationName} transfiguration`;
-  }
-
-  if (record.kind === "card_rewrite") {
-    return `Add ${record.keyword}`;
-  }
-
-  if (record.kind === "random_reward") {
-    return "Resolve precommitted random reward";
-  }
-
-  return String(record.kind ?? "Effect");
-}
-
-function describeBurden(value: unknown): string {
-  const record = asRecord(value);
-  if (!record) {
-    return "Burden";
-  }
-
-  if (record.kind === "bane_gain") {
-    return `Gain ${record.count} ${record.baneName}`;
-  }
-
-  return String(record.kind ?? "Burden");
-}
-
-function joinedDescription(values: readonly unknown[], fallback: string, describe: (value: unknown) => string): string {
-  if (values.length === 0) {
-    return fallback;
-  }
-
-  return values.map(describe).join("; ");
-}
-
-function signed(value: number): string {
-  return value >= 0 ? `+${value}` : String(value);
+  return [
+    `${value.optionNumber}. ${firstLine}`,
+    ...remainingLines.map((line) => `   ${line}`),
+  ];
 }
 
 function previousPickFor(state: JourneyState, manifest: JourneyManifest): PickHistoryEntry | JourneyManifest["debug"]["previousPick"] | undefined {
@@ -245,22 +171,11 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     lines.push(`Shape scoring: ${topScore.shapeId} ${topScore.score}`);
   }
 
-  for (const option of manifest.options) {
+  for (const optionValue of manifest.debug.optionValues) {
     lines.push(
       "",
-      `${option.number}. Cost: ${joinedDescription(option.costs, "No immediate cost", describeCost)} = ${option.costConvertedEssence} converted essence.`,
-      `   Effect: ${joinedDescription(option.effects, "No immediate effect", describeEffect)} = ${option.effectConvertedEssence} converted essence.`,
+      ...optionValueDebugLines(optionValue),
     );
-
-    if (option.burdens.length > 0 || option.burdenConvertedEssence !== 0) {
-      lines.push(`   Burden: ${joinedDescription(option.burdens, "No burden", describeBurden)} = ${option.burdenConvertedEssence} converted essence.`);
-    }
-
-    if (option.uncertaintyConvertedEssence !== 0) {
-      lines.push(`   Uncertainty: ${signed(option.uncertaintyConvertedEssence)} converted essence.`);
-    }
-
-    lines.push(`   Net: ${signed(option.netConvertedEssence)} converted essence.`);
   }
 
   if (manifest.debug.repairs.length > 0) {
