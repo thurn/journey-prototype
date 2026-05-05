@@ -32,6 +32,12 @@ function input(overrides: Partial<Parameters<typeof computeContentVersion>[0]> =
     },
     effectCatalogVersion: "v1",
     valueModelVersion: "v1",
+    valueModelContribution: {
+      version: "v1",
+      values: {
+        essence: 1,
+      },
+    },
     manifestSchemaVersion: 1,
     rendererVersion: "v1",
     questInitializationVersion: "v1",
@@ -76,6 +82,17 @@ describe("computeContentVersion", () => {
     {
       name: "value model version",
       overrides: { valueModelVersion: "v2" },
+    },
+    {
+      name: "value model contribution",
+      overrides: {
+        valueModelContribution: {
+          version: "v1",
+          values: {
+            essence: 2,
+          },
+        },
+      },
     },
     {
       name: "manifest schema version",

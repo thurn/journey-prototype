@@ -10,6 +10,7 @@ export type ContentVersionInput = {
   canonicalShapeDefinitions: unknown;
   effectCatalogVersion: string;
   valueModelVersion: string;
+  valueModelContribution?: unknown;
   manifestSchemaVersion: number;
   rendererVersion: string;
   questInitializationVersion: string;
@@ -46,6 +47,11 @@ export function computeContentVersion(input: ContentVersionInput): string {
       stableStringify(input.canonicalShapeDefinitions),
     ),
     "effect-catalog-version": utf8Bytes(input.effectCatalogVersion),
+    "value-model-contribution": utf8Bytes(
+      stableStringify(
+        input.valueModelContribution ?? { version: input.valueModelVersion },
+      ),
+    ),
     "value-model-version": utf8Bytes(input.valueModelVersion),
     "manifest-schema-version": utf8Bytes(String(input.manifestSchemaVersion)),
     "renderer-version": utf8Bytes(input.rendererVersion),
