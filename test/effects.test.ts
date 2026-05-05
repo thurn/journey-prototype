@@ -1,0 +1,318 @@
+import { describe, expect, it } from "vitest";
+import { loadContent } from "../src/content/loadToml.js";
+import type { CardContent, ContentBundle, DreamsignContent } from "../src/content/model.js";
+import {
+  BANE_NAMES,
+  DEFAULT_BANE_NAME,
+  EFFECT_CATALOG,
+  EFFECT_CATALOG_VERSION,
+  isImmediateCostPayable,
+  resolveBaneTargets,
+  resolveCardReference,
+  resolveCardTargets,
+  resolveDreamcallerReference,
+  resolveDreamsignReference,
+  resolveDreamsignTargets,
+  STANDARD_TRANSFIGURATIONS,
+  validateNamedReferences,
+} from "../src/journey/effects.js";
+import type { QuestState } from "../src/state/schema.js";
+
+const cards: CardContent[] = [
+  {
+    id: "starter-event",
+    name: "Starter Event",
+    tides: ["ember"],
+    rarity: "Starter",
+    cardType: "Event",
+    energyCost: 0,
+    spark: "",
+    cardNumber: 1,
+    raw: { "is-fast": false },
+  },
+  {
+    id: "fast-character",
+    name: "Fast Character",
+    tides: ["ember", "void"],
+    rarity: "Common",
+    cardType: "Character",
+    energyCost: 2,
+    spark: 3,
+    cardNumber: 2,
+    raw: { "is-fast": true },
+  },
+  {
+    id: "star-event",
+    name: "Star Event",
+    tides: ["lunar"],
+    rarity: "Rare",
+    cardType: "Event",
+    energyCost: "*",
+    spark: "*",
+    cardNumber: 3,
+    raw: { "is-fast": false },
+  },
+];
+
+const dreamsigns: DreamsignContent[] = [
+  {
+    id: "tidal-sign",
+    name: "Tidal Sign",
+    kind: "tidal",
+    renderedText: "",
+    tides: ["ember"],
+    raw: {},
+  },
+  {
+    id: "neutral-sign",
+    name: "Neutral Sign",
+    kind: "neutral",
+    renderedText: "",
+    tides: [],
+    raw: {},
+  },
+];
+
+const content: ContentBundle = {
+  cards,
+  dreamcallers: [
+    {
+      id: "caller-1",
+      name: "Caller One",
+      title: "Tester",
+      awakening: "5",
+      mandatoryTides: ["ember"],
+      optionalTides: ["void"],
+      raw: {},
+    },
+  ],
+  dreamsigns,
+  rawBytes: {
+    cardsToml: new Uint8Array(),
+    dreamcallersToml: new Uint8Array(),
+    dreamsignsToml: new Uint8Array(),
+  },
+};
+
+function quest(overrides: Partial<QuestState> = {}): QuestState {
+  return {
+    seed: "default",
+    dreamcaller: {
+      id: "caller-1",
+      name: "Caller One",
+      title: "Tester",
+      awakening: "5",
+    },
+    resources: {
+      essence: 12,
+      maxEssence: 20,
+      omens: 1,
+      dreamscape: 0,
+    },
+    selectedTides: ["ember"],
+    mandatoryTides: ["ember"],
+    optionalSubset: [],
+    deck: {
+      entries: [
+        { cardId: "starter-event", copies: 1 },
+        { cardId: "fast-character", copies: 1 },
+      ],
+      summary: {
+        totalCards: 2,
+        starterCards: 1,
+        uniqueCards: 2,
+      },
+    },
+    activeDreamsigns: [{ dreamsignId: "tidal-sign" }],
+    dreamsignPoolIds: ["tidal-sign"],
+    dreamsignPoolSummary: {
+      tidalPoolCount: 1,
+      neutralCatalogCount: 1,
+    },
+    draftPool: [{ cardId: "star-event", copies: 1 }],
+    draftPoolSummary: {
+      totalCopies: 1,
+      uniqueCards: 1,
+      oneCopyCards: 1,
+      twoCopyCards: 0,
+    },
+    route: {
+      pacingLedger: {},
+      unresolvedHooks: [],
+    },
+    ...overrides,
+  };
+}
+
+describe("EFFECT_CATALOG", () => {
+  it("exports the pinned version and required mechanical families", () => {
+    expect(EFFECT_CATALOG_VERSION).toBe("effects:v1");
+    expect(DEFAULT_BANE_NAME).toBe("Nightmare");
+    expect(BANE_NAMES).toContain("Nightmare");
+
+    const ids = new Set(EFFECT_CATALOG.map((entry) => entry.id));
+
+    [
+      "essence-gain",
+      "essence-loss",
+      "essence-cap",
+      "essence-restoration",
+      "essence-scaled",
+      "omen-gain",
+      "omen-loss",
+      "card-draft",
+      "card-gain",
+      "card-pack",
+      "card-replacement",
+      "chosen-purge",
+      "random-purge",
+      "starter-cleanup",
+      "bane-gain",
+      "bane-purge",
+      "dreamsign-gain",
+      "dreamsign-draft",
+      "dreamsign-transformation",
+      "dreamsign-loss",
+      "card-rewrite-lower-cost",
+      "card-rewrite-fast",
+      "card-rewrite-reclaim",
+      "card-duplicate",
+      "card-merge",
+      "card-split",
+      "card-text-mutation",
+      "current-route-edit",
+      "future-route-edit",
+      "triggered-reward",
+      "delayed-reward",
+      "risk",
+      "wager",
+      "random-outcome",
+      "take-up-to-n",
+      "push-your-luck",
+      "sequential-offer",
+    ].forEach((id) => expect(ids).toContain(id));
+
+    STANDARD_TRANSFIGURATIONS.forEach((transfiguration) => {
+      expect(ids).toContain(`transfiguration-${transfiguration.toLocaleLowerCase("en-US")}`);
+    });
+
+    EFFECT_CATALOG.forEach((entry) => {
+      expect(entry.textTemplate).toMatch(/[.?!]$/);
+      expect(entry.versionContribution).toMatchObject({
+        id: entry.id,
+        family: entry.family,
+        textTemplate: entry.textTemplate,
+      });
+    });
+  });
+});
+
+describe("reference helpers", () => {
+  it("resolves named local content references and reports invalid names", async () => {
+    const localContent = await loadContent(process.cwd());
+    const card = localContent.cards[0]!;
+    const dreamsign = localContent.dreamsigns[0]!;
+    const dreamcaller = localContent.dreamcallers[0]!;
+
+    expect(resolveCardReference(localContent, card.name)?.id).toBe(card.id);
+    expect(resolveDreamsignReference(localContent, dreamsign.name)?.id).toBe(dreamsign.id);
+    expect(resolveDreamcallerReference(localContent, dreamcaller.name)?.id).toBe(
+      dreamcaller.id,
+    );
+
+    expect(
+      validateNamedReferences(localContent, {
+        cards: [card.name, "Custom Card"],
+        dreamsigns: [dreamsign.name, "Custom Dreamsign"],
+        dreamcallers: [dreamcaller.name, "Custom Dreamcaller"],
+        banes: ["Nightmare", "Custom Bane"],
+        rules: ["Fast", "Custom Status"],
+      }),
+    ).toEqual({
+      ok: false,
+      errors: [
+        "Unresolved card reference: Custom Card",
+        "Unresolved Dreamsign reference: Custom Dreamsign",
+        "Unresolved Dreamcaller reference: Custom Dreamcaller",
+        "Unresolved Bane reference: Custom Bane",
+        "Unresolved rules vocabulary reference: Custom Status",
+      ],
+    });
+  });
+});
+
+describe("target resolvers", () => {
+  it("filters card targets by supported predicates and current starter deck", () => {
+    expect(resolveCardTargets(content, quest(), { cardType: "Character" })).toEqual([
+      cards[1],
+    ]);
+    expect(resolveCardTargets(content, quest(), { energyCost: "*" })).toEqual([
+      cards[2],
+    ]);
+    expect(resolveCardTargets(content, quest(), { isFast: true })).toEqual([
+      cards[1],
+    ]);
+    expect(resolveCardTargets(content, quest(), { spark: 3 })).toEqual([cards[1]]);
+    expect(resolveCardTargets(content, quest(), { tideOverlap: "selected" })).toEqual([
+      cards[0],
+      cards[1],
+    ]);
+    expect(resolveCardTargets(content, quest(), { starter: true })).toEqual([
+      cards[0],
+    ]);
+    expect(
+      resolveCardTargets(
+        content,
+        quest({
+          deck: {
+            entries: [{ cardId: "fast-character", copies: 1 }],
+            summary: { totalCards: 1, starterCards: 0, uniqueCards: 1 },
+          },
+        }),
+        { starter: true },
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps neutral Dreamsigns tide-less and out of tide-overlap matches", () => {
+    expect(resolveDreamsignTargets(content, quest(), { kind: "neutral" })).toEqual([
+      dreamsigns[1],
+    ]);
+    expect(
+      resolveDreamsignTargets(content, quest(), { tideOverlap: "selected" }),
+    ).toEqual([dreamsigns[0]]);
+    expect(resolveDreamsignTargets(content, quest(), { source: "active" })).toEqual([
+      dreamsigns[0],
+    ]);
+    expect(
+      resolveDreamsignTargets(content, quest({ activeDreamsigns: [] }), {
+        source: "active",
+      }),
+    ).toEqual([]);
+  });
+
+  it("restricts Bane targets to vocabulary and can require state presence", () => {
+    expect(resolveBaneTargets(quest(), { names: ["Nightmare"] })).toEqual([
+      "Nightmare",
+    ]);
+    expect(resolveBaneTargets(quest(), { source: "state" })).toEqual([]);
+
+    const questWithBanes = quest({
+      route: {
+        pacingLedger: {},
+        unresolvedHooks: [],
+        baneNames: ["Nightmare", "Custom Bane"],
+      } as QuestState["route"],
+    });
+
+    expect(resolveBaneTargets(questWithBanes, { source: "state" })).toEqual([
+      "Nightmare",
+    ]);
+  });
+
+  it("checks immediate payable costs against current resources", () => {
+    expect(isImmediateCostPayable(quest(), { essence: 12, omens: 1 })).toBe(true);
+    expect(isImmediateCostPayable(quest(), { essence: 13 })).toBe(false);
+    expect(isImmediateCostPayable(quest(), { omens: 2 })).toBe(false);
+  });
+});
