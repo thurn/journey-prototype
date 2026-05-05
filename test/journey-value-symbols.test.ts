@@ -63,9 +63,32 @@ describe("evaluateOptionValue", () => {
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
       version: "value:v1",
       values: {
-        essenceConvertedEssenceValue: 1,
-        burdens: {
-          nightmare: -80,
+        essence: {
+          gainUnit: 1,
+          restoreToFullFallback: {
+            early: 110,
+            mid: 90,
+            late: 60,
+          },
+          maxEssenceMultiplier: 2,
+        },
+        omens: {
+          gainEach: 65,
+          lossEach: -65,
+        },
+        cards: {
+          namedVisibleByRarity: {
+            common: 75,
+            uncommon: 95,
+            rare: 120,
+          },
+        },
+        banes: {
+          gainedByName: {
+            Nightmare: -125,
+            Lethargy: -170,
+          },
+          purgeInverseMultiplier: 0.9,
         },
       },
     });

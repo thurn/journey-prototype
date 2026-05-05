@@ -5,6 +5,141 @@ export const VALUE_MODEL_VERSION: "value:v1" = "value:v1";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
+export const ESSENCE_VALUE_CONSTANTS = {
+  gainUnit: ESSENCE_CONVERTED_ESSENCE_VALUE,
+  restoreToFullFallback: {
+    early: 110,
+    mid: 90,
+    late: 60,
+  },
+  maxEssenceMultiplier: 2,
+  maxEssenceStageMultipliers: {
+    early: 1.15,
+    late: 0.75,
+  },
+  lowEssenceGainMultiplier: 1.25,
+  highEssenceRawGainMultiplier: 0.7,
+} as const;
+
+export const OMEN_VALUE_CONSTANTS = {
+  gainEach: 65,
+  lossEach: -65,
+  stageMultipliers: {
+    early: 1.1,
+    late: 0.85,
+  },
+} as const;
+
+export const CARD_VALUE_CONSTANTS = {
+  draftBase: 45,
+  draftLogMultiplier: 18,
+  additionalDraftPickBonus: 30,
+  randomCard: 55,
+  tideOrPredicateMatchBonus: 15,
+  hiddenRandomPenalty: -10,
+  namedVisibleByRarity: {
+    common: 75,
+    uncommon: 95,
+    rare: 120,
+  },
+} as const;
+
+export const PURGE_VALUE_CONSTANTS = {
+  chosenBaneBase: 140,
+  existingBaneAboveOneBonus: 25,
+  randomBane: 95,
+  chosenStarter: 70,
+  chosenStarterStageMultipliers: {
+    early: 1.2,
+    late: 0.7,
+  },
+  randomStarter: 50,
+  randomStarterNoTarget: 0,
+  usefulNonStarterSacrifice: -80,
+} as const;
+
+export const DREAMSIGN_VALUE_CONSTANTS = {
+  namedGain: 145,
+  selectedTideMatchBonus: 20,
+  draftBase: 100,
+  draftLogMultiplier: 18,
+  randomGain: 105,
+  randomTidalMatchBonus: 20,
+  loss: -120,
+  highValueNamedLoss: -160,
+  transform: 60,
+} as const;
+
+export const TRANSFIGURATION_VALUE_CONSTANTS = {
+  standardByType: {
+    Viridian: 85,
+    Bronze: 85,
+    Scarlet: 90,
+    Golden: 110,
+    Prismatic: 165,
+  },
+  genericChosen: 95,
+  random: 60,
+} as const;
+
+export const CARD_MODIFICATION_VALUE_CONSTANTS = {
+  duplicateChosen: 115,
+  duplicateChosenLateMultiplier: 1.15,
+  duplicateRandomPredicate: 80,
+  mergeOrSplitExistingCards: 100,
+  lowerCostOrAddFastOrReclaim: 70,
+} as const;
+
+export const ROUTE_VALUE_CONSTANTS = {
+  addCurrentValuableSite: 60,
+  replaceLowValueWithValuableSite: 95,
+  futureRouteEdit: 50,
+} as const;
+
+export const TIMING_AND_RANDOMNESS_VALUE_CONSTANTS = {
+  delayedRewardMultiplier: 0.75,
+  nextVictoryMultiplier: 0.8,
+  twoVictoriesMultiplier: 0.65,
+  nextDreamscapeMultiplier: 0.8,
+  randomRewardExpectedValueMultiplier: 0.85,
+  randomDownsideFlatRiskPremium: 20,
+  randomDownsideWorstCaseMultiplier: 0.25,
+} as const;
+
+export const BANE_VALUE_CONSTANTS = {
+  gainedByName: {
+    Nightmare: -125,
+    Despair: -110,
+    Envy: -110,
+    Oblivion: -145,
+    Betrayal: -145,
+    Doubt: -145,
+    Burden: -145,
+    Paralysis: -145,
+    Lethargy: -170,
+    Silence: -130,
+    Paranoia: -130,
+  },
+  purgeInverseMultiplier: 0.9,
+  chosenPurgeBonus: 25,
+} as const;
+
+export const PAYMENT_VALUE_CONSTANTS = {
+  essenceUnit: -ESSENCE_CONVERTED_ESSENCE_VALUE,
+  omenEach: OMEN_VALUE_CONSTANTS.lossEach,
+} as const;
+
+export const STAGE_PRIORITY_TAGS = {
+  early: ["build", "cleanup", "reward", "immediate", "broad"],
+  mid: ["refine", "precise", "risk", "delayed", "persistent", "economy"],
+  late: ["convert", "precise", "sacrifice", "gamble", "structural", "route"],
+} as const;
+
+export const RUN_STATE_VALUE_MODIFIERS = {
+  lowEssenceThresholdMaxFraction: 0.25,
+  highEssenceThresholdMaxFraction: 0.8,
+} as const;
+
 export const STAGE_VALUE_MULTIPLIERS = {
   early: 1.1,
   mid: 1,
@@ -65,12 +200,25 @@ export const UNCERTAINTY_ADJUSTMENTS = {
 } as const;
 
 export const VALUE_MODEL_VALUES = {
+  essence: ESSENCE_VALUE_CONSTANTS,
+  omens: OMEN_VALUE_CONSTANTS,
+  cards: CARD_VALUE_CONSTANTS,
+  purge: PURGE_VALUE_CONSTANTS,
+  dreamsigns: DREAMSIGN_VALUE_CONSTANTS,
+  transfigurations: TRANSFIGURATION_VALUE_CONSTANTS,
+  cardModification: CARD_MODIFICATION_VALUE_CONSTANTS,
+  route: ROUTE_VALUE_CONSTANTS,
+  timingAndRandomness: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
+  banes: BANE_VALUE_CONSTANTS,
+  payments: PAYMENT_VALUE_CONSTANTS,
+  stagePriorityTags: STAGE_PRIORITY_TAGS,
+  runStateModifiers: RUN_STATE_VALUE_MODIFIERS,
   essenceConvertedEssenceValue: ESSENCE_CONVERTED_ESSENCE_VALUE,
   stageMultipliers: STAGE_VALUE_MULTIPLIERS,
   draftBreadth: DRAFT_BREADTH_VALUES,
   draftCards: DRAFT_CARD_VALUES,
-  purge: PURGE_VALUES,
-  dreamsigns: DREAMSIGN_VALUES,
+  legacyPurge: PURGE_VALUES,
+  legacyDreamsigns: DREAMSIGN_VALUES,
   routeSiteDelta: ROUTE_SITE_DELTA_VALUES,
   burdens: BURDEN_VALUES,
   uncertainty: UNCERTAINTY_ADJUSTMENTS,
