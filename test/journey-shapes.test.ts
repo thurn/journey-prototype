@@ -86,6 +86,35 @@ describe("JOURNEY_SHAPES", () => {
     }
   });
 
+  it("freezes shared catalog definitions against accidental mutation", () => {
+    const definition = getShapeDefinition("random_allocation");
+    const canonicalBeforeMutationAttempts = canonicalShapeDefinitions();
+
+    expect(Object.isFrozen(JOURNEY_SHAPES)).toBe(true);
+    expect(Object.isFrozen(definition)).toBe(true);
+    expect(Object.isFrozen(definition.rootOptionCount)).toBe(true);
+    expect(Object.isFrozen(definition.supportedTags)).toBe(true);
+    expect(Object.isFrozen(definition.validationRules)).toBe(true);
+    expect(Object.isFrozen(definition.repairPreferences)).toBe(true);
+    expect(Object.isFrozen(definition.versionContribution)).toBe(true);
+
+    expect(() => {
+      (JOURNEY_SHAPES as unknown[]).push(definition);
+    }).toThrow(TypeError);
+    expect(() => {
+      (definition.rootOptionCount as { min: number }).min = 99;
+    }).toThrow(TypeError);
+    expect(() => {
+      (definition.supportedTags as string[]).push("mutated");
+    }).toThrow(TypeError);
+
+    expect(getShapeDefinition("random_allocation").rootOptionCount).toEqual({
+      min: 3,
+      max: 4,
+    });
+    expect(canonicalShapeDefinitions()).toEqual(canonicalBeforeMutationAttempts);
+  });
+
   it("throws a developer-facing error for an unknown shape ID", () => {
     expect(() =>
       getShapeDefinition("not_a_shape" as (typeof expectedShapeIds)[number]),

@@ -40,14 +40,14 @@ export type JourneyTopology =
   | "sequential";
 
 export type JourneyShapeDefinition = {
-  id: JourneyShapeId;
-  topology: JourneyTopology;
-  rootOptionCount: { min: number; max: number };
-  supportedTags: string[];
-  validationRules: string[];
-  repairPreferences: string[];
-  debugLabel: string;
-  versionContribution: unknown;
+  readonly id: JourneyShapeId;
+  readonly topology: JourneyTopology;
+  readonly rootOptionCount: Readonly<{ min: number; max: number }>;
+  readonly supportedTags: readonly string[];
+  readonly validationRules: readonly string[];
+  readonly repairPreferences: readonly string[];
+  readonly debugLabel: string;
+  readonly versionContribution: unknown;
 };
 
 export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v1";
@@ -66,7 +66,56 @@ function versionContribution(id: JourneyShapeId, topology: JourneyTopology) {
   };
 }
 
-export const JOURNEY_SHAPES: readonly JourneyShapeDefinition[] = [
+function freezeSerializable(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(freezeSerializable));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(value).map(([key, nestedValue]) => [
+          key,
+          freezeSerializable(nestedValue),
+        ]),
+      ),
+    );
+  }
+
+  return value;
+}
+
+function cloneSerializable(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(cloneSerializable);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        cloneSerializable(nestedValue),
+      ]),
+    );
+  }
+
+  return value;
+}
+
+function freezeShapeDefinition(
+  definition: JourneyShapeDefinition,
+): JourneyShapeDefinition {
+  return Object.freeze({
+    ...definition,
+    rootOptionCount: Object.freeze({ ...definition.rootOptionCount }),
+    supportedTags: Object.freeze([...definition.supportedTags]),
+    validationRules: Object.freeze([...definition.validationRules]),
+    repairPreferences: Object.freeze([...definition.repairPreferences]),
+    versionContribution: freezeSerializable(definition.versionContribution),
+  });
+}
+
+const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "random_allocation",
     topology: "direct_menu",
@@ -654,6 +703,10 @@ export const JOURNEY_SHAPES: readonly JourneyShapeDefinition[] = [
   },
 ];
 
+export const JOURNEY_SHAPES: readonly JourneyShapeDefinition[] = Object.freeze(
+  shapeDefinitions.map(freezeShapeDefinition),
+);
+
 const SHAPES_BY_ID = new Map<string, JourneyShapeDefinition>(
   JOURNEY_SHAPES.map((definition) => [definition.id, definition]),
 );
@@ -683,7 +736,7 @@ export function canonicalShapeDefinitions(): unknown {
       validationRules: [...definition.validationRules],
       repairPreferences: [...definition.repairPreferences],
       debugLabel: definition.debugLabel,
-      versionContribution: definition.versionContribution,
+      versionContribution: cloneSerializable(definition.versionContribution),
     })),
   };
 }
