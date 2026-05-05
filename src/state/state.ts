@@ -159,6 +159,15 @@ function validateHistory(errors: string[], value: unknown): void {
       requireInteger(errors, entry.sequenceStep, `history[${index}].sequenceStep`);
     }
 
+    if (
+      entry.sequenceStatus !== undefined &&
+      entry.sequenceStatus !== "active" &&
+      entry.sequenceStatus !== "complete" &&
+      entry.sequenceStatus !== "left"
+    ) {
+      errors.push(`history[${index}].sequenceStatus must be active, complete, or left`);
+    }
+
     requireInteger(
       errors,
       entry.selectedOptionNumber,

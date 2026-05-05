@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadContent } from "../src/content/loadToml.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
-import { generateNextJourney } from "../src/journey/generate.js";
+import { advanceSequenceJourney, generateNextJourney } from "../src/journey/generate.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
 import { repairOrFallbackJourney } from "../src/journey/repair.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
@@ -152,6 +152,72 @@ describe("generateNextJourney", () => {
 
     expect(validateJourneyManifest(heterogeneous, journeyContext)).toEqual({ ok: true });
   });
+
+  it("advances a sequential manifest without changing the Journey identity", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("take_up_to_n", journeyContext);
+    const result = advanceSequenceJourney({
+      context: journeyContext,
+      manifest,
+      selectedOptionNumber: 1,
+    });
+
+    expect(result.kind).toBe("advanced");
+    if (result.kind !== "advanced") {
+      throw new Error("expected an advanced sequence result");
+    }
+
+    expect(result.manifest.journeyId).toBe(manifest.journeyId);
+    expect(result.manifest.rootJourneyIndex).toBe(manifest.rootJourneyIndex);
+    expect(result.manifest.sequence).toMatchObject({ step: 2, status: "active" });
+    expect(result.manifest.options).toEqual(manifest.precommitted.sequenceMenus?.step2);
+    expect(validateJourneyManifest(result.manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("exposes terminal sequence status for next-root command transitions", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("escalating_search", journeyContext);
+    const result = advanceSequenceJourney({
+      context: journeyContext,
+      manifest,
+      selectedOptionNumber: 2,
+    });
+
+    expect(result).toMatchObject({
+      kind: "left",
+      journeyId: manifest.journeyId,
+      rootJourneyIndex: manifest.rootJourneyIndex,
+      sequence: { step: 1, status: "left" },
+      shouldGenerateNextRoot: true,
+    });
+  });
+
+  it("stores byte-stable pending data for an advanced sequence step", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("push_your_luck", journeyContext);
+    const result = advanceSequenceJourney({
+      context: journeyContext,
+      manifest,
+      selectedOptionNumber: 1,
+    });
+    const repeated = advanceSequenceJourney({
+      context: journeyContext,
+      manifest,
+      selectedOptionNumber: 1,
+    });
+
+    expect(result.kind).toBe("advanced");
+    expect(repeated.kind).toBe("advanced");
+    if (result.kind !== "advanced" || repeated.kind !== "advanced") {
+      throw new Error("expected an advanced sequence result");
+    }
+
+    expect(stableStringify(result.manifest)).toBe(stableStringify(repeated.manifest));
+    expect(result.manifest.precommitted.random).toEqual([
+      { bounded: true, kind: "visible_reward", outcome: { amount: 50, kind: "gain_essence" }, step: 1 },
+      { bounded: true, kind: "visible_downside", outcome: { baneName: "Nightmare", count: 1, kind: "bane_gain" }, step: 2 },
+    ]);
+  });
 });
 
 describe("validateJourneyManifest", () => {
@@ -198,6 +264,69 @@ describe("validateJourneyManifest", () => {
       },
     };
 
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "missing_precommitted_outcomes",
+    });
+  });
+
+  it("requires random outcomes to be precommitted", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_random_outcome", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      precommitted: {},
+    };
+
+    expect(manifest.precommitted.random).toHaveLength(1);
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "missing_precommitted_outcomes",
+    });
+  });
+
+  it("requires delayed hook outcomes to be precommitted", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      precommitted: {},
+    };
+
+    expect(manifest.precommitted.delayed).toHaveLength(1);
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "missing_precommitted_outcomes",
+    });
+  });
+
+  it("keeps route edits manifest-only and requires committed route metadata", async () => {
+    const journeyContext = await context();
+    const routeBefore = stableStringify(journeyContext.state.quest.route);
+    const manifest = fillForShape("alter_dreamscapes", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      precommitted: {},
+    };
+
+    expect(stableStringify(journeyContext.state.quest.route)).toBe(routeBefore);
+    expect(manifest.options.flatMap((option) => option.routeEffects)).toHaveLength(2);
+    expect(manifest.precommitted.routeEdits).toEqual([
+      {
+        fromSite: "Shop",
+        kind: "current_route_replacement",
+        source: "simulated_manifest_only",
+        timing: "current dreamscape",
+        toSite: "Purge",
+      },
+      {
+        fromSite: "Shop",
+        kind: "future_route_replacement",
+        source: "simulated_manifest_only",
+        timing: "next dreamscape",
+        toSite: "Purge",
+      },
+    ]);
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "missing_precommitted_outcomes",

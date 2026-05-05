@@ -57,6 +57,7 @@ export type PickHistoryEntry = {
   journeyId: string;
   shapeId: JourneyShapeId;
   sequenceStep?: number;
+  sequenceStatus?: "active" | "complete" | "left";
   selectedOptionNumber: number;
   selectedOptionText: string;
   effectSimulation: "not_applied";

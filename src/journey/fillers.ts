@@ -234,31 +234,179 @@ function routeEdit(number: number, future = false): JourneyOption {
         fromSite: "Shop",
         toSite: "Purge",
         timing: future ? "next dreamscape" : "current dreamscape",
+        source: "simulated_manifest_only",
       },
     ],
     effect: future ? 50 : 95,
   });
 }
 
-function sequenceMenu(context: JourneyContext): JourneyOption[] {
-  return [
-    option({
+function sequenceRewardText(shapeId: JourneyShapeId, step: number): string {
+  if (shapeId === "push_your_luck") {
+    return step === 1
+      ? "Push once: resolve the precommitted safe reward, then choose whether to push again."
+      : "Final push: resolve the precommitted high reward and its bounded downside.";
+  }
+
+  if (shapeId === "sequential_offers") {
+    return step === 1
+      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 selected-tide cards, then see the final offer."
+      : "Accept final offer: pay 35 essence. Draft 1 of 8 selected-tide cards.";
+  }
+
+  if (shapeId === "escalating_search") {
+    return step === 1
+      ? "Search layer 1: pay 15 essence. Gain 40 essence, then reveal the deeper layer."
+      : "Search layer 2: pay 35 essence. Draft 1 of 8 selected-tide cards and gain 1 omen.";
+  }
+
+  if (shapeId === "repeat_to_scale") {
+    return step === 1
+      ? "Invest once: pay 20 essence. Commit a 55 essence payout, then choose whether to scale it."
+      : "Scale the payout: pay 35 essence. Commit a 120 essence payout.";
+  }
+
+  if (shapeId === "staged_assembly") {
+    return step === 1
+      ? "Choose the first component: apply Bronze to a chosen selected-tide card, then reveal the final component."
+      : "Choose the final component: add Fast to the same card plan and complete the assembly.";
+  }
+
+  return step === 1
+    ? "Take reward 1: gain 35 essence, then choose whether to take the final reward."
+    : "Take final reward: gain 65 essence and gain 1 Nightmare.";
+}
+
+function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext, step: number): JourneyOption {
+  const finalStep = step >= 2;
+  const pickBehavior: PickBehavior = finalStep ? "complete_sequence" : "advance_sequence";
+
+  if (shapeId === "push_your_luck") {
+    return option({
       number: 1,
-      text: "Continue: pay 30 essence. Gain 70 essence.",
-      costs: [cost("essence", Math.min(30, context.state.quest.resources.essence))],
-      effects: [gainEssence(70)],
-      cost: Math.min(30, context.state.quest.resources.essence),
-      effect: 70,
-      uncertainty: -8,
-      pickBehavior: "advance_sequence",
-    }),
-    option({
-      number: 2,
-      text: "Stop and keep the committed reward.",
-      effect: 20,
-      pickBehavior: "complete_sequence",
-    }),
+      text: sequenceRewardText(shapeId, step),
+      effects: step === 1
+        ? [gainEssence(50), { kind: "random_reward", table: "precommitted", step }]
+        : [gainEssence(135), { kind: "random_downside", table: "precommitted", step }],
+      burdens: step === 2 ? [nightmare(1)] : [],
+      effect: step === 1 ? 50 : 135,
+      burden: step === 2 ? -125 : 0,
+      uncertainty: step === 1 ? -10 : -25,
+      pickBehavior,
+    });
+  }
+
+  if (shapeId === "sequential_offers") {
+    const price = Math.min(step === 1 ? 20 : 35, context.state.quest.resources.essence);
+
+    return option({
+      number: 1,
+      text: sequenceRewardText(shapeId, step),
+      costs: [cost("essence", price)],
+      effects: [draftCards(step === 1 ? 4 : 8)],
+      targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+      cost: price,
+      effect: step === 1 ? 70 : 115,
+      pickBehavior,
+    });
+  }
+
+  if (shapeId === "escalating_search") {
+    const price = Math.min(step === 1 ? 15 : 35, context.state.quest.resources.essence);
+
+    return option({
+      number: 1,
+      text: sequenceRewardText(shapeId, step),
+      costs: [cost("essence", price)],
+      effects: step === 1 ? [gainEssence(40)] : [draftCards(8), gainOmen(1)],
+      targets: step === 2
+        ? [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })]
+        : [],
+      cost: price,
+      effect: step === 1 ? 40 : 150,
+      uncertainty: step === 2 ? -10 : 0,
+      pickBehavior,
+    });
+  }
+
+  if (shapeId === "repeat_to_scale") {
+    const price = Math.min(step === 1 ? 20 : 35, context.state.quest.resources.essence);
+
+    return option({
+      number: 1,
+      text: sequenceRewardText(shapeId, step),
+      costs: [cost("essence", price)],
+      effects: [gainEssence(step === 1 ? 55 : 120)],
+      cost: price,
+      effect: step === 1 ? 55 : 120,
+      pickBehavior,
+    });
+  }
+
+  if (shapeId === "staged_assembly") {
+    return option({
+      number: 1,
+      text: sequenceRewardText(shapeId, step),
+      effects: step === 1
+        ? [{ kind: "transfiguration", transfigurationName: "Bronze" }]
+        : [{ kind: "card_rewrite", keyword: "Fast" }],
+      targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+      effect: step === 1 ? 85 : 70,
+      pickBehavior,
+    });
+  }
+
+  return option({
+    number: 1,
+    text: sequenceRewardText(shapeId, step),
+    effects: step === 1 ? [gainEssence(35)] : [gainEssence(65)],
+    burdens: step === 2 ? [nightmare(1)] : [],
+    effect: step === 1 ? 35 : 65,
+    burden: step === 2 ? -125 : 0,
+    pickBehavior,
+  });
+}
+
+function sequenceStopOption(shapeId: JourneyShapeId, step: number): JourneyOption {
+  const text = step === 1
+    ? "End the sequence now and convert the unclaimed follow-up into 15 essence."
+    : "End the sequence and keep all committed step rewards.";
+  const leave = shapeId === "escalating_search" && step === 1;
+
+  return option({
+    number: 2,
+    text: leave
+      ? "Leave the search before going deeper and keep the mapped exit reward."
+      : text,
+    effects: [gainEssence(step === 1 ? 15 : 25)],
+    effect: step === 1 ? 15 : 25,
+    pickBehavior: leave ? "leave" : "complete_sequence",
+  });
+}
+
+function sequenceMenu(shapeId: JourneyShapeId, context: JourneyContext, step: number): JourneyOption[] {
+  return [
+    sequenceContinueOption(shapeId, context, step),
+    sequenceStopOption(shapeId, step),
   ];
+}
+
+function sequencePrecommits(shapeId: JourneyShapeId, context: JourneyContext): PrecommittedOutcomes {
+  const precommitted: PrecommittedOutcomes = {
+    sequenceMenus: {
+      step1: sequenceMenu(shapeId, context, 1),
+      step2: sequenceMenu(shapeId, context, 2),
+    },
+  };
+
+  if (shapeId === "push_your_luck") {
+    precommitted.random = [
+      { step: 1, kind: "visible_reward", outcome: gainEssence(50), bounded: true },
+      { step: 2, kind: "visible_downside", outcome: nightmare(1), bounded: true },
+    ];
+  }
+
+  return precommitted;
 }
 
 function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
@@ -361,9 +509,9 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
     case "sequential_offers":
     case "escalating_search":
       return {
-        options: sequenceMenu(context),
+        options: sequenceMenu(shapeId, context, 1),
         sequence: { step: 1, status: "active", maxSteps: 2 },
-        precommitted: { sequenceMenus: { step2: sequenceMenu(context) } },
+        precommitted: sequencePrecommits(shapeId, context),
       };
     case "mirrored_operations":
       return {
@@ -598,8 +746,20 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [routeEdit(1, false), routeEdit(2, true)],
         precommitted: {
           routeEdits: [
-            { kind: "current_route_replacement", fromSite: "Shop", toSite: "Purge" },
-            { kind: "future_route_replacement", fromSite: "Shop", toSite: "Purge" },
+            {
+              kind: "current_route_replacement",
+              fromSite: "Shop",
+              toSite: "Purge",
+              timing: "current dreamscape",
+              source: "simulated_manifest_only",
+            },
+            {
+              kind: "future_route_replacement",
+              fromSite: "Shop",
+              toSite: "Purge",
+              timing: "next dreamscape",
+              source: "simulated_manifest_only",
+            },
           ],
         },
       };

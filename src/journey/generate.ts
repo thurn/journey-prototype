@@ -2,15 +2,39 @@ import type { JourneyContext } from "../quest/context.js";
 import type { PickHistoryEntry } from "../state/schema.js";
 import { weightedChoice, deterministicTieJitter, type DrawContext } from "../util/rng.js";
 import { buildConservativeJourneyForShape } from "./fillers.js";
-import type { JourneyManifest, JourneyStage } from "./manifest.js";
+import type { JourneyManifest, JourneyOption, JourneyStage, SequenceState } from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
 import { repairOrFallbackJourney } from "./repair.js";
 import { validateJourneyManifest } from "./validate.js";
+import { evaluateOptionValue } from "./value.js";
 
 export type GenerationInput = {
   context: JourneyContext;
   previousPick?: PickHistoryEntry;
 };
+
+export type SequenceAdvanceInput = {
+  context: JourneyContext;
+  manifest: JourneyManifest;
+  selectedOptionNumber: number;
+};
+
+export type SequenceAdvanceResult =
+  | { kind: "advanced"; manifest: JourneyManifest }
+  | {
+    kind: "complete";
+    journeyId: string;
+    rootJourneyIndex: number;
+    sequence: SequenceState;
+    shouldGenerateNextRoot: true;
+  }
+  | {
+    kind: "left";
+    journeyId: string;
+    rootJourneyIndex: number;
+    sequence: SequenceState;
+    shouldGenerateNextRoot: true;
+  };
 
 function journeyId(rootJourneyIndex: number): string {
   return `J-${String(rootJourneyIndex).padStart(6, "0")}`;
@@ -178,7 +202,12 @@ function previousPickDebug(previousPick: PickHistoryEntry | undefined): JourneyM
     selectedOptionNumber: previousPick.selectedOptionNumber,
     effectSimulation: "not_applied",
     ...(previousPick.sequenceStep !== undefined ? { sequenceStep: previousPick.sequenceStep } : {}),
+    ...(previousPick.sequenceStatus !== undefined ? { sequenceStatus: previousPick.sequenceStatus } : {}),
   };
+}
+
+function sequenceMenuKey(step: number): string {
+  return `step${step}`;
 }
 
 function freezeSerializable<T>(value: T): T {
@@ -224,4 +253,101 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     : repairOrFallbackJourney(manifest, context, validation);
 
   return freezeSerializable(finalManifest);
+}
+
+function cloneOptions(options: readonly JourneyOption[]): JourneyOption[] {
+  return options.map((journeyOption) => ({
+    ...journeyOption,
+    symbols: [...journeyOption.symbols],
+    costs: [...journeyOption.costs],
+    effects: [...journeyOption.effects],
+    burdens: [...journeyOption.burdens],
+    targets: [...journeyOption.targets],
+    triggers: [...journeyOption.triggers],
+    routeEffects: [...journeyOption.routeEffects],
+  }));
+}
+
+export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdvanceResult {
+  const { context, manifest, selectedOptionNumber } = input;
+
+  if (!manifest.sequence || manifest.sequence.status !== "active") {
+    throw new Error("Cannot advance a manifest without an active sequence");
+  }
+
+  const selectedOption = manifest.options.find((option) => option.number === selectedOptionNumber);
+
+  if (!selectedOption) {
+    throw new Error(`Option ${selectedOptionNumber} is not available in ${manifest.journeyId}`);
+  }
+
+  if (selectedOption.pickBehavior === "complete_sequence") {
+    return {
+      kind: "complete",
+      journeyId: manifest.journeyId,
+      rootJourneyIndex: manifest.rootJourneyIndex,
+      sequence: { ...manifest.sequence, status: "complete" },
+      shouldGenerateNextRoot: true,
+    };
+  }
+
+  if (selectedOption.pickBehavior === "leave") {
+    return {
+      kind: "left",
+      journeyId: manifest.journeyId,
+      rootJourneyIndex: manifest.rootJourneyIndex,
+      sequence: { ...manifest.sequence, status: "left" },
+      shouldGenerateNextRoot: true,
+    };
+  }
+
+  if (selectedOption.pickBehavior !== "advance_sequence") {
+    throw new Error(`Option ${selectedOptionNumber} does not advance a sequence`);
+  }
+
+  const nextStep = manifest.sequence.step + 1;
+  const maxSteps = manifest.sequence.maxSteps ?? nextStep;
+
+  if (nextStep > maxSteps) {
+    return {
+      kind: "complete",
+      journeyId: manifest.journeyId,
+      rootJourneyIndex: manifest.rootJourneyIndex,
+      sequence: { ...manifest.sequence, status: "complete" },
+      shouldGenerateNextRoot: true,
+    };
+  }
+
+  const nextMenu = manifest.precommitted.sequenceMenus?.[sequenceMenuKey(nextStep)];
+
+  if (!nextMenu) {
+    throw new Error(`Missing precommitted sequence menu for step ${nextStep}`);
+  }
+
+  const options = cloneOptions(nextMenu);
+  const advanced: JourneyManifest = {
+    ...manifest,
+    options,
+    sequence: {
+      ...manifest.sequence,
+      step: nextStep,
+      status: "active",
+    },
+    debug: {
+      ...manifest.debug,
+      optionValues: options.map((journeyOption) =>
+        evaluateOptionValue(journeyOption, context),
+      ),
+    },
+  };
+  const validation = validateJourneyManifest(advanced, context);
+
+  if (!validation.ok) {
+    throw new Error(`Advanced sequence manifest failed validation: ${validation.rule}`);
+  }
+
+  return {
+    kind: "advanced",
+    manifest: freezeSerializable(advanced),
+  };
 }

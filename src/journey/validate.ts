@@ -351,6 +351,169 @@ function hasPrecommitted(precommitted: unknown[] | Record<string, unknown> | und
   return isRecord(precommitted) && Object.keys(precommitted).length > 0;
 }
 
+function sequenceMenuKey(step: number): string {
+  return `step${step}`;
+}
+
+function containsRecordWhere(value: unknown, predicate: (record: Record<string, unknown>) => boolean): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsRecordWhere(entry, predicate));
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (predicate(value)) {
+    return true;
+  }
+
+  return Object.values(value).some((entry) => containsRecordWhere(entry, predicate));
+}
+
+function optionImpliesRandomOrHiddenOutcome(option: JourneyOption): boolean {
+  return containsRecordWhere([
+    option.costs,
+    option.effects,
+    option.burdens,
+    option.targets,
+    option.triggers,
+  ], (record) => {
+    const kind = typeof record.kind === "string" ? record.kind : "";
+    const type = typeof record.type === "string" ? record.type : "";
+
+    return kind.includes("random") || type.includes("random") || record.hidden === true;
+  });
+}
+
+function optionImpliesDelayedOutcome(option: JourneyOption): boolean {
+  return option.triggers.length > 0 ||
+    containsRecordWhere([option.effects, option.triggers], (record) => {
+      const timing = typeof record.timing === "string" ? record.timing : "";
+      const trigger = typeof record.trigger === "string" ? record.trigger : "";
+
+      return timing.includes("next") || trigger.length > 0;
+    });
+}
+
+function routeEffectNeedsTiming(routeEffect: unknown): boolean {
+  if (!isRecord(routeEffect) || typeof routeEffect.kind !== "string") {
+    return false;
+  }
+
+  return routeEffect.kind.includes("future") || routeEffect.kind.includes("next");
+}
+
+function validateRouteEffects(routeEffects: readonly unknown[]): ValidationResult {
+  for (const routeEffect of routeEffects) {
+    if (!isRecord(routeEffect) || typeof routeEffect.kind !== "string") {
+      return fail("invalid_route_effect", "Route effects must be structured manifest records");
+    }
+
+    if (
+      routeEffect.kind.includes("addition") ||
+      routeEffect.kind.includes("add")
+    ) {
+      return fail("route_addition_standalone_positive_reward", "Route addition cannot be a standalone route edit");
+    }
+
+    if (routeEffectNeedsTiming(routeEffect) && typeof routeEffect.timing !== "string") {
+      return fail("route_edit_without_committed_timing", "Future route edits require explicit committed timing");
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateSequenceMenu(
+  menu: unknown,
+  context: JourneyContext,
+  path: string,
+  maxSteps: number | undefined,
+): ValidationResult {
+  if (!Array.isArray(menu) || menu.length === 0) {
+    return fail("invalid_sequence_menu", `${path} must be a non-empty JourneyOption[]`);
+  }
+
+  const stepMatch = path.match(/step(\d+)$/u);
+  const step = stepMatch ? Number.parseInt(stepMatch[1]!, 10) : undefined;
+
+  for (const [index, option] of menu.entries()) {
+    const optionShapeResult = validateOptionShape(option, index);
+
+    if (!optionShapeResult.ok) {
+      return optionShapeResult;
+    }
+
+    const result = validateOption(option, context);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  if (!menu.some((entry) =>
+    isRecord(entry) &&
+    (entry.pickBehavior === "complete_sequence" || entry.pickBehavior === "leave")
+  )) {
+    return fail("missing_sequence_terminal_option", `${path} must include a completion or leave option`);
+  }
+
+  if (
+    menu.some((entry) =>
+      isRecord(entry) &&
+      (entry.pickBehavior === "complete_sequence" || entry.pickBehavior === "leave") &&
+      typeof entry.text === "string" &&
+      /(?:no effect|refuse|strategic refusal)/iu.test(entry.text)
+    )
+  ) {
+    return fail("fake_sequence_leave", `${path} has a fake sequence stop or leave option`);
+  }
+
+  if (
+    step !== undefined &&
+    maxSteps !== undefined &&
+    step >= maxSteps &&
+    menu.some((entry) => isRecord(entry) && entry.pickBehavior === "advance_sequence")
+  ) {
+    return fail("sequence_advances_past_cap", `${path} cannot advance past maxSteps`);
+  }
+
+  return { ok: true };
+}
+
+function validateSequenceMenus(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
+  if (!isRecord(manifest.precommitted.sequenceMenus)) {
+    return fail("invalid_sequence_menu", "Sequential precommitted menus must be a record of JourneyOption[] values");
+  }
+
+  for (const [key, menu] of Object.entries(manifest.precommitted.sequenceMenus)) {
+    const result = validateSequenceMenu(menu, context, key, manifest.sequence?.maxSteps);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  const nextStep = (manifest.sequence?.step ?? 0) + 1;
+
+  if (
+    manifest.sequence?.maxSteps === undefined ||
+    nextStep <= manifest.sequence.maxSteps
+  ) {
+    const nextMenu = manifest.precommitted.sequenceMenus[sequenceMenuKey(nextStep)];
+
+    if (!Array.isArray(nextMenu) || nextMenu.length === 0) {
+      return fail("missing_precommitted_outcomes", "Sequential shapes require the next follow-up menu to be precommitted");
+    }
+  }
+
+  return { ok: true };
+}
+
 export function validateJourneyManifest(
   manifest: JourneyManifest,
   context: JourneyContext,
@@ -396,6 +559,14 @@ export function validateJourneyManifest(
     }
   }
 
+  const routeEffectsResult = validateRouteEffects(
+    manifest.options.flatMap((option) => option.routeEffects),
+  );
+
+  if (!routeEffectsResult.ok) {
+    return routeEffectsResult;
+  }
+
   const nets = manifest.options
     .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
     .map((journeyOption) => journeyOption.netConvertedEssence);
@@ -423,13 +594,44 @@ export function validateJourneyManifest(
     if (!hasPrecommitted(manifest.precommitted.sequenceMenus)) {
       return fail("missing_precommitted_outcomes", "Sequential shapes require precommitted follow-up menus");
     }
+
+    if (manifest.sequence.step < 1 || !Number.isInteger(manifest.sequence.step)) {
+      return fail("invalid_sequence_state", "Sequential step must be a positive integer");
+    }
+
+    if (
+      manifest.sequence.maxSteps !== undefined &&
+      manifest.sequence.step > manifest.sequence.maxSteps
+    ) {
+      return fail("invalid_sequence_state", "Sequential step cannot exceed maxSteps");
+    }
+
+    if (!manifest.options.some((option) =>
+      option.pickBehavior === "complete_sequence" || option.pickBehavior === "leave"
+    )) {
+      return fail("missing_sequence_terminal_option", "Sequential shapes require a stop, complete, or leave option");
+    }
+
+    const sequenceMenusResult = validateSequenceMenus(manifest, context);
+
+    if (!sequenceMenusResult.ok) {
+      return sequenceMenusResult;
+    }
   }
 
-  if (definition.topology === "random_commit" && !hasPrecommitted(manifest.precommitted.random)) {
+  if (
+    (definition.topology === "random_commit" ||
+      manifest.shapeId === "risk_or_skip" ||
+      manifest.options.some(optionImpliesRandomOrHiddenOutcome)) &&
+    !hasPrecommitted(manifest.precommitted.random)
+  ) {
     return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
   }
 
-  if (definition.topology === "delayed_hook") {
+  if (
+    definition.topology === "delayed_hook" ||
+    manifest.options.some(optionImpliesDelayedOutcome)
+  ) {
     if (!hasPrecommitted(manifest.precommitted.delayed)) {
       return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
     }
@@ -443,8 +645,20 @@ export function validateJourneyManifest(
     }
   }
 
-  if (definition.topology === "route_edit" && !hasPrecommitted(manifest.precommitted.routeEdits)) {
+  if (
+    (definition.topology === "route_edit" ||
+      manifest.options.some((option) => option.routeEffects.length > 0)) &&
+    !hasPrecommitted(manifest.precommitted.routeEdits)
+  ) {
     return fail("missing_precommitted_outcomes", "Route shapes require committed route edits");
+  }
+
+  if (manifest.precommitted.routeEdits !== undefined) {
+    const routePrecommitResult = validateRouteEffects(manifest.precommitted.routeEdits);
+
+    if (!routePrecommitResult.ok) {
+      return routePrecommitResult;
+    }
   }
 
   const precommittedResult = scanIllegalStructuredValue(manifest.precommitted);
