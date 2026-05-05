@@ -10,11 +10,19 @@ import type { QuestState } from "../state/schema.js";
 export const EFFECT_CATALOG_VERSION: "effects:v1" = "effects:v1";
 
 export type EffectEntry = {
-  id: string;
-  family: string;
-  textTemplate: string;
-  tags: string[];
-  versionContribution: unknown;
+  readonly id: string;
+  readonly family: string;
+  readonly textTemplate: string;
+  readonly tags: readonly string[];
+  readonly versionContribution: EffectVersionContribution;
+};
+
+export type EffectVersionContribution = {
+  readonly catalogVersion: typeof EFFECT_CATALOG_VERSION;
+  readonly id: string;
+  readonly family: string;
+  readonly textTemplate: string;
+  readonly tags: readonly string[];
 };
 
 export type CardTargetPredicate = {
@@ -43,6 +51,10 @@ export type DreamsignTargetPredicate = {
 export type BaneTargetPredicate = {
   source?: "vocabulary" | "state";
   names?: readonly BaneName[];
+};
+
+export type BaneTargetContext = {
+  readonly baneNames: readonly BaneName[];
 };
 
 export type ImmediateCost = {
@@ -384,17 +396,43 @@ const EFFECT_DEFINITIONS = [
   },
 ] as const;
 
+function freezeSerializable(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(freezeSerializable));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(value).map(([key, nestedValue]) => [
+          key,
+          freezeSerializable(nestedValue),
+        ]),
+      ),
+    );
+  }
+
+  return value;
+}
+
+function effectVersionContribution(
+  definition: (typeof EFFECT_DEFINITIONS)[number],
+): EffectVersionContribution {
+  return freezeSerializable({
+    catalogVersion: EFFECT_CATALOG_VERSION,
+    id: definition.id,
+    family: definition.family,
+    textTemplate: definition.textTemplate,
+    tags: [...definition.tags],
+  }) as EffectVersionContribution;
+}
+
 export const EFFECT_CATALOG: readonly EffectEntry[] = Object.freeze(
   EFFECT_DEFINITIONS.map((definition) =>
     Object.freeze({
       ...definition,
-      tags: [...definition.tags],
-      versionContribution: Object.freeze({
-        id: definition.id,
-        family: definition.family,
-        textTemplate: definition.textTemplate,
-        tags: [...definition.tags],
-      }),
+      tags: Object.freeze([...definition.tags]),
+      versionContribution: effectVersionContribution(definition),
     }),
   ),
 );
@@ -569,49 +607,16 @@ export function resolveDreamsignTargets(
     .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
 }
 
-function stateBaneNames(quest: QuestState): BaneName[] {
-  const stateSurface = quest as QuestState & {
-    banes?: unknown;
-    baneNames?: unknown;
-    route: QuestState["route"] & {
-      banes?: unknown;
-      baneNames?: unknown;
-    };
-  };
-  const source = stateSurface.banes ??
-    stateSurface.baneNames ??
-    stateSurface.route.banes ??
-    stateSurface.route.baneNames ??
-    [];
-
-  if (!Array.isArray(source)) {
-    return [];
-  }
-
-  return source.flatMap((entry) => {
-    const name = typeof entry === "string"
-      ? entry
-      : entry &&
-        typeof entry === "object" &&
-        "name" in entry &&
-        typeof entry.name === "string"
-        ? entry.name
-        : null;
-
-    if (name === null || !isBaneName(name)) {
-      return [];
-    }
-
-    return [name];
-  });
-}
+const EMPTY_BANE_TARGET_CONTEXT: BaneTargetContext = Object.freeze({
+  baneNames: Object.freeze([] as BaneName[]),
+});
 
 export function resolveBaneTargets(
-  quest: QuestState,
   predicate: BaneTargetPredicate = {},
+  context: BaneTargetContext = EMPTY_BANE_TARGET_CONTEXT,
 ): BaneName[] {
   const source = predicate.source === "state"
-    ? stateBaneNames(quest)
+    ? context.baneNames
     : [...BANE_NAMES];
   const wanted = predicate.names === undefined
     ? null

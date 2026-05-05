@@ -199,11 +199,55 @@ describe("EFFECT_CATALOG", () => {
     EFFECT_CATALOG.forEach((entry) => {
       expect(entry.textTemplate).toMatch(/[.?!]$/);
       expect(entry.versionContribution).toMatchObject({
+        catalogVersion: EFFECT_CATALOG_VERSION,
         id: entry.id,
         family: entry.family,
         textTemplate: entry.textTemplate,
       });
     });
+  });
+
+  it("freezes shared catalog entries against accidental mutation", () => {
+    const entry = EFFECT_CATALOG[0]!;
+    const canonicalBeforeMutationAttempts = EFFECT_CATALOG.map((effect) => ({
+      id: effect.id,
+      family: effect.family,
+      textTemplate: effect.textTemplate,
+      tags: [...effect.tags],
+      versionContribution: {
+        ...effect.versionContribution,
+        tags: [...effect.versionContribution.tags],
+      },
+    }));
+
+    expect(Object.isFrozen(EFFECT_CATALOG)).toBe(true);
+    expect(Object.isFrozen(entry)).toBe(true);
+    expect(Object.isFrozen(entry.tags)).toBe(true);
+    expect(Object.isFrozen(entry.versionContribution)).toBe(true);
+    expect(Object.isFrozen(entry.versionContribution.tags)).toBe(true);
+
+    expect(() => {
+      (EFFECT_CATALOG as unknown[]).push(entry);
+    }).toThrow(TypeError);
+    expect(() => {
+      (entry.tags as string[]).push("mutated");
+    }).toThrow(TypeError);
+    expect(() => {
+      (entry.versionContribution.tags as string[]).push("mutated");
+    }).toThrow(TypeError);
+
+    expect(
+      EFFECT_CATALOG.map((effect) => ({
+        id: effect.id,
+        family: effect.family,
+        textTemplate: effect.textTemplate,
+        tags: [...effect.tags],
+        versionContribution: {
+          ...effect.versionContribution,
+          tags: [...effect.versionContribution.tags],
+        },
+      })),
+    ).toEqual(canonicalBeforeMutationAttempts);
   });
 });
 
@@ -292,22 +336,17 @@ describe("target resolvers", () => {
   });
 
   it("restricts Bane targets to vocabulary and can require state presence", () => {
-    expect(resolveBaneTargets(quest(), { names: ["Nightmare"] })).toEqual([
+    expect(resolveBaneTargets({ names: ["Nightmare"] })).toEqual([
       "Nightmare",
     ]);
-    expect(resolveBaneTargets(quest(), { source: "state" })).toEqual([]);
+    expect(resolveBaneTargets({ source: "state" })).toEqual([]);
 
-    const questWithBanes = quest({
-      route: {
-        pacingLedger: {},
-        unresolvedHooks: [],
-        baneNames: ["Nightmare", "Custom Bane"],
-      } as QuestState["route"],
-    });
-
-    expect(resolveBaneTargets(questWithBanes, { source: "state" })).toEqual([
-      "Nightmare",
-    ]);
+    expect(
+      resolveBaneTargets(
+        { source: "state" },
+        { baneNames: ["Nightmare", "Nightmare", "Doubt"] },
+      ),
+    ).toEqual(["Nightmare", "Doubt"]);
   });
 
   it("checks immediate payable costs against current resources", () => {
