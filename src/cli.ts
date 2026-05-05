@@ -22,11 +22,12 @@ function defaultProjectRoot(): string {
 
 function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandOptions {
   const projectRoot = defaultProjectRoot();
+  const color = rawOptions.color ?? !process.env.NO_COLOR;
 
   return {
     json: rawOptions.json ?? false,
     debug: rawOptions.debug ?? true,
-    color: rawOptions.color ?? true,
+    color,
     projectRoot,
     statePath: join(projectRoot, ".journey", "state.json"),
   };
@@ -37,6 +38,12 @@ function addCommonFlags(command: Command): Command {
     .option("--json", "print JSON output")
     .option("--no-color", "disable colored output")
     .option("--no-debug", "disable debug output");
+}
+
+function addJsonColorFlags(command: Command): Command {
+  return command
+    .option("--json", "print JSON output")
+    .option("--no-color", "disable colored output");
 }
 
 function writeResult(result: CommandResult): void {
@@ -80,27 +87,28 @@ export function buildProgram(): Command {
   program.addCommand(runCommand);
   program.addCommand(pickCommand);
 
-  program
-    .command("state")
+  const stateCommand = addJsonColorFlags(new Command("state"))
     .description("show simulator quest state")
-    .action(async () => {
-      await runHandler(handleState(buildCommonOptions({})));
+    .action(async (rawOptions: RawCommonOptions) => {
+      await runHandler(handleState(buildCommonOptions(rawOptions)));
     });
 
-  program
-    .command("new")
+  const newCommand = addJsonColorFlags(new Command("new"))
     .description("start a new simulator quest")
     .option("--force", "replace existing simulator state")
     .option("--seed <seed>", "seed for the new simulator quest")
-    .action(async (rawOptions: { force?: boolean; seed?: string }) => {
+    .action(async (rawOptions: RawCommonOptions & { force?: boolean; seed?: string }) => {
       await runHandler(
         handleNew(
           rawOptions.seed ?? "default",
           rawOptions.force ?? false,
-          buildCommonOptions({}),
+          buildCommonOptions(rawOptions),
         ),
       );
     });
+
+  program.addCommand(stateCommand);
+  program.addCommand(newCommand);
 
   return program;
 }

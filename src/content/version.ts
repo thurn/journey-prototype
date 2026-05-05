@@ -9,6 +9,7 @@ export type ContentVersionInput = {
   journeyCatalogVersion: string;
   canonicalShapeDefinitions: unknown;
   effectCatalogVersion: string;
+  effectCatalogContribution?: unknown;
   valueModelVersion: string;
   valueModelContribution: unknown;
   manifestSchemaVersion: number;
@@ -47,6 +48,9 @@ export function computeContentVersion(input: ContentVersionInput): string {
       stableStringify(input.canonicalShapeDefinitions),
     ),
     "effect-catalog-version": utf8Bytes(input.effectCatalogVersion),
+    "effect-catalog-contribution": utf8Bytes(
+      stableStringify(input.effectCatalogContribution ?? null),
+    ),
     "value-model-contribution": utf8Bytes(
       stableStringify(input.valueModelContribution),
     ),

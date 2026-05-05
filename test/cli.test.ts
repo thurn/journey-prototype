@@ -16,11 +16,13 @@ describe("buildProgram", () => {
   it("exposes the built journey bin through npm exec", async () => {
     const { stdout, stderr } = await execFileAsync(
       "npm",
-      ["exec", "--", "journey", "run", "--no-color"],
+      ["exec", "--", "journey", "--help"],
       { cwd: process.cwd(), timeout: 15_000 },
     );
 
     expect(stderr).toBe("");
-    expect(stdout).toBe("journey run is not implemented yet.\n");
+    expect(stdout).toContain("Usage: journey");
+    expect(stdout).toContain("run");
+    expect(stdout).toContain("pick");
   }, 20_000);
 });

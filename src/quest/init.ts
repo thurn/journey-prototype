@@ -11,6 +11,8 @@ export type CreateInitialStateArgs = {
   contentVersion: string;
 };
 
+export const QUEST_INITIALIZATION_VERSION = "quest-init:v1";
+
 function buildStarterDeck(content: ContentBundle): QuestState["deck"] {
   const entries = content.cards
     .filter((card) => card.rarity === "Starter")
