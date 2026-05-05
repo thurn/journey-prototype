@@ -277,7 +277,7 @@ export function renderStateHuman(
     lines.push(
       ...recentHistory.map(
         (entry) =>
-          `${entry.journeyId} option ${entry.selectedOptionNumber}: ${entry.selectedOptionText} (${entry.effectSimulation})`,
+          `${entry.journeyId} option ${entry.selectedOptionNumber}: ${entry.selectedOptionText}\nEffect simulation: not applied`,
       ),
     );
   }

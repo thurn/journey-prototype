@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildCommonOptions } from "../src/cli.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
 import { createJourneyError, renderError } from "../src/render/errors.js";
-import { renderJourneyHuman } from "../src/render/human.js";
+import { renderJourneyHuman, renderStateHuman } from "../src/render/human.js";
 import type { JourneyState } from "../src/state/schema.js";
 import { ExitCode } from "../src/util/exitCodes.js";
 
@@ -196,5 +196,27 @@ describe("review feedback regressions", () => {
     expect(output).toContain("   Net: canonical net detail.");
     expect(output).not.toContain("Pay 1 essence");
     expect(output).not.toContain("999 converted essence");
+  });
+
+  it("renders state history effect simulation in human-readable text", () => {
+    const state = fixtureState();
+
+    state.history.push({
+      journeyId: "J-000001",
+      shapeId: "single_offer",
+      selectedOptionNumber: 1,
+      selectedOptionText: "Spend a spark.",
+      effectSimulation: "not_applied",
+    });
+
+    const output = renderStateHuman(state, {
+      json: false,
+      debug: true,
+      color: false,
+    });
+
+    expect(output).toContain("J-000001 option 1: Spend a spark.");
+    expect(output).toContain("Effect simulation: not applied");
+    expect(output).not.toContain("not_applied");
   });
 });
