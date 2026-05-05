@@ -114,4 +114,84 @@ describe("validateContent", () => {
       /data\/cards\.toml cards\[1\].*name/,
     );
   });
+
+  it.each([
+    {
+      name: "case-insensitive duplicate ids",
+      mutate: (bundle: ContentBundle) => {
+        bundle.cards.push({
+          ...bundle.cards[0],
+          id: "CARD-1",
+          name: "Duplicate Card",
+          raw: {},
+        });
+      },
+      expected: /data\/cards\.toml cards\[2\].*duplicate id.*data\/cards\.toml cards\[1\]/,
+    },
+    {
+      name: "invalid Dreamsign kind",
+      mutate: (bundle: ContentBundle) => {
+        bundle.dreamsigns[0] = {
+          ...bundle.dreamsigns[0],
+          kind: "omen" as DreamsignContent["kind"],
+        };
+      },
+      expected: /data\/dreamsigns\.toml dreamsign\[1\].*invalid Dreamsign kind/,
+    },
+    {
+      name: "malformed tide array element",
+      mutate: (bundle: ContentBundle) => {
+        bundle.cards[0] = {
+          ...bundle.cards[0],
+          tides: ["test_tide", ""] as string[],
+        };
+      },
+      expected: /data\/cards\.toml cards\[1\].*tides\[1\]/,
+    },
+    {
+      name: "neutral Dreamsign with a tide",
+      mutate: (bundle: ContentBundle) => {
+        bundle.dreamsigns[0] = {
+          ...bundle.dreamsigns[0],
+          kind: "neutral",
+          tides: ["test_tide"],
+        };
+      },
+      expected: /data\/dreamsigns\.toml dreamsign\[1\].*neutral Dreamsign must not declare tides/,
+    },
+    {
+      name: "non-integer cardNumber",
+      mutate: (bundle: ContentBundle) => {
+        bundle.cards[0] = {
+          ...bundle.cards[0],
+          cardNumber: 1.5,
+        };
+      },
+      expected: /data\/cards\.toml cards\[1\].*cardNumber/,
+    },
+    {
+      name: "invalid rawBytes",
+      mutate: (bundle: ContentBundle) => {
+        bundle.rawBytes = {
+          ...bundle.rawBytes,
+          cardsToml: "not bytes" as unknown as Uint8Array,
+        };
+      },
+      expected: /data\/cards\.toml: missing raw TOML bytes/,
+    },
+  ])("rejects $name with context", ({ mutate, expected }) => {
+    const dreamsign: DreamsignContent = {
+      id: "neutral-1",
+      name: "Neutral Sign",
+      kind: "neutral",
+      renderedText: "",
+      tides: [],
+      raw: {},
+    };
+    const bundle = minimalBundle(dreamsign);
+
+    mutate(bundle);
+
+    expect(() => validateContent(bundle)).toThrow(expected);
+  });
 });
