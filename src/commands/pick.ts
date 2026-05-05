@@ -2,16 +2,16 @@ import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { advanceSequenceJourney, generateNextJourney } from "../journey/generate.js";
 import type { JourneyManifest } from "../journey/manifest.js";
+import { renderJourneyHuman, renderSelectedHuman } from "../render/human.js";
+import { journeyCommandPayload, renderCommandJson } from "../render/json.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import {
   assertContentVersion,
   buildContext,
+  invalidOptionResult,
   loadContentContext,
   malformedStateResult,
-  renderJourneyHuman,
-  renderRunJson,
-  renderSelectedLine,
   setupErrorResult,
   stateWithGeneratedJourney,
   usageErrorResult,
@@ -51,7 +51,7 @@ export async function handlePick(
   const selectedOptionNumber = parsePickNumber(numberText);
 
   if (selectedOptionNumber === null) {
-    return usageErrorResult("pick number must be a positive integer.");
+    return usageErrorResult("pick number must be a positive integer.", options);
   }
 
   try {
@@ -61,16 +61,18 @@ export async function handlePick(
     if (readResult.kind === "missing") {
       return usageErrorResult(
         "no pending Journey exists. Run `journey run` first.",
+        options,
       );
     }
 
     if (readResult.kind === "malformed") {
-      return malformedStateResult(readResult.error);
+      return malformedStateResult(readResult.error, options);
     }
 
     const mismatch = assertContentVersion(
       readResult.state,
       loadedContent.contentVersion,
+      options,
     );
 
     if (mismatch) {
@@ -82,6 +84,7 @@ export async function handlePick(
     if (!pendingJourney) {
       return usageErrorResult(
         "no pending Journey exists. Run `journey run` first.",
+        options,
       );
     }
 
@@ -90,9 +93,7 @@ export async function handlePick(
     );
 
     if (!selectedOption) {
-      return usageErrorResult(
-        `option ${selectedOptionNumber} is not available for ${pendingJourney.journeyId}.`,
-      );
+      return invalidOptionResult(selectedOptionNumber, pendingJourney, options);
     }
 
     const contextBeforePick = buildContext(options, loadedContent, readResult.state);
@@ -150,12 +151,13 @@ export async function handlePick(
       return {
         exitCode: ExitCode.Success,
         stdout: options.json
-          ? renderRunJson(nextState, nextManifest, "pick", recordedPick)
-          : `${renderSelectedLine(selectedOption)}${renderJourneyHuman(
+          ? renderCommandJson(
+            journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
+          )
+          : `${renderSelectedHuman(selectedOption, options)}${renderJourneyHuman(
             nextState,
             nextManifest,
             options,
-            recordedPick,
           )}`,
         stderr: "",
       };
@@ -182,16 +184,17 @@ export async function handlePick(
     return {
       exitCode: ExitCode.Success,
       stdout: options.json
-        ? renderRunJson(nextState, nextManifest, "pick", recordedPick)
-        : `${renderSelectedLine(selectedOption)}${renderJourneyHuman(
+        ? renderCommandJson(
+          journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
+        )
+        : `${renderSelectedHuman(selectedOption, options)}${renderJourneyHuman(
           nextState,
           nextManifest,
           options,
-          recordedPick,
         )}`,
       stderr: "",
     };
   } catch (error) {
-    return setupErrorResult(error);
+    return setupErrorResult(error, options);
   }
 }

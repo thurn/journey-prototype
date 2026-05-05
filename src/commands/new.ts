@@ -1,15 +1,15 @@
 import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { createInitialJourneyState } from "../quest/init.js";
+import { renderNewHuman } from "../render/human.js";
+import { newCommandPayload, renderCommandJson } from "../render/json.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
 import {
   assertContentVersion,
   loadContentContext,
   malformedStateResult,
-  renderNewHuman,
-  renderNewJson,
+  protectedResetResult,
   setupErrorResult,
-  usageErrorResult,
 } from "./shared.js";
 
 export async function handleNew(
@@ -22,7 +22,7 @@ export async function handleNew(
 
     if (!force) {
       if (readResult.kind === "malformed") {
-        return malformedStateResult(readResult.error);
+        return malformedStateResult(readResult.error, options);
       }
 
       if (readResult.kind === "loaded") {
@@ -30,6 +30,7 @@ export async function handleNew(
         const mismatch = assertContentVersion(
           readResult.state,
           loadedContent.contentVersion,
+          options,
         );
 
         if (mismatch) {
@@ -37,8 +38,10 @@ export async function handleNew(
         }
 
         if (readResult.state.pendingJourney) {
-          return usageErrorResult(
-            "refusing to discard a pending Journey. Run `journey new --force` to replace this quest state.",
+          return protectedResetResult(
+            seed,
+            readResult.state.pendingJourney.journeyId,
+            options,
           );
         }
       }
@@ -55,10 +58,12 @@ export async function handleNew(
 
     return {
       exitCode: ExitCode.Success,
-      stdout: options.json ? renderNewJson(nextState) : renderNewHuman(nextState),
+      stdout: options.json
+        ? renderCommandJson(newCommandPayload(nextState))
+        : renderNewHuman(nextState, options),
       stderr: "",
     };
   } catch (error) {
-    return setupErrorResult(error);
+    return setupErrorResult(error, options);
   }
 }

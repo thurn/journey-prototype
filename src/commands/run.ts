@@ -2,14 +2,14 @@ import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { generateNextJourney } from "../journey/generate.js";
 import { createInitialJourneyState } from "../quest/init.js";
+import { renderJourneyHuman } from "../render/human.js";
+import { journeyCommandPayload, renderCommandJson } from "../render/json.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
 import {
   assertContentVersion,
   buildContext,
   loadContentContext,
   malformedStateResult,
-  renderJourneyHuman,
-  renderRunJson,
   setupErrorResult,
   stateWithGeneratedJourney,
 } from "./shared.js";
@@ -22,7 +22,7 @@ export async function handleRun(
     const readResult = await readJourneyState(options.statePath);
 
     if (readResult.kind === "malformed") {
-      return malformedStateResult(readResult.error);
+      return malformedStateResult(readResult.error, options);
     }
 
     if (readResult.kind === "missing") {
@@ -40,7 +40,7 @@ export async function handleRun(
       return {
         exitCode: ExitCode.Success,
         stdout: options.json
-          ? renderRunJson(nextState, pendingJourney, "run")
+          ? renderCommandJson(journeyCommandPayload(nextState, pendingJourney, "run"))
           : renderJourneyHuman(nextState, pendingJourney, options),
         stderr: "",
       };
@@ -49,6 +49,7 @@ export async function handleRun(
     const mismatch = assertContentVersion(
       readResult.state,
       loadedContent.contentVersion,
+      options,
     );
 
     if (mismatch) {
@@ -59,7 +60,13 @@ export async function handleRun(
       return {
         exitCode: ExitCode.Success,
         stdout: options.json
-          ? renderRunJson(readResult.state, readResult.state.pendingJourney, "run")
+          ? renderCommandJson(
+            journeyCommandPayload(
+              readResult.state,
+              readResult.state.pendingJourney,
+              "run",
+            ),
+          )
           : renderJourneyHuman(
             readResult.state,
             readResult.state.pendingJourney,
@@ -78,11 +85,11 @@ export async function handleRun(
     return {
       exitCode: ExitCode.Success,
       stdout: options.json
-        ? renderRunJson(nextState, pendingJourney, "run")
+        ? renderCommandJson(journeyCommandPayload(nextState, pendingJourney, "run"))
         : renderJourneyHuman(nextState, pendingJourney, options),
       stderr: "",
     };
   } catch (error) {
-    return setupErrorResult(error);
+    return setupErrorResult(error, options);
   }
 }

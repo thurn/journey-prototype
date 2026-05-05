@@ -1,12 +1,12 @@
 import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
+import { renderStateHuman } from "../render/human.js";
+import { renderCommandJson, stateCommandPayload } from "../render/json.js";
 import { readJourneyState } from "../state/state.js";
 import {
   assertContentVersion,
   loadContentContext,
   malformedStateResult,
-  renderStateHuman,
-  renderStateJson,
   setupErrorResult,
 } from "./shared.js";
 
@@ -25,13 +25,14 @@ export async function handleState(
     }
 
     if (readResult.kind === "malformed") {
-      return malformedStateResult(readResult.error);
+      return malformedStateResult(readResult.error, options);
     }
 
     const loadedContent = await loadContentContext(options.projectRoot);
     const mismatch = assertContentVersion(
       readResult.state,
       loadedContent.contentVersion,
+      options,
     );
 
     if (mismatch) {
@@ -41,11 +42,11 @@ export async function handleState(
     return {
       exitCode: ExitCode.Success,
       stdout: options.json
-        ? renderStateJson(readResult.state)
-        : renderStateHuman(readResult.state),
+        ? renderCommandJson(stateCommandPayload(readResult.state))
+        : renderStateHuman(readResult.state, options),
       stderr: "",
     };
   } catch (error) {
-    return setupErrorResult(error);
+    return setupErrorResult(error, options);
   }
 }

@@ -8,6 +8,7 @@ import type { CommandResult, CommonCommandOptions } from "./commands/options.js"
 import { handlePick } from "./commands/pick.js";
 import { handleRun } from "./commands/run.js";
 import { handleState } from "./commands/state.js";
+import { supportsColor } from "./util/ansi.js";
 import { ExitCode } from "./util/exitCodes.js";
 
 type RawCommonOptions = {
@@ -22,10 +23,15 @@ function defaultProjectRoot(): string {
 
 function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandOptions {
   const projectRoot = defaultProjectRoot();
-  const color = rawOptions.color ?? !process.env.NO_COLOR;
+  const json = rawOptions.json ?? false;
+  const color = json
+    ? false
+    : rawOptions.color === false
+      ? false
+      : supportsColor(process.stdout, "auto");
 
   return {
-    json: rawOptions.json ?? false,
+    json,
     debug: rawOptions.debug ?? true,
     color,
     projectRoot,
