@@ -1,0 +1,1183 @@
+[[dreamsign]]
+id = "C706D0BA-2F41-4B14-95D8-DB168AC6246C"
+name = "Golden Acorn"
+image_name = "acorn_gold.png"
+kind = "tidal"
+tides = ["discard_velocity", "hand_cycling", "cost_reduction", "resource_burst", "discard_outlets"]
+rendered-text = "The second time you discard a card each turn, your next card this turn costs 2● less."
+
+[[dreamsign]]
+id = "278EC1AB-F532-4862-84AE-63DF5E49548C"
+name = "Pyramid Relic"
+image_name = "aertfact.png"
+kind = "tidal"
+tides = ["character_chain", "character_curve", "cost_reduction", "big_energy"]
+rendered-text = "When you play your first character in a turn, the next character you play this turn costs 2● less."
+
+[[dreamsign]]
+id = "6E20E6C7-295A-48B1-B252-B8B00D6902C9"
+name = "Amanita"
+image_name = "amanita.png"
+kind = "tidal"
+tides = ["leave_play_enablers", "cost_reduction", "big_energy", "finishers"]
+rendered-text = "The first character you play each turn costs 2● less if an ally left play this turn."
+
+[[dreamsign]]
+id = "49990864-1DB0-4C08-91AE-40A1F04223E4"
+name = "Algae"
+image_name = "algae.png"
+kind = "neutral"
+rendered-text = "The first character you draw each turn costs 2● less until end of turn."
+
+[[dreamsign]]
+id = "3DD05E97-1AF8-4AE9-8E1F-954EAA63E112"
+name = "Worm Apple"
+image_name = "apple.png"
+kind = "neutral"
+rendered-text = "The first character you play each turn costs 0●. Its spark becomes 1."
+
+[[dreamsign]]
+id = "A42C99B2-F480-4F63-91A0-BD556120427D"
+name = "Green Amulet"
+image_name = "amulet_2.png"
+kind = "neutral"
+rendered-text = "The second card you draw each turn costs 2● less."
+
+[[dreamsign]]
+id = "3FD8861D-FC4C-4097-9E28-89CC37F5B3F4"
+name = "Cloud Lens"
+image_name = "amulet_3.png"
+kind = "tidal"
+tides = ["event_chain", "cost_reduction", "event_setup", "resource_burst"]
+rendered-text = "Your second event each turn costs 1● less."
+
+[[dreamsign]]
+id = "8778BF17-4E0A-4CE7-B23C-4DAF49A782A7"
+name = "Wolf Sigil"
+image_name = "amulet_4.png"
+kind = "tidal"
+tides = ["discard_velocity", "hand_cycling", "cost_reduction", "resource_burst"]
+rendered-text = "The first card you play each turn after you discard a card costs 1● less."
+
+[[dreamsign]]
+id = "12EC9625-CBFB-4056-9C3E-98ED8C8BEA70"
+name = "Trinket Necklace"
+image_name = "amulet_5.png"
+kind = "tidal"
+tides = ["materialize_tempo", "bounce_blink_tools", "leave_play_enablers", "materialized_staples", "cost_reduction"]
+rendered-text = "When you return an ally to hand or banish an ally, the next character you play this turn costs 1● less."
+
+[[dreamsign]]
+id = "95F0F483-9A76-47C6-A839-01A1D9122945"
+name = "Bead Charm"
+image_name = "amulet_6.png"
+kind = "tidal"
+tides = ["materialize_tempo", "bounce_blink_tools", "cost_reduction"]
+rendered-text = "When you return an ally to hand, it costs 1● less this turn."
+
+[[dreamsign]]
+id = "553D2317-32F9-47BC-BAE0-5018CA26D56A"
+name = "Eye Amulet"
+image_name = "amulet_7.png"
+kind = "tidal"
+tides = ["fast_tempo", "fast_interaction", "fast_setup", "cost_reduction"]
+rendered-text = "The first ↯fast card you play during the opponent's turn costs 1● less."
+
+[[dreamsign]]
+id = "0D668E16-1729-4289-AD1D-0FB3C1374EE9"
+name = "Skull Pendant"
+image_name = "amulet_8.png"
+kind = "tidal"
+tides = ["materialize_value", "materialize_tempo", "materialized_staples", "cost_reduction", "big_energy"]
+rendered-text = "Characters with ▸ Materialized cost you 1● less."
+
+[[dreamsign]]
+id = "EDE46F71-AA77-4B12-9824-0D3706DA6A22"
+name = "Spider Medallion"
+image_name = "amulet_9.png"
+kind = "tidal"
+tides = ["materialize_value", "materialize_tempo", "materialized_staples", "big_energy"]
+rendered-text = "The first character you materialize each turn has Unbound."
+
+[[dreamsign]]
+id = "3380C657-79CA-400B-ABB7-4B56FBB92AF4"
+name = "Leather Satchel"
+image_name = "bag_2.png"
+kind = "tidal"
+tides = ["abandon_value", "materialize_value", "trigger_reuse", "leave_play_enablers", "materialized_staples"]
+rendered-text = "Once per turn, when you abandon an ally, trigger its ▸ Materialized: ability."
+
+[[dreamsign]]
+id = "2EBF0BBB-440C-4DBA-8E48-228DAADC0A1E"
+name = "Glow Pouch"
+image_name = "bag_3.png"
+kind = "tidal"
+tides = ["abandon_value", "materialize_value", "copy_effects", "leave_play_enablers"]
+rendered-text = "Once per turn, when you abandon an ally, materialize a 1-spark copy of it."
+
+[[dreamsign]]
+id = "2D4EB3EE-0931-45ED-8365-69F18096EAD5"
+name = "Charm Pouch"
+image_name = "bag_4.png"
+kind = "tidal"
+tides = ["materialize_tempo", "bounce_blink_tools", "trigger_reuse", "materialize_value"]
+rendered-text = "When you banish an ally and then materialize it, its Materialized ability gains Echo"
+
+[[dreamsign]]
+id = "A98F468B-5E76-4041-83EE-69C0871A6BF0"
+name = "Bat Wing"
+image_name = "bat_wings.png"
+kind = "tidal"
+tides = ["materialize_tempo", "materialize_value", "bounce_blink_tools", "card_flow"]
+rendered-text = "Once per turn, when you banish and materialize an ally, draw a card."
+
+[[dreamsign]]
+id = "D1FDBE21-56F6-43C0-AAAC-1E4683964DA5"
+name = "Bell"
+image_name = "bell.png"
+kind = "tidal"
+tides = ["void_recursion", "reclaim_characters", "materialize_value", "trigger_reuse"]
+rendered-text = "When you play a character from your void, its ▸ Materialized: ability gains Echo"
+
+[[dreamsign]]
+id = "D76684C3-797E-44AE-A2BA-333E77D46A4D"
+name = "Belladonna"
+image_name = "belladonna.png"
+kind = "tidal"
+tides = ["materialize_value", "trigger_reuse", "character_chain", "materialized_staples"]
+rendered-text = "At end of turn, if you materialized 2 allies, trigger the last one's ▸ Materialized ability."
+
+[[dreamsign]]
+id = "00CC7E7F-4245-4447-B9DC-F647DC6241A2"
+name = "Berries"
+image_name = "berries.png"
+kind = "tidal"
+tides = ["materialize_value", "trigger_reuse", "spark_growth", "materialized_staples"]
+rendered-text = "When a ▸ Materialized: ability of an ally triggers, that ally gains +1 base spark."
+
+[[dreamsign]]
+id = "47081BDE-F35D-4B5C-BA17-53E5DBF5B419"
+name = "Green Beetle"
+image_name = "bettle.png"
+kind = "tidal"
+tides = ["big_energy", "finishers", "spark_tall", "character_curve"]
+rendered-text = "Your characters with energy cost 5 or greater have Unbound."
+
+[[dreamsign]]
+id = "3ED05D9A-DAE0-4260-9B99-AD22D02FC583"
+name = "Bezoar"
+image_name = "bezoar.png"
+kind = "tidal"
+tides = ["abandon_value", "materialize_value", "materialized_staples", "leave_play_enablers"]
+rendered-text = "If you abandoned a character this turn, characters you materialize have unbound."
+
+[[dreamsign]]
+id = "9F34B5F6-4766-4A7E-A841-D7B945CAD504"
+name = "Brown Acorn"
+image_name = "black-acorn.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "spark_growth"]
+rendered-text = "Whenever you add a Warrior card to your deck, increase its base spark by 1."
+
+[[dreamsign]]
+id = "94E5683D-A24C-4F89-8AFA-652D7C6C79AA"
+name = "Black Rose"
+image_name = "black_rose.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "event_chain", "copy_effects"]
+rendered-text = "While you control 3 or more Warriors, events you play gain Echo."
+
+[[dreamsign]]
+id = "4409A691-49B4-4FB0-82F6-4F45AE86D8C2"
+name = "Spider Jar"
+image_name = "black_widow.png"
+kind = "tidal"
+tides = ["character_chain", "figment_swarm", "warrior_pressure", "ally_wide", "materialize_value"]
+rendered-text = "When you play your second character each turn, materialize a Warrior figment."
+
+[[dreamsign]]
+id = "1DFA4D90-8270-4B7C-87BE-D95AB6201E00"
+name = "Blue Feather"
+image_name = "blue_feather.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "topdeck_setup", "judgment_engines"]
+rendered-text = "▸ Judgment: If the top card of your deck is a Warrior, materialize it instead of drawing a card this turn."
+
+[[dreamsign]]
+id = "59D44948-210A-4703-B031-CB938C917150"
+name = "Carved Bone"
+image_name = "bone.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "spark_growth"]
+rendered-text = "Your Warriors have Preeminence."
+
+[[dreamsign]]
+id = "DBBADE86-9FB6-4283-B2DC-9C1EF66FD531"
+name = "Skull Drum"
+image_name = "drum.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "event_chain", "cost_reduction", "resource_burst"]
+rendered-text = "Your events cost 1● less while you control 2+ Warriors."
+
+[[dreamsign]]
+id = "21AE8473-AFA7-4384-B7D4-AFBF1D84E691"
+name = "Ivory Claw"
+image_name = "claw.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "judgment_engines", "card_flow"]
+rendered-text = "Judgment: If you control 3 or more Warriors, draw a card."
+
+[[dreamsign]]
+id = "6B5C0F18-198C-44E7-92E8-D639298B8CF6"
+name = "Charm Staff"
+image_name = "magic_stick_6.png"
+kind = "tidal"
+tides = ["warrior_bastion", "spark_growth", "warrior_pressure", "character_curve"]
+rendered-text = "Supported Warriors have +1 spark and Preeminence."
+
+[[dreamsign]]
+id = "246AC924-74DD-4387-9FD6-5BC8E563907A"
+name = "Curved Blade"
+image_name = "knife.png"
+kind = "tidal"
+tides = ["warrior_pressure", "warrior_bastion", "cost_reduction", "spark_growth"]
+rendered-text = "Your Warriors cost 1● less."
+
+[[dreamsign]]
+id = "1ECE0E16-08DE-4C99-8552-2D1D3A2BD517"
+name = "Shadow Droplet"
+image_name = "dark-essense.png"
+kind = "tidal"
+tides = ["void_recursion", "reclaim_characters", "warrior_bastion", "warrior_pressure"]
+rendered-text = "Warriors in your void have Reclaim equal to their cost."
+
+[[dreamsign]]
+id = "3D86F8CE-42AC-43DC-96D5-121E6D1A6167"
+name = "Theater Mask"
+image_name = "mask_2.png"
+kind = "tidal"
+tides = ["figment_swarm", "warrior_pressure", "warrior_bastion", "spark_growth"]
+rendered-text = "Allied Figments count as Warriors."
+
+[[dreamsign]]
+id = "DEC81FA2-7865-448C-95BC-622B884CEA9E"
+name = "Rune Stone"
+image_name = "rune.png"
+kind = "tidal"
+tides = ["figment_swarm", "judgment_engines", "spark_growth", "ally_wide"]
+rendered-text = "▸ Judgment: Each allied Figment gains +1 spark."
+
+[[dreamsign]]
+id = "4DC47625-73BD-4518-A4EF-29DDA2171594"
+name = "Rune Sack"
+image_name = "runes.png"
+kind = "tidal"
+tides = ["figment_swarm", "judgment_engines", "big_energy", "ally_wide"]
+rendered-text = "▸ Judgment: If you have 4 or more allied Figments, gain 2●."
+
+[[dreamsign]]
+id = "4A91C56C-D828-482A-A46C-1299D69FA011"
+name = "Purple Crystal"
+image_name = "crystal.png"
+kind = "tidal"
+tides = ["discard_velocity", "figment_swarm", "materialize_value", "hand_cycling"]
+rendered-text = "When you discard a card, materialize a Radiant Figment."
+
+[[dreamsign]]
+id = "26786698-FDF2-493D-905B-4273A20586C9"
+name = "Potion Mortar"
+image_name = "bowl.png"
+kind = "neutral"
+rendered-text = "Judgment: A random card in your hand costs 1● this turn."
+
+[[dreamsign]]
+id = "B7F8A4EA-C067-47ED-B251-2876B609108C"
+name = "Broomstick"
+image_name = "broomstick.png"
+kind = "neutral"
+rendered-text = "Judgment: Lose 1●. Draw a card."
+
+[[dreamsign]]
+id = "253A106D-F64E-4A60-9471-446A18EE8959"
+name = "Ice Crystals"
+image_name = "ice.png"
+kind = "tidal"
+tides = ["void_setup", "recursion_fuel", "judgment_engines", "void_recursion"]
+rendered-text = "Judgment: Put the top 2 cards of your deck into your void."
+
+[[dreamsign]]
+id = "5A22F358-BC84-44B1-A201-5F9F57940C51"
+name = "Tarot Card"
+image_name = "card.png"
+kind = "neutral"
+rendered-text = "Judgment: If two or more of your characters are deployed, draw a card, then discard a card."
+
+[[dreamsign]]
+id = "6B95D6BD-C970-4465-9536-4F21E7630D0A"
+name = "Mushroom Caps"
+image_name = "Champignon.png"
+kind = "neutral"
+rendered-text = "Judgment: Gain 1●. When drafting cards, see 1 fewer choices."
+
+[[dreamsign]]
+id = "1A524712-EF7E-43D9-BD79-5DEA5250BF08"
+name = "Rainbow Horn"
+image_name = "horn_rainbow .png"
+kind = "tidal"
+tides = ["fast_setup", "fast_tempo", "card_flow", "judgment_engines"]
+rendered-text = "Judgment: Add a random fast card from the card pool to your hand."
+
+[[dreamsign]]
+id = "6F4E2D9F-38A4-4F6A-8FDE-7D942977A6DF"
+name = "Hourglass"
+image_name = "hourglass.png"
+kind = "tidal"
+tides = ["judgment_engines", "judgment_repeaters", "trigger_reuse", "judgment_bodies"]
+rendered-text = "Your leftmost ally's ▸ Judgment: ability triggers an additional time."
+
+[[dreamsign]]
+id = "C75CD943-5E8B-4A56-8C09-D975571570D4"
+name = "Butterfly Wings"
+image_name = "butterfly_wings.png"
+kind = "tidal"
+tides = ["judgment_engines", "judgment_repeaters", "trigger_reuse", "judgment_bodies"]
+rendered-text = "A random Judgment ability of an ally each turn gains Echo."
+
+[[dreamsign]]
+id = "7EC00DA2-2B2D-4613-9A2A-8611D38199CA"
+name = "Dreamcatcher"
+image_name = "dreamcatcher.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "event_setup", "judgment_engines"]
+rendered-text = "▸ Judgment: Play a copy of the last event you played last turn for 0●."
+
+[[dreamsign]]
+id = "064CFB53-FCB4-4471-80DE-27ECCD23D3C0"
+name = "Carved Relic"
+image_name = "idol.png"
+kind = "tidal"
+tides = ["event_chain", "reclaim_events", "void_recursion", "event_setup"]
+rendered-text = "▸ Judgment: Return a random event you played last turn from your void to your hand."
+
+[[dreamsign]]
+id = "A7CDC8FD-5827-4D73-AE0C-AA594A69FA8A"
+name = "Rope Doll"
+image_name = "doll.png"
+kind = "tidal"
+tides = ["reclaim_characters", "survivor_dissolve", "void_recursion", "judgment_engines"]
+rendered-text = "Judgment: Return a random Survivor from your void to your hand."
+
+[[dreamsign]]
+id = "BFEC4F5D-9B0D-4ED2-B470-DB73D852448F"
+name = "Dead Rat"
+image_name = "dead_rat.png"
+kind = "tidal"
+tides = ["abandon_value", "leave_play_enablers", "card_flow", "judgment_engines"]
+rendered-text = "▸ Judgment: You may abandon a character to draw a card."
+
+[[dreamsign]]
+id = "FB7316C9-EF29-42FD-993E-D3337CB06921"
+name = "Gem Codex"
+image_name = "book_9.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "event_setup"]
+rendered-text = "When you copy an event, copy it an additional time."
+
+[[dreamsign]]
+id = "257C160F-7D70-4EBD-BB0F-F83E61907310"
+name = "Black Cat"
+image_name = "cat.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "event_setup"]
+rendered-text = "Copy the first event you play each turn."
+
+[[dreamsign]]
+id = "49F216A2-0596-4124-BB40-60AC9AFE6E0B"
+name = "Storm Tome"
+image_name = "book_2.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "event_setup", "cost_reduction", "finishers"]
+rendered-text = "Your events that cost 2● or less are copied."
+
+[[dreamsign]]
+id = "56523397-6C48-4DF6-846B-9E4F15D7FDEE"
+name = "Clover"
+image_name = "clover.png"
+kind = "tidal"
+tides = ["event_chain", "copy_effects", "finishers", "event_setup"]
+rendered-text = "With no allies in play, your events gain Echo."
+
+[[dreamsign]]
+id = "6DAC6BFF-AF3A-4749-8547-01FDED1C81C9"
+name = "Flaming Button"
+image_name = "damned_button.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "resource_burst", "event_setup"]
+rendered-text = "Once per turn, when you copy an event, gain 1●."
+
+[[dreamsign]]
+id = "396DA354-9F4D-4AE7-A9DC-02D1330A2678"
+name = "Crow"
+image_name = "crow.png"
+kind = "tidal"
+tides = ["event_chain", "spark_growth", "point_pressure", "event_setup"]
+rendered-text = "When you play an event, each focused ally gains +1 spark."
+
+[[dreamsign]]
+id = "A09F60DF-EC9F-4608-873C-1372AF18DAA2"
+name = "Cauldron"
+image_name = "cauldron.png"
+kind = "tidal"
+tides = ["event_chain", "reclaim_events", "void_recursion", "recursion_fuel"]
+rendered-text = "Your events have reclaim equal to their cost."
+
+[[dreamsign]]
+id = "044F856B-C08B-4B82-81E3-5417962BF868"
+name = "Skull Dagger"
+image_name = "dark_knife.png"
+kind = "tidal"
+tides = ["cost_reduction", "event_chain", "reclaim_events", "void_recursion"]
+rendered-text = "The first event you play from your void each turn costs 0●."
+
+[[dreamsign]]
+id = "B6333EBA-5573-441C-B286-1CD7F7CB6916"
+name = "Eye Grimoire"
+image_name = "book_3.png"
+kind = "tidal"
+tides = ["copy_effects", "event_chain", "reclaim_events", "void_recursion", "trigger_reuse"]
+rendered-text = "The first event you reclaim each turn gains Echo."
+
+[[dreamsign]]
+id = "B2626645-827C-46EC-8204-017862D1A398"
+name = "Eyeball Plant"
+image_name = "creepy_plant.png"
+kind = "tidal"
+tides = ["reclaim_characters", "void_recursion", "void_threshold", "big_energy"]
+rendered-text = "Characters with cost 5● or more in your void have Reclaim 3●."
+
+[[dreamsign]]
+id = "2059AA74-8897-4C76-833F-DDEF7D34346C"
+name = "Skull Codex"
+image_name = "book_5.png"
+kind = "tidal"
+tides = ["cost_reduction", "reclaim_characters", "reclaim_events", "void_recursion"]
+rendered-text = "You may play cards with the Reclaim ability from your void for Reclaim 0."
+
+[[dreamsign]]
+id = "8340CCE5-8E27-4940-AB79-34E09FDBCAE1"
+name = "Dragon Egg"
+image_name = "egg_dragon.png"
+kind = "tidal"
+tides = ["card_flow", "void_recursion", "reclaim_characters", "reclaim_events"]
+rendered-text = "When you play a card from your void, draw a card."
+
+[[dreamsign]]
+id = "2CBCBEBB-FB79-4833-A770-2216873147C4"
+name = "Spotted Egg"
+image_name = "eggs_2.png"
+kind = "tidal"
+tides = ["event_chain", "reclaim_events", "event_setup", "void_recursion"]
+rendered-text = "When you play your second event each turn, it gains Reclaim 0●."
+
+[[dreamsign]]
+id = "D2A916C1-321A-4AE3-9A50-0B7F13C5EFF6"
+name = "Flash Powder"
+image_name = "Alchemical_Powder.png"
+kind = "tidal"
+tides = ["fast_setup", "fast_tempo", "cost_reduction", "event_chain"]
+rendered-text = "You may play fast events for 1●."
+
+[[dreamsign]]
+id = "10F27800-99F8-4504-9D94-26BCB3C32788"
+name = "Essence Vial"
+image_name = "essence.png"
+kind = "tidal"
+tides = ["abandon_value", "reclaim_characters", "void_recursion", "leave_play_enablers"]
+rendered-text = "The first time each turn you abandon an ally or discard a character, that card gains Reclaim equal to its cost."
+
+[[dreamsign]]
+id = "946DBB36-0A90-495A-BF0F-17351C93D74B"
+name = "Green Fly"
+image_name = "fly.png"
+kind = "tidal"
+tides = ["void_setup", "void_recursion", "reclaim_characters", "recursion_fuel"]
+rendered-text = "The first card you put into your void from your deck each turn gains reclaim equal to its cost."
+
+[[dreamsign]]
+id = "89C83D7E-5617-49B4-B6CD-214680FE0627"
+name = "Candle"
+image_name = "candle.png"
+kind = "tidal"
+tides = ["event_chain", "spark_growth", "event_setup", "card_flow"]
+rendered-text = "When you play an event, kindle 1."
+
+[[dreamsign]]
+id = "8B87B0C7-E7D5-4C53-B99B-B1E2407CB519"
+name = "Red Heart"
+image_name = "heart.png"
+kind = "tidal"
+tides = ["void_setup", "spark_growth", "recursion_fuel", "void_threshold"]
+rendered-text = "When a card enters your void from your deck, kindle 1."
+
+[[dreamsign]]
+id = "73EFD845-6009-4686-860C-01C7F5B1C074"
+name = "Black Feather"
+image_name = "feather.png"
+kind = "tidal"
+tides = ["abandon_value", "spark_tall", "leave_play_enablers", "spark_growth"]
+rendered-text = "When you abandon an ally, kindle X where X is that ally's spark."
+
+[[dreamsign]]
+id = "ADC23870-55F8-4F23-B973-A358FC257414"
+name = "Gold Feather"
+image_name = "feather_gold.png"
+kind = "tidal"
+tides = ["abandon_value", "leave_play_enablers", "spark_growth", "point_pressure"]
+rendered-text = "When you abandon a character, kindle 1."
+
+[[dreamsign]]
+id = "1A21186C-CAFD-4E0F-9304-1AC0EF55340A"
+name = "Gray Feather"
+image_name = "feathers.png"
+kind = "tidal"
+tides = ["spark_tall", "spark_growth", "point_pressure", "finishers"]
+rendered-text = "When you kindle, double the amount of spark gained"
+
+[[dreamsign]]
+id = "FF8D8D4A-FE7B-4511-8192-E6E2E7712DAF"
+name = "Amber Eye"
+image_name = "eye_3.png"
+kind = "tidal"
+tides = ["void_threshold", "event_chain", "card_flow", "void_recursion", "void_setup"]
+rendered-text = "While you have 8 or more cards in your void, draw a card when you play an event."
+
+[[dreamsign]]
+id = "A92D2B95-C63D-4C1C-831B-902C44DEEE57"
+name = "Garlic Bulb"
+image_name = "garlic.png"
+kind = "tidal"
+tides = ["event_setup", "foresee_selection", "event_chain", "topdeck_setup"]
+rendered-text = "When you play your first event each turn, Foresee 1."
+
+[[dreamsign]]
+id = "39260DD5-CB43-47D5-A007-EFFBE13D6417"
+name = "Ginger Root"
+image_name = "ginger .png"
+kind = "tidal"
+tides = ["foresee_selection", "card_flow", "topdeck_setup", "event_setup"]
+rendered-text = "Once per turn, when you foresee, draw a card."
+
+[[dreamsign]]
+id = "4E51F321-9089-4872-A0E2-AB909E242B33"
+name = "Hair Lock"
+image_name = "hair.png"
+kind = "tidal"
+tides = ["foresee_selection", "topdeck_setup", "cost_reduction", "card_flow"]
+rendered-text = "At the start of each battle, Foresee 3. Cards you leave on top this way cost 1● less."
+
+[[dreamsign]]
+id = "268341C7-BB5B-49FB-AD8D-A792B7D631A0"
+name = "Witch Hat"
+image_name = "hat.png"
+kind = "tidal"
+tides = ["event_chain", "card_flow", "event_setup", "hand_cycling"]
+rendered-text = "When you play your second event in a turn, draw a card."
+
+[[dreamsign]]
+id = "9AAED05A-2223-42F2-9B9D-81A53EAB811C"
+name = "Honeycombs"
+image_name = "honeycombs.png"
+kind = "tidal"
+tides = ["discard_velocity", "resource_burst", "hand_cycling", "discard_outlets"]
+rendered-text = "Once per turn, when you discard a card, gain 1●."
+
+[[dreamsign]]
+id = "5190A8B8-25A0-4C60-A4DE-2E2C5A73AF77"
+name = "Cactus"
+image_name = "cactus .png"
+kind = "tidal"
+tides = ["discard_velocity", "void_recursion", "cost_reduction", "hand_cycling"]
+rendered-text = "If you have discarded a card this turn, the first card you play from your void costs 1 less."
+
+[[dreamsign]]
+id = "86F64A29-7338-4759-81DA-4C7656E543D2"
+name = "Spice Blossoms"
+image_name = "cinnamon.png"
+kind = "tidal"
+tides = ["discard_velocity", "event_chain", "cost_reduction", "hand_cycling"]
+rendered-text = "Your events cost 1● less for each card you discarded this turn."
+
+[[dreamsign]]
+id = "9D134DFC-4643-47F3-A7EC-EA770587CEA1"
+name = "Leaf Bundle"
+image_name = "bunch_of_leaves.png"
+kind = "tidal"
+tides = ["discard_velocity", "hand_cycling", "card_flow", "discard_outlets", "resource_burst"]
+rendered-text = "Once per turn, when you discard a card, draw a card."
+
+[[dreamsign]]
+id = "3A22A33F-5682-4D00-B0EC-86E43B6ED9DF"
+name = "Magic Fish"
+image_name = "magic_fish.png"
+kind = "tidal"
+tides = ["spirit_growth", "card_flow", "character_curve", "materialize_value"]
+rendered-text = "The first time each turn you play a Spirit Animal, draw a card."
+
+[[dreamsign]]
+id = "B3403800-7004-4775-915B-A19840E416B0"
+name = "Sea Tome"
+image_name = "book_11.png"
+kind = "tidal"
+tides = ["judgment_engines", "judgment_bodies", "spark_growth", "spark_tall", "judgment_repeaters"]
+rendered-text = "Allied characters with Judgment abilities have +1 spark."
+
+[[dreamsign]]
+id = "989B55BD-139F-40DC-B1FD-EB2F7B1C091A"
+name = "Charm Bracelet"
+image_name = "necklace.png"
+kind = "tidal"
+tides = ["ally_formation", "spark_growth", "point_pressure", "ally_wide"]
+rendered-text = "Your deployed characters with two supporting characters have +2 spark."
+
+[[dreamsign]]
+id = "6103508C-4991-4B80-9DC1-F30122957296"
+name = "Pig Nose"
+image_name = "pig_nouse.png"
+kind = "tidal"
+tides = ["survivor_dissolve", "spark_growth", "defensive_curve", "character_curve"]
+rendered-text = "Allied Survivors have +2 spark."
+
+[[dreamsign]]
+id = "7A37386D-6E7C-4F08-B07F-E92A1FD69893"
+name = "Oak Leaf"
+image_name = "oak_leaf.png"
+kind = "tidal"
+tides = ["ally_formation", "spark_growth", "point_pressure", "ally_wide"]
+rendered-text = "Your deployed characters that share a subtype with another deployed character you control have +2 spark."
+
+[[dreamsign]]
+id = "15FD5A22-A786-48E3-99B0-919E810B3EBA"
+name = "Opal"
+image_name = "opal.png"
+kind = "tidal"
+tides = ["spark_tall", "spark_growth", "big_energy", "finishers"]
+rendered-text = "Your characters with cost 5● or more have +2 spark."
+
+[[dreamsign]]
+id = "08A3983A-1B95-4D2E-A445-9D8DC2B8FCA7"
+name = "Crystal Orb"
+image_name = "magic_ball_2.png"
+kind = "neutral"
+rendered-text = "While you control the deployed character with the highest spark, your deployed characters have +1 spark."
+
+[[dreamsign]]
+id = "EB6A5C19-26A6-41EF-AC7A-CE1152557B5C"
+name = "Egg Nest"
+image_name = "nest.png"
+kind = "neutral"
+rendered-text = "Your deployed characters have +1 spark while your reserve is empty."
+
+[[dreamsign]]
+id = "87239E3F-04F7-45BD-9B73-944EF36AD445"
+name = "Eyeball Slime"
+image_name = "monster_jelly.png"
+kind = "tidal"
+tides = ["ally_formation", "spark_growth", "point_pressure", "ally_wide"]
+rendered-text = "Supported allies have +1 spark and Dread 1."
+
+[[dreamsign]]
+id = "11018E32-F47E-45FD-A8CF-3A9E3F3BE71B"
+name = "Silver Key"
+image_name = "key_2.png"
+kind = "neutral"
+rendered-text = "The first character you play each turn materializes with +1 spark."
+
+[[dreamsign]]
+id = "D4B18CC4-CAEB-40B3-B0E2-F1C8B1C8354C"
+name = "Larva"
+image_name = "larva.png"
+kind = "tidal"
+tides = ["materialize_value", "character_chain", "materialized_staples", "spark_growth"]
+rendered-text = "Characters you materialize gain +1 spark for each other character materialized this turn."
+
+[[dreamsign]]
+id = "2788CDAD-2735-4CDF-89A8-DCECACA87369"
+name = "Phoenix Feather"
+image_name = "phoenix_feather.png"
+kind = "tidal"
+tides = ["leave_play_enablers", "materialize_tempo", "materialize_value", "spark_growth"]
+rendered-text = "Allied characters materialize with +1 spark for each ally that left play this turn."
+
+[[dreamsign]]
+id = "4F5BDCAC-64CB-4A45-8121-E37F5E4D3074"
+name = "Notes"
+image_name = "note_2.png"
+kind = "tidal"
+tides = ["bounce_blink_tools", "materialize_tempo", "spark_growth", "leave_play_enablers", "materialize_value"]
+rendered-text = "Characters you return to hand gain +2 spark."
+
+[[dreamsign]]
+id = "1CCD8D69-E14C-4788-BE1D-CB6A1B703225"
+name = "Serpent Manual"
+image_name = "book_6.png"
+kind = "tidal"
+tides = ["warrior_bastion", "judgment_engines", "spark_growth", "spark_tall"]
+rendered-text = "When an ally dissolves an enemy in judgment, it gains +2 spark."
+
+[[dreamsign]]
+id = "6B51E477-352C-489B-8D5F-049BC378FDE9"
+name = "Piranha"
+image_name = "piranha.png"
+kind = "tidal"
+tides = ["point_pressure", "finishers", "fast_tempo"]
+rendered-text = "Your unblocked attackers score 1 additional point."
+
+[[dreamsign]]
+id = "4D762FAE-AE9F-4C35-A03B-051D7ECC3532"
+name = "Blazing Orb"
+image_name = "magic_ball.png"
+kind = "tidal"
+tides = ["spark_tall", "point_pressure", "spark_growth", "finishers"]
+rendered-text = "Your ally with the most spark scores double ✪."
+
+[[dreamsign]]
+id = "C92438FC-8E1F-4F97-9DCF-8CA0EDAA8607"
+name = "Black Horn"
+image_name = "leech.png"
+kind = "tidal"
+tides = ["cheap_removal", "premium_removal", "resource_burst", "card_flow"]
+rendered-text = "When you dissolve or banish an enemy character, gain 2● and draw a card."
+
+[[dreamsign]]
+id = "9DD7D53F-D4DB-4EEC-919D-D701774AF359"
+name = "Poison Bottle"
+image_name = "poison.png"
+kind = "tidal"
+tides = ["leave_play_enablers", "resource_burst", "premium_removal"]
+rendered-text = "Whenever you banish a character, gain 1●."
+
+[[dreamsign]]
+id = "BB8BB233-7CB1-43B3-AF30-E71AB9E832C5"
+name = "Sealed Letter"
+image_name = "letter_2.png"
+kind = "tidal"
+tides = ["abandon_value", "trigger_reuse", "survivor_dissolve", "leave_play_enablers"]
+rendered-text = "When you abandon an ally, its ▸ Dissolved: ability gains Echo"
+
+[[dreamsign]]
+id = "FDFBD522-C2BE-4B77-A63F-E9A64CA3DE3B"
+name = "Parchment"
+image_name = "parchment.png"
+kind = "tidal"
+tides = ["survivor_dissolve", "attrition_trade", "card_flow", "defensive_curve"]
+rendered-text = "Allied characters have '▸ Dissolved: Draw a card.'"
+
+[[dreamsign]]
+id = "293A610D-EA75-4974-88DA-13E4C86F248F"
+name = "Mandrake Root"
+image_name = "mandragora.png"
+kind = "tidal"
+tides = ["survivor_dissolve", "void_recursion", "reclaim_characters", "attrition_trade"]
+rendered-text = "Once per turn, when an ally is dissolved, return a random character with lower cost from your void to hand."
+
+[[dreamsign]]
+id = "4A9F95D5-B72D-4EE8-8D29-B05646EDC23D"
+name = "Herb Mortar"
+image_name = "mortar_pestle.png"
+kind = "tidal"
+tides = ["survivor_dissolve", "void_recursion", "materialize_value", "attrition_trade"]
+rendered-text = "When an ally is dissolved, materialize a random character with lower cost from your void."
+
+[[dreamsign]]
+id = "B765F6BB-0B8A-4847-ADA4-477B9493E3AD"
+name = "Flower Petals"
+image_name = "petals.png"
+kind = "tidal"
+tides = ["abandon_value", "materialize_value", "leave_play_enablers", "character_chain"]
+rendered-text = "At the end of your turn, materialize a random character you abandoned this turn. It has 1 spark."
+
+[[dreamsign]]
+id = "72EF4B11-5366-4798-AAB0-09E5FFBB1ED8"
+name = "Clam Shell"
+image_name = "mollusk.png"
+kind = "tidal"
+tides = ["big_energy", "hand_cycling", "card_flow", "resource_burst"]
+rendered-text = "When you draw your second card each turn, gain 1 maximum ●."
+
+[[dreamsign]]
+id = "05F69D01-F8A3-4044-B7CD-0BFD9ED980CD"
+name = "Philosopher's Stone"
+image_name = "philosopher's_Stone.png"
+kind = "tidal"
+tides = ["big_energy", "resource_burst", "event_chain", "finishers"]
+rendered-text = "Your ● is conserved between turns."
+
+[[dreamsign]]
+id = "64A28F37-54A4-4152-8C72-2EBC61E19AAC"
+name = "Steel Wand"
+image_name = "Magicwand.png"
+kind = "tidal"
+tides = ["fast_tempo", "fast_interaction", "card_flow", "fast_setup"]
+rendered-text = "Once per turn, when you play a ↯fast card, draw a card."
+
+[[dreamsign]]
+id = "206049AE-9F28-4A90-9F75-63D9EE5F4A27"
+name = "Gold Key"
+image_name = "key_3.png"
+kind = "tidal"
+tides = ["character_chain", "character_curve", "big_energy", "cost_reduction", "resource_burst"]
+rendered-text = "When you play your second character each turn, gain 1●."
+
+[[dreamsign]]
+id = "9204FBC8-BA40-4E33-9FBC-F62CCC4A43D1"
+name = "Powder Bowl"
+image_name = "powder_magic.png"
+kind = "tidal"
+tides = ["point_pressure", "cost_reduction", "character_curve", "finishers"]
+rendered-text = "Characters cost you 1● less if one of your characters scored points during that turn."
+
+[[dreamsign]]
+id = "FB87262C-5BDE-409E-92F1-58CC7A4E5491"
+name = "Purple Potion"
+image_name = "potion.png"
+kind = "tidal"
+tides = ["big_energy", "cost_reduction", "resource_burst", "finishers", "spark_tall"]
+rendered-text = "Characters with cost 5● or more cost you 2● less."
+
+[[dreamsign]]
+id = "62E1A588-F719-415C-9434-80AA08CE2E6A"
+name = "Crystal Wand"
+image_name = "magic_stick_2.png"
+kind = "tidal"
+tides = ["big_energy", "card_flow", "resource_burst", "finishers"]
+rendered-text = "When you play a card with cost 5● or more, draw a card."
+
+[[dreamsign]]
+id = "4BB408A8-7941-42DC-9FF6-DBC1400C99ED"
+name = "Red Pin"
+image_name = "pin.png"
+kind = "tidal"
+tides = ["point_pressure", "judgment_engines", "card_flow", "finishers"]
+rendered-text = "When you score points during Judgment, draw a card."
+
+[[dreamsign]]
+id = "FDD2FFE4-40F4-49CF-BC2E-2496E1042F76"
+name = "Poppy Flower"
+image_name = "maquis.png"
+kind = "neutral"
+rendered-text = "At the end of your turn, if you played no cards during your main phase, gain 1✪."
+
+[[dreamsign]]
+id = "56CAA78B-021D-4B27-ACAB-C77FB0146CED"
+name = "Rabbit Tail"
+image_name = "rabbit_tail.png"
+kind = "neutral"
+rendered-text = "At the end of your turn, if you played no characters this turn, draw a card."
+
+[[dreamsign]]
+id = "EF25FBA0-58A0-4B69-BE06-3668679FCDC7"
+name = "Green Cauldron"
+image_name = "pot.png"
+kind = "tidal"
+tides = ["discard_velocity", "hand_cycling", "card_flow", "discard_outlets"]
+rendered-text = "The first time each turn your hand becomes empty, draw a card."
+
+[[dreamsign]]
+id = "055F211D-AA51-49EB-9162-190A946B1614"
+name = "Root Staff"
+image_name = "magic_stick_3.png"
+kind = "tidal"
+tides = ["ally_wide", "point_pressure", "hand_cycling", "card_flow"]
+rendered-text = "When 2 or more allies score points, draw a card, then discard a card."
+
+[[dreamsign]]
+id = "CD4BB1F4-66BB-45EA-ABFE-CE0C66E4EC4F"
+name = "Bestiary"
+image_name = "book_10.png"
+kind = "neutral"
+rendered-text = "The first card you buy at each Shop costs 25% less essence and gains a random transfiguration."
+
+[[dreamsign]]
+id = "1CF06F9B-D698-434B-8E36-8A47206F4C0C"
+name = "Cracked Mirror"
+image_name = "mirror.png"
+kind = "neutral"
+rendered-text = "The first card you purchase from each Shop is added to your deck twice."
+
+[[dreamsign]]
+id = "8408B8C2-5A3F-40DD-BAC4-98F2736C4176"
+name = "Cracked Orb"
+image_name = "magic-ball.png"
+kind = "neutral"
+rendered-text = "Each Shop site provides 2 additional options."
+
+[[dreamsign]]
+id = "10BD78DE-87EC-44E4-9B16-E755DA2A9717"
+name = "Rainbow Mushroom"
+image_name = "rainbow mushroom.png"
+kind = "neutral"
+rendered-text = "Cards you purchase from Shops gain a random tranfiguration."
+
+[[dreamsign]]
+id = "8A2C7B32-26EA-40E2-845A-689DA5673B4D"
+name = "Witch Coin"
+image_name = "witch_coin.png"
+kind = "neutral"
+rendered-text = "The first reroll at each Shop costs 0."
+
+[[dreamsign]]
+id = "883F88FB-AC50-419A-8382-C22EDEE29755"
+name = "Sealed Scroll"
+image_name = "scroll_3.png"
+kind = "neutral"
+rendered-text = "After you buy a card at a Shop, replace it with another card."
+
+[[dreamsign]]
+id = "C2AF5460-E61F-409B-9B86-6AC7DB34D748"
+name = "Blue Crystal"
+image_name = "stone.png"
+kind = "neutral"
+rendered-text = "If your deck has 35 or more cards, cards you add to it are transfigured."
+
+[[dreamsign]]
+id = "E7D23BF7-4D60-4B43-94C4-14A06C0F9116"
+name = "Rainbow Jellyfish"
+image_name = "rainbow_jellyfish.png"
+kind = "neutral"
+rendered-text = "When you gain this, apply a Prismatic Transfiguration to each starter card in your deck."
+
+[[dreamsign]]
+id = "4F21A4AB-E4AA-4718-8563-9AFB72D140C0"
+name = "Star Anise"
+image_name = "star_anise.png"
+kind = "neutral"
+rendered-text = "Each dreamscape, the first event card you add to your deck gains the Golden Transfiguration."
+
+[[dreamsign]]
+id = "0C52E8C3-A792-4EEA-955F-A0C61463C066"
+name = "Spell Tome"
+image_name = "book.png"
+kind = "tidal"
+tides = ["event_chain", "copy_effects", "event_setup"]
+rendered-text = "At Transfiguration sites, when you transfigure an Event, add a copy of it to your deck."
+
+[[dreamsign]]
+id = "8B69DE8A-835D-4F0C-AC25-DC0E700E2983"
+name = "White Rat"
+image_name = "white_rat.png"
+kind = "neutral"
+rendered-text = "When you add a character card to your deck, it has a 50% chance to gain a random transfiguration."
+
+[[dreamsign]]
+id = "AB1DA9D3-376A-460A-A9DC-4737E59E558B"
+name = "Glowing Crystal"
+image_name = "stone_2.png"
+kind = "neutral"
+rendered-text = "Once each dreamscape, the first card you add to your deck without a transfiguration gains one."
+
+[[dreamsign]]
+id = "34CE9428-DDA9-4EFA-BACD-5EC2698561C1"
+name = "Rose Petals"
+image_name = "rose_petals.png"
+kind = "neutral"
+rendered-text = "Cards you add to your deck from battle rewards gain a random applicable transfiguration."
+
+[[dreamsign]]
+id = "D9F0F7FF-63C0-4247-8831-054D7FED931D"
+name = "Leaf Ledger"
+image_name = "book_8.png"
+kind = "neutral"
+rendered-text = "At each Transfiguration site you visit, transfigure two cards instead of one."
+
+[[dreamsign]]
+id = "BE59C0BA-6286-49E3-A88D-86B0977CC30A"
+name = "Pearl Shell"
+image_name = "shell.png"
+kind = "neutral"
+rendered-text = "At each Essence site, you are instead offered a Dreamsign."
+
+[[dreamsign]]
+id = "AF92858A-0C50-4ABF-A622-04C024CA32B3"
+name = "Star Badge"
+image_name = "Ring_2.png"
+kind = "neutral"
+rendered-text = "Double the essence you gain from essence sites."
+
+[[dreamsign]]
+id = "488BF436-C6D5-4E38-8A19-E50041F53766"
+name = "Sickle"
+image_name = "sickle.png"
+kind = "neutral"
+rendered-text = "At each Essence site, you may forgo the essence gain to purge 2 cards from your deck."
+
+[[dreamsign]]
+id = "F4DF5A74-7822-4552-A3AB-F50B00758593"
+name = "Mortal Skull"
+image_name = "skull_2.png"
+kind = "neutral"
+rendered-text = "When you Purge a card, gain 50 essence."
+
+[[dreamsign]]
+id = "95A162C1-5FB0-4966-B631-EEC1E8EC96EF"
+name = "Banded Worm"
+image_name = "worm.png"
+kind = "neutral"
+rendered-text = "When you enter a new Dreamscape, gain essence equal to 20% of your current essence."
+
+[[dreamsign]]
+id = "1C505034-E405-495D-8418-6E3C06D974F0"
+name = "Sea Urchin"
+image_name = "sea_urchin.png"
+kind = "neutral"
+rendered-text = "While you have at least 300 essence, Draft picks show 1 additional card."
+
+[[dreamsign]]
+id = "427C71E3-178F-4352-8D6F-F0789CB13C2D"
+name = "Carved Stick"
+image_name = "stick.png"
+kind = "neutral"
+rendered-text = "When you win a battle, gain 10 essence for each of your characters that was dissolved during that battle."
+
+[[dreamsign]]
+id = "2DCF92BF-93B3-400C-AB97-69D3098F8868"
+name = "Wing"
+image_name = "wing.png"
+kind = "neutral"
+rendered-text = "When you draft cards, see an additional choice."
+
+[[dreamsign]]
+id = "E377C3ED-16F5-4424-A9F1-73F9750ACE9F"
+name = "Tortoise Shell"
+image_name = "White tortoise shell.png"
+kind = "neutral"
+rendered-text = "Cards in your deck cannot be purged. Draft sites show 1 additional card."
+
+[[dreamsign]]
+id = "71F77DD5-3BB5-4987-80F4-13DC69F74E6B"
+name = "Scorpion"
+image_name = "scorpion.png"
+kind = "neutral"
+rendered-text = "Before each battle, if you have more than 30 cards in your deck, you may purge cards of your choice while remaining at or above 30 cards."
+
+[[dreamsign]]
+id = "D78864DA-EB31-4F25-9D51-94FCA7ECF810"
+name = "Tongue"
+image_name = "tongue.png"
+kind = "neutral"
+rendered-text = "After you draw your opening hand, you may discard any number of cards, then draw that many."
+
+[[dreamsign]]
+id = "1328E611-FA2F-426F-87E2-97F26C061866"
+name = "Paired Teeth"
+image_name = "teeaths.png"
+kind = "neutral"
+rendered-text = "When you gain this dreamsign, you may purge up to 4 starter cards from your deck."
+
+[[dreamsign]]
+id = "069C6E8F-4F41-4F13-9EC9-2009B4186E3B"
+name = "Spotted Mug"
+image_name = "tea.png"
+kind = "tidal"
+tides = ["event_chain", "event_setup", "card_flow", "finishers"]
+rendered-text = "When you gain this dreamsign, pick an event card in your deck. That card is always in your opening hand."
+
+[[dreamsign]]
+id = "8E2D26A8-FF39-48A4-A30E-434479C4675F"
+name = "Toad"
+image_name = "toad.png"
+kind = "tidal"
+tides = ["survivor_dissolve", "character_curve", "defensive_curve"]
+rendered-text = "All character cards in your deck are Survivors in addition to their original card types."
+
+[[dreamsign]]
+id = "108841CE-4FEB-4C73-972E-0277C727C63E"
+name = "Slug"
+image_name = "slug.png"
+kind = "neutral"
+rendered-text = "After each battle, you may purge a card from your deck."
+
+[[dreamsign]]
+id = "025CE7F1-066B-480A-8A2F-364379890ABD"
+name = "Spider"
+image_name = "spider.png"
+kind = "neutral"
+rendered-text = "After each battle, you may duplicate a card in your deck."
+
+[[dreamsign]]
+id = "452B7CD6-9DC3-48A8-B9AA-412CA6DD5F19"
+name = "Green Slime"
+image_name = "speaces.png"
+kind = "neutral"
+rendered-text = "Instead of receiving Battle Reward cards, choose a card in your deck and duplicate it."
+
+[[dreamsign]]
+id = "DA7E4B45-9106-4116-BC1C-3AEC8885396B"
+name = "Spiral Shell"
+image_name = "shell 2.png"
+kind = "neutral"
+rendered-text = "At Duplication sites, you always add 4 copies of the selected card to your deck."
+
+[[dreamsign]]
+id = "7E8C86CC-788F-4648-BE84-E0935C40C31E"
+name = "Red Cheese"
+image_name = "red_cheese.png"
+kind = "neutral"
+rendered-text = "After winning a battle, you are offered a Dreamsign Draft instead of the battle reward pick."
+
+[[dreamsign]]
+id = "CD81A49D-DF58-4E0E-B1B2-33A82B386052"
+name = "Rosemary"
+image_name = "rosemary.png"
+kind = "neutral"
+rendered-text = "Dreamsign Offering and Dreamsign Draft sites are enhanced."
+
+[[dreamsign]]
+id = "58472AD2-88B1-4DC7-A161-C6DEA7D8C43D"
+name = "Red Shard"
+image_name = "stone-red.png"
+kind = "neutral"
+rendered-text = "In each dreamscape, one additional site is Enhanced."
+
+[[dreamsign]]
+id = "3C0CED1A-7A2A-4F18-9AB4-5D6055D1DC59"
+name = "Curled Tail"
+image_name = "tall.png"
+kind = "neutral"
+rendered-text = "Your dream journey effects apply twice, if able"
+
+[[dreamsign]]
+id = "0DF9D72C-58EA-42A0-A72A-CBC540A1836A"
+name = "Voodoo Doll"
+image_name = "vudu_doll.png"
+kind = "neutral"
+rendered-text = "When you gain this dreamsign, choose another dreamsign you own. This dreamsign becomes a copy of it."
+
+[[dreamsign]]
+id = "31DF4C62-6AB2-47F2-A4FF-C32B8E554B3B"
+name = "Raven Skull"
+image_name = "raven_skull.png"
+kind = "neutral"
+rendered-text = "Bane cards cannot be added to your deck."
+
+[[dreamsign]]
+id = "EB55B141-82F8-4BA4-B319-420F762E9EE4"
+name = "Strange Fruit"
+image_name = "strange_fruit.png"
+kind = "neutral"
+rendered-text = "When you gain a bane, gain 100 essence."
+
+[[dreamsign]]
+id = "1CD25B9A-B176-4C51-8349-BB4DF35CBF05"
+name = "Twisted Herbs"
+image_name = "twisting_herbs.png"
+kind = "tidal"
+tides = ["big_energy", "cost_reduction", "finishers"]
+rendered-text = "When you gain this dreamsign, add two Nightmare cards to your deck. Cards that cost 4● or more cost 1● less."
+
+[[dreamsign]]
+id = "B8590328-CA72-4869-A795-C7F4B6802BED"
+name = "Antler"
+image_name = "horns.png"
+kind = "tidal"
+tides = ["discard_velocity", "hand_cycling", "card_flow", "discard_outlets", "event_chain"]
+rendered-text = "Draw 2 additional cards during your draw step. At the end of each turn, discard your hand."

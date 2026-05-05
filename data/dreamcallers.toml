@@ -1,0 +1,856 @@
+[[dreamcaller]]
+name = "Vaela"
+title = "Ember Among Remnants"
+id = "60BD584B-5BC8-4EE7-8A98-CBB304EB71AB"
+awakening = 5
+image-number = "0028"
+rendered-text = "When you play a card from your void, cards in your void gain reclaim this turn."
+mandatory-tides = [
+  "survivor_dissolve",
+  "void_recursion",
+  "reclaim_characters",
+]
+optional-tides = [
+  "void_setup",
+  "cheap_curve",
+  "character_tutors",
+  "fast_interaction",
+  "cheap_removal",
+  "finishers",
+  "leave_play_enablers",
+  "void_denial",
+  "reclaim_events",
+  "judgment_bodies",
+]
+
+[[dreamcaller]]
+name = "Demetrios"
+title = "Strategos of the Phalanx"
+id = "2C53B1B9-9291-4BBA-8D3A-F40B545C8F3C"
+awakening = 4
+image-number = "0100"
+rendered-text = "When you trigger a \"▸ Materialized\" ability for the second time in a turn, gain 3●."
+mandatory-tides = [
+  "materialize_value",
+  "ally_formation",
+  "trigger_reuse",
+  "bounce_blink_tools",
+]
+optional-tides = [
+  "copy_effects",
+  "character_tutors",
+  "event_setup",
+  "fast_setup",
+  "premium_removal",
+  "topdeck_setup",
+  "cheap_curve",
+  "foresee_selection",
+  "materialized_staples",
+  "attrition_trade",
+]
+
+[[dreamcaller]]
+name = "Kaleth"
+title = "The Dreaming"
+id = "3C4773E4-F8E1-4686-86CB-B407A42489D4"
+awakening = 5
+image-number = "0026"
+rendered-text = "▸Judgment: Banish an ally, then materialize it."
+mandatory-tides = [
+  "materialize_tempo",
+  "character_chain",
+  "bounce_blink_tools",
+  "cheap_curve",
+  "leave_play_enablers",
+  "trigger_reuse",
+  "ally_formation",
+]
+optional-tides = [
+  "materialize_value",
+  "card_flow",
+  "resource_burst",
+  "fast_setup",
+  "character_tutors",
+  "finishers",
+  "cheap_removal",
+]
+
+[[dreamcaller]]
+name = "Rael"
+title = "Chain Accelerant"
+id = "84E7020C-7384-4CC3-A20F-AB05F03CC375"
+awakening = 3
+image-number = "0106"
+rendered-text = "When you play your second event in a turn, your events cost 1● less this turn."
+mandatory-tides = [
+  "event_chain",
+  "prevent_control",
+  "event_setup",
+  "cost_reduction",
+]
+optional-tides = [
+  "reclaim_events",
+  "copy_effects",
+  "fast_interaction",
+  "resource_burst",
+  "foresee_selection",
+  "fast_setup",
+  "topdeck_setup",
+  "hand_disruption",
+  "void_setup",
+  "fast_tempo",
+]
+
+[[dreamcaller]]
+name = "Serenath Veyl"
+title = "Cantor of the Unreal"
+id = "9E19B3D1-12F2-43C1-9CB1-08DE7CD32E32"
+awakening = 3
+image-number = "0098"
+rendered-text = "Allied figments have +1 spark."
+mandatory-tides = [
+  "figment_swarm",
+  "warrior_pressure",
+  "go_wide_enablers",
+  "cheap_curve",
+  "ally_wide",
+]
+optional-tides = [
+  "fast_setup",
+  "card_flow",
+  "resource_burst",
+  "point_pressure",
+  "spark_tall",
+  "big_energy",
+  "foresee_selection",
+  "cheap_removal",
+  "fast_interaction",
+  "spirit_growth",
+]
+
+[[dreamcaller]]
+name = "Edran"
+title = "the Invocant"
+id = "5E28154D-770A-4B84-8AAC-9DE44F5D7D02"
+awakening = 6
+image-number = "0080"
+rendered-text = "2●, once per turn: Trigger the ▸ Materialized: ability of an ally."
+mandatory-tides = [
+  "materialize_tempo",
+  "ally_formation",
+  "trigger_reuse",
+  "materialize_value",
+]
+optional-tides = [
+  "bounce_blink_tools",
+  "big_energy",
+  "character_tutors",
+  "reclaim_characters",
+  "topdeck_setup",
+  "resource_burst",
+  "cheap_curve",
+  "spirit_growth",
+  "card_flow",
+  "foresee_selection",
+  "recursion_fuel",
+]
+
+[[dreamcaller]]
+name = "Korrax"
+title = "Iron Sovereign"
+id = "6029BE40-75B9-4C07-912F-9718B6C5C747"
+awakening = 4
+image-number = "0003"
+rendered-text = "▸ Judgment: If you have exactly 1 deployed ally, it gains +2 spark and Unstoppable."
+mandatory-tides = [
+  "judgment_engines",
+  "spark_tall",
+  "spark_growth",
+]
+optional-tides = [
+  "bounce_blink_tools",
+  "cheap_curve",
+  "fast_interaction",
+  "premium_removal",
+  "resource_burst",
+  "card_flow",
+  "foresee_selection",
+  "topdeck_setup",
+  "spirit_growth",
+  "judgment_repeaters",
+  "defensive_curve",
+]
+
+[[dreamcaller]]
+name = "Kael Voss"
+title = "Recon Commander"
+id = "81954CA0-DA36-49DD-915C-1CCB1B2D7B05"
+awakening = 4
+image-number = "0007"
+rendered-text = "When an allied Survivor is dissolved, materialize a random Survivor from your deck."
+mandatory-tides = [
+  "survivor_dissolve",
+  "void_recursion",
+  "defensive_curve",
+  "trigger_reuse",
+]
+optional-tides = [
+  "reclaim_characters",
+  "character_tutors",
+  "void_setup",
+  "premium_removal",
+  "cheap_removal",
+  "resource_burst",
+  "leave_play_enablers",
+  "recursion_fuel",
+]
+
+[[dreamcaller]]
+name = "Ossian"
+title = "the Reckoning Blade"
+id = "B9BF6D4B-907C-4750-B51C-811AFF29DE59"
+awakening = 5
+image-number = "0022"
+rendered-text = "▸Judgment: You may abandon an ally to gain ● equal to that ally's cost."
+mandatory-tides = [
+  "abandon_value",
+  "ally_formation",
+  "abandon_fodder",
+  "leave_play_enablers",
+  "big_energy",
+]
+optional-tides = [
+  "character_curve",
+  "figment_swarm",
+  "spark_tall",
+  "topdeck_setup",
+  "character_tutors",
+  "judgment_repeaters",
+  "reclaim_characters",
+  "go_wide_enablers",
+  "resource_burst",
+  "attrition_trade",
+]
+
+[[dreamcaller]]
+name = "Tensho"
+title = "Daimyo of Lacquered Fury"
+id = "BFC40414-5264-41BF-86E1-A0F41EE4F5B5"
+awakening = 2
+image-number = "0029"
+rendered-text = "Warriors cost you 1● less."
+mandatory-tides = [
+  "warrior_pressure",
+  "warrior_bastion",
+  "cost_reduction",
+  "cheap_curve",
+]
+optional-tides = [
+  "character_chain",
+  "spark_tall",
+  "figment_swarm",
+  "character_tutors",
+  "cheap_removal",
+  "premium_removal",
+  "resource_burst",
+  "ally_formation",
+  "card_flow",
+  "point_pressure",
+]
+
+[[dreamcaller]]
+name = "Caedryn"
+title = "Shrouded Inquisitor"
+id = "9D64A4A2-3DC7-456E-9EB2-5FE3A48883C4"
+awakening = 5
+image-number = "0112"
+rendered-text = "Abandon an ally, once per turn: Materialize a random character with cost 1● higher from your deck."
+mandatory-tides = [
+  "abandon_ladder",
+  "abandon_fodder",
+  "abandon_value",
+  "topdeck_setup",
+  "big_energy",
+]
+optional-tides = [
+  "cheap_curve",
+  "ally_formation",
+  "character_tutors",
+  "leave_play_enablers",
+  "resource_burst",
+  "cheap_removal",
+  "finishers",
+  "reclaim_characters",
+  "character_chain",
+]
+
+[[dreamcaller]]
+name = "Yveth Coravel"
+title = "Scion of the Returning Tide"
+id = "FE2510D9-BFEE-4C35-97F9-30E0CD2E2851"
+awakening = 6
+image-number = "0084"
+rendered-text = "2●: Return an ally to hand. Its cost is reduced by 2● and it gains +2 spark."
+mandatory-tides = [
+  "materialize_tempo",
+  "spark_tall",
+  "bounce_blink_tools",
+  "leave_play_enablers",
+]
+optional-tides = [
+  "cost_reduction",
+  "trigger_reuse",
+  "leave_play_enablers",
+  "topdeck_setup",
+  "event_setup",
+  "premium_removal",
+  "character_tutors",
+  "resource_burst",
+  "cheap_curve",
+  "ally_formation",
+]
+
+[[dreamcaller]]
+name = "Tessa"
+title = "Gleaner of Dust"
+id = "BA973428-6D90-4847-B779-CB7E25A5AC84"
+awakening = 5
+image-number = "0051"
+rendered-text = "When you discard a card, return another random card from your void to hand."
+mandatory-tides = [
+  "discard_velocity",
+  "void_recursion",
+  "hand_cycling",
+]
+optional-tides = [
+  "cheap_removal",
+  "void_setup",
+  "event_setup",
+  "reclaim_events",
+  "reclaim_characters",
+  "card_flow",
+  "fast_interaction",
+  "finishers",
+  "resource_burst",
+  "void_denial",
+]
+
+[[dreamcaller]]
+name = "Kragg"
+title = "Spent-Blood Chieftain"
+id = "16B579FE-C15B-4DF6-8262-D45CE44732AE"
+awakening = 4
+image-number = "0064"
+rendered-text = "When you abandon an ally, the next character you play this turn costs 2● less."
+mandatory-tides = [
+  "abandon_value",
+  "cost_reduction",
+  "abandon_fodder",
+  "leave_play_enablers",
+  "big_energy",
+]
+optional-tides = [
+  "character_tutors",
+  "cheap_curve",
+  "reclaim_characters",
+  "topdeck_setup",
+  "cheap_removal",
+  "bounce_blink_tools",
+  "ally_formation",
+  "character_chain",
+  "go_wide_enablers",
+  "attrition_trade",
+]
+
+[[dreamcaller]]
+name = "Ovanel"
+title = "Lector of the Receding Rite"
+id = "F6208407-C4E9-42AC-B533-346704F5E39E"
+awakening = 5
+image-number = "0078"
+rendered-text = "Once per turn, when you play an event, draw an event with lower cost."
+mandatory-tides = [
+  "event_chain",
+  "prevent_control",
+  "event_setup",
+  "fast_interaction",
+]
+optional-tides = [
+  "reclaim_events",
+  "cost_reduction",
+  "foresee_selection",
+  "discover_toolbox",
+  "hand_disruption",
+  "tempo_resets",
+  "resource_burst",
+  "card_flow",
+]
+
+[[dreamcaller]]
+name = "Zeva"
+title = "the Dredger"
+id = "4D5E3933-7DD6-406B-922D-DD78ACFA044A"
+awakening = 5
+image-number = "0005"
+rendered-text = "When you reclaim a card, draw a card."
+mandatory-tides = [
+  "void_recursion",
+  "discard_velocity",
+  "reclaim_events",
+  "copy_effects",
+]
+optional-tides = [
+  "reclaim_characters",
+  "hand_cycling",
+  "event_setup",
+  "void_setup",
+  "cheap_curve",
+  "cheap_removal",
+  "premium_removal",
+  "fast_interaction",
+  "void_denial",
+  "finishers",
+]
+
+[[dreamcaller]]
+name = "Valdren"
+title = "Warhost Exemplar"
+id = "91D4C3B5-FD63-480B-9ED5-979109A227BB"
+awakening = 4
+image-number = "0056"
+rendered-text = "Deployed allies have +1 spark for each other deployed ally."
+mandatory-tides = [
+  "ally_formation",
+  "card_flow",
+  "spark_growth",
+  "spark_tall",
+]
+optional-tides = [
+  "go_wide_enablers",
+  "resource_burst",
+  "cheap_removal",
+  "premium_removal",
+  "fast_interaction",
+  "materialized_staples",
+  "big_energy",
+  "warrior_pressure",
+  "cheap_curve",
+  "character_curve",
+  "character_chain",
+]
+
+[[dreamcaller]]
+name = "Vrakmoth"
+title = "Ashbroker"
+id = "86026206-1B11-4F38-A24E-FD3C697F5353"
+awakening = 3
+image-number = "0087"
+rendered-text = "Once per turn, when you discard a card, draw a card."
+mandatory-tides = [
+  "discard_velocity",
+  "character_chain",
+  "hand_cycling",
+  "cheap_removal",
+]
+optional-tides = [
+  "card_flow",
+  "event_setup",
+  "reclaim_events",
+  "fast_interaction",
+  "finishers",
+  "resource_burst",
+  "void_denial",
+  "cheap_curve",
+  "premium_removal",
+  "judgment_bodies",
+]
+
+[[dreamcaller]]
+name = "Radulf"
+title = "Hegemon of Shattered Thrones"
+id = "3EBABA62-9000-429D-B203-2A5A9724389A"
+awakening = 4
+image-number = "0045"
+rendered-text = "2●, once per turn: Each ally gains +1 spark."
+mandatory-tides = [
+  "ally_formation",
+  "go_wide_enablers",
+  "fast_interaction",
+  "spark_growth",
+  "figment_swarm",
+]
+optional-tides = [
+  "big_energy",
+  "materialize_tempo",
+  "card_flow",
+  "finishers",
+  "premium_removal",
+  "cheap_curve",
+  "resource_burst",
+  "fast_setup",
+  "character_chain",
+]
+
+[[dreamcaller]]
+name = "Gunnar Deepforge"
+title = "The Hammer's Echo"
+id = "BF72ADFF-7D74-4BE8-9B93-1DB7BA13A1DB"
+awakening = 5
+image-number = "0108"
+rendered-text = "Once per turn, when you play a Warrior, materialize a copy of it with 1 spark."
+mandatory-tides = [
+  "warrior_pressure",
+  "materialize_tempo",
+  "bounce_blink_tools",
+  "cheap_removal",
+]
+optional-tides = [
+  "warrior_bastion",
+  "figment_swarm",
+  "trigger_reuse",
+  "character_tutors",
+  "copy_effects",
+  "premium_removal",
+  "card_flow",
+  "resource_burst",
+  "spark_tall",
+  "cheap_curve",
+]
+
+[[dreamcaller]]
+name = "Seraveth"
+title = "Twice-Mourned"
+id = "6488452D-4E9E-466C-96DF-716D4EC646B1"
+awakening = 5
+image-number = "0017"
+rendered-text = "Allied characters' \"▸ Dissolved\": abilities gain Echo."
+mandatory-tides = [
+  "survivor_dissolve",
+  "figment_swarm",
+  "trigger_reuse",
+  "leave_play_enablers",
+]
+optional-tides = [
+  "reclaim_characters",
+  "ally_formation",
+  "abandon_fodder",
+  "character_tutors",
+  "cheap_curve",
+  "premium_removal",
+  "judgment_bodies",
+  "void_setup",
+  "cheap_removal",
+  "materialized_staples",
+]
+
+[[dreamcaller]]
+name = "Calloway Flint"
+title = "Cutthroat Admiral"
+id = "8A2FCD65-BBA7-459C-A6B0-F0391B9293FD"
+awakening = 4
+image-number = "0052"
+rendered-text = "When you discard a card, deployed allies gain +1 spark."
+mandatory-tides = [
+  "discard_velocity",
+  "ally_formation",
+  "cheap_removal",
+  "hand_cycling",
+]
+optional-tides = [
+  "go_wide_enablers",
+  "cheap_curve",
+  "fast_interaction",
+  "resource_burst",
+  "spark_growth",
+  "finishers",
+  "void_setup",
+  "premium_removal",
+  "character_chain",
+  "discard_outlets",
+]
+
+[[dreamcaller]]
+name = "Senemhet"
+title = "Lord of the Radiant Court"
+id = "1CC5A88A-134F-42F7-A0AE-95ACE44B3745"
+awakening = 5
+image-number = "0035"
+rendered-text = "▸ Judgment: Each deployed ally gains +1 spark"
+mandatory-tides = [
+  "ally_formation",
+  "judgment_engines",
+  "cheap_curve",
+  "spark_growth",
+]
+optional-tides = [
+  "character_chain",
+  "materialize_tempo",
+  "card_flow",
+  "resource_burst",
+  "fast_interaction",
+  "cheap_removal",
+  "judgment_repeaters",
+  "finishers",
+  "foresee_selection",
+  "go_wide_enablers",
+]
+
+[[dreamcaller]]
+name = "Seld Rakor"
+title = "Standing Orders"
+id = "C72CFD7B-408B-47F6-ADF1-1E486A7E20D3"
+awakening = 4
+image-number = "0071"
+rendered-text = "Once per turn, when you deploy an ally, trigger its \"▸ Materialized:\" ability."
+mandatory-tides = [
+  "materialize_value",
+  "ally_formation",
+  "bounce_blink_tools",
+]
+optional-tides = [
+  "materialized_staples",
+  "trigger_reuse",
+  "character_tutors",
+  "copy_effects",
+  "go_wide_enablers",
+  "spark_growth",
+  "cost_reduction",
+  "cheap_curve",
+  "materialize_tempo",
+]
+
+[[dreamcaller]]
+name = "Karev Soltis"
+title = "Breach Respondent"
+id = "9E4862FD-E18C-463E-9D5F-E5D73C29A66F"
+awakening = 5
+image-number = "0037"
+rendered-text = "Cards you play during the opponent's turn cost 1● less."
+mandatory-tides = [
+  "fast_tempo",
+  "prevent_control",
+  "fast_setup",
+  "fast_interaction",
+  "materialize_tempo",
+]
+optional-tides = [
+  "character_chain",
+  "card_flow",
+  "resource_burst",
+  "materialized_staples",
+  "bounce_blink_tools",
+  "event_setup",
+  "hand_disruption",
+  "tempo_resets",
+  "premium_removal",
+  "tax_pressure",
+]
+
+[[dreamcaller]]
+name = "Corvath"
+title = "the Salvage-Born"
+id = "B8C1B0AB-0FE6-47D6-B576-0C2231AEB81E"
+awakening = 4
+image-number = "0044"
+rendered-text = "When you discard a card, it gains reclaim until end of turn."
+mandatory-tides = [
+  "discard_velocity",
+  "void_recursion",
+  "event_setup",
+]
+optional-tides = [
+  "cheap_removal",
+  "hand_cycling",
+  "void_setup",
+  "reclaim_events",
+  "reclaim_characters",
+  "fast_interaction",
+  "finishers",
+  "void_denial",
+  "cheap_curve",
+  "resource_burst",
+]
+
+[[dreamcaller]]
+name = "Vethran"
+title = "Whisperer of Wraiths"
+id = "F0F5449E-01C2-4635-BCE1-76B179FC2108"
+awakening = 5
+image-number = "0061"
+rendered-text = "Once per turn, when you discard a character, materialize a copy of it with 1 spark."
+mandatory-tides = [
+  "discard_velocity",
+  "character_chain",
+  "hand_cycling",
+  "materialize_tempo",
+]
+optional-tides = [
+  "reclaim_characters",
+  "trigger_reuse",
+  "character_tutors",
+  "void_setup",
+  "cost_reduction",
+  "spark_growth",
+  "ally_formation",
+  "discard_outlets",
+]
+
+[[dreamcaller]]
+name = "Kell Tarn"
+title = "Wreckoner"
+id = "133E22DD-F81B-406D-B4E3-98C346D7FD4E"
+awakening = 5
+image-number = "0013"
+rendered-text = "Characters cost you 1● less for each 3 cards in your void."
+mandatory-tides = [
+  "void_threshold",
+  "void_recursion",
+  "recursion_fuel",
+  "discard_velocity",
+]
+optional-tides = [
+  "cheap_curve",
+  "reclaim_characters",
+  "materialized_staples",
+  "resource_burst",
+  "cheap_removal",
+  "premium_removal",
+  "character_tutors",
+  "finishers",
+  "character_chain",
+  "cost_reduction",
+]
+
+[[dreamcaller]]
+name = "Drusus Calvus"
+title = "Triumphator"
+id = "BDD3A3A7-242C-4D2B-8071-EBE56891A340"
+awakening = 5
+image-number = "0083"
+rendered-text = "When 2 or more allies score points, gain 1✪."
+mandatory-tides = [
+  "ally_formation",
+  "figment_swarm",
+  "point_pressure",
+  "spark_growth",
+  "ally_wide",
+  "go_wide_enablers",
+]
+optional-tides = [
+  "big_energy",
+  "cheap_removal",
+  "premium_removal",
+  "resource_burst",
+  "materialized_staples",
+  "point_pressure",
+  "fast_interaction",
+  "character_curve",
+  "cheap_curve",
+]
+
+[[dreamcaller]]
+name = "Grath"
+title = "Packmaster"
+id = "94E7C651-25E9-4A62-9DE4-EAF5BA20542C"
+awakening = 4
+image-number = "0095"
+rendered-text = "When you play a character, if you have played another character this turn, draw a card."
+mandatory-tides = [
+  "ally_formation",
+  "card_flow",
+  "spark_growth",
+  "hand_cycling",
+]
+optional-tides = [
+  "go_wide_enablers",
+  "finishers",
+  "premium_removal",
+  "bounce_blink_tools",
+  "cheap_removal",
+  "resource_burst",
+  "character_chain",
+  "cheap_curve",
+  "character_curve",
+  "reclaim_characters",
+]
+
+[[dreamcaller]]
+name = "Threxan"
+title = "the Resounding Wrath"
+id = "B99936CA-97F9-4930-AF5A-FA9EF92557EF"
+awakening = 6
+image-number = "0025"
+rendered-text = "2●, once per turn: An allied character's \"▸ Judgment:\" ability gains Echo."
+mandatory-tides = [
+  "judgment_engines",
+  "ally_formation",
+  "judgment_bodies",
+  "judgment_repeaters",
+]
+optional-tides = [
+  "spirit_growth",
+  "big_energy",
+  "trigger_reuse",
+  "resource_burst",
+  "go_wide_enablers",
+  "card_flow",
+  "cheap_removal",
+  "premium_removal",
+  "spark_growth",
+  "cheap_curve",
+]
+
+[[dreamcaller]]
+name = "Kasane"
+title = "Wearer of the Stolen Face"
+id = "2B7E921D-0CD7-4C20-A415-9E7EEDE7B477"
+awakening = 5
+image-number = "0060"
+rendered-text = "When you prevent a card, add a copy of that card to your hand."
+mandatory-tides = [
+  "prevent_control",
+  "fast_tempo",
+  "materialize_tempo",
+  "hand_disruption",
+]
+optional-tides = [
+  "fast_interaction",
+  "hand_disruption",
+  "bounce_blink_tools",
+  "event_setup",
+  "resource_burst",
+  "premium_removal",
+  "attrition_trade",
+]
+
+[metadata]
+schema_version = 1
+
+[metadata.rows]
+default_height = 100
+frozen_rows = 1
+
+[[metadata.columns]]
+key = "name"
+width = 220
+bold = true
+
+[[metadata.columns]]
+key = "awakening"
+width = 90
+
+[[metadata.columns]]
+key = "rendered-text"
+width = 360
+
+[[metadata.columns]]
+key = "id"
+width = 140
+
+[[metadata.columns]]
+key = "mandatory-tides"
+width = 240
+
+[[metadata.columns]]
+key = "optional-tides"
+width = 320
