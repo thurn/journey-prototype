@@ -320,14 +320,20 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
       };
     case "curated_reward_trio":
       return { options: commonPositiveOptions(context), precommitted: {} };
-    case "heterogeneous_pair":
+    case "heterogeneous_pair": {
+      const positiveOptions = commonPositiveOptions(context);
+      const options = positiveOptions.length >= 3
+        ? [positiveOptions[0]!, positiveOptions[2]!]
+        : positiveOptions.slice(0, 2);
+
       return {
-        options: [commonPositiveOptions(context)[0]!, commonPositiveOptions(context)[2]!].map((item, index) => ({
+        options: options.map((item, index) => ({
           ...item,
           number: index + 1,
         })),
         precommitted: {},
       };
+    }
     case "one_target_many_operations":
       return {
         options: [

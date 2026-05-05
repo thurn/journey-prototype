@@ -34,6 +34,29 @@ async function context() {
   });
 }
 
+async function contextWithEmptyDreamsignPool(seed = "s17") {
+  const content = await loadContent(process.cwd());
+  const contentVersion = "test-content-version";
+  const state = createInitialJourneyState({
+    seed,
+    content,
+    contentVersion,
+  });
+
+  state.quest.dreamsignPoolIds = [];
+  state.quest.dreamsignPoolSummary = {
+    tidalPoolCount: 0,
+    neutralCatalogCount: 0,
+  };
+
+  return buildJourneyContext({
+    projectRoot: process.cwd(),
+    content,
+    state,
+    contentVersion,
+  });
+}
+
 function fillForShape(shapeId: JourneyShapeId, journeyContext: Awaited<ReturnType<typeof context>>) {
   return buildConservativeJourneyForShape({
     context: journeyContext,
@@ -118,6 +141,17 @@ describe("generateNextJourney", () => {
       });
     }
   });
+
+  it("does not throw with an empty Dreamsign pool", async () => {
+    const journeyContext = await contextWithEmptyDreamsignPool();
+    const manifest = generateNextJourney({ context: journeyContext });
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+
+    const heterogeneous = fillForShape("heterogeneous_pair", journeyContext);
+
+    expect(validateJourneyManifest(heterogeneous, journeyContext)).toEqual({ ok: true });
+  });
 });
 
 describe("validateJourneyManifest", () => {
@@ -136,6 +170,55 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "unresolved_reference",
+    });
+  });
+
+  it("rejects malformed option entries instead of throwing", async () => {
+    const journeyContext = await contextWithEmptyDreamsignPool();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [manifest.options[0]!, undefined as unknown as JourneyManifest["options"][number]],
+    };
+
+    expect(() => validateJourneyManifest(invalid, journeyContext)).not.toThrow();
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_option",
+    });
+  });
+
+  it("requires paired-return precommitted metadata", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("paired_return", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      precommitted: {
+        delayed: manifest.precommitted.delayed,
+      },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "missing_precommitted_outcomes",
+    });
+  });
+
+  it.each([
+    "Journey name: The Glass Orchard. Gain 45 essence.",
+    "Event name: The Glass Orchard. Gain 45 essence.",
+    "The Glass Orchard: Gain 45 essence.",
+  ])("rejects normal output text requiring narrative names: %s", async (text) => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_reward", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option) => ({ ...option, text })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "normal_output_narrative_name",
     });
   });
 });

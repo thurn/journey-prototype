@@ -235,6 +235,10 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
     return fail("normal_output_shape_line", "Normal Journey text cannot require a top-level Shape line");
   }
 
+  if (requiresNarrativeName(option.text)) {
+    return fail("normal_output_narrative_name", "Normal Journey text cannot require narrative Journey names or invented event names");
+  }
+
   const costResult = validateCosts(option, context);
 
   if (!costResult.ok) {
@@ -300,6 +304,45 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
   return { ok: true };
 }
 
+function looksLikeInventedTitle(prefix: string): boolean {
+  const words = prefix.trim().split(/\s+/u);
+
+  if (words.length < 2) {
+    return false;
+  }
+
+  return words.every((word) =>
+    /^(?:A|An|And|At|In|Of|On|The|To)$/u.test(word) ||
+    /^[A-Z][a-z]+$/u.test(word),
+  );
+}
+
+function requiresNarrativeName(text: string): boolean {
+  const trimmed = text.trim();
+
+  if (/^(?:Journey|Event)(?:\s+name)?\s*:/iu.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b(?:Journey|Event)\s+(?:named|called)\s+["']?[A-Z][a-z]+/u.test(trimmed)) {
+    return true;
+  }
+
+  const titlePrefix = trimmed.match(/^([^:.!?]{2,80}):\s+\S/u);
+
+  return titlePrefix !== null &&
+    titlePrefix[1] !== "Take" &&
+    looksLikeInventedTitle(titlePrefix[1] ?? "");
+}
+
+function validateOptionShape(option: unknown, index: number): ValidationResult {
+  if (!isRecord(option) || typeof option.text !== "string") {
+    return fail("invalid_option", `Option ${index + 1} must be a complete Journey option`);
+  }
+
+  return { ok: true };
+}
+
 function hasPrecommitted(precommitted: unknown[] | Record<string, unknown> | undefined): boolean {
   if (Array.isArray(precommitted)) {
     return precommitted.length > 0;
@@ -339,7 +382,13 @@ export function validateJourneyManifest(
     return referencesResult;
   }
 
-  for (const option of manifest.options) {
+  for (const [index, option] of manifest.options.entries()) {
+    const optionShapeResult = validateOptionShape(option, index);
+
+    if (!optionShapeResult.ok) {
+      return optionShapeResult;
+    }
+
     const result = validateOption(option, context);
 
     if (!result.ok) {
@@ -383,6 +432,10 @@ export function validateJourneyManifest(
   if (definition.topology === "delayed_hook") {
     if (!hasPrecommitted(manifest.precommitted.delayed)) {
       return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
+    }
+
+    if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
+      return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
     }
 
     if (context.state.quest.route.unresolvedHooks.length > 3) {
