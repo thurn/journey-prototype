@@ -1,0 +1,404 @@
+import type { JourneyContext } from "../quest/context.js";
+import {
+  isBaneName,
+  isImmediateCostPayable,
+  resolveCardTargets,
+  resolveDreamsignTargets,
+  STANDARD_TRANSFIGURATIONS,
+  validateNamedReferences,
+  type CardTargetPredicate,
+  type DreamsignTargetPredicate,
+  type ImmediateCost,
+} from "./effects.js";
+import type { JourneyManifest, JourneyOption } from "./manifest.js";
+import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
+import { getShapeDefinition } from "./shapes.js";
+
+export type ValidationResult =
+  | { ok: true }
+  | { ok: false; rule: string; message: string };
+
+function fail(rule: string, message: string): ValidationResult {
+  return { ok: false, rule, message };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asImmediateCost(value: unknown): ImmediateCost | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const amount = typeof value.amount === "number" ? value.amount : 0;
+
+  if (value.kind === "essence") {
+    return { essence: amount };
+  }
+
+  if (value.kind === "omens") {
+    return { omens: amount };
+  }
+
+  return null;
+}
+
+function validateReferences(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
+  const structuredReferences = collectStructuredReferences([
+    manifest.options,
+    manifest.precommitted,
+  ]);
+  const result = validateNamedReferences(context.content, {
+    cards: [...manifest.references.cardIds, ...structuredReferences.cards],
+    dreamsigns: [
+      ...manifest.references.dreamsignIds,
+      ...structuredReferences.dreamsigns,
+    ],
+    dreamcallers: [
+      ...manifest.references.dreamcallerIds,
+      ...structuredReferences.dreamcallers,
+    ],
+    banes: [...manifest.references.baneNames, ...structuredReferences.banes],
+  });
+
+  if (!result.ok) {
+    return fail("unresolved_reference", result.errors[0] ?? "Unresolved reference");
+  }
+
+  return { ok: true };
+}
+
+function collectStructuredReferences(value: unknown): {
+  cards: string[];
+  dreamsigns: string[];
+  dreamcallers: string[];
+  banes: string[];
+} {
+  const references = {
+    cards: [] as string[],
+    dreamsigns: [] as string[],
+    dreamcallers: [] as string[],
+    banes: [] as string[],
+  };
+
+  function visit(nested: unknown): void {
+    if (Array.isArray(nested)) {
+      nested.forEach(visit);
+      return;
+    }
+
+    if (!isRecord(nested)) {
+      return;
+    }
+
+    for (const [key, entry] of Object.entries(nested)) {
+      if (typeof entry === "string") {
+        if (key === "cardName" || key === "cardId" || key === "oldCardName" || key === "newCardName") {
+          references.cards.push(entry);
+        } else if (
+          key === "dreamsignName" ||
+          key === "dreamsignId" ||
+          key === "newDreamsignName"
+        ) {
+          references.dreamsigns.push(entry);
+        } else if (key === "dreamcallerName" || key === "dreamcallerId") {
+          references.dreamcallers.push(entry);
+        } else if (key === "baneName") {
+          references.banes.push(entry);
+        }
+      }
+
+      visit(entry);
+    }
+  }
+
+  visit(value);
+  return references;
+}
+
+function validateCosts(option: JourneyOption, context: JourneyContext): ValidationResult {
+  for (const entry of option.costs) {
+    const immediateCost = asImmediateCost(entry);
+
+    if (immediateCost && !isImmediateCostPayable(context.state.quest, immediateCost)) {
+      return fail("unpayable_immediate_cost", `Option ${option.number} has an unpayable immediate cost`);
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateRequiredTarget(
+  target: Record<string, unknown>,
+  context: JourneyContext,
+  optionNumber: number,
+): ValidationResult {
+  if (target.required !== true) {
+    return { ok: true };
+  }
+
+  if (target.kind === "card") {
+    const matches = resolveCardTargets(
+      context.content,
+      context.state.quest,
+      (target.predicate ?? {}) as CardTargetPredicate,
+    );
+
+    if (matches.length === 0) {
+      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal card targets`);
+    }
+  }
+
+  if (target.kind === "dreamsign") {
+    const matches = resolveDreamsignTargets(
+      context.content,
+      context.state.quest,
+      (target.predicate ?? {}) as DreamsignTargetPredicate,
+    );
+
+    if (matches.length === 0) {
+      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal Dreamsign targets`);
+    }
+  }
+
+  return { ok: true };
+}
+
+function scanIllegalStructuredValue(value: unknown): ValidationResult {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const result = scanIllegalStructuredValue(entry);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+
+    return { ok: true };
+  }
+
+  if (!isRecord(value)) {
+    return { ok: true };
+  }
+
+  const kind = typeof value.kind === "string" ? value.kind : "";
+  const type = typeof value.type === "string" ? value.type : "";
+
+  if (
+    value.custom === true ||
+    kind.startsWith("custom_") ||
+    type.startsWith("custom_") ||
+    kind === "custom-card" ||
+    kind === "custom-dreamsign"
+  ) {
+    return fail("custom_content", "Custom cards, Dreamsigns, and generated content are not legal");
+  }
+
+  if (kind === "status" || type === "status") {
+    return fail("custom_status", "Custom statuses are not legal Journey output");
+  }
+
+  if (kind === "battlefield_mutation" || type === "battlefield_mutation") {
+    return fail("custom_battlefield_mutation", "Battlefield mutations are not legal Journey output");
+  }
+
+  if (kind === "dreamcaller_ability_mutation" || type === "dreamcaller_ability_mutation") {
+    return fail("custom_dreamcaller_mutation", "Dreamcaller ability mutations are not legal Journey output");
+  }
+
+  if (typeof value.transfigurationName === "string" && !STANDARD_TRANSFIGURATIONS.includes(value.transfigurationName as never)) {
+    return fail("invalid_transfiguration", `Invalid transfiguration: ${value.transfigurationName}`);
+  }
+
+  if (typeof value.baneName === "string" && !isBaneName(value.baneName)) {
+    return fail("invalid_bane_name", `Invalid Bane name: ${value.baneName}`);
+  }
+
+  if (value.hidden === true && (value.important === true || value.importance === "important")) {
+    return fail("hidden_important_outcome", "Important outcomes cannot be hidden");
+  }
+
+  for (const nested of Object.values(value)) {
+    const result = scanIllegalStructuredValue(nested);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateOption(option: JourneyOption, context: JourneyContext): ValidationResult {
+  if (option.text.includes("Shape:") || /^Shape:/u.test(option.text.trim())) {
+    return fail("normal_output_shape_line", "Normal Journey text cannot require a top-level Shape line");
+  }
+
+  const costResult = validateCosts(option, context);
+
+  if (!costResult.ok) {
+    return costResult;
+  }
+
+  for (const target of option.targets) {
+    if (!isRecord(target)) {
+      continue;
+    }
+
+    const result = validateRequiredTarget(target, context, option.number);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  const structuredResult = scanIllegalStructuredValue([
+    option.costs,
+    option.effects,
+    option.burdens,
+    option.targets,
+    option.triggers,
+    option.routeEffects,
+  ]);
+
+  if (!structuredResult.ok) {
+    return structuredResult;
+  }
+
+  if (
+    option.effects.some((effect) => isRecord(effect) && effect.kind === "dreamsign_loss") &&
+    context.state.quest.activeDreamsigns.length === 0
+  ) {
+    return fail("dreamsign_loss_without_dreamsign", "Dreamsign loss requires an active Dreamsign");
+  }
+
+  if (
+    option.effects.some((effect) => isRecord(effect) && effect.kind === "starter_cleanup") &&
+    context.state.quest.deck.summary.starterCards === 0
+  ) {
+    return fail("starter_cleanup_without_starters", "Starter cleanup requires Starter cards");
+  }
+
+  if (option.effects.some((effect) => isRecord(effect) && effect.kind === "bane_purge")) {
+    return fail("bane_purge_without_banes", "Bane purge requires tracked Banes in state");
+  }
+
+  if (
+    option.netConvertedEssence > 0 &&
+    option.routeEffects.some((routeEffect) => {
+      if (!isRecord(routeEffect) || typeof routeEffect.kind !== "string") {
+        return false;
+      }
+
+      return routeEffect.kind.includes("addition") || routeEffect.kind.includes("add");
+    })
+  ) {
+    return fail("route_addition_standalone_positive_reward", "Route addition cannot be a standalone positive reward");
+  }
+
+  return { ok: true };
+}
+
+function hasPrecommitted(precommitted: unknown[] | Record<string, unknown> | undefined): boolean {
+  if (Array.isArray(precommitted)) {
+    return precommitted.length > 0;
+  }
+
+  return isRecord(precommitted) && Object.keys(precommitted).length > 0;
+}
+
+export function validateJourneyManifest(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
+  if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+    return fail("manifest_schema_version", `Manifest schema version must be ${MANIFEST_SCHEMA_VERSION}`);
+  }
+
+  if (!/^J-\d{6}$/u.test(manifest.journeyId)) {
+    return fail("journey_id_format", "Root Journey IDs must use J-000001 formatting");
+  }
+
+  if (manifest.options.length === 0) {
+    return fail("missing_options", "Journey manifests require at least one option");
+  }
+
+  const definition = getShapeDefinition(manifest.shapeId);
+
+  if (
+    manifest.options.length < definition.rootOptionCount.min ||
+    manifest.options.length > definition.rootOptionCount.max
+  ) {
+    return fail("root_option_count_within_bounds", `${manifest.shapeId} has an invalid root option count`);
+  }
+
+  const referencesResult = validateReferences(manifest, context);
+
+  if (!referencesResult.ok) {
+    return referencesResult;
+  }
+
+  for (const option of manifest.options) {
+    const result = validateOption(option, context);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  const nets = manifest.options
+    .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
+    .map((journeyOption) => journeyOption.netConvertedEssence);
+
+  if (manifest.shapeId === "choose_your_loss") {
+    if (nets.some((net) => net > 0)) {
+      return fail("invalid_positive_negative_framing", "choose_your_loss cannot contain positive options");
+    }
+  } else if (nets.length > 0 && nets.every((net) => net < 0)) {
+    return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
+  }
+
+  if (
+    definition.topology === "single_offer_refusal" &&
+    !manifest.options.some((journeyOption) => journeyOption.pickBehavior === "leave")
+  ) {
+    return fail("fake_strategic_refusal", "Offer shapes require a real leave option");
+  }
+
+  if (definition.topology === "sequential") {
+    if (!manifest.sequence || manifest.sequence.status !== "active") {
+      return fail("missing_sequence_state", "Sequential shapes require active sequence state");
+    }
+
+    if (!hasPrecommitted(manifest.precommitted.sequenceMenus)) {
+      return fail("missing_precommitted_outcomes", "Sequential shapes require precommitted follow-up menus");
+    }
+  }
+
+  if (definition.topology === "random_commit" && !hasPrecommitted(manifest.precommitted.random)) {
+    return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
+  }
+
+  if (definition.topology === "delayed_hook") {
+    if (!hasPrecommitted(manifest.precommitted.delayed)) {
+      return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
+    }
+
+    if (context.state.quest.route.unresolvedHooks.length > 3) {
+      return fail("delayed_hook_over_persistence_budget", "Delayed hooks exceed persistence budget");
+    }
+  }
+
+  if (definition.topology === "route_edit" && !hasPrecommitted(manifest.precommitted.routeEdits)) {
+    return fail("missing_precommitted_outcomes", "Route shapes require committed route edits");
+  }
+
+  const precommittedResult = scanIllegalStructuredValue(manifest.precommitted);
+
+  if (!precommittedResult.ok) {
+    return precommittedResult;
+  }
+
+  return { ok: true };
+}
