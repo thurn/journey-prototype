@@ -117,6 +117,21 @@ export function assertContentVersion(
   return contentMismatchResult(state.contentVersion, currentContentVersion);
 }
 
+export function stateWithGeneratedJourney(
+  state: JourneyState,
+  pendingJourney: JourneyManifest,
+): JourneyState {
+  return {
+    ...state,
+    generator: {
+      ...state.generator,
+      rootJourneyIndex: pendingJourney.rootJourneyIndex + 1,
+      lastJourneyId: pendingJourney.journeyId,
+    },
+    pendingJourney,
+  };
+}
+
 function optionLine(option: JourneyOption): string {
   const symbols = option.symbols.length > 0 ? `${option.symbols.join(" ")} ` : "";
 

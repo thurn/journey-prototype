@@ -13,6 +13,7 @@ import {
   renderRunJson,
   renderSelectedLine,
   setupErrorResult,
+  stateWithGeneratedJourney,
   usageErrorResult,
 } from "./shared.js";
 
@@ -24,21 +25,6 @@ function parsePickNumber(numberText: string): number | null {
   const parsed = Number(numberText);
 
   return Number.isSafeInteger(parsed) ? parsed : null;
-}
-
-function stateWithGeneratedJourney(
-  state: JourneyState,
-  pendingJourney: JourneyManifest,
-): JourneyState {
-  return {
-    ...state,
-    generator: {
-      ...state.generator,
-      rootJourneyIndex: pendingJourney.rootJourneyIndex + 1,
-      lastJourneyId: pendingJourney.journeyId,
-    },
-    pendingJourney,
-  };
 }
 
 function historyEntry(

@@ -1,9 +1,7 @@
 import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { generateNextJourney } from "../journey/generate.js";
-import type { JourneyManifest } from "../journey/manifest.js";
 import { createInitialJourneyState } from "../quest/init.js";
-import type { JourneyState } from "../state/schema.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
 import {
   assertContentVersion,
@@ -13,22 +11,8 @@ import {
   renderJourneyHuman,
   renderRunJson,
   setupErrorResult,
+  stateWithGeneratedJourney,
 } from "./shared.js";
-
-function stateWithGeneratedJourney(
-  state: JourneyState,
-  pendingJourney: JourneyManifest,
-): JourneyState {
-  return {
-    ...state,
-    generator: {
-      ...state.generator,
-      rootJourneyIndex: pendingJourney.rootJourneyIndex + 1,
-      lastJourneyId: pendingJourney.journeyId,
-    },
-    pendingJourney,
-  };
-}
 
 export async function handleRun(
   options: CommonCommandOptions,
