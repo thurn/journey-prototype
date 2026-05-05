@@ -1,4 +1,5 @@
 {
+  "name": "journeys",
   "type": "module",
   "private": true,
   "bin": {
