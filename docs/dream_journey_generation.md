@@ -385,7 +385,7 @@ promise of the scene.
 
 ## Canonical Journey Shape Set
 
-This list is the stable top-level catalog for V1. A new Journey idea should
+This list is the stable top-level catalog for V2. A new Journey idea should
 first ask whether it is an instance of one of these shapes.
 
 ### random_allocation
@@ -454,21 +454,6 @@ transfiguration, duplication, merging, or other precise rewrites. The operations
 must all be plausible things to do to that target class; do not mix "improve
 this object" with "simply damage this object" unless the target is explicitly a
 liability.
-
-### staged_assembly
-
-The site walks the player through a short bounded sequence of component choices
-that assemble one final reward. The intermediate picks are partial ingredients,
-not standalone offers. This shape is useful when the scene's identity is the
-construction process itself, such as building a custom card or forging a
-composite object from several visible parts.
-
-Assembly choices must be internally compatible. A generated custom card should
-not allow frame, stat, keyword, or ability combinations that produce nonsense,
-such as spark bonuses on non-character cards or redundant Fast text on a card
-that is already Fast. The safest authoring pattern is to let the first stage
-choose a frame with explicit text slots, and let later ability packages adapt to
-that frame.
 
 ### mirrored_operations
 
@@ -913,17 +898,19 @@ factors:
 - refine
 - economy
 
-The goal is not to solve the run. The goal is to choose a site whose tags fit
-the current stage, loosely match what the run still needs, and avoid repeating
-the same shape or the same tags too often.
+The goal is not to solve the run. The goal is to keep every shape available
+while slightly nudging selection toward a site whose tags fit the current stage,
+loosely match what the run still needs, and avoid repeating the same shape or
+the same tags too often.
 
 Journey Shape selection should never be uniform.
 
 ### 5. Select A Journey Shape
 
-Choose within the top scoring band using deterministic weighted sampling rather
-than pure argmax or pure uniform sampling. This produces replay variety without
-letting obviously weak candidates through.
+Choose from the full legal shape catalog using deterministic weighted sampling
+rather than pure argmax or pure uniform sampling. Scores should be small
+probability weights clustered around `1.0`; quest progress should lightly skew
+the draw, not exclude shapes from the start of a quest.
 
 ### 6. Fill The Journey Shape
 

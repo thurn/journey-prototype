@@ -3,6 +3,7 @@ import { realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command, CommanderError } from "commander";
+import { handleJourney } from "./commands/journey.js";
 import { handleNew } from "./commands/new.js";
 import type { CommandResult, CommonCommandOptions } from "./commands/options.js";
 import { handlePick } from "./commands/pick.js";
@@ -73,6 +74,10 @@ export function buildProgram(): Command {
   program
     .name("journey")
     .description("Simulate Dream Journey choices")
+    .addHelpText(
+      "after",
+      "\nRun without arguments to discard simulator state, choose a random seed, and show the first Dream Journey.",
+    )
     .showHelpAfterError()
     .exitOverride();
 
@@ -119,6 +124,11 @@ export function buildProgram(): Command {
 }
 
 export async function main(argv: string[] = process.argv): Promise<void> {
+  if (argv.length <= 2) {
+    await runHandler(handleJourney(buildCommonOptions({})));
+    return;
+  }
+
   const program = buildProgram();
 
   try {

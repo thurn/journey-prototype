@@ -152,16 +152,17 @@ function scoreShapes(
 ): { shapeId: JourneyShapeDefinition["id"]; score: number }[] {
   return JOURNEY_SHAPES.map((shape) => {
     const score =
-      40 * overlapFraction(shape.supportedTags, desiredTags) +
-      25 * broadRunNeedFit(shape, context) +
-      20 * targetAvailability(shape, context) -
-      30 * exactShapeRepetitionPenalty(shape, context, previousPick) -
-      15 * tagRepetitionPenalty(shape, context) +
-      deterministicTieJitter(drawContext, `shape:${shape.id}:tie`, 2);
+      1 +
+      0.08 * overlapFraction(shape.supportedTags, desiredTags) +
+      0.06 * broadRunNeedFit(shape, context) +
+      0.04 * targetAvailability(shape, context) -
+      0.1 * exactShapeRepetitionPenalty(shape, context, previousPick) -
+      0.05 * tagRepetitionPenalty(shape, context) +
+      deterministicTieJitter(drawContext, `shape:${shape.id}:tie`, 0.02);
 
     return {
       shapeId: shape.id,
-      score: Number(score.toFixed(6)),
+      score: Number(Math.max(0.5, score).toFixed(6)),
     };
   }).sort((left, right) => {
     const scoreComparison = right.score - left.score;
@@ -178,15 +179,12 @@ function selectShape(
   drawContext: DrawContext,
   scores: readonly { shapeId: JourneyShapeDefinition["id"]; score: number }[],
 ) {
-  const topScore = scores[0]?.score ?? 0;
-  const nearTop = scores.filter((entry) => topScore - entry.score <= 10);
-
   return weightedChoice(
     drawContext,
     "root:shape",
-    nearTop.map((entry) => ({
+    scores.map((entry) => ({
       item: entry.shapeId,
-      weight: Math.max(1, entry.score - (topScore - 10) + 1),
+      weight: entry.score,
     })),
   );
 }

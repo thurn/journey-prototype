@@ -61,4 +61,31 @@ describe("buildProgram", () => {
       command: "state",
     });
   }, 30_000);
+
+  it("runs bare npm run journey as a fresh random first Journey", async () => {
+    await execFileAsync(
+      "npm",
+      ["run", "journey", "--", "run", "--json"],
+      { cwd: process.cwd(), timeout: 15_000 },
+    );
+
+    const journeyResult = await execFileAsync(
+      "npm",
+      ["run", "journey"],
+      { cwd: process.cwd(), timeout: 15_000 },
+    );
+    const stateResult = await execFileAsync(
+      "npm",
+      ["run", "journey", "--", "state", "--json"],
+      { cwd: process.cwd(), timeout: 15_000 },
+    );
+    const statePayload = JSON.parse(stateResult.stdout);
+
+    expect(journeyResult.stderr).toBe("");
+    expect(journeyResult.stdout).toContain("Dream Journey");
+    expect(stateResult.stderr).toBe("");
+    expect(statePayload.state.seed).toMatch(/^random:[0-9a-f-]{36}$/u);
+    expect(statePayload.state.pendingJourney.journeyId).toBe("J-000001");
+    expect(statePayload.state.history).toEqual([]);
+  }, 30_000);
 });

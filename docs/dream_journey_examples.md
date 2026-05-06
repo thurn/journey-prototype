@@ -156,44 +156,6 @@
 - Give {Glimpse of What Was} Fast.
 - Make {Glimpse of What Was} cost 1 less.
 
-# staged_assembly
-
-## Build a Card
-
-- Choose a frame. Each frame defines the card's base stats and text slot:
-  - Character: 2 cost, 3 spark, with a materialized ability.
-  - Event: 1 cost, with a played ability.
-  - Fast event: 2 cost, with a prevent ability.
-- Choose an ability package. The package adapts to the chosen frame:
-  - Foresee: Foresee 2 when the card's ability resolves.
-  - Kindle: Kindle 2 when the card's ability resolves.
-  - Economy: Gain 25 essence when the card's ability resolves.
-- Choose a finish:
-  - Efficient: reduce the card's cost by 1, to a minimum of 0.
-  - Forceful: characters get +2 spark; events draw 1 card.
-  - Echoing: give the card Reclaim.
-
-## Olde Dream Loom
-
-- Choose a frame. Each frame defines how the final reward will be delivered:
-  - Card: create a 1-cost event with a played ability.
-  - Dreamsign: create a Dreamsign that triggers after each of your next 2
-    battles.
-  - Site: add a {Dream Journey} site to the current dreamscape with the chosen
-    reward.
-- Choose a reward package. The package adapts to the chosen frame:
-  - Essence: gain 80 essence when it resolves.
-  - Cleansing: purge a chosen Bane when it resolves.
-  - Transfiguration: apply {Viridian Transfiguration} to a chosen starter card
-    when it resolves.
-- Choose a finish:
-  - Efficient: if Card, reduce its cost by 1, to a minimum of 0; otherwise gain
-    1 omen.
-  - Abundant: increase essence to 130, purge 2 Banes, or apply {Golden
-    Transfiguration} instead.
-  - Echoing: if Card, give it Reclaim; otherwise repeat the reward after your
-    next battle.
-
 # mirrored_operations
 
 ## Reflection Gallery

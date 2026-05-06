@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit Dream Journey CLI"
+  short_description: "Project guide for Journey CLI edits"
+  default_prompt: "Use $jr to modify and manually QA the Dream Journey NPM CLI."

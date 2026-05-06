@@ -76,6 +76,16 @@ function fillForShape(shapeId: JourneyShapeId, journeyContext: Awaited<ReturnTyp
   });
 }
 
+function generatedOptionText(manifest: JourneyManifest): string[] {
+  const text = manifest.options.map((option) => option.text);
+
+  for (const menu of Object.values(manifest.precommitted.sequenceMenus ?? {})) {
+    text.push(...menu.map((option) => option.text));
+  }
+
+  return text;
+}
+
 describe("deterministic RNG helpers", () => {
   it("draws stable labeled values without mutating inputs", () => {
     const drawContext: DrawContext = {
@@ -130,6 +140,46 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("keeps every canonical shape eligible for a fresh first Journey", async () => {
+    const journeyContext = await context();
+    const expectedShapeIds = new Set(JOURNEY_SHAPES.map((shape) => shape.id));
+    const seenShapeIds = new Set<JourneyShapeId>();
+
+    for (let index = 0; index < 200 && seenShapeIds.size < expectedShapeIds.size; index += 1) {
+      const seededState = structuredClone(journeyContext.state);
+
+      seededState.quest.seed = `shape-coverage:${index}`;
+      seededState.generator = {
+        rootJourneyIndex: 1,
+        lastJourneyId: null,
+        cursors: {},
+      };
+      seededState.pendingJourney = null;
+      seededState.history = [];
+
+      const manifest = generateNextJourney({
+        context: {
+          ...journeyContext,
+          state: seededState,
+        },
+      });
+
+      seenShapeIds.add(manifest.shapeId);
+      expect(manifest.debug.shapeScores).toHaveLength(JOURNEY_SHAPES.length);
+      expect(Math.min(...manifest.debug.shapeScores.map((entry) => entry.score))).toBeGreaterThan(0);
+    }
+
+    expect([...seenShapeIds].sort()).toEqual([...expectedShapeIds].sort());
+  });
+
+  it("uses only a slight first-run probability skew between shapes", async () => {
+    const journeyContext = await context();
+    const manifest = generateNextJourney({ context: journeyContext });
+    const scores = manifest.debug.shapeScores.map((entry) => entry.score);
+
+    expect(Math.max(...scores) - Math.min(...scores)).toBeLessThanOrEqual(0.2);
+  });
+
   it("has a legal conservative filler path for every canonical shape", async () => {
     const journeyContext = await context();
 
@@ -139,6 +189,18 @@ describe("generateNextJourney", () => {
       expect(validateJourneyManifest(manifest, journeyContext), shape.id).toEqual({
         ok: true,
       });
+    }
+  });
+
+  it("never exposes tide terminology in generated ability text", async () => {
+    const journeyContext = await context();
+
+    for (const shape of JOURNEY_SHAPES) {
+      const manifest = fillForShape(shape.id, journeyContext);
+
+      expect(generatedOptionText(manifest), shape.id).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/(?:selected-tide|\btidal\b|\btides?\b)/iu)]),
+      );
     }
   });
 
@@ -348,6 +410,26 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "normal_output_narrative_name",
+    });
+  });
+
+  it.each([
+    "Draft 1 of 6 selected-tide cards.",
+    "Draft 1 of 6 selected tide cards.",
+    "Choose one of 3 tidal Dreamsigns.",
+    "Apply Bronze to a chosen matching tide card.",
+    "Apply Bronze to a chosen card from matching tides.",
+  ])("rejects normal output text referencing tides: %s", async (text) => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_reward", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option) => ({ ...option, text })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "normal_output_tide_reference",
     });
   });
 });

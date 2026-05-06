@@ -71,7 +71,7 @@ function stateSummaryJson(state: JourneyState) {
 export function journeyCommandPayload(
   state: JourneyState,
   manifest: JourneyManifest,
-  command: "run" | "pick",
+  command: "journey" | "run" | "pick",
   previousPick?: PickHistoryEntry,
 ) {
   return {

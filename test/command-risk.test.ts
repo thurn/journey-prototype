@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { handleJourney } from "../src/commands/journey.js";
 import { handleNew } from "../src/commands/new.js";
 import type { CommonCommandOptions } from "../src/commands/options.js";
 import { handlePick } from "../src/commands/pick.js";
@@ -192,6 +193,30 @@ describe("command risk transitions", () => {
       expect(after.generator).toEqual({
         rootJourneyIndex: 1,
         lastJourneyId: null,
+        cursors: {},
+      });
+    });
+  });
+
+  it("bare journey command replaces existing state with random first Journey", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      await handleRun(options());
+      await handlePick("1", options());
+
+      const result = await handleJourney(options());
+      const after = await readState(statePath);
+
+      expect(result).toMatchObject({
+        exitCode: ExitCode.Success,
+        stderr: "",
+      });
+      expect(result.stdout).toContain("Dream Journey");
+      expect(after.quest.seed).toMatch(/^random:[0-9a-f-]{36}$/u);
+      expect(after.pendingJourney?.journeyId).toBe("J-000001");
+      expect(after.history).toEqual([]);
+      expect(after.generator).toMatchObject({
+        rootJourneyIndex: 2,
+        lastJourneyId: "J-000001",
         cursors: {},
       });
     });

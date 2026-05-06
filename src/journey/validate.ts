@@ -235,6 +235,10 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
     return fail("normal_output_shape_line", "Normal Journey text cannot require a top-level Shape line");
   }
 
+  if (referencesTides(option.text)) {
+    return fail("normal_output_tide_reference", "Normal Journey ability text cannot mention tides");
+  }
+
   if (requiresNarrativeName(option.text)) {
     return fail("normal_output_narrative_name", "Normal Journey text cannot require narrative Journey names or invented event names");
   }
@@ -333,6 +337,10 @@ function requiresNarrativeName(text: string): boolean {
   return titlePrefix !== null &&
     titlePrefix[1] !== "Take" &&
     looksLikeInventedTitle(titlePrefix[1] ?? "");
+}
+
+function referencesTides(text: string): boolean {
+  return /(?:selected-tide|\btidal\b|\btides?\b)/iu.test(text);
 }
 
 function validateOptionShape(option: unknown, index: number): ValidationResult {

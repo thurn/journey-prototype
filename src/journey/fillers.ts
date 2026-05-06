@@ -110,6 +110,9 @@ function selectedDreamsignTargets(context: JourneyContext, drawContext: DrawCont
   );
 }
 
+const CARD_POOL_TARGET_DESCRIPTION = "cards from the card pool";
+const DREAMSIGN_POOL_TARGET_DESCRIPTION = "Dreamsigns from the Dreamsign pool";
+
 function target(kind: "card" | "dreamsign", description: string, predicate: unknown) {
   return {
     kind,
@@ -195,16 +198,16 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
     }),
     option({
       number: 2,
-      text: "Draft 1 of 6 selected-tide cards.",
+      text: "Draft 1 of 6 cards from the card pool.",
       effects: [draftCards(6)],
-      targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+      targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
       effect: 80,
     }),
     option({
       number: 3,
-      text: "Choose one of 3 selected-tide Dreamsigns.",
+      text: "Choose one of 3 Dreamsigns from the Dreamsign pool.",
       effects: [dreamsignDraft(3)],
-      targets: [target("dreamsign", "selected-tide Dreamsigns", { source: "pool", tideOverlap: "selected" })],
+      targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
       effect: 120,
     }),
   ].slice(0, context.state.quest.dreamsignPoolIds.length > 0 ? 3 : 2);
@@ -213,10 +216,10 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
 function paidDraft(number: number, price: number, choices: number): JourneyOption {
   return option({
     number,
-    text: `Pay ${price} essence. Draft 1 of ${choices} selected-tide cards.`,
+    text: `Pay ${price} essence. Draft 1 of ${choices} cards from the card pool.`,
     costs: [cost("essence", price)],
     effects: [draftCards(choices)],
-    targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+    targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
     cost: price,
     effect: 75 + choices * 4,
   });
@@ -250,26 +253,20 @@ function sequenceRewardText(shapeId: JourneyShapeId, step: number): string {
 
   if (shapeId === "sequential_offers") {
     return step === 1
-      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 selected-tide cards, then see the final offer."
-      : "Accept final offer: pay 35 essence. Draft 1 of 8 selected-tide cards.";
+      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 cards from the card pool, then see the final offer."
+      : "Accept final offer: pay 35 essence. Draft 1 of 8 cards from the card pool.";
   }
 
   if (shapeId === "escalating_search") {
     return step === 1
       ? "Search layer 1: pay 15 essence. Gain 40 essence, then reveal the deeper layer."
-      : "Search layer 2: pay 35 essence. Draft 1 of 8 selected-tide cards and gain 1 omen.";
+      : "Search layer 2: pay 35 essence. Draft 1 of 8 cards from the card pool and gain 1 omen.";
   }
 
   if (shapeId === "repeat_to_scale") {
     return step === 1
       ? "Invest once: pay 20 essence. Commit a 55 essence payout, then choose whether to scale it."
       : "Scale the payout: pay 35 essence. Commit a 120 essence payout.";
-  }
-
-  if (shapeId === "staged_assembly") {
-    return step === 1
-      ? "Choose the first component: apply Bronze to a chosen selected-tide card, then reveal the final component."
-      : "Choose the final component: add Fast to the same card plan and complete the assembly.";
   }
 
   return step === 1
@@ -304,7 +301,7 @@ function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext
       text: sequenceRewardText(shapeId, step),
       costs: [cost("essence", price)],
       effects: [draftCards(step === 1 ? 4 : 8)],
-      targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+      targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
       cost: price,
       effect: step === 1 ? 70 : 115,
       pickBehavior,
@@ -320,7 +317,7 @@ function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext
       costs: [cost("essence", price)],
       effects: step === 1 ? [gainEssence(40)] : [draftCards(8), gainOmen(1)],
       targets: step === 2
-        ? [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })]
+        ? [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })]
         : [],
       cost: price,
       effect: step === 1 ? 40 : 150,
@@ -339,19 +336,6 @@ function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext
       effects: [gainEssence(step === 1 ? 55 : 120)],
       cost: price,
       effect: step === 1 ? 55 : 120,
-      pickBehavior,
-    });
-  }
-
-  if (shapeId === "staged_assembly") {
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      effects: step === 1
-        ? [{ kind: "transfiguration", transfigurationName: "Bronze" }]
-        : [{ kind: "card_rewrite", keyword: "Fast" }],
-      targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
-      effect: step === 1 ? 85 : 70,
       pickBehavior,
     });
   }
@@ -430,10 +414,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
           paidDraft(1, Math.min(20, context.state.quest.resources.essence), 4),
           option({
             number: 2,
-            text: `Pay ${payablePrice} essence. Draft 1 of 4 selected-tide cards. Gain 1 omen.`,
+            text: `Pay ${payablePrice} essence. Draft 1 of 4 cards from the card pool. Gain 1 omen.`,
             costs: [cost("essence", payablePrice)],
             effects: [draftCards(4), gainOmen(1)],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             cost: payablePrice,
             effect: 140,
           }),
@@ -453,9 +437,9 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
           paidDraft(2, Math.min(25, context.state.quest.resources.essence), 6),
           option({
             number: 3,
-            text: "Choose one of 3 selected-tide Dreamsigns.",
+            text: "Choose one of 3 Dreamsigns from the Dreamsign pool.",
             effects: [dreamsignDraft(3)],
-            targets: [target("dreamsign", "selected-tide Dreamsigns", { source: "pool", tideOverlap: "selected" })],
+            targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
             effect: 120,
           }),
         ],
@@ -487,22 +471,21 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Viridian to a chosen selected-tide card.",
+            text: "Apply Viridian to a chosen card from the card pool.",
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
           option({
             number: 2,
-            text: "Add Fast to a chosen selected-tide card.",
+            text: "Add Fast to a chosen card from the card pool.",
             effects: [{ kind: "card_rewrite", keyword: "Fast" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 70,
           }),
         ],
         precommitted: {},
       };
-    case "staged_assembly":
     case "take_up_to_n":
     case "repeat_to_scale":
     case "push_your_luck":
@@ -518,16 +501,16 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Bronze to a chosen selected-tide card.",
+            text: "Apply Bronze to a chosen card from the card pool.",
             effects: [{ kind: "transfiguration", transfigurationName: "Bronze" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
           option({
             number: 2,
-            text: "Apply Viridian to a chosen selected-tide card.",
+            text: "Apply Viridian to a chosen card from the card pool.",
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
         ],
@@ -538,9 +521,9 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Viridian to a chosen selected-tide card.",
+            text: "Apply Viridian to a chosen card from the card pool.",
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
           option({
@@ -638,10 +621,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "After next battle, choose one of 3 selected-tide Dreamsigns.",
+            text: "After next battle, choose one of 3 Dreamsigns from the Dreamsign pool.",
             triggers: [{ kind: "after_next_battle" }],
             effects: [dreamsignDraft(3)],
-            targets: [target("dreamsign", "selected-tide Dreamsigns", { source: "pool", tideOverlap: "selected" })],
+            targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
             effect: 90,
             uncertainty: -8,
           }),
@@ -670,9 +653,9 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "For the next battle, add Fast to a chosen selected-tide card.",
+            text: "For the next battle, add Fast to a chosen card from the card pool.",
             effects: [{ kind: "card_rewrite", keyword: "Fast", duration: "next battle" }],
-            targets: [target("card", "selected-tide draft cards", { source: "draftPool", tideOverlap: "selected" })],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 70,
             uncertainty: -5,
           }),

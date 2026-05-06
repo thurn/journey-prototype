@@ -219,4 +219,16 @@ describe("review feedback regressions", () => {
     expect(output).toContain("Effect simulation: not applied");
     expect(output).not.toContain("not_applied");
   });
+
+  it("does not expose tide terminology in human state labels", () => {
+    const output = renderStateHuman(fixtureState(), {
+      json: false,
+      debug: true,
+      color: false,
+    });
+
+    expect(output).toContain("Package selection");
+    expect(output).not.toContain("Selected tides");
+    expect(output).not.toContain("tidal in pool");
+  });
 });

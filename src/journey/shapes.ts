@@ -7,7 +7,6 @@ export type JourneyShapeId =
   | "curated_reward_trio"
   | "heterogeneous_pair"
   | "one_target_many_operations"
-  | "staged_assembly"
   | "mirrored_operations"
   | "one_operation_many_targets"
   | "choose_your_loss"
@@ -50,7 +49,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v1";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v2";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -274,25 +273,6 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
       "one_target_many_operations",
       "direct_menu",
     ),
-  },
-  {
-    id: "staged_assembly",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 4 },
-    supportedTags: ["assembly", "sequence", "card", "dreamsign", "reward"],
-    validationRules: [
-      ...commonValidationRules,
-      "stages_build_one_final_reward",
-      "component_choices_are_internally_compatible",
-      "no_custom_cards_or_custom_dreamsigns",
-    ],
-    repairPreferences: [
-      "replace_incompatible_component",
-      "fall_back_to_existing_catalog_object",
-      "shorten_to_two_stage_assembly",
-    ],
-    debugLabel: "Staged assembly",
-    versionContribution: versionContribution("staged_assembly", "sequential"),
   },
   {
     id: "mirrored_operations",

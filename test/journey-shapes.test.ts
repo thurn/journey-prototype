@@ -17,7 +17,6 @@ const expectedShapeIds = [
   "curated_reward_trio",
   "heterogeneous_pair",
   "one_target_many_operations",
-  "staged_assembly",
   "mirrored_operations",
   "one_operation_many_targets",
   "choose_your_loss",
@@ -61,11 +60,11 @@ function minimalContent(): ContentBundle {
 }
 
 describe("JOURNEY_SHAPES", () => {
-  it("contains the exact canonical V1 shape IDs once and in catalog order", () => {
+  it("contains the exact canonical V2 shape IDs once and in catalog order", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(30);
+    expect(actualShapeIds).toHaveLength(29);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -139,7 +138,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v1;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v2;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });
