@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadContent } from "../src/content/loadToml.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
-import { advanceSequenceJourney, generateNextJourney } from "../src/journey/generate.js";
+import { generateNextJourney } from "../src/journey/generate.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
 import { repairOrFallbackJourney } from "../src/journey/repair.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
@@ -83,6 +83,10 @@ function generatedOptionText(manifest: JourneyManifest): string[] {
     text.push(...menu.map((option) => option.text));
   }
 
+  for (const node of manifest.tree?.nodes ?? []) {
+    text.push(...node.branches.map((branch) => branch.text));
+  }
+
   return text;
 }
 
@@ -145,7 +149,7 @@ describe("generateNextJourney", () => {
     const expectedShapeIds = new Set(JOURNEY_SHAPES.map((shape) => shape.id));
     const seenShapeIds = new Set<JourneyShapeId>();
 
-    for (let index = 0; index < 200 && seenShapeIds.size < expectedShapeIds.size; index += 1) {
+    for (let index = 0; index < 1000 && seenShapeIds.size < expectedShapeIds.size; index += 1) {
       const seededState = structuredClone(journeyContext.state);
 
       seededState.quest.seed = `shape-coverage:${index}`;
@@ -290,25 +294,15 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(heterogeneous, journeyContext)).toEqual({ ok: true });
   });
 
-  it("advances a sequential manifest without changing the Journey identity", async () => {
+  it("renders take-any-number as a repeatable flat menu", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("take_any_number", journeyContext);
-    const result = advanceSequenceJourney({
-      context: journeyContext,
-      manifest,
-      selectedOptionNumber: 1,
-    });
 
-    expect(result.kind).toBe("advanced");
-    if (result.kind !== "advanced") {
-      throw new Error("expected an advanced sequence result");
-    }
-
-    expect(result.manifest.journeyId).toBe(manifest.journeyId);
-    expect(result.manifest.rootJourneyIndex).toBe(manifest.rootJourneyIndex);
-    expect(result.manifest.sequence).toMatchObject({ step: 2, status: "active" });
-    expect(result.manifest.options).toEqual(manifest.precommitted.sequenceMenus?.step2);
-    expect(validateJourneyManifest(result.manifest, journeyContext)).toEqual({ ok: true });
+    expect(manifest.tree).toBeUndefined();
+    expect(manifest.sequence).toBeUndefined();
+    expect(manifest.options.map((option) => option.number)).toEqual([1, 2, 3]);
+    expect(manifest.options.at(-1)?.pickBehavior).toBe("leave");
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
   });
 
   it("requires take-any-number rewards to carry a real limiting structure", async () => {
@@ -331,13 +325,6 @@ describe("generateNextJourney", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       options: unlimitedOptions,
-      precommitted: {
-        ...manifest.precommitted,
-        sequenceMenus: {
-          ...manifest.precommitted.sequenceMenus,
-          step1: unlimitedOptions,
-        },
-      },
     };
 
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
@@ -346,49 +333,24 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("exposes terminal sequence status for next-root command transitions", async () => {
+  it("fills complete tree data for every true sequential shape", async () => {
     const journeyContext = await context();
-    const manifest = fillForShape("escalating_search", journeyContext);
-    const result = advanceSequenceJourney({
-      context: journeyContext,
-      manifest,
-      selectedOptionNumber: 2,
-    });
+    const treeShapeIds: JourneyShapeId[] = [
+      "prize_ladder",
+      "probability_ladder",
+      "random_pool_draws",
+      "push_your_luck",
+      "escalating_reward_chain",
+    ];
 
-    expect(result).toMatchObject({
-      kind: "left",
-      journeyId: manifest.journeyId,
-      rootJourneyIndex: manifest.rootJourneyIndex,
-      sequence: { step: 1, status: "left" },
-      shouldGenerateNextRoot: true,
-    });
-  });
+    for (const shapeId of treeShapeIds) {
+      const manifest = fillForShape(shapeId, journeyContext);
 
-  it("stores byte-stable pending data for an advanced sequence step", async () => {
-    const journeyContext = await context();
-    const manifest = fillForShape("push_your_luck", journeyContext);
-    const result = advanceSequenceJourney({
-      context: journeyContext,
-      manifest,
-      selectedOptionNumber: 1,
-    });
-    const repeated = advanceSequenceJourney({
-      context: journeyContext,
-      manifest,
-      selectedOptionNumber: 1,
-    });
-
-    expect(result.kind).toBe("advanced");
-    expect(repeated.kind).toBe("advanced");
-    if (result.kind !== "advanced" || repeated.kind !== "advanced") {
-      throw new Error("expected an advanced sequence result");
+      expect(manifest.options, shapeId).toEqual([]);
+      expect(manifest.tree?.nodes.length, shapeId).toBeGreaterThanOrEqual(3);
+      expect(manifest.tree?.nodes[0]?.branches.some((branch) => branch.terminal), shapeId).toBe(true);
+      expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
     }
-
-    expect(stableStringify(result.manifest)).toBe(stableStringify(repeated.manifest));
-    expect(result.manifest.precommitted.random).toEqual([
-      { bounded: true, kind: "visible_reward", outcome: { amount: 50, kind: "gain_essence" }, step: 1 },
-      { bounded: true, kind: "visible_downside", outcome: { baneName: "Nightmare", count: 1, kind: "bane_gain" }, step: 2 },
-    ]);
   });
 });
 

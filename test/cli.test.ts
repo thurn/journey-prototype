@@ -16,76 +16,67 @@ describe("buildProgram", () => {
     await rm(".journey", { recursive: true, force: true });
   });
 
-  it("registers the scaffold commands", () => {
+  it("registers only the stateless run alias", () => {
     const program = buildProgram();
     const commandNames = program.commands.map((command) => command.name());
 
-    expect(commandNames).toEqual(["run", "pick", "state", "new"]);
+    expect(commandNames).toEqual(["run"]);
   });
 
-  it("exposes the built journey bin through npm exec", async () => {
+  it("exposes the built journey bin without pick/new/state commands", async () => {
     const { stdout, stderr } = await execFileAsync(
       "npm",
-      ["exec", "--", "journey", "--help"],
+      ["run", "journey", "--", "--help"],
       { cwd: process.cwd(), timeout: 15_000 },
     );
 
     expect(stderr).toBe("");
     expect(stdout).toContain("Usage: journey");
     expect(stdout).toContain("run");
-    expect(stdout).toContain("pick");
+    expect(stdout).not.toContain("pick");
+    expect(stdout).not.toContain("new");
+    expect(stdout).not.toContain("state [options]");
   }, 20_000);
 
-  it("emits parseable JSON through the exact npm run journey contract", async () => {
-    const runResult = await execFileAsync(
+  it("emits parseable stateless JSON through the npm run journey contract", async () => {
+    const result = await execFileAsync(
       "npm",
-      ["run", "journey", "--", "run", "--json"],
-      { cwd: process.cwd(), timeout: 15_000 },
-    );
-    const stateResult = await execFileAsync(
-      "npm",
-      ["run", "journey", "--", "state", "--json"],
+      ["run", "journey", "--", "--seed", "qa", "--stage", "late", "--json"],
       { cwd: process.cwd(), timeout: 15_000 },
     );
 
-    expect(runResult.stderr).toBe("");
-    expect(stateResult.stderr).toBe("");
-    expect(runResult.stdout).not.toMatch(ANSI_PATTERN);
-    expect(stateResult.stdout).not.toMatch(ANSI_PATTERN);
-    expect(JSON.parse(runResult.stdout)).toMatchObject({
+    expect(result.stderr).toBe("");
+    expect(result.stdout).not.toMatch(ANSI_PATTERN);
+
+    const payload = JSON.parse(result.stdout);
+
+    expect(payload).toMatchObject({
       status: "ok",
-      command: "run",
+      command: "journey",
+      seed: "qa",
+      stage: "late",
+      manifest: {
+        journeyId: "J-000001",
+        seed: "qa",
+        stage: "late",
+      },
+      context: {
+        deck: expect.any(Object),
+      },
     });
-    expect(JSON.parse(stateResult.stdout)).toMatchObject({
-      status: "ok",
-      command: "state",
-    });
+    expect(payload).not.toHaveProperty("nextCommands");
+    expect(payload).not.toHaveProperty("pendingJourney");
   }, 30_000);
 
-  it("runs bare npm run journey as a fresh random first Journey", async () => {
-    await execFileAsync(
-      "npm",
-      ["run", "journey", "--", "run", "--json"],
-      { cwd: process.cwd(), timeout: 15_000 },
-    );
-
+  it("runs bare npm run journey without writing simulator state", async () => {
     const journeyResult = await execFileAsync(
       "npm",
-      ["run", "journey"],
+      ["run", "journey", "--", "--seed", "qa", "--no-color"],
       { cwd: process.cwd(), timeout: 15_000 },
     );
-    const stateResult = await execFileAsync(
-      "npm",
-      ["run", "journey", "--", "state", "--json"],
-      { cwd: process.cwd(), timeout: 15_000 },
-    );
-    const statePayload = JSON.parse(stateResult.stdout);
 
     expect(journeyResult.stderr).toBe("");
     expect(journeyResult.stdout).toContain("Dream Journey");
-    expect(stateResult.stderr).toBe("");
-    expect(statePayload.state.seed).toMatch(/^random:[0-9a-f-]{36}$/u);
-    expect(statePayload.state.pendingJourney.journeyId).toBe("J-000001");
-    expect(statePayload.state.history).toEqual([]);
+    await expect(rm(".journey", { recursive: true })).rejects.toThrow();
   }, 30_000);
 });

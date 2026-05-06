@@ -840,24 +840,25 @@ Presentation patterns describe how information and choice surface are arranged.
 They are not a separate authored layer and they should not be confused with
 whether randomness is precommitted.
 
-V1 presentation patterns should include:
+V2 presentation patterns should include:
 
 - direct offer: the root option already specifies the main mechanical result
 - pre-rolled visible outcome: a random result is committed at generation and
   shown because the exact outcome is the interesting part of the choice
 - class-signaled hidden target: the player sees the reward or cost class and the
   bounded outcome envelope but not the exact internal target
-- deferred internal choice: the root option tells the player they will make a
-  bounded follow-up choice after entry
+- bounded post-entry detail choice: the root option tells the player they will
+  choose a target or detail after commitment, without hiding a later Journey
+  branch
 - visible future promise: the root option displays a delayed package and its
   trigger up front
 - complete decision tree: every node, stop branch, continue branch, chance
   branch, terminal reward, and terminal failure is shown up front
 
-### Payload Surfaces With Separate V1 Scope Decisions
+### Payload Surfaces With Separate V2 Scope Decisions
 
 Some Journey content categories are not new Journey Shapes. They are payload
-surfaces that may or may not participate in V1 depending on scope. The main
+surfaces that may or may not participate in V2 depending on scope. The main
 examples are custom cards and custom dreamsigns, battlefield slot mutations, and
 deep persistent status rewrites. These can plug into the effect lists later if
 they survive the V1 scope filter. This keeps the Journey Shape model stable even
@@ -1050,14 +1051,14 @@ Good root presentation includes:
 
 - a short hover or focus preview that states the core consequence
 - additional popups for referenced cards, Dreamsigns, Banes, or similar objects
-- explicit wording when entry leads to another bounded menu instead of
-  immediately applying the effect
+- explicit wording when entry leads to a bounded target or detail menu instead
+  of immediately applying the effect
 - a complete tree presentation for true sequential Journeys, instead of hiding
   later levels behind follow-up clicks
 
 ### Presentation Rules
 
-V1 should follow a small set of presentation rules:
+V2 should follow a small set of presentation rules:
 
 - fully reveal the compared object or outcome whenever that is the main
   strategic question
@@ -1069,14 +1070,16 @@ V1 should follow a small set of presentation rules:
 - prefer pre-rolled visible outcomes when showing the exact roll makes the
   option materially more legible
 
-V1 should not support deep hidden outcome stacks or options whose important
+V2 should not support deep hidden outcome stacks or options whose important
 meaning is concealed until after commitment.
 
 ### Precommitted Randomness
 
 Any randomness that will matter later should already be committed when the site
 is generated. This includes delayed rewards, hidden but bounded outcomes,
-follow-up variants, paired-return branches, and similar structures.
+post-entry target or detail variants, paired-return branches, and similar
+structures. It does not permit hidden sequential Journey menus; true
+sequential randomness must appear in the complete decision tree.
 
 When a random effect could either show a specific pre-rolled result or remain a
 bounded post-entry roll, prefer the visible result when that exact roll is what

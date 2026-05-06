@@ -71,6 +71,64 @@ export type JourneyOption = {
   pickBehavior: PickBehavior;
 };
 
+export type JourneyTreeBranchKind =
+  | "player_choice"
+  | "random_chance"
+  | "automatic_transition";
+
+export type JourneyTreeTerminal = {
+  text: string;
+  outcome: "end" | "claim" | "failure" | "leave";
+  costs: unknown[];
+  effects: unknown[];
+  burdens: unknown[];
+  targets: unknown[];
+  routeEffects: unknown[];
+};
+
+export type JourneyTreeBranch = {
+  id: string;
+  label: string;
+  kind: JourneyTreeBranchKind;
+  text: string;
+  odds?: {
+    numerator: number;
+    denominator: number;
+    percent: number;
+  };
+  costs: unknown[];
+  effects: unknown[];
+  burdens: unknown[];
+  targets: unknown[];
+  triggers: unknown[];
+  routeEffects: unknown[];
+  costConvertedEssence: number;
+  effectConvertedEssence: number;
+  burdenConvertedEssence: number;
+  uncertaintyConvertedEssence: number;
+  netConvertedEssence: number;
+  nextNodeId?: string;
+  terminal?: JourneyTreeTerminal;
+};
+
+export type JourneyTreeNode = {
+  id: string;
+  levelLabel: string;
+  description?: string;
+  branches: JourneyTreeBranch[];
+};
+
+export type JourneyRewardPool = {
+  summary: string;
+  replacement: "with_replacement" | "without_replacement";
+  rewards: unknown[];
+};
+
+export type JourneyTree = {
+  rootNodeId: string;
+  nodes: JourneyTreeNode[];
+};
+
 export type JourneyManifest = {
   schemaVersion: 1;
   journeyId: string;
@@ -81,6 +139,8 @@ export type JourneyManifest = {
   dreamscape: number;
   selectedTags: string[];
   options: JourneyOption[];
+  tree?: JourneyTree;
+  rewardPool?: JourneyRewardPool;
   sequence?: SequenceState;
   precommitted: PrecommittedOutcomes;
   debug: JourneyDebug;

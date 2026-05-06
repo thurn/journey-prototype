@@ -2,42 +2,80 @@ import { randomUUID } from "node:crypto";
 import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { generateNextJourney } from "../journey/generate.js";
+import type { JourneyStage } from "../journey/manifest.js";
 import { createInitialJourneyState } from "../quest/init.js";
 import { renderJourneyHuman } from "../render/human.js";
 import { journeyCommandPayload, renderCommandJson } from "../render/json.js";
-import { writeJourneyStateAtomic } from "../state/state.js";
-import {
-  buildContext,
-  loadContentContext,
-  setupErrorResult,
-  stateWithGeneratedJourney,
-} from "./shared.js";
+import { drawInt } from "../util/rng.js";
+import { buildContext, loadContentContext, setupErrorResult } from "./shared.js";
 
 function randomSeed(): string {
   return `random:${randomUUID()}`;
 }
 
+function dreamscapeForStage(stage: JourneyStage): number {
+  switch (stage) {
+    case "early":
+      return 0;
+    case "mid":
+      return 2;
+    case "late":
+      return 4;
+  }
+}
+
+function stageForInvocation(
+  options: CommonCommandOptions,
+  seed: string,
+  contentVersion: string,
+): JourneyStage {
+  if (options.stage) {
+    if (!["early", "mid", "late"].includes(options.stage)) {
+      throw new Error(`Unknown Journey stage: ${options.stage}`);
+    }
+
+    return options.stage;
+  }
+
+  const stages = ["early", "mid", "late"] as const;
+  const index = drawInt(
+    { seed, contentVersion, rootJourneyIndex: 1 },
+    "stateless:stage",
+    0,
+    stages.length - 1,
+  );
+
+  return stages[index]!;
+}
+
 export async function handleJourney(
   options: CommonCommandOptions,
+  command: "journey" | "run" = "journey",
 ): Promise<CommandResult> {
   try {
     const loadedContent = await loadContentContext(options.projectRoot);
-    const initialState = createInitialJourneyState({
-      seed: randomSeed(),
+    const seed = options.seed ?? randomSeed();
+    const stage = stageForInvocation(options, seed, loadedContent.contentVersion);
+    const state = createInitialJourneyState({
+      seed,
       content: loadedContent.content,
       contentVersion: loadedContent.contentVersion,
     });
-    const context = buildContext(options, loadedContent, initialState);
-    const pendingJourney = generateNextJourney({ context });
-    const nextState = stateWithGeneratedJourney(initialState, pendingJourney);
 
-    await writeJourneyStateAtomic(options.statePath, nextState);
+    state.quest.resources.dreamscape = dreamscapeForStage(stage);
+
+    const context = buildContext(options, loadedContent, state);
+    const manifest = generateNextJourney({
+      context,
+      forcedShapeId: options.shape,
+      forcedStage: stage,
+    });
 
     return {
       exitCode: ExitCode.Success,
       stdout: options.json
-        ? renderCommandJson(journeyCommandPayload(nextState, pendingJourney, "journey"))
-        : renderJourneyHuman(nextState, pendingJourney, options),
+        ? renderCommandJson(journeyCommandPayload(state, manifest, command, options))
+        : renderJourneyHuman(state, manifest, options),
       stderr: "",
     };
   } catch (error) {

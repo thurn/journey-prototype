@@ -19,12 +19,13 @@ export type JourneyShapeId =
   | "paired_return"
   | "timed_window_menu"
   | "take_any_number"
-  | "repeat_to_scale"
   | "push_your_luck"
+  | "prize_ladder"
+  | "probability_ladder"
+  | "random_pool_draws"
+  | "escalating_reward_chain"
   | "resolved_random_series"
   | "single_random_outcome"
-  | "sequential_offers"
-  | "escalating_search"
   | "commit_now_future_payoff"
   | "alter_dreamscapes";
 
@@ -35,7 +36,8 @@ export type JourneyTopology =
   | "random_commit"
   | "delayed_hook"
   | "route_edit"
-  | "sequential";
+  | "repeatable_menu"
+  | "decision_tree";
 
 export type JourneyShapeDefinition = {
   readonly id: JourneyShapeId;
@@ -48,7 +50,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v4";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v5";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -492,58 +494,112 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   },
   {
     id: "take_any_number",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["sequence", "subset", "cap", "reward", "burden", "stop"],
+    topology: "repeatable_menu",
+    rootOptionCount: { min: 3, max: 4 },
+    supportedTags: ["repeatable", "subset", "cap", "reward", "burden", "stop"],
     validationRules: [
       ...commonValidationRules,
-      "sequence_has_visible_max_steps",
+      "repeatable_menu_has_visible_cap",
       "each_take_has_cap_or_limiting_structure",
-      "stop_option_available_after_each_pick",
+      "leave_option_is_available",
     ],
     repairPreferences: [
-      "add_stop_option",
+      "add_leave_option",
       "add_shared_burden_or_limit",
-      "lower_sequence_cap",
+      "lower_take_cap",
     ],
     debugLabel: "Take any number",
-    versionContribution: versionContribution("take_any_number", "sequential"),
-  },
-  {
-    id: "repeat_to_scale",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 3 },
-    supportedTags: ["sequence", "scaling", "cost", "reward", "repeat"],
-    validationRules: [
-      ...commonValidationRules,
-      "repeated_payments_scale_final_reward",
-      "scaling_axis_is_deterministic_and_visible",
-    ],
-    repairPreferences: [
-      "make_scaling_axis_visible",
-      "normalize_repeat_costs",
-      "cap_repeat_count",
-    ],
-    debugLabel: "Repeat to scale",
-    versionContribution: versionContribution("repeat_to_scale", "sequential"),
+    versionContribution: versionContribution("take_any_number", "repeatable_menu"),
   },
   {
     id: "push_your_luck",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["sequence", "risk", "random", "reward", "stop"],
+    topology: "decision_tree",
+    rootOptionCount: { min: 0, max: 0 },
+    supportedTags: ["sequence", "risk", "random", "reward", "stop", "tree"],
     validationRules: [
-      ...commonValidationRules,
-      "continue_option_increases_uncertain_downside",
-      "stop_option_preserves_current_result",
+      "tree_has_complete_visible_levels",
+      "push_failure_ends_journey",
+      "push_rewards_are_mechanically_connected",
     ],
     repairPreferences: [
-      "add_probabilistic_downside",
-      "add_stop_option",
-      "cap_luck_push_steps",
+      "make_failure_terminal",
+      "align_reward_family",
+      "cap_push_levels",
     ],
     debugLabel: "Push your luck",
-    versionContribution: versionContribution("push_your_luck", "sequential"),
+    versionContribution: versionContribution("push_your_luck", "decision_tree"),
+  },
+  {
+    id: "prize_ladder",
+    topology: "decision_tree",
+    rootOptionCount: { min: 0, max: 0 },
+    supportedTags: ["sequence", "ladder", "cost", "reward", "tree"],
+    validationRules: [
+      "tree_has_complete_visible_levels",
+      "stop_rewards_scale_coherently",
+      "continue_costs_share_family",
+    ],
+    repairPreferences: [
+      "normalize_cost_family",
+      "align_stop_reward_family",
+      "simplify_ladder_level_count",
+    ],
+    debugLabel: "Prize ladder",
+    versionContribution: versionContribution("prize_ladder", "decision_tree"),
+  },
+  {
+    id: "probability_ladder",
+    topology: "decision_tree",
+    rootOptionCount: { min: 0, max: 0 },
+    supportedTags: ["sequence", "chance", "cost", "reward", "tree"],
+    validationRules: [
+      "tree_has_complete_visible_levels",
+      "fixed_reward_can_be_won_once",
+      "attempt_costs_share_family",
+    ],
+    repairPreferences: [
+      "normalize_attempt_costs",
+      "make_success_terminal",
+      "simplify_ladder_level_count",
+    ],
+    debugLabel: "Probability ladder",
+    versionContribution: versionContribution("probability_ladder", "decision_tree"),
+  },
+  {
+    id: "random_pool_draws",
+    topology: "decision_tree",
+    rootOptionCount: { min: 0, max: 0 },
+    supportedTags: ["sequence", "random", "pool", "reward", "tree"],
+    validationRules: [
+      "tree_has_complete_visible_levels",
+      "pool_is_visible",
+      "draw_replacement_policy_is_visible",
+    ],
+    repairPreferences: [
+      "restore_fixed_pool",
+      "normalize_draw_cost",
+      "cap_draw_count",
+    ],
+    debugLabel: "Random pool draws",
+    versionContribution: versionContribution("random_pool_draws", "decision_tree"),
+  },
+  {
+    id: "escalating_reward_chain",
+    topology: "decision_tree",
+    rootOptionCount: { min: 0, max: 0 },
+    supportedTags: ["sequence", "reward", "cost", "chain", "tree"],
+    validationRules: [
+      "tree_has_complete_visible_levels",
+      "chain_rewards_share_family",
+      "take_costs_scale_coherently",
+    ],
+    repairPreferences: [
+      "align_reward_family",
+      "normalize_cost_scaling",
+      "simplify_chain_level_count",
+    ],
+    debugLabel: "Escalating reward chain",
+    versionContribution: versionContribution("escalating_reward_chain", "decision_tree"),
   },
   {
     id: "resolved_random_series",
@@ -586,42 +642,6 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
       "single_random_outcome",
       "random_commit",
     ),
-  },
-  {
-    id: "sequential_offers",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["sequence", "offer", "reward", "cost", "browse"],
-    validationRules: [
-      ...commonValidationRules,
-      "offers_share_general_type_across_sequence",
-      "sequence_menus_are_precommitted",
-    ],
-    repairPreferences: [
-      "align_offer_type",
-      "precommit_sequence_menus",
-      "add_leave_or_next_option",
-    ],
-    debugLabel: "Sequential offers",
-    versionContribution: versionContribution("sequential_offers", "sequential"),
-  },
-  {
-    id: "escalating_search",
-    topology: "sequential",
-    rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["sequence", "search", "risk", "cost", "reward"],
-    validationRules: [
-      ...commonValidationRules,
-      "depth_is_primary_reward_axis",
-      "deeper_steps_increase_risk_or_cost",
-    ],
-    repairPreferences: [
-      "increase_deeper_layer_reward",
-      "increase_deeper_layer_pressure",
-      "cap_search_depth",
-    ],
-    debugLabel: "Escalating search",
-    versionContribution: versionContribution("escalating_search", "sequential"),
   },
   {
     id: "commit_now_future_payoff",

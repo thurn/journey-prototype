@@ -9,11 +9,13 @@ import {
 import type {
   JourneyManifest,
   JourneyOption,
+  JourneyRewardPool,
   JourneyStage,
+  JourneyTree,
+  JourneyTreeBranch,
   ManifestReferences,
   PickBehavior,
   PrecommittedOutcomes,
-  SequenceState,
 } from "./manifest.js";
 import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
 import { getShapeDefinition, type JourneyShapeId } from "./shapes.js";
@@ -291,185 +293,341 @@ function routeEdit(number: number, future = false): JourneyOption {
   });
 }
 
-function sequenceRewardText(shapeId: JourneyShapeId, step: number): string {
-  if (shapeId === "push_your_luck") {
-    return step === 1
-      ? "Push once: resolve the precommitted safe reward, then choose whether to push again."
-      : "Final push: resolve the precommitted high reward and its bounded downside.";
-  }
+type TreeBranchArgs = {
+  id: string;
+  label: string;
+  kind?: JourneyTreeBranch["kind"];
+  text: string;
+  odds?: JourneyTreeBranch["odds"];
+  costs?: unknown[];
+  effects?: unknown[];
+  burdens?: unknown[];
+  targets?: unknown[];
+  triggers?: unknown[];
+  routeEffects?: unknown[];
+  cost?: number;
+  effect?: number;
+  burden?: number;
+  uncertainty?: number;
+  nextNodeId?: string;
+  terminal?: JourneyTreeBranch["terminal"];
+};
 
-  if (shapeId === "sequential_offers") {
-    return step === 1
-      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 cards, then see the final offer."
-      : "Accept final offer: pay 35 essence. Draft 1 of 8 cards.";
-  }
+function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+  const costs = args.costs ?? [];
+  const effects = args.effects ?? [];
+  const burdens = args.burdens ?? [];
+  const targets = args.targets ?? [];
+  const routeEffects = args.routeEffects ?? [];
+  const terminal = args.terminal
+    ? {
+        text: args.terminal.text,
+        outcome: args.terminal.outcome,
+        costs,
+        effects,
+        burdens,
+        targets,
+        routeEffects,
+      }
+    : undefined;
 
-  if (shapeId === "escalating_search") {
-    return step === 1
-      ? "Search layer 1: pay 15 essence. Gain 40 essence, then reveal the deeper layer."
-      : "Search layer 2: pay 35 essence. Draft 1 of 8 cards and gain 1 omen.";
-  }
-
-  if (shapeId === "repeat_to_scale") {
-    return step === 1
-      ? "Invest once: pay 20 essence. Commit a 55 essence payout, then choose whether to scale it."
-      : "Scale the payout: pay 35 essence. Commit a 120 essence payout.";
-  }
-
-  if (shapeId === "take_any_number") {
-    return step === 1
-      ? "Take cache reward 1: pay 15 essence. Gain 1 omen, then choose whether to take the final reward."
-      : "Take final cache reward: purge up to 1 chosen Starter card and gain 1 Nightmare.";
-  }
-
-  return step === 1
-    ? "Take reward 1: gain 35 essence, then choose whether to take the final reward."
-    : "Take final reward: gain 65 essence and gain 1 Nightmare.";
-}
-
-function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext, step: number): JourneyOption {
-  const finalStep = step >= 2;
-  const pickBehavior: PickBehavior = finalStep ? "complete_sequence" : "advance_sequence";
-
-  if (shapeId === "push_your_luck") {
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      effects: step === 1
-        ? [gainEssence(50), { kind: "random_reward", table: "precommitted", step }]
-        : [gainEssence(135), { kind: "random_downside", table: "precommitted", step }],
-      burdens: step === 2 ? [nightmare(1)] : [],
-      effect: step === 1 ? 50 : 135,
-      burden: step === 2 ? -125 : 0,
-      uncertainty: step === 1 ? -10 : -25,
-      pickBehavior,
-    });
-  }
-
-  if (shapeId === "sequential_offers") {
-    const price = Math.min(step === 1 ? 20 : 35, context.state.quest.resources.essence);
-    const cardDraft = draftCards(step === 1 ? 4 : 8);
-
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      costs: [cost("essence", price)],
-      effects: [cardDraft],
-      targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-      cost: price,
-      effect: valueCardDraft(cardDraft),
-      pickBehavior,
-    });
-  }
-
-  if (shapeId === "escalating_search") {
-    const price = Math.min(step === 1 ? 15 : 35, context.state.quest.resources.essence);
-    const cardDraft = draftCards(8);
-
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      costs: [cost("essence", price)],
-      effects: step === 1 ? [gainEssence(40)] : [cardDraft, gainOmen(1)],
-      targets: step === 2
-        ? [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })]
-        : [],
-      cost: price,
-      effect: step === 1 ? valueEssenceGain(40, context) : valueCardDraft(cardDraft) + valueOmenGain(1),
-      uncertainty: step === 2 ? -10 : 0,
-      pickBehavior,
-    });
-  }
-
-  if (shapeId === "repeat_to_scale") {
-    const price = Math.min(step === 1 ? 20 : 35, context.state.quest.resources.essence);
-
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      costs: [cost("essence", price)],
-      effects: [gainEssence(step === 1 ? 55 : 120)],
-      cost: price,
-      effect: step === 1 ? 55 : 120,
-      pickBehavior,
-    });
-  }
-
-  if (shapeId === "take_any_number") {
-    const price = Math.min(15, context.state.quest.resources.essence);
-
-    return option({
-      number: 1,
-      text: sequenceRewardText(shapeId, step),
-      costs: step === 1 ? [cost("essence", price)] : [],
-      effects: step === 1 ? [gainOmen(1)] : [starterCleanup(1)],
-      burdens: step === 2 ? [nightmare(1)] : [],
-      targets: step === 2
-        ? [target("card", "Starter cards in deck", { source: "deck", starter: true })]
-        : [],
-      cost: step === 1 ? price : 0,
-      effect: step === 1 ? valueOmenGain(1) : 85,
-      burden: step === 2 ? -125 : 0,
-      pickBehavior,
-    });
-  }
-
-  return option({
-    number: 1,
-    text: sequenceRewardText(shapeId, step),
-    effects: step === 1 ? [gainEssence(35)] : [gainEssence(65)],
-    burdens: step === 2 ? [nightmare(1)] : [],
-    effect: step === 1 ? 35 : 65,
-    burden: step === 2 ? -125 : 0,
-    pickBehavior,
-  });
-}
-
-function sequenceStopOption(shapeId: JourneyShapeId, step: number): JourneyOption {
-  const text = step === 1
-    ? "End the sequence now and convert the unclaimed follow-up into 15 essence."
-    : "End the sequence and keep all committed step rewards.";
-  const leave = shapeId === "escalating_search" && step === 1;
-
-  return option({
-    number: 2,
-    text: leave
-      ? "Leave the search before going deeper and keep the mapped exit reward."
-      : text,
-    effects: [gainEssence(step === 1 ? 15 : 25)],
-    effect: step === 1 ? 15 : 25,
-    pickBehavior: leave ? "leave" : "complete_sequence",
-  });
-}
-
-function sequenceMenu(shapeId: JourneyShapeId, context: JourneyContext, step: number): JourneyOption[] {
-  return [
-    sequenceContinueOption(shapeId, context, step),
-    sequenceStopOption(shapeId, step),
-  ];
-}
-
-function sequencePrecommits(shapeId: JourneyShapeId, context: JourneyContext): PrecommittedOutcomes {
-  const precommitted: PrecommittedOutcomes = {
-    sequenceMenus: {
-      step1: sequenceMenu(shapeId, context, 1),
-      step2: sequenceMenu(shapeId, context, 2),
-    },
+  return {
+    id: args.id,
+    label: args.label,
+    kind: args.kind ?? "player_choice",
+    text: args.text,
+    ...(args.odds ? { odds: args.odds } : {}),
+    costs,
+    effects,
+    burdens,
+    targets,
+    triggers: args.triggers ?? [],
+    routeEffects,
+    costConvertedEssence: args.cost ?? 0,
+    effectConvertedEssence: args.effect ?? 0,
+    burdenConvertedEssence: args.burden ?? 0,
+    uncertaintyConvertedEssence: args.uncertainty ?? 0,
+    netConvertedEssence:
+      (args.effect ?? 0) - (args.cost ?? 0) + (args.burden ?? 0) + (args.uncertainty ?? 0),
+    ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
+    ...(terminal ? { terminal } : {}),
   };
+}
 
-  if (shapeId === "push_your_luck") {
-    precommitted.random = [
-      { step: 1, kind: "visible_reward", outcome: gainEssence(50), bounded: true },
-      { step: 2, kind: "visible_downside", outcome: nightmare(1), bounded: true },
-    ];
+function odds(percent: number): JourneyTreeBranch["odds"] {
+  return { numerator: percent, denominator: 100, percent };
+}
+
+function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+  return {
+    rootNodeId: nodes[0]?.id ?? "level-1",
+    nodes,
+  };
+}
+
+function buildPrizeLadderTree(): JourneyTree {
+  return tree([
+    {
+      id: "level-1",
+      levelLabel: "Level 1",
+      branches: [
+        treeBranch({
+          id: "level-1-stop",
+          label: "Stop",
+          text: "Gain 1 omen. End the Journey.",
+          effects: [gainOmen(1)],
+          effect: valueOmenGain(1),
+          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(1)], burdens: [], targets: [], routeEffects: [] },
+        }),
+        treeBranch({
+          id: "level-1-continue",
+          label: "Continue",
+          text: "Pay 35 essence. Go to Level 2.",
+          costs: [cost("essence", 35)],
+          cost: 35,
+          nextNodeId: "level-2",
+        }),
+      ],
+    },
+    {
+      id: "level-2",
+      levelLabel: "Level 2",
+      branches: [
+        treeBranch({
+          id: "level-2-stop",
+          label: "Stop",
+          text: "Gain 2 omens. End the Journey.",
+          effects: [gainOmen(2)],
+          effect: valueOmenGain(2),
+          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(2)], burdens: [], targets: [], routeEffects: [] },
+        }),
+        treeBranch({
+          id: "level-2-continue",
+          label: "Continue",
+          text: "Pay 70 essence. Go to Level 3.",
+          costs: [cost("essence", 70)],
+          cost: 70,
+          nextNodeId: "level-3",
+        }),
+      ],
+    },
+    {
+      id: "level-3",
+      levelLabel: "Level 3",
+      branches: [
+        treeBranch({
+          id: "level-3-stop",
+          label: "Stop",
+          text: "Gain 3 omens. End the Journey.",
+          effects: [gainOmen(3)],
+          effect: valueOmenGain(3),
+          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(3)], burdens: [], targets: [], routeEffects: [] },
+        }),
+        treeBranch({
+          id: "level-3-claim",
+          label: "Claim",
+          text: "Pay 100 essence and choose 1 of 3 Dreamsigns. End the Journey.",
+          costs: [cost("essence", 100)],
+          effects: [dreamsignDraft(3)],
+          targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
+          cost: 100,
+          effect: 300,
+          terminal: { text: "End the Journey.", outcome: "claim", costs: [cost("essence", 100)], effects: [dreamsignDraft(3)], burdens: [], targets: [], routeEffects: [] },
+        }),
+      ],
+    },
+  ]);
+}
+
+function buildProbabilityLadderTree(): JourneyTree {
+  const dreamsign = dreamsignDraft(1);
+
+  return tree([
+    {
+      id: "level-1",
+      levelLabel: "Level 1",
+      branches: [
+        treeBranch({ id: "level-1-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-1-attempt", label: "Attempt", text: "Pay 25 essence for a 25% chance to gain a Dreamsign.", costs: [cost("essence", 25)], cost: 25, odds: odds(25) }),
+        treeBranch({ id: "level-1-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(25), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-1-failure", label: "Failure", kind: "random_chance", text: "Go to Level 2.", odds: odds(75), nextNodeId: "level-2" }),
+      ],
+    },
+    {
+      id: "level-2",
+      levelLabel: "Level 2",
+      branches: [
+        treeBranch({ id: "level-2-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-2-attempt", label: "Attempt", text: "Pay 45 essence for a 45% chance to gain a Dreamsign.", costs: [cost("essence", 45)], cost: 45, odds: odds(45) }),
+        treeBranch({ id: "level-2-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(45), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-2-failure", label: "Failure", kind: "random_chance", text: "Go to Level 3.", odds: odds(55), nextNodeId: "level-3" }),
+      ],
+    },
+    {
+      id: "level-3",
+      levelLabel: "Level 3",
+      branches: [
+        treeBranch({ id: "level-3-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-3-attempt", label: "Attempt", text: "Pay 70 essence for a 70% chance to gain a Dreamsign.", costs: [cost("essence", 70)], cost: 70, odds: odds(70) }),
+        treeBranch({ id: "level-3-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(70), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: "level-3-failure", label: "Failure", kind: "random_chance", text: "End the Journey.", odds: odds(30), terminal: { text: "End the Journey.", outcome: "failure", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
+      ],
+    },
+  ]);
+}
+
+function randomPool(): JourneyRewardPool {
+  return {
+    summary: "Randomly gain one: a Dreamsign, an event card, {Scarlet Transfiguration}, 2 omens, 75 essence, or purge a starter card. Outcomes draw with replacement.",
+    replacement: "with_replacement",
+    rewards: [
+      dreamsignDraft(1),
+      draftCards(1),
+      { kind: "transfiguration", transfigurationName: "Scarlet" },
+      gainOmen(2),
+      gainEssence(75),
+      starterCleanup(1),
+    ],
+  };
+}
+
+function buildRandomPoolDrawsTree(): JourneyTree {
+  return tree([1, 2, 3].map((level) => ({
+    id: `level-${level}`,
+    levelLabel: `Level ${level}`,
+    branches: [
+      treeBranch({
+        id: `level-${level}-stop`,
+        label: "Stop",
+        text: "Leave.",
+        terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] },
+      }),
+      treeBranch({
+        id: `level-${level}-draw`,
+        label: "Draw",
+        text: `Pay 50 essence and gain a random reward from the pool. ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
+        costs: [cost("essence", 50)],
+        effects: [{ kind: "random_reward", pool: "visible_pool", replacement: "with_replacement" }],
+        cost: 50,
+        effect: 100,
+        uncertainty: -15,
+        ...(level === 3
+          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", 50)], effects: [{ kind: "random_reward", pool: "visible_pool", replacement: "with_replacement" }], burdens: [], targets: [], routeEffects: [] } }
+          : { nextNodeId: `level-${level + 1}` }),
+      }),
+    ],
+  })));
+}
+
+function buildEscalatingRewardChainTree(): JourneyTree {
+  return tree([
+    [1, 10, "Pay 10 essence and transfigure a random card. Go to Level 2."],
+    [2, 20, "Pay 20 essence and transfigure a random card. Go to Level 3."],
+    [3, 40, "Pay 40 essence and transfigure a random card. Go to Level 4."],
+    [4, 120, "Pay all essence and transfigure all cards in your deck. End the Journey."],
+  ].map(([level, price, text]) => ({
+    id: `level-${level}`,
+    levelLabel: `Level ${level}`,
+    branches: [
+      treeBranch({
+        id: `level-${level}-stop`,
+        label: "Stop",
+        text: "Leave.",
+        terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] },
+      }),
+      treeBranch({
+        id: `level-${level}-take`,
+        label: "Take",
+        text: String(text),
+        costs: [cost("essence", Number(price))],
+        effects: [{ kind: "transfiguration", transfigurationName: level === 4 ? "Prismatic" : "Scarlet", scope: level === 4 ? "all_cards_in_deck" : "random_card" }],
+        targets: [target("card", level === 4 ? "all cards in deck" : "a random card", { source: "deck" })],
+        cost: Number(price),
+        effect: level === 4 ? 350 : 85,
+        ...(level === 4
+          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", Number(price))], effects: [{ kind: "transfiguration", transfigurationName: "Prismatic", scope: "all_cards_in_deck" }], burdens: [], targets: [], routeEffects: [] } }
+          : { nextNodeId: `level-${Number(level) + 1}` }),
+      }),
+    ],
+  })));
+}
+
+function buildPushYourLuckTree(): JourneyTree {
+  return tree([1, 2, 3].map((level) => {
+    const rewardText = level === 1
+      ? "Gain 50 essence."
+      : level === 2
+        ? "Gain 100 essence."
+        : "Gain 175 essence.";
+    const successPercent = level === 1 ? 75 : level === 2 ? 55 : 35;
+
+    return {
+      id: `level-${level}`,
+      levelLabel: `Level ${level}`,
+      branches: [
+        treeBranch({
+          id: `level-${level}-stop`,
+          label: "Stop",
+          text: level === 1 ? "Leave." : "Keep the last safe reward. End the Journey.",
+          terminal: { text: "End the Journey.", outcome: level === 1 ? "leave" : "end", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] },
+        }),
+        treeBranch({
+          id: `level-${level}-push`,
+          label: "Push",
+          text: `Risk immediate failure for a ${successPercent}% chance to ${rewardText.toLowerCase()} ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
+          odds: odds(successPercent),
+          effects: [gainEssence(level === 1 ? 50 : level === 2 ? 100 : 175)],
+          effect: level === 1 ? 50 : level === 2 ? 100 : 175,
+          uncertainty: -30,
+          nextNodeId: level === 3 ? undefined : `level-${level + 1}`,
+          ...(level === 3
+            ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [], effects: [gainEssence(175)], burdens: [], targets: [], routeEffects: [] } }
+            : {}),
+        }),
+        treeBranch({
+          id: `level-${level}-failure`,
+          label: "Failure",
+          kind: "random_chance",
+          text: "Gain 1 Nightmare. End the Journey.",
+          odds: odds(100 - successPercent),
+          burdens: [nightmare(1)],
+          burden: -125,
+          terminal: { text: "End the Journey.", outcome: "failure", costs: [], effects: [], burdens: [nightmare(1)], targets: [], routeEffects: [] },
+        }),
+      ],
+    };
+  }));
+}
+
+function decisionTreeForShape(shapeId: JourneyShapeId): {
+  tree?: JourneyTree;
+  rewardPool?: JourneyRewardPool;
+  precommitted: PrecommittedOutcomes;
+} {
+  switch (shapeId) {
+    case "prize_ladder":
+      return { tree: buildPrizeLadderTree(), precommitted: {} };
+    case "probability_ladder":
+      return { tree: buildProbabilityLadderTree(), precommitted: { random: [{ kind: "probability_ladder", bounded: true }] } };
+    case "random_pool_draws":
+      return {
+        tree: buildRandomPoolDrawsTree(),
+        rewardPool: randomPool(),
+        precommitted: { random: randomPool().rewards },
+      };
+    case "push_your_luck":
+      return { tree: buildPushYourLuckTree(), precommitted: { random: [{ kind: "push_failure", bounded: true }] } };
+    case "escalating_reward_chain":
+      return { tree: buildEscalatingRewardChainTree(), precommitted: {} };
+    default:
+      return { precommitted: {} };
   }
-
-  return precommitted;
 }
 
 function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
   options: JourneyOption[];
-  sequence?: SequenceState;
+  tree?: JourneyTree;
+  rewardPool?: JourneyRewardPool;
   precommitted: PrecommittedOutcomes;
 } {
   const payablePrice = Math.min(30, context.state.quest.resources.essence);
@@ -577,16 +735,48 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         ],
         precommitted: {},
       };
-    case "take_any_number":
-    case "repeat_to_scale":
-    case "push_your_luck":
-    case "sequential_offers":
-    case "escalating_search":
+    case "take_any_number": {
+      const price = Math.min(15, context.state.quest.resources.essence);
       return {
-        options: sequenceMenu(shapeId, context, 1),
-        sequence: { step: 1, status: "active", maxSteps: 2 },
-        precommitted: sequencePrecommits(shapeId, context),
+        options: [
+          option({
+            number: 1,
+            text: "Take up to 2 rewards from this cache. Pay 15 essence to gain 1 omen.",
+            costs: [cost("essence", price)],
+            effects: [gainOmen(1)],
+            cost: price,
+            effect: valueOmenGain(1),
+          }),
+          option({
+            number: 2,
+            text: "Take up to 2 rewards from this cache. Purge up to 1 chosen Starter card and gain 1 Nightmare.",
+            effects: [starterCleanup(1)],
+            burdens: [nightmare(1)],
+            targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
+            effect: 85,
+            burden: -125,
+          }),
+          option({
+            number: 3,
+            text: "Leave the cache.",
+            pickBehavior: "leave",
+          }),
+        ],
+        precommitted: {},
       };
+    }
+    case "prize_ladder":
+    case "probability_ladder":
+    case "random_pool_draws":
+    case "push_your_luck":
+    case "escalating_reward_chain": {
+      const filled = decisionTreeForShape(shapeId);
+
+      return {
+        options: [],
+        ...filled,
+      };
+    }
     case "mirrored_operations":
       return {
         options: [
@@ -878,7 +1068,8 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     dreamscape: args.context.state.quest.resources.dreamscape,
     selectedTags: args.selectedTags,
     options,
-    ...(filled.sequence ? { sequence: filled.sequence } : {}),
+    ...(filled.tree ? { tree: filled.tree } : {}),
+    ...(filled.rewardPool ? { rewardPool: filled.rewardPool } : {}),
     precommitted: filled.precommitted,
     debug: {
       shapeScores: args.shapeScores,

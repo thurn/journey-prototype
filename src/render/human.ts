@@ -7,6 +7,7 @@ import { THEME } from "./theme.js";
 export type RenderOptions = {
   json: boolean;
   debug: boolean;
+  debugContext?: boolean;
   color: boolean;
 };
 
@@ -46,6 +47,19 @@ function resourceLine(state: JourneyState, options: RenderOptions): string {
   ].join("    ");
 }
 
+function journeyResourceLine(state: JourneyState, manifest: JourneyManifest, options: RenderOptions): string {
+  const resources = state.quest.resources;
+  const label = (text: string) => color(text, "resourceLabel", options);
+  const value = (text: string | number) =>
+    color(String(text), "resourceValue", options);
+
+  return [
+    `${label("Stage")}: ${value(manifest.stage)}`,
+    `${label("Essence")}: ${value(resources.essence)}/${value(resources.maxEssence)}`,
+    `${label("Omens")}: ${value(resources.omens)}`,
+  ].join("    ");
+}
+
 function displaySymbols(option: JourneyOption): string {
   return option.symbols
     .map((symbol) => SYMBOL_GLYPHS[symbol] ?? symbol)
@@ -77,27 +91,6 @@ function selectedLine(option: JourneyOption, options: RenderOptions): string {
   const symbolText = symbols.length > 0 ? `${symbols} ` : "";
 
   return `${color(`Selected ${option.number}.`, "optionNumber", options)} ${symbolText}${option.text}\n\n`;
-}
-
-function formatPickCommands(manifest: JourneyManifest): string {
-  const commands = manifest.options.map((option) => `journey pick ${option.number}`);
-
-  if (commands.length === 0) {
-    return "Run `journey run` to show the pending choices again.";
-  }
-
-  if (commands.length === 1) {
-    return `Run \`${commands[0]}\`.`;
-  }
-
-  if (commands.length === 2) {
-    return `Run \`${commands[0]}\` or \`${commands[1]}\`.`;
-  }
-
-  const head = commands.slice(0, -1).map((command) => `\`${command}\``).join(", ");
-  const tail = commands[commands.length - 1];
-
-  return `Run ${head}, or \`${tail}\`.`;
 }
 
 function optionValueDebugLines(
@@ -196,6 +189,54 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   });
 }
 
+function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] {
+  if (!manifest.tree) {
+    return [];
+  }
+
+  const lines: string[] = [];
+
+  if (manifest.rewardPool) {
+    lines.push(color("Pool", "heading", options), manifest.rewardPool.summary, "");
+  }
+
+  lines.push(color("Decision Tree", "heading", options));
+
+  for (const node of manifest.tree.nodes) {
+    lines.push("", color(node.levelLabel, "resourceLabel", options));
+    if (node.description) {
+      lines.push(node.description);
+    }
+
+    for (const branch of node.branches) {
+      lines.push(`${branch.label}: ${branch.text}`);
+    }
+  }
+
+  return lines;
+}
+
+function debugContextLines(state: JourneyState, options: RenderOptions): string[] {
+  const deckEntries = state.quest.deck.entries.map((entry) => `${entry.cardId} x${entry.copies}`);
+
+  return [
+    "",
+    color("Debug Context", "heading", options),
+    `Dreamcaller: ${state.quest.dreamcaller.name}, ${state.quest.dreamcaller.title}`,
+    `Awakening: ${state.quest.dreamcaller.awakening}`,
+    `Resources: ${state.quest.resources.essence}/${state.quest.resources.maxEssence} essence, ${state.quest.resources.omens} omens, dreamscape ${state.quest.resources.dreamscape}`,
+    `Active Dreamsigns: ${state.quest.activeDreamsigns.length}`,
+    `Package selection: ${state.quest.selectedTides.join(", ")}`,
+    `Deck summary: ${state.quest.deck.summary.totalCards} cards, ${state.quest.deck.summary.starterCards} starters, ${state.quest.deck.summary.uniqueCards} unique`,
+    "Deck list:",
+    ...(deckEntries.length === 0 ? ["none"] : deckEntries),
+    `Banes: ${state.quest.deck.entries.filter((entry) => entry.cardId.toLowerCase().includes("bane")).length}`,
+    `Starter count: ${state.quest.deck.summary.starterCards}`,
+    `Draft pool: ${state.quest.draftPoolSummary.totalCopies} copies, ${state.quest.draftPoolSummary.uniqueCards} unique`,
+    `Dreamsign pool: ${state.quest.dreamsignPoolSummary.tidalPoolCount} in pool, ${state.quest.dreamsignPoolSummary.neutralCatalogCount} neutral in catalog`,
+  ];
+}
+
 export function renderJourneyHuman(
   state: JourneyState,
   manifest: JourneyManifest,
@@ -204,16 +245,20 @@ export function renderJourneyHuman(
   const lines = [
     color("Dream Journey", "heading", options),
     `Quest: ${state.quest.dreamcaller.name}, ${state.quest.dreamcaller.title}`,
-    resourceLine(state, options),
+    journeyResourceLine(state, manifest, options),
     "",
-    ...manifest.options.map((option) => optionLine(option, options)),
+    ...(manifest.tree
+      ? treeLines(manifest, options)
+      : manifest.options.map((option) => optionLine(option, options))),
   ];
+
+  if (options.debugContext) {
+    lines.push(...debugContextLines(state, options));
+  }
 
   if (options.debug) {
     lines.push(...debugLines(state, manifest, options));
   }
-
-  lines.push("", formatPickCommands(manifest));
 
   return `${lines.join("\n")}\n`;
 }

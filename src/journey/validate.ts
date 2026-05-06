@@ -48,6 +48,8 @@ function asImmediateCost(value: unknown): ImmediateCost | null {
 function validateReferences(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
   const structuredReferences = collectStructuredReferences([
     manifest.options,
+    manifest.tree,
+    manifest.rewardPool,
     manifest.precommitted,
   ]);
   const result = validateNamedReferences(context.content, {
@@ -304,6 +306,135 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
     })
   ) {
     return fail("route_addition_standalone_positive_reward", "Route addition cannot be a standalone positive reward");
+  }
+
+  return { ok: true };
+}
+
+function validateTreeBranch(
+  branch: NonNullable<JourneyManifest["tree"]>["nodes"][number]["branches"][number],
+  context: JourneyContext,
+): ValidationResult {
+  const costResult = validateCosts(
+    {
+      number: 0,
+      symbols: [],
+      text: branch.text,
+      costs: branch.costs,
+      effects: branch.effects,
+      burdens: branch.burdens,
+      targets: branch.targets,
+      triggers: branch.triggers,
+      routeEffects: branch.routeEffects,
+      costConvertedEssence: branch.costConvertedEssence,
+      effectConvertedEssence: branch.effectConvertedEssence,
+      burdenConvertedEssence: branch.burdenConvertedEssence,
+      uncertaintyConvertedEssence: branch.uncertaintyConvertedEssence,
+      netConvertedEssence: branch.netConvertedEssence,
+      pickBehavior: "record_and_generate_next",
+    },
+    context,
+  );
+
+  if (!costResult.ok) {
+    return costResult;
+  }
+
+  for (const target of branch.targets) {
+    if (!isRecord(target)) {
+      continue;
+    }
+
+    const result = validateRequiredTarget(target, context, 0);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  return scanIllegalStructuredValue([
+    branch.costs,
+    branch.effects,
+    branch.burdens,
+    branch.targets,
+    branch.triggers,
+    branch.routeEffects,
+    branch.terminal,
+  ]);
+}
+
+function validateDecisionTree(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
+  if (!manifest.tree) {
+    return fail("missing_decision_tree", "True sequential shapes require complete tree data");
+  }
+
+  if (manifest.tree.nodes.length === 0) {
+    return fail("missing_tree_levels", "Decision trees require at least one level");
+  }
+
+  const nodeIds = new Set(manifest.tree.nodes.map((node) => node.id));
+
+  if (!nodeIds.has(manifest.tree.rootNodeId)) {
+    return fail("invalid_tree_root", "Decision tree root must reference an existing node");
+  }
+
+  for (const node of manifest.tree.nodes) {
+    const hasRandomOutcomes = node.branches.some((branch) => branch.kind === "random_chance");
+
+    if (node.branches.length === 0) {
+      return fail("missing_tree_branches", `${node.id} must have outgoing branches`);
+    }
+
+    if (!node.branches.some((branch) => branch.terminal || branch.nextNodeId)) {
+      return fail("missing_terminal_outcome", `${node.id} has no visible terminal or transition`);
+    }
+
+    for (const branch of node.branches) {
+      if (!branch.text || !branch.label) {
+        return fail("invalid_tree_branch", `${node.id} has an unlabeled branch`);
+      }
+
+      if (branch.kind === "random_chance" && !branch.odds) {
+        return fail("missing_random_odds", `${branch.id} must expose odds`);
+      }
+
+      if (branch.nextNodeId && !nodeIds.has(branch.nextNodeId)) {
+        return fail("invalid_tree_transition", `${branch.id} points to a missing node`);
+      }
+
+      if (!branch.nextNodeId && !branch.terminal && !(branch.kind === "player_choice" && branch.odds && hasRandomOutcomes)) {
+        return fail("missing_terminal_outcome", `${branch.id} must end or transition`);
+      }
+
+      const result = validateTreeBranch(branch, context);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+  }
+
+  if (
+    manifest.shapeId === "push_your_luck" &&
+    !manifest.tree.nodes.every((node) =>
+      node.branches.some((branch) =>
+        branch.label === "Failure" &&
+        branch.terminal?.outcome === "failure" &&
+        !branch.nextNodeId,
+      ),
+    )
+  ) {
+    return fail("push_failure_must_end", "Push-your-luck failures must end the Journey");
+  }
+
+  if (
+    manifest.shapeId === "random_pool_draws" &&
+    !manifest.rewardPool?.summary.includes("replacement")
+  ) {
+    return fail("missing_pool_replacement_policy", "Random pool draws must state the replacement policy");
   }
 
   return { ok: true };
@@ -589,11 +720,11 @@ export function validateJourneyManifest(
     return fail("journey_id_format", "Root Journey IDs must use J-000001 formatting");
   }
 
-  if (manifest.options.length === 0) {
-    return fail("missing_options", "Journey manifests require at least one option");
-  }
-
   const definition = getShapeDefinition(manifest.shapeId);
+
+  if (manifest.options.length === 0 && definition.topology !== "decision_tree") {
+    return fail("missing_options", "Non-tree Journey manifests require at least one option");
+  }
 
   if (
     manifest.options.length < definition.rootOptionCount.min ||
@@ -622,9 +753,11 @@ export function validateJourneyManifest(
     }
   }
 
-  const routeEffectsResult = validateRouteEffects(
-    manifest.options.flatMap((option) => option.routeEffects),
-  );
+  const treeBranches = manifest.tree?.nodes.flatMap((node) => node.branches) ?? [];
+  const routeEffectsResult = validateRouteEffects([
+    ...manifest.options.flatMap((option) => option.routeEffects),
+    ...treeBranches.flatMap((branch) => branch.routeEffects),
+  ]);
 
   if (!routeEffectsResult.ok) {
     return routeEffectsResult;
@@ -651,48 +784,38 @@ export function validateJourneyManifest(
     return fail("fake_strategic_refusal", "Offer shapes require a real leave option");
   }
 
-  if (definition.topology === "sequential") {
-    if (!manifest.sequence || manifest.sequence.status !== "active") {
-      return fail("missing_sequence_state", "Sequential shapes require active sequence state");
+  if (definition.topology === "decision_tree") {
+    const treeResult = validateDecisionTree(manifest, context);
+
+    if (!treeResult.ok) {
+      return treeResult;
     }
+  }
 
-    if (!hasPrecommitted(manifest.precommitted.sequenceMenus)) {
-      return fail("missing_precommitted_outcomes", "Sequential shapes require precommitted follow-up menus");
-    }
+  if (
+    definition.topology === "repeatable_menu" &&
+    !manifest.options.some((option) => option.pickBehavior === "leave")
+  ) {
+    return fail("missing_leave_option", "Repeatable menus require a leave option");
+  }
 
-    if (manifest.sequence.step < 1 || !Number.isInteger(manifest.sequence.step)) {
-      return fail("invalid_sequence_state", "Sequential step must be a positive integer");
-    }
+  if (definition.topology === "repeatable_menu") {
+    for (const option of manifest.options) {
+      if (!/^take\b/iu.test(option.text)) {
+        continue;
+      }
 
-    if (
-      manifest.sequence.maxSteps !== undefined &&
-      manifest.sequence.step > manifest.sequence.maxSteps
-    ) {
-      return fail("invalid_sequence_state", "Sequential step cannot exceed maxSteps");
-    }
+      const hasLimitingStructure =
+        option.costs.length > 0 ||
+        option.burdens.length > 0 ||
+        option.uncertaintyConvertedEssence < 0;
 
-    if (!manifest.options.some((option) =>
-      option.pickBehavior === "complete_sequence" || option.pickBehavior === "leave"
-    )) {
-      return fail("missing_sequence_terminal_option", "Sequential shapes require a stop, complete, or leave option");
-    }
-
-    const currentSequenceMenuResult = validateSequenceMenu(
-      manifest.options,
-      context,
-      sequenceMenuKey(manifest.sequence.step),
-      manifest.sequence.maxSteps,
-      manifest.shapeId,
-    );
-
-    if (!currentSequenceMenuResult.ok) {
-      return currentSequenceMenuResult;
-    }
-
-    const sequenceMenusResult = validateSequenceMenus(manifest, context);
-
-    if (!sequenceMenusResult.ok) {
-      return sequenceMenusResult;
+      if (!hasLimitingStructure) {
+        return fail(
+          "open_pick_without_limiting_structure",
+          "Repeatable take options require a cost, burden, or risk",
+        );
+      }
     }
   }
 

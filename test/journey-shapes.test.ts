@@ -29,12 +29,13 @@ const expectedShapeIds = [
   "paired_return",
   "timed_window_menu",
   "take_any_number",
-  "repeat_to_scale",
   "push_your_luck",
+  "prize_ladder",
+  "probability_ladder",
+  "random_pool_draws",
+  "escalating_reward_chain",
   "resolved_random_series",
   "single_random_outcome",
-  "sequential_offers",
-  "escalating_search",
   "commit_now_future_payoff",
   "alter_dreamscapes",
 ] as const;
@@ -59,11 +60,11 @@ function minimalContent(): ContentBundle {
 }
 
 describe("JOURNEY_SHAPES", () => {
-  it("contains the exact canonical V3 shape IDs once and in catalog order", () => {
+  it("contains the exact canonical V5 shape IDs once and in catalog order", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(28);
+    expect(actualShapeIds).toHaveLength(29);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -72,7 +73,9 @@ describe("JOURNEY_SHAPES", () => {
       const definition = getShapeDefinition(id);
 
       expect(definition.id).toBe(id);
-      expect(definition.rootOptionCount.min).toBeGreaterThanOrEqual(1);
+      expect(definition.rootOptionCount.min).toBeGreaterThanOrEqual(
+        definition.topology === "decision_tree" ? 0 : 1,
+      );
       expect(definition.rootOptionCount.max).toBeGreaterThanOrEqual(
         definition.rootOptionCount.min,
       );
@@ -137,7 +140,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v4;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v5;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

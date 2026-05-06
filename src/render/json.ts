@@ -1,10 +1,8 @@
 import type { JourneyManifest, JourneyOption } from "../journey/manifest.js";
+import { JOURNEY_SHAPE_CATALOG_VERSION } from "../journey/shapes.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import { stableStringify } from "../util/stableJson.js";
-
-function nextCommands(manifest: JourneyManifest): string[] {
-  return manifest.options.map((option) => `journey pick ${option.number}`);
-}
+import type { CommonCommandOptions } from "../commands/options.js";
 
 function optionJson(option: JourneyOption) {
   return {
@@ -28,7 +26,7 @@ function optionJson(option: JourneyOption) {
   };
 }
 
-function pendingJourneyJson(manifest: JourneyManifest) {
+function manifestJson(manifest: JourneyManifest) {
   return {
     schemaVersion: manifest.schemaVersion,
     journeyId: manifest.journeyId,
@@ -40,6 +38,8 @@ function pendingJourneyJson(manifest: JourneyManifest) {
     selectedTags: manifest.selectedTags,
     sequence: manifest.sequence,
     options: manifest.options.map(optionJson),
+    tree: manifest.tree,
+    rewardPool: manifest.rewardPool,
     precommitted: manifest.precommitted,
     debug: manifest.debug,
     references: manifest.references,
@@ -63,7 +63,7 @@ function stateSummaryJson(state: JourneyState) {
     draftPoolSummary: state.quest.draftPoolSummary,
     route: state.quest.route,
     generator: state.generator,
-    pendingJourney: state.pendingJourney ? pendingJourneyJson(state.pendingJourney) : null,
+    pendingJourney: state.pendingJourney ? manifestJson(state.pendingJourney) : null,
     history: state.history,
   };
 }
@@ -72,28 +72,49 @@ export function journeyCommandPayload(
   state: JourneyState,
   manifest: JourneyManifest,
   command: "journey" | "run" | "pick",
+  options?: PickHistoryEntry | CommonCommandOptions,
   previousPick?: PickHistoryEntry,
 ) {
+  const commandOptions = options && "projectRoot" in options ? options : undefined;
+  const pick = options && "selectedOptionNumber" in options ? options : previousPick;
+
   return {
     status: "ok",
     command,
     contentVersion: state.contentVersion,
-    state: {
+    catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+    seed: manifest.seed,
+    stage: manifest.stage,
+    shapeId: manifest.shapeId,
+    parameters: commandOptions
+      ? {
+          seed: commandOptions.seed ?? null,
+          stage: commandOptions.stage ?? null,
+          shape: commandOptions.shape ?? null,
+          debug: commandOptions.debug,
+          debugContext: commandOptions.debugContext,
+        }
+      : undefined,
+    context: {
       schemaVersion: state.schemaVersion,
       seed: state.quest.seed,
       dreamcaller: state.quest.dreamcaller,
       resources: state.quest.resources,
       selectedTides: state.quest.selectedTides,
-      deckSummary: state.quest.deck.summary,
+      mandatoryTides: state.quest.mandatoryTides,
+      optionalSubset: state.quest.optionalSubset,
+      deck: state.quest.deck,
       dreamsignPoolSummary: state.quest.dreamsignPoolSummary,
+      dreamsignPoolIds: state.quest.dreamsignPoolIds,
+      activeDreamsigns: state.quest.activeDreamsigns,
+      draftPool: state.quest.draftPool,
       draftPoolSummary: state.quest.draftPoolSummary,
       generator: state.generator,
       historyCount: state.history.length,
     },
-    pendingJourney: pendingJourneyJson(manifest),
-    previousPick,
+    manifest: manifestJson(manifest),
+    previousPick: pick,
     debug: manifest.debug,
-    nextCommands: nextCommands(manifest),
   };
 }
 
@@ -112,7 +133,6 @@ export function newCommandPayload(state: JourneyState) {
     command: "new",
     contentVersion: state.contentVersion,
     state: stateSummaryJson(state),
-    nextCommands: ["journey run"],
   };
 }
 

@@ -492,7 +492,7 @@
   - Draw: pay 50 essence and gain a random reward from the same pool, then end
     the Journey.
 - Pool: a Dreamsign, an event card, {Scarlet Transfiguration}, 2 omens, 75
-  essence, or purge a starter card.
+  essence, or purge a starter card. Outcomes draw with replacement.
 
 ## Omen Bowl
 
@@ -508,7 +508,8 @@
   - Draw: pay 1 omen and gain a random reward from the same pool, then end the
     Journey.
 - Pool: 90 essence, duplicate a chosen card, purge a Bane, choose 1 of 2
-  Dreamsigns, or apply {Viridian Transfiguration} to a random card.
+  Dreamsigns, or apply {Viridian Transfiguration} to a random card. Outcomes do
+  not repeat.
 
 # push_your_luck
 

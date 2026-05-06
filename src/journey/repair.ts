@@ -25,7 +25,6 @@ function drawContextFor(manifest: JourneyManifest) {
     seed: manifest.seed,
     contentVersion: "",
     rootJourneyIndex: manifest.rootJourneyIndex,
-    sequenceStep: manifest.sequence?.step,
   };
 }
 
@@ -157,6 +156,7 @@ export function repairOrFallbackJourney(
   manifest: JourneyManifest,
   context: JourneyContext,
   failed: ValidationResult,
+  options: { forcedShape?: boolean } = {},
 ): JourneyManifest {
   let current = manifest;
 
@@ -182,8 +182,14 @@ export function repairOrFallbackJourney(
         ? buildReplacement(current, context, "single_reward")
         : current;
     } else if (action === "switch_shape") {
+      if (options.forcedShape) {
+        continue;
+      }
       candidate = buildReplacement(current, context, nextShape(current));
     } else if (action === "fallback") {
+      if (options.forcedShape) {
+        continue;
+      }
       candidate = buildReplacement(current, context, fallbackShape(current));
     }
 

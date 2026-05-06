@@ -11,6 +11,8 @@ import { evaluateOptionValue } from "./value.js";
 export type GenerationInput = {
   context: JourneyContext;
   previousPick?: PickHistoryEntry;
+  forcedShapeId?: JourneyShapeDefinition["id"] | string;
+  forcedStage?: JourneyStage;
 };
 
 export type SequenceAdvanceInput = {
@@ -224,6 +226,10 @@ function freezeSerializable<T>(value: T): T {
   return value;
 }
 
+function isJourneyShapeId(value: string): value is JourneyShapeDefinition["id"] {
+  return JOURNEY_SHAPES.some((shape) => shape.id === value);
+}
+
 export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const { context, previousPick } = input;
   const drawContext: DrawContext = {
@@ -231,10 +237,16 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     contentVersion: context.contentVersion,
     rootJourneyIndex: context.state.generator.rootJourneyIndex,
   };
-  const stage = stageForDreamscape(context.state.quest.resources.dreamscape);
+  const stage = input.forcedStage ?? stageForDreamscape(context.state.quest.resources.dreamscape);
   const selectedTags = desiredTagsFor(context, stage);
   const shapeScores = scoreShapes(context, drawContext, selectedTags, previousPick);
-  const selectedShapeId = selectShape(drawContext, shapeScores);
+  const selectedShapeId = input.forcedShapeId
+    ? isJourneyShapeId(input.forcedShapeId)
+      ? input.forcedShapeId
+      : (() => {
+          throw new Error(`Unknown Journey shape: ${input.forcedShapeId}`);
+        })()
+    : selectShape(drawContext, shapeScores);
   const manifest = buildConservativeJourneyForShape({
     context,
     drawContext,
@@ -248,7 +260,21 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const validation = validateJourneyManifest(manifest, context);
   const finalManifest = validation.ok
     ? manifest
-    : repairOrFallbackJourney(manifest, context, validation);
+    : repairOrFallbackJourney(manifest, context, validation, {
+        forcedShape: input.forcedShapeId !== undefined,
+      });
+
+  if (input.forcedShapeId && finalManifest.shapeId !== input.forcedShapeId) {
+    throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally`);
+  }
+
+  const finalValidation = validateJourneyManifest(finalManifest, context);
+
+  if (!finalValidation.ok && input.forcedShapeId) {
+    throw new Error(
+      `Forced shape ${input.forcedShapeId} failed validation: ${finalValidation.message}`,
+    );
+  }
 
   return freezeSerializable(finalManifest);
 }
