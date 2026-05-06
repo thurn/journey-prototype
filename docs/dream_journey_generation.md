@@ -109,7 +109,10 @@ useful are all shapes:
 - take any number up to a visible cap
 - one-shot random outcome
 - push your luck
-- sequential offers
+- escalating costs toward a large reward
+- repeated probabilistic attempts at a fixed prize
+- repeated random draws from a fixed pool
+- escalating repeated rewards
 - paired returns
 
 Those are the things the generator should score, fill, validate, pace, and
@@ -166,9 +169,8 @@ There are a few things that Dreamtides journeys do not do:
   frozen.
 - The player must understand the class of consequence they are opting into.
 - Normal Journey sites may show between 1 and 3 root options, with the average
-  target being about 2. Some Journey Shapes may create repeated accept-or-
-  continue flows after entry, but those flows must be explicit, bounded, and
-  inspectable.
+  target being about 2. Some Journey Shapes may contain a bounded internal
+  decision tree, but that tree must be fully visible when the Journey is shown.
 - A root option should show dream art, short hover text, and referenced-object
   popups when needed.
 - If a site presents exactly 1 root option, it is normally forced. Refusal
@@ -310,6 +312,8 @@ A Site Manifest is the committed output for one Journey site. It contains:
 - chosen effects, targets, and timings
 - preview text
 - presentation policy
+- decision-tree nodes, edges, branch labels, and terminal outcomes when the
+  shape is a true sequential topology
 - precommitted random outcomes
 - paired-return linkage when relevant
 - generation metadata for replay and debugging
@@ -545,10 +549,10 @@ main identity of the scene rather than a secondary fill detail.
 
 ### take_any_number
 
-The site reveals a bounded cache of rewards and lets the player claim more than
-one of them up to a visible cap, with a real stop point after each claim. This is
-the unified shape for "choose any number", "take up to N", and cache-like
-Journeys in command surfaces that resolve one pick at a time.
+The site reveals a bounded cache of rewards and lets the player claim any
+subset of them up to a visible cap. This is structurally distinct from true
+sequential Journeys: it is an open repeatable menu, not a decision tree. The
+player sees each available take action and a leave action at the same time.
 
 Every accepted reward must carry real limiting structure: a shared burden, a
 cost, a risk envelope, or a clearly diminishing later reward. A pure cap is only
@@ -560,20 +564,82 @@ shape. Rare "gain this whole cache" moments should be authored as
 the whole bundle is the one reward, not as an open-pick menu pretending to
 contain decisions.
 
-### repeat_to_scale
+### prize_ladder
 
-The player pays repeatedly to grow the size of a final reward or repeat the same
-type of gain at a rising magnitude. This is a more deterministic scaling shape
-than `take_any_number`.
+The site displays a bounded decision tree where each level offers a stop reward
+or a continue cost that moves to the next level. Stop rewards are repeated and
+scaled versions of the same reward family, and continue costs are repeated and
+scaled versions of the same cost family. The final level always contains a large
+thematically connected reward rather than a small continuation of the earlier
+stop rewards.
+
+This shape is for deterministic escalating commitments. It must not mix cost
+families between levels, such as charging essence at one level and adding a
+Bane at the next, unless the whole authored variant explicitly defines a
+compound cost family that repeats coherently at every level.
+
+### probability_ladder
+
+The site displays a bounded decision tree where each level lets the player stop
+or pay for a chance to gain one fixed reward. The process ends immediately when
+the chance succeeds. The player cannot gain the fixed reward multiple times
+from the same Journey.
+
+The chance structure may use one of four supported variants:
+
+- escalating costs and escalating odds
+- fixed costs and escalating odds
+- escalating costs and fixed odds
+- fixed costs and fixed odds
+
+Within one generated Journey, all costs must use the same resource type and all
+attempts must pursue the same reward. The odds and cost pattern must be visible
+for every level in the tree.
+
+### random_pool_draws
+
+The site displays a bounded decision tree where each level lets the player stop
+or pay a fixed cost to gain one random reward from a fixed visible pool. The
+cost, reward pool, and outcome odds are the same at every level. This is the
+right shape for repeated draws from a cache, wheel, or bag where the appeal is
+paying for several independent shots at the same pool.
+
+The reward pool must be explicit enough for the player to evaluate the draw.
+Generated variants may either draw with replacement or precommit
+without-replacement outcomes, but the presentation must say which rule applies.
 
 ### push_your_luck
 
-The player repeatedly risks an increasing downside or uncertain outcome in order
-to chase a stronger result. The stop-or-continue tension is the point of the
-scene. The extra downside on later pushes must be probabilistic, uncertain, or
-otherwise not deterministically applied. If every step has a guaranteed
-escalating cost, the scene is usually `take_any_number`, `repeat_to_scale`, or
-`escalating_search` rather than push-your-luck.
+The site displays a bounded decision tree where the player repeatedly risks
+ending the Journey in order to reach stronger mechanically connected rewards.
+The risk increases at each push. A failed push ends the Journey immediately and
+does not continue to later levels.
+
+Push-your-luck rewards should be connected along one axis, such as random
+Dreamsign, named Dreamsign, then choice of several Dreamsigns. The shape should
+not be filled as a generic series of unrelated rewards with incidental failure
+chances.
+
+One supported variant lets the player repeatedly take a reward while risking a
+random or probabilistic cost that ends the Journey. In that variant, each take
+level uses the same reward pool and the same cost family, while the hazard
+chance escalates.
+
+If every level has a guaranteed escalating cost and no chance to fail out of
+the tree, use `prize_ladder` or `escalating_reward_chain` instead.
+
+### escalating_reward_chain
+
+The site displays a bounded decision tree where each level lets the player stop
+or take a repeated reward at an escalating cost. The reward is the same reward
+class each time, such as transfigure a random card, purge a starter card, or
+gain an omen. The final level may use a much higher cost to provide a
+thematically connected stronger variant of the same reward.
+
+This differs from `take_any_number` because order matters and later levels are
+locked behind earlier takes. It differs from `prize_ladder` because the player
+receives the repeated reward at each accepted level rather than preserving a
+larger stop reward for later.
 
 ### resolved_random_series
 
@@ -586,18 +652,6 @@ choice once the scene begins.
 The site resolves one bounded random outcome after entry. This is the right
 shape for wheel, orb, or omen scenes where the identity is not betting, digging,
 or choosing, but simply submitting to one visible random table.
-
-### sequential_offers
-
-The site presents a series of offers of the same general type, one after
-another. This shape is useful when the scene should feel like browsing,
-haggling, or watching several transformation proposals pass by.
-
-### escalating_search
-
-The player digs deeper through increasingly risky or expensive layers to chase a
-better outcome. This differs from `sequential_offers` by making depth itself the
-main axis of the scene.
 
 ### commit_now_future_payoff
 
@@ -632,7 +686,7 @@ Common fill rules include:
 - shared timing or trigger
 - shared burden across all options
 - explicit refusal option
-- explicit stop-or-continue after each pick
+- explicit decision-tree branch labels and terminal outcomes
 - bounded random envelope
 - visible delayed payoff
 - bounded subset size (any subset, up to N, or exactly K of N)
@@ -772,8 +826,8 @@ Validation should reject patterns such as:
   future value with no compensating upside
 - a one-target surgery menu where one button is an upgrade path and another is
   just self-sabotage on the same target
-- an open-pick or repeatable-pick scene where every additional acceptance is
-  pure upside, making "take everything" the only sensible play
+- an open-pick, repeated-draw, or decision-tree scene where every additional
+  acceptance is pure upside, making "take everything" the only sensible play
 
 Negative-only options are appropriate only in `choose_your_loss` or scenes whose
 entire premise is selecting which harm to absorb. A `leave` or `refuse` branch
@@ -797,6 +851,8 @@ V1 presentation patterns should include:
   bounded follow-up choice after entry
 - visible future promise: the root option displays a delayed package and its
   trigger up front
+- complete decision tree: every node, stop branch, continue branch, chance
+  branch, terminal reward, and terminal failure is shown up front
 
 ### Payload Surfaces With Separate V1 Scope Decisions
 
@@ -940,6 +996,13 @@ out of step with the marginal payoff, especially when one option escalates from
 essence to Banes or Nightmares. Route validation should reject route edits that
 present neutral or negative site additions as standalone rewards.
 
+Decision-tree validation should additionally check that every non-terminal node
+has explicit outgoing branches, every branch has a visible condition or choice
+label, every terminal branch states what ends the Journey, and every random
+branch has precommitted or bounded odds. A true sequential shape is invalid if
+reviewing only the root option leaves the player unable to reconstruct the
+later choices.
+
 ### 8. Repair
 
 If validation fails, repair in this order:
@@ -967,6 +1030,8 @@ Good examples:
 - gain this premium dreamsign and two visible Banes
 - receive this visible reward after your next victory
 - reach deeper up to three times, with each reach adding a visible burden
+- view a complete three-level tree where every stop, continue, success, and
+  failure branch is visible before entry
 
 Bad examples:
 
@@ -987,6 +1052,8 @@ Good root presentation includes:
 - additional popups for referenced cards, Dreamsigns, Banes, or similar objects
 - explicit wording when entry leads to another bounded menu instead of
   immediately applying the effect
+- a complete tree presentation for true sequential Journeys, instead of hiding
+  later levels behind follow-up clicks
 
 ### Presentation Rules
 
@@ -998,6 +1065,7 @@ V1 should follow a small set of presentation rules:
   outcome class and stake envelope
 - allow a visible delayed package with a visible trigger
 - allow bounded random outcomes only inside an explicit envelope
+- display every branch of a sequential Journey before the player commits
 - prefer pre-rolled visible outcomes when showing the exact roll makes the
   option materially more legible
 

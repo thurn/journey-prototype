@@ -348,7 +348,7 @@
 
 - For the next 3 battles, draw 1 extra card in your opening hand.
 - For the next 3 battles, gain 1 extra energy on turn 1.
-- For the next 3 battles, your first characte each turn enters with +1 spark.
+- For the next 3 battles, your first character each turn enters with +1 spark.
 
 ## After Next Battle
 
@@ -358,137 +358,247 @@
 
 # take_any_number
 
-## Open Cache
+## Toll Cache
 
-- First pull:
-  - Gain 40 essence and gain 1 {Nightmare}.
-  - Stop here.
-- Second pull:
-  - Purge a Bane and gain 1 {Nightmare}.
-  - Stop here.
-- Third pull:
-  - Gain {Aspiring Guardian} and gain 1 {Nightmare}.
-  - Stop here.
+- Pay 10% of your essence. Gain a Dreamsign.
+- Pay 10% of your essence. Apply {Viridian Transfiguration} to a chosen card.
+- Pay 10% of your essence. Purge 2 chosen starter cards.
+- Leave.
 
 ## Pick Two Tools
 
-- First tool:
-  - Pay 25 essence. Purge a chosen starter card.
-  - Stop here.
-- Second tool:
-  - Duplicate {Aspiring Guardian}. Pay 55 essence.
-  - Stop here.
+- Pay 25 essence. Purge a chosen starter card.
+- Pay 25 essence. Duplicate {Aspiring Guardian}.
+- Pay 25 essence. Choose 1 of 3 Dreamsigns.
+- Leave after taking up to 2 tools.
 
 ## Troubled Charms
 
-- First charm:
-  - Gain 1 {Nightmare}. After 2 battles, purge it and gain {Ginger Root}.
-  - Stop here.
-- Second charm:
-  - Gain 1 {Despair}. After 2 battles, purge it and gain {Silver Key}.
-  - Stop here.
-- Third charm:
-  - Gain 1 {Oblivion}. After 2 battles, purge it and apply {Golden
-    Transfiguration} to a chosen card.
-  - Stop here.
+- Gain 1 {Nightmare}. After 2 battles, purge it and gain {Ginger Root}.
+- Gain 1 {Despair}. After 2 battles, purge it and gain {Silver Key}.
+- Gain 1 {Oblivion}. After 2 battles, purge it and apply {Golden
+  Transfiguration} to a chosen card.
+- Leave.
 
-## Dream Conveyor
+# prize_ladder
 
-- First pull:
-  - Pay 35 essence. Gain 1 omen.
-  - Stop here.
-- Second pull:
-  - Pay 70 essence. Draft 1 of 8 cards.
-  - Stop here.
-- Third pull:
-  - Pay 105 essence. Apply {Golden Transfiguration} to a chosen starter card.
-  - Stop here.
+## Omen Stair
 
-## Measured Greed
+- Level 1:
+  - Stop: gain 1 omen.
+  - Continue: pay 35 essence and go to Level 2.
+- Level 2:
+  - Stop: gain 2 omens.
+  - Continue: pay 70 essence and go to Level 3.
+- Level 3:
+  - Stop: gain 3 omens.
+  - Claim: pay 100 essence and choose 1 of 3 Dreamsigns.
 
-- First pick:
-  - Pay 10 essence. Gain 35 essence.
-  - Stop here.
-- Second pick:
-  - Gain 220 essence. Gain 1 {Nightmare}.
-  - Stop here.
-- Third pick:
-  - Gain 420 essence. Gain 2 copies of {Nightmare}.
-  - Stop here.
+## Golden Descent
 
-## Layered Cleansing
+- Level 1:
+  - Stop: apply {Viridian Transfiguration} to a chosen starter card.
+  - Continue: pay 30 essence and go to Level 2.
+- Level 2:
+  - Stop: apply {Viridian Transfiguration} to 2 chosen starter cards.
+  - Continue: pay 60 essence and go to Level 3.
+- Level 3:
+  - Stop: apply {Viridian Transfiguration} to 3 chosen starter cards.
+  - Claim: pay 100 essence and apply {Golden Transfiguration} to 3 chosen
+    cards.
 
-- First pick:
-  - Pay 20 essence. Purge a chosen starter card.
-  - Stop here.
-- Second pick:
-  - Purge a chosen card. Pay 40 essence.
-  - Stop here.
-- Third pick:
-  - Purge up to 3 chosen cards. Pay 110 essence.
-  - Stop here.
+## Deep Draft Promise
 
-# repeat_to_scale
+- Level 1:
+  - Stop: draft 1 of 4 cards.
+  - Continue: pay 25 essence and go to Level 2.
+- Level 2:
+  - Stop: draft 1 of 8 cards.
+  - Continue: pay 50 essence and go to Level 3.
+- Level 3:
+  - Stop: draft 1 of 12 cards.
+  - Claim: pay 90 essence and draft 2 of 12 cards.
 
-## Echoing Fissure
+# probability_ladder
 
-- Duplicate 1 chosen card.
-- Gain 1 {Nightmare}. Duplicate a chosen card 2 times.
-- Purge a random card. Duplicate a chosen card 3 times.
+## Sign In The Fog
 
-## Scale The Draft
+- Level 1:
+  - Stop: leave.
+  - Attempt: pay 25 essence for a 25% chance to gain a Dreamsign.
+    - Success: gain the Dreamsign and end the Journey.
+    - Failure: go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Attempt: pay 45 essence for a 45% chance to gain a Dreamsign.
+    - Success: gain the Dreamsign and end the Journey.
+    - Failure: go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Attempt: pay 70 essence for a 70% chance to gain a Dreamsign.
+    - Success: gain the Dreamsign and end the Journey.
+    - Failure: end the Journey.
 
-- Pay 25 essence. Draft 1 of 8 cards.
-- Pay 50 essence. Draft 2 of 8 cards.
-- Pay 75 essence. Draft 3 of 8 cards.
+## Repeated Knock
 
-## Widen The Rewrite
+- Level 1:
+  - Stop: leave.
+  - Attempt: pay 40 essence for a 30% chance to gain {Ginger Root}.
+    - Success: gain {Ginger Root} and end the Journey.
+    - Failure: go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Attempt: pay 40 essence for a 55% chance to gain {Ginger Root}.
+    - Success: gain {Ginger Root} and end the Journey.
+    - Failure: go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Attempt: pay 40 essence for an 80% chance to gain {Ginger Root}.
+    - Success: gain {Ginger Root} and end the Journey.
+    - Failure: end the Journey.
 
-- Pay 30 essence. Apply {Golden Transfiguration} to 1 chosen card.
-- Pay 60 essence. Apply {Golden Transfiguration} to 2 chosen cards.
-- Pay 90 essence. Apply {Golden Transfiguration} to 3 chosen cards.
+## Stubborn Door
+
+- Level 1:
+  - Stop: leave.
+  - Attempt: pay 20 essence for a 35% chance to purge a chosen Bane.
+    - Success: purge the Bane and end the Journey.
+    - Failure: go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Attempt: pay 35 essence for a 35% chance to purge the same chosen Bane.
+    - Success: purge the Bane and end the Journey.
+    - Failure: go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Attempt: pay 55 essence for a 35% chance to purge the same chosen Bane.
+    - Success: purge the Bane and end the Journey.
+    - Failure: end the Journey.
+
+# random_pool_draws
+
+## Six Sealed Lights
+
+- Level 1:
+  - Stop: leave.
+  - Draw: pay 50 essence and gain a random reward from the pool, then go to
+    Level 2.
+- Level 2:
+  - Stop: leave.
+  - Draw: pay 50 essence and gain a random reward from the same pool, then go
+    to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Draw: pay 50 essence and gain a random reward from the same pool, then end
+    the Journey.
+- Pool: a Dreamsign, an event card, {Scarlet Transfiguration}, 2 omens, 75
+  essence, or purge a starter card.
+
+## Omen Bowl
+
+- Level 1:
+  - Stop: leave.
+  - Draw: pay 1 omen and gain a random reward from the pool, then go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Draw: pay 1 omen and gain a random reward from the same pool, then go to
+    Level 3.
+- Level 3:
+  - Stop: leave.
+  - Draw: pay 1 omen and gain a random reward from the same pool, then end the
+    Journey.
+- Pool: 90 essence, duplicate a chosen card, purge a Bane, choose 1 of 2
+  Dreamsigns, or apply {Viridian Transfiguration} to a random card.
 
 # push_your_luck
 
-## Haggler's Cache
+## Dreamsign Brink
 
-- First offer:
-  - Draft 1 of 5 cards from a random visible class: character, event, or fast.
-  - Stop here.
-- Second haggle:
-  - 75% chance to draft 1 of 5 cards from one of the remaining classes.
-    Otherwise, the Journey ends.
-  - Stop here.
-- Third haggle:
-  - 50% chance to draft 1 of 5 cards from the last remaining class. Otherwise,
-    the Journey ends.
-  - Stop here.
+- Level 1:
+  - Stop: leave.
+  - Take: gain a random Dreamsign and end the Journey.
+  - Push: 25% chance to end the Journey; otherwise go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: gain {Ginger Root} and end the Journey.
+  - Push: 45% chance to end the Journey; otherwise go to Level 3.
+- Level 3:
+  - Take: choose 1 of 3 Dreamsigns and end the Journey.
 
-## Chase The Upgrade
+## Bright Bite
 
-- First push:
-  - Apply {Viridian Transfiguration} to a chosen card.
-  - Stop here.
-- Second push:
-  - Apply {Viridian Transfiguration} to a second chosen card. 30% chance to gain
-    1 {Nightmare}.
-  - Stop here.
-- Third push:
-  - Apply {Viridian Transfiguration} to a third chosen card. 55% chance to gain
-    1 {Nightmare}.
-  - Stop here.
+- Level 1:
+  - Stop: leave.
+  - Take: gain a random reward from the pool.
+    - Hazard: 25% chance to gain {Despair} and end the Journey.
+    - Safe: go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: gain a random reward from the pool.
+    - Hazard: 45% chance to gain {Despair} and end the Journey.
+    - Safe: go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Take: gain a random reward from the pool.
+    - Hazard: 65% chance to gain {Despair} and end the Journey.
+    - Safe: end the Journey.
+- Pool: 50 essence, a Dreamsign, or 1 omen. Rewards do not repeat.
 
-## Press The Draw
+## Last Mirror
 
-- First push:
-  - Draft 1 of 5 cards.
-  - Stop here.
-- Second push:
-  - Draft 1 of 7 cards. 35% chance to purge a random card.
-  - Stop here.
-- Third push:
-  - Draft 1 of 9 cards. 60% chance to purge a random card.
-  - Stop here.
+- Level 1:
+  - Stop: leave.
+  - Take: apply {Viridian Transfiguration} to a random card and end the Journey.
+  - Push: 30% chance to end the Journey; otherwise go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: apply {Viridian Transfiguration} to 2 random cards and end the
+    Journey.
+  - Push: 55% chance to end the Journey; otherwise go to Level 3.
+- Level 3:
+  - Take: apply {Golden Transfiguration} to 2 chosen cards and end the Journey.
+
+# escalating_reward_chain
+
+## Transfiguration Spiral
+
+- Level 1:
+  - Stop: leave.
+  - Take: pay 10 essence, transfigure a random card, then go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: pay 20 essence, transfigure a random card, then go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Take: pay 40 essence, transfigure a random card, then go to Level 4.
+- Level 4:
+  - Stop: leave.
+  - Take: pay all essence and transfigure all cards in your deck.
+
+## Starter Furnace
+
+- Level 1:
+  - Stop: leave.
+  - Take: pay 20 essence and purge a chosen starter card, then go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: pay 40 essence and purge a chosen starter card, then go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Take: pay 80 essence and purge 2 chosen starter cards, then end the
+    Journey.
+
+## Omen Thread
+
+- Level 1:
+  - Stop: leave.
+  - Take: pay 15 essence and gain 1 omen, then go to Level 2.
+- Level 2:
+  - Stop: leave.
+  - Take: pay 30 essence and gain 1 omen, then go to Level 3.
+- Level 3:
+  - Stop: leave.
+  - Take: pay 60 essence and gain 2 omens, then end the Journey.
 
 # resolved_random_series
 
@@ -518,66 +628,6 @@
 
 - Roll for one: {Azure Transfiguration}, {Bronze Transfiguration}, or {Golden
   Transfiguration}. Apply the result to {Glimpse of What Was}.
-
-# sequential_offers
-
-## Passing Merchant
-
-- Offer 1:
-  - Sell {Aspiring Guardian} for 50 essence.
-  - Keep your deck unchanged.
-- Offer 2:
-  - Sell {Aspiring Guardian} for 65 essence.
-  - Keep your deck unchanged.
-- Offer 3:
-  - Sell {Aspiring Guardian} for 80 essence.
-  - Keep your deck unchanged.
-
-## Three Proposals
-
-- Offer 1:
-  - Transform {Aspiring Guardian} into {Beacon of Tomorrow}.
-  - Keep {Aspiring Guardian}.
-- Offer 2:
-  - Transform {Aspiring Guardian} into {Scrap Reclaimer}.
-  - Keep {Aspiring Guardian}.
-- Offer 3:
-  - Transform {Aspiring Guardian} into {Evacuation Enforcer}.
-  - Keep {Aspiring Guardian}.
-
-## Browsing Shrine
-
-- Offer 1:
-  - Gain {Ginger Root} for 50 essence.
-  - Leave.
-- Offer 2:
-  - Gain {Pyramid Relic} for 50 essence.
-  - Leave.
-- Offer 3:
-  - Gain {Golden Acorn} for 50 essence.
-  - Leave.
-
-# escalating_search
-
-## Deeper Draft
-
-- Search the first layer for 1 of 4 cards.
-- Search deeper for 1 of 7 cards. Pay 45 essence.
-- Search deepest for 2 of 10 cards. Pay 120 essence.
-
-## Buried Spark
-
-- Dig for 40 essence.
-- Dig deeper for 80 essence. Purge a random card.
-- Dig deepest for 140 essence. Purge 2 random cards.
-
-## Pollinous Core
-
-- Open the outer bloom for 35 essence. Draft 1 of 5 cards.
-- Press into the bright bloom for 75 essence or gain 1 {Nightmare}. Draft 1 of 8
-  cards.
-- Reach the hidden core for 135 essence or gain 2 copies of {Nightmare}. Gain
-  {Ginger Root}.
 
 # commit_now_future_payoff
 
