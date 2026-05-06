@@ -192,6 +192,25 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("fills linked root menus to three choices in the default run context", async () => {
+    const journeyContext = await context();
+    const linkedMenuShapeIds: JourneyShapeId[] = [
+      "same_reward_different_costs",
+      "shop_row",
+      "one_target_many_operations",
+      "mirrored_operations",
+      "one_operation_many_targets",
+    ];
+
+    for (const shapeId of linkedMenuShapeIds) {
+      const manifest = fillForShape(shapeId, journeyContext);
+
+      expect(manifest.options, shapeId).toHaveLength(3);
+      expect(manifest.options.map((option) => option.number), shapeId).toEqual([1, 2, 3]);
+      expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
+    }
+  });
+
   it("never exposes tide terminology in generated ability text", async () => {
     const journeyContext = await context();
 

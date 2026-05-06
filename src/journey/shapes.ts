@@ -48,7 +48,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v3";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v4";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",

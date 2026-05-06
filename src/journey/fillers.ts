@@ -473,6 +473,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
   precommitted: PrecommittedOutcomes;
 } {
   const payablePrice = Math.min(30, context.state.quest.resources.essence);
+  const premiumPrice = Math.min(45, context.state.quest.resources.essence);
 
   switch (shapeId) {
     case "random_allocation":
@@ -494,6 +495,15 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             cost: payablePrice,
             effect: valueCardDraft(draftCards(4)) + valueOmenGain(1),
+          }),
+          option({
+            number: 3,
+            text: `Pay ${premiumPrice} essence. Draft 1 of 6 cards. Gain 1 omen.`,
+            costs: [cost("essence", premiumPrice)],
+            effects: [draftCards(6), gainOmen(1)],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+            cost: premiumPrice,
+            effect: valueCardDraft(draftCards(6)) + valueOmenGain(1),
           }),
         ],
         precommitted: {},
@@ -521,7 +531,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
       };
     case "shop_row":
       return {
-        options: [paidDraft(1, 45, 6), paidDraft(2, 65, 8)],
+        options: [paidDraft(1, 45, 6), paidDraft(2, 65, 8), paidDraft(3, 85, 10)],
         precommitted: {},
       };
     case "curated_reward_trio":
@@ -557,6 +567,13 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 70,
           }),
+          option({
+            number: 3,
+            text: `Add Reclaim 1 to ${chosenCardText()}.`,
+            effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1 }],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+            effect: 75,
+          }),
         ],
         precommitted: {},
       };
@@ -587,6 +604,13 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
+          option({
+            number: 3,
+            text: `Apply Golden to ${chosenCardText()}.`,
+            effects: [{ kind: "transfiguration", transfigurationName: "Golden" }],
+            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+            effect: 85,
+          }),
         ],
         precommitted: {},
       };
@@ -605,6 +629,13 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             text: "Apply Viridian to a chosen Starter card.",
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
             targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
+            effect: 85,
+          }),
+          option({
+            number: 3,
+            text: "Apply Viridian to a chosen card in your deck.",
+            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
+            targets: [target("card", "cards in deck", { source: "deck" })],
             effect: 85,
           }),
         ],
