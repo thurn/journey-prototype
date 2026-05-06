@@ -360,27 +360,37 @@
 
 ## Open Cache
 
-- Choose any number. For each reward you take, gain 1 {Nightmare}:
-  - Gain 40 essence.
-  - Purge a Bane.
-  - Gain {Aspiring Guardian}.
+- First pull:
+  - Gain 40 essence and gain 1 {Nightmare}.
+  - Stop here.
+- Second pull:
+  - Purge a Bane and gain 1 {Nightmare}.
+  - Stop here.
+- Third pull:
+  - Gain {Aspiring Guardian} and gain 1 {Nightmare}.
+  - Stop here.
 
 ## Pick Two Tools
 
-- Choose 2:
-  - Purge a chosen starter card.
-  - Duplicate {Aspiring Guardian}.
-  - Apply {Golden Transfiguration} to {Aspiring Guardian}.
+- First tool:
+  - Pay 25 essence. Purge a chosen starter card.
+  - Stop here.
+- Second tool:
+  - Duplicate {Aspiring Guardian}. Pay 55 essence.
+  - Stop here.
 
 ## Troubled Charms
 
-- Choose any number:
+- First charm:
   - Gain 1 {Nightmare}. After 2 battles, purge it and gain {Ginger Root}.
+  - Stop here.
+- Second charm:
   - Gain 1 {Despair}. After 2 battles, purge it and gain {Silver Key}.
+  - Stop here.
+- Third charm:
   - Gain 1 {Oblivion}. After 2 battles, purge it and apply {Golden
     Transfiguration} to a chosen card.
-
-# take_up_to_n
+  - Stop here.
 
 ## Dream Conveyor
 
@@ -397,7 +407,7 @@
 ## Measured Greed
 
 - First pick:
-  - Gain 35 essence.
+  - Pay 10 essence. Gain 35 essence.
   - Stop here.
 - Second pick:
   - Gain 220 essence. Gain 1 {Nightmare}.
@@ -409,7 +419,7 @@
 ## Layered Cleansing
 
 - First pick:
-  - Purge a chosen starter card.
+  - Pay 20 essence. Purge a chosen starter card.
   - Stop here.
 - Second pick:
   - Purge a chosen card. Pay 40 essence.

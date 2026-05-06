@@ -13,6 +13,7 @@ import {
 import type { JourneyManifest, JourneyOption } from "./manifest.js";
 import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
 import { getShapeDefinition } from "./shapes.js";
+import { LOSS_CHOICE_VALUE_CONSTANTS } from "./value.js";
 
 export type ValidationResult =
   | { ok: true }
@@ -308,6 +309,28 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
   return { ok: true };
 }
 
+function validateChooseYourLossValues(nets: readonly number[]): ValidationResult {
+  if (nets.some((net) => net >= 0)) {
+    return fail("invalid_positive_negative_framing", "choose_your_loss options must be negative outcomes");
+  }
+
+  const magnitudes = nets
+    .map((net) => Math.abs(net))
+    .sort((left, right) => left - right);
+  const lowest = magnitudes[0] ?? 0;
+  const highest = magnitudes[magnitudes.length - 1] ?? 0;
+
+  if (lowest < LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude) {
+    return fail("loss_not_comparable", "choose_your_loss options must use meaningful loss magnitudes");
+  }
+
+  if (highest / lowest > LOSS_CHOICE_VALUE_CONSTANTS.maximumComparableRatio) {
+    return fail("loss_not_comparable", "choose_your_loss options must be comparable damage-control choices");
+  }
+
+  return { ok: true };
+}
+
 function looksLikeInventedTitle(prefix: string): boolean {
   const words = prefix.trim().split(/\s+/u);
 
@@ -438,6 +461,7 @@ function validateSequenceMenu(
   context: JourneyContext,
   path: string,
   maxSteps: number | undefined,
+  shapeId: JourneyManifest["shapeId"],
 ): ValidationResult {
   if (!Array.isArray(menu) || menu.length === 0) {
     return fail("invalid_sequence_menu", `${path} must be a non-empty JourneyOption[]`);
@@ -487,6 +511,31 @@ function validateSequenceMenu(
     return fail("sequence_advances_past_cap", `${path} cannot advance past maxSteps`);
   }
 
+  if (shapeId === "take_any_number") {
+    for (const entry of menu) {
+      if (
+        !isRecord(entry) ||
+        typeof entry.text !== "string" ||
+        !/^take\b/iu.test(entry.text)
+      ) {
+        continue;
+      }
+
+      const hasLimitingStructure =
+        (Array.isArray(entry.costs) && entry.costs.length > 0) ||
+        (Array.isArray(entry.burdens) && entry.burdens.length > 0) ||
+        (typeof entry.uncertaintyConvertedEssence === "number" &&
+          entry.uncertaintyConvertedEssence < 0);
+
+      if (!hasLimitingStructure) {
+        return fail(
+          "open_pick_without_limiting_structure",
+          `${path} has a take option without a cost, burden, or risk`,
+        );
+      }
+    }
+  }
+
   return { ok: true };
 }
 
@@ -499,7 +548,13 @@ function validateSequenceMenus(
   }
 
   for (const [key, menu] of Object.entries(manifest.precommitted.sequenceMenus)) {
-    const result = validateSequenceMenu(menu, context, key, manifest.sequence?.maxSteps);
+    const result = validateSequenceMenu(
+      menu,
+      context,
+      key,
+      manifest.sequence?.maxSteps,
+      manifest.shapeId,
+    );
 
     if (!result.ok) {
       return result;
@@ -580,8 +635,10 @@ export function validateJourneyManifest(
     .map((journeyOption) => journeyOption.netConvertedEssence);
 
   if (manifest.shapeId === "choose_your_loss") {
-    if (nets.some((net) => net > 0)) {
-      return fail("invalid_positive_negative_framing", "choose_your_loss cannot contain positive options");
+    const lossResult = validateChooseYourLossValues(nets);
+
+    if (!lossResult.ok) {
+      return lossResult;
     }
   } else if (nets.length > 0 && nets.every((net) => net < 0)) {
     return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
@@ -618,6 +675,18 @@ export function validateJourneyManifest(
       option.pickBehavior === "complete_sequence" || option.pickBehavior === "leave"
     )) {
       return fail("missing_sequence_terminal_option", "Sequential shapes require a stop, complete, or leave option");
+    }
+
+    const currentSequenceMenuResult = validateSequenceMenu(
+      manifest.options,
+      context,
+      sequenceMenuKey(manifest.sequence.step),
+      manifest.sequence.maxSteps,
+      manifest.shapeId,
+    );
+
+    if (!currentSequenceMenuResult.ok) {
+      return currentSequenceMenuResult;
     }
 
     const sequenceMenusResult = validateSequenceMenus(manifest, context);

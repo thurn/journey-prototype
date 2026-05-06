@@ -29,7 +29,6 @@ const expectedShapeIds = [
   "paired_return",
   "timed_window_menu",
   "take_any_number",
-  "take_up_to_n",
   "repeat_to_scale",
   "push_your_luck",
   "resolved_random_series",
@@ -60,11 +59,11 @@ function minimalContent(): ContentBundle {
 }
 
 describe("JOURNEY_SHAPES", () => {
-  it("contains the exact canonical V2 shape IDs once and in catalog order", () => {
+  it("contains the exact canonical V3 shape IDs once and in catalog order", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(29);
+    expect(actualShapeIds).toHaveLength(28);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -129,16 +128,16 @@ describe("JOURNEY_SHAPES", () => {
       content: minimalContent(),
       journeyCatalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
       canonicalShapeDefinitions: canonicalShapeDefinitions(),
-      effectCatalogVersion: "effects:v1",
-      valueModelVersion: "value:v1",
-      valueModelContribution: { version: "value:v1" },
+      effectCatalogVersion: "effects:v2",
+      valueModelVersion: "value:v2",
+      valueModelContribution: { version: "value:v2" },
       manifestSchemaVersion: 1,
       rendererVersion: "renderer:v1",
       questInitializationVersion: "quest-init:v1",
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v2;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v3;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

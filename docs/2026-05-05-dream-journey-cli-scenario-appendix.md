@@ -240,8 +240,8 @@ Related acceptance criteria:
 
 Preconditions:
 
-`.journey/state.json` contains pending Journey `J-000014`, a `take_up_to_n`
-Journey at step 1 of 3. Debug output is enabled.
+`.journey/state.json` contains pending Journey `J-000014`, a
+`take_any_number` Journey at step 1 of 2. Debug output is enabled.
 
 Action:
 
@@ -252,31 +252,32 @@ $ journey pick 1
 Stdout:
 
 ```text
-Selected 1. ◆ Gain 35 essence.
+Selected 1. * Take cache reward 1: pay 15 essence. Gain 1 omen, then choose whether to take the final reward.
 
 Dream Journey
 Quest: Vaela, Ember Among Remnants
 Essence: 120/500    Omens: 1    Dreamscape: 0
 
-1. ◆ ◇ Pay 70 essence. Draft 1 of 8 cards.
-2. Leave.
+1. * Take final cache reward: purge up to 1 chosen Starter card and gain 1 Nightmare.
+2. * End the sequence and keep all committed step rewards.
 
 Debug
 Seed: default
 Journey: J-000014
-Selected shape: take_up_to_n
-Recorded step: 1 of 3
+Selected shape: take_any_number
+Recorded step: 1 of 2
 Recorded pick: 1
 Effect simulation: not applied
-Sequence status: advanced to step 2 of 3
+Sequence status: advanced to step 2 of 2
 
-1. Cost: Pay 70 essence = 70 converted essence.
-   Effect: Draft 1 of 8 cards = 105 converted essence.
-   Net: +35 converted essence.
+1. Cost: none = 0 converted essence.
+   Effect: purge up to 1 chosen Starter card = 85 converted essence.
+   Burden: gain 1 Nightmare = -125 converted essence.
+   Net: -40 converted essence.
 
 2. Cost: none = 0 converted essence.
-   Effect: leave this Journey = 0 converted essence.
-   Net: +0 converted essence.
+   Effect: gain 25 essence = 25 converted essence.
+   Net: +25 converted essence.
 
 Run `journey pick 1` or `journey pick 2`.
 ```

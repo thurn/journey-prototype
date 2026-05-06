@@ -18,7 +18,18 @@ import type {
 import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
 import { getShapeDefinition, type JourneyShapeId } from "./shapes.js";
 import { symbolsForOption } from "./symbols.js";
-import { evaluateOptionValue, type ValueBreakdown } from "./value.js";
+import {
+  commonEssenceRewardAmount,
+  evaluateOptionValue,
+  LOSS_CHOICE_VALUE_CONSTANTS,
+  valueBaneGain,
+  valueCardDraft,
+  valueDreamsignDraft,
+  valueEssenceGain,
+  valueOmenGain,
+  valueOmenLoss,
+  type ValueBreakdown,
+} from "./value.js";
 import { shuffleDeterministic, type DrawContext } from "../util/rng.js";
 
 type BuildArgs = {
@@ -110,8 +121,8 @@ function selectedDreamsignTargets(context: JourneyContext, drawContext: DrawCont
   );
 }
 
-const CARD_POOL_TARGET_DESCRIPTION = "cards from the card pool";
-const DREAMSIGN_POOL_TARGET_DESCRIPTION = "Dreamsigns from the Dreamsign pool";
+const CARD_POOL_TARGET_DESCRIPTION = "eligible draft cards";
+const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
 
 function target(kind: "card" | "dreamsign", description: string, predicate: unknown) {
   return {
@@ -142,6 +153,18 @@ function gainOmen(amount: number) {
     kind: "gain_omens",
     amount,
   };
+}
+
+function cardDraftText(choiceCount: number, takeCount = 1): string {
+  return `Draft ${takeCount} of ${choiceCount} cards.`;
+}
+
+function dreamsignDraftText(choiceCount: number): string {
+  return `Choose 1 of ${choiceCount} Dreamsigns.`;
+}
+
+function chosenCardText(): string {
+  return "a chosen card";
 }
 
 function draftCards(choiceCount: number) {
@@ -177,6 +200,24 @@ function nightmare(count: number) {
   };
 }
 
+function comparableEssenceLossAmount(comparisonLosses: readonly number[], availableEssence: number): number | null {
+  const magnitudes = comparisonLosses
+    .map((loss) => Math.abs(loss))
+    .filter((loss) => loss >= LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude)
+    .sort((left, right) => left - right);
+
+  if (magnitudes.length === 0) {
+    return null;
+  }
+
+  const lowest = magnitudes[0]!;
+  const highest = magnitudes[magnitudes.length - 1]!;
+  const target = Math.round(((lowest + highest) / 2) / 5) * 5;
+  const payable = Math.min(target, availableEssence);
+
+  return payable >= LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude ? payable : null;
+}
+
 function referencesFor(content: ContentBundle, cardIds: readonly string[], dreamsignIds: readonly string[]): ManifestReferences {
   const dreamcallerIds = content.dreamcallers.map((dreamcaller) => dreamcaller.id);
 
@@ -189,39 +230,45 @@ function referencesFor(content: ContentBundle, cardIds: readonly string[], dream
 }
 
 function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
+  const essenceAmount = commonEssenceRewardAmount(context);
+  const cardDraft = draftCards(6);
+  const dreamsignChoice = dreamsignDraft(3);
+
   return [
     option({
       number: 1,
-      text: "Gain 45 essence.",
-      effects: [gainEssence(45)],
-      effect: 45,
+      text: `Gain ${essenceAmount} essence.`,
+      effects: [gainEssence(essenceAmount)],
+      effect: valueEssenceGain(essenceAmount, context),
     }),
     option({
       number: 2,
-      text: "Draft 1 of 6 cards from the card pool.",
-      effects: [draftCards(6)],
+      text: cardDraftText(6),
+      effects: [cardDraft],
       targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-      effect: 80,
+      effect: valueCardDraft(cardDraft),
     }),
     option({
       number: 3,
-      text: "Choose one of 3 Dreamsigns from the Dreamsign pool.",
-      effects: [dreamsignDraft(3)],
+      text: dreamsignDraftText(3),
+      effects: [dreamsignChoice],
       targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-      effect: 120,
+      effect: valueDreamsignDraft(dreamsignChoice, context),
     }),
   ].slice(0, context.state.quest.dreamsignPoolIds.length > 0 ? 3 : 2);
 }
 
 function paidDraft(number: number, price: number, choices: number): JourneyOption {
+  const cardDraft = draftCards(choices);
+
   return option({
     number,
-    text: `Pay ${price} essence. Draft 1 of ${choices} cards from the card pool.`,
+    text: `Pay ${price} essence. ${cardDraftText(choices)}`,
     costs: [cost("essence", price)],
-    effects: [draftCards(choices)],
+    effects: [cardDraft],
     targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
     cost: price,
-    effect: 75 + choices * 4,
+    effect: valueCardDraft(cardDraft),
   });
 }
 
@@ -253,20 +300,26 @@ function sequenceRewardText(shapeId: JourneyShapeId, step: number): string {
 
   if (shapeId === "sequential_offers") {
     return step === 1
-      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 cards from the card pool, then see the final offer."
-      : "Accept final offer: pay 35 essence. Draft 1 of 8 cards from the card pool.";
+      ? "Accept offer 1: pay 20 essence. Draft 1 of 4 cards, then see the final offer."
+      : "Accept final offer: pay 35 essence. Draft 1 of 8 cards.";
   }
 
   if (shapeId === "escalating_search") {
     return step === 1
       ? "Search layer 1: pay 15 essence. Gain 40 essence, then reveal the deeper layer."
-      : "Search layer 2: pay 35 essence. Draft 1 of 8 cards from the card pool and gain 1 omen.";
+      : "Search layer 2: pay 35 essence. Draft 1 of 8 cards and gain 1 omen.";
   }
 
   if (shapeId === "repeat_to_scale") {
     return step === 1
       ? "Invest once: pay 20 essence. Commit a 55 essence payout, then choose whether to scale it."
       : "Scale the payout: pay 35 essence. Commit a 120 essence payout.";
+  }
+
+  if (shapeId === "take_any_number") {
+    return step === 1
+      ? "Take cache reward 1: pay 15 essence. Gain 1 omen, then choose whether to take the final reward."
+      : "Take final cache reward: purge up to 1 chosen Starter card and gain 1 Nightmare.";
   }
 
   return step === 1
@@ -295,32 +348,34 @@ function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext
 
   if (shapeId === "sequential_offers") {
     const price = Math.min(step === 1 ? 20 : 35, context.state.quest.resources.essence);
+    const cardDraft = draftCards(step === 1 ? 4 : 8);
 
     return option({
       number: 1,
       text: sequenceRewardText(shapeId, step),
       costs: [cost("essence", price)],
-      effects: [draftCards(step === 1 ? 4 : 8)],
+      effects: [cardDraft],
       targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
       cost: price,
-      effect: step === 1 ? 70 : 115,
+      effect: valueCardDraft(cardDraft),
       pickBehavior,
     });
   }
 
   if (shapeId === "escalating_search") {
     const price = Math.min(step === 1 ? 15 : 35, context.state.quest.resources.essence);
+    const cardDraft = draftCards(8);
 
     return option({
       number: 1,
       text: sequenceRewardText(shapeId, step),
       costs: [cost("essence", price)],
-      effects: step === 1 ? [gainEssence(40)] : [draftCards(8), gainOmen(1)],
+      effects: step === 1 ? [gainEssence(40)] : [cardDraft, gainOmen(1)],
       targets: step === 2
         ? [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })]
         : [],
       cost: price,
-      effect: step === 1 ? 40 : 150,
+      effect: step === 1 ? valueEssenceGain(40, context) : valueCardDraft(cardDraft) + valueOmenGain(1),
       uncertainty: step === 2 ? -10 : 0,
       pickBehavior,
     });
@@ -336,6 +391,25 @@ function sequenceContinueOption(shapeId: JourneyShapeId, context: JourneyContext
       effects: [gainEssence(step === 1 ? 55 : 120)],
       cost: price,
       effect: step === 1 ? 55 : 120,
+      pickBehavior,
+    });
+  }
+
+  if (shapeId === "take_any_number") {
+    const price = Math.min(15, context.state.quest.resources.essence);
+
+    return option({
+      number: 1,
+      text: sequenceRewardText(shapeId, step),
+      costs: step === 1 ? [cost("essence", price)] : [],
+      effects: step === 1 ? [gainOmen(1)] : [starterCleanup(1)],
+      burdens: step === 2 ? [nightmare(1)] : [],
+      targets: step === 2
+        ? [target("card", "Starter cards in deck", { source: "deck", starter: true })]
+        : [],
+      cost: step === 1 ? price : 0,
+      effect: step === 1 ? valueOmenGain(1) : 85,
+      burden: step === 2 ? -125 : 0,
       pickBehavior,
     });
   }
@@ -414,12 +488,12 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
           paidDraft(1, Math.min(20, context.state.quest.resources.essence), 4),
           option({
             number: 2,
-            text: `Pay ${payablePrice} essence. Draft 1 of 4 cards from the card pool. Gain 1 omen.`,
+            text: `Pay ${payablePrice} essence. Draft 1 of 4 cards. Gain 1 omen.`,
             costs: [cost("essence", payablePrice)],
             effects: [draftCards(4), gainOmen(1)],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             cost: payablePrice,
-            effect: 140,
+            effect: valueCardDraft(draftCards(4)) + valueOmenGain(1),
           }),
         ],
         precommitted: {},
@@ -437,10 +511,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
           paidDraft(2, Math.min(25, context.state.quest.resources.essence), 6),
           option({
             number: 3,
-            text: "Choose one of 3 Dreamsigns from the Dreamsign pool.",
+            text: dreamsignDraftText(3),
             effects: [dreamsignDraft(3)],
             targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-            effect: 120,
+            effect: valueDreamsignDraft(dreamsignDraft(3), context),
           }),
         ],
         precommitted: {},
@@ -471,14 +545,14 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Viridian to a chosen card from the card pool.",
+            text: `Apply Viridian to ${chosenCardText()}.`,
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
           option({
             number: 2,
-            text: "Add Fast to a chosen card from the card pool.",
+            text: `Add Fast to ${chosenCardText()}.`,
             effects: [{ kind: "card_rewrite", keyword: "Fast" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 70,
@@ -486,7 +560,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         ],
         precommitted: {},
       };
-    case "take_up_to_n":
+    case "take_any_number":
     case "repeat_to_scale":
     case "push_your_luck":
     case "sequential_offers":
@@ -501,14 +575,14 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Bronze to a chosen card from the card pool.",
+            text: `Apply Bronze to ${chosenCardText()}.`,
             effects: [{ kind: "transfiguration", transfigurationName: "Bronze" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
           }),
           option({
             number: 2,
-            text: "Apply Viridian to a chosen card from the card pool.",
+            text: `Apply Viridian to ${chosenCardText()}.`,
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
@@ -521,7 +595,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Apply Viridian to a chosen card from the card pool.",
+            text: `Apply Viridian to ${chosenCardText()}.`,
             effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 85,
@@ -537,29 +611,48 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         precommitted: {},
       };
     case "choose_your_loss":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: "Pay 25 essence.",
-            costs: [cost("essence", Math.min(25, context.state.quest.resources.essence))],
-            cost: Math.min(25, context.state.quest.resources.essence),
-          }),
-          option({
-            number: 2,
+      {
+        const omenLoss = valueOmenLoss(1);
+        const nightmareLoss = valueBaneGain("Nightmare", 1);
+        const essenceLoss = comparableEssenceLossAmount(
+          [
+            ...(context.state.quest.resources.omens >= 1 ? [omenLoss] : []),
+            nightmareLoss,
+          ],
+          context.state.quest.resources.essence,
+        );
+        const options: JourneyOption[] = [];
+
+        if (essenceLoss !== null) {
+          options.push(option({
+            number: options.length + 1,
+            text: `Pay ${essenceLoss} essence.`,
+            costs: [cost("essence", essenceLoss)],
+            cost: essenceLoss,
+          }));
+        }
+
+        if (context.state.quest.resources.omens >= 1) {
+          options.push(option({
+            number: options.length + 1,
             text: "Lose 1 omen.",
-            costs: [cost("omens", Math.min(1, context.state.quest.resources.omens))],
-            cost: Math.min(1, context.state.quest.resources.omens) * 65,
-          }),
-          option({
-            number: 3,
-            text: "Gain 1 Nightmare.",
-            burdens: [nightmare(1)],
-            burden: -125,
-          }),
-        ],
-        precommitted: {},
-      };
+            costs: [cost("omens", 1)],
+            cost: Math.abs(omenLoss),
+          }));
+        }
+
+        options.push(option({
+          number: options.length + 1,
+          text: "Gain 1 Nightmare.",
+          burdens: [nightmare(1)],
+          burden: nightmareLoss,
+        }));
+
+        return {
+          options,
+          precommitted: {},
+        };
+      }
     case "single_reward":
       return { options: [commonPositiveOptions(context)[0]!], precommitted: {} };
     case "single_offer":
@@ -621,11 +714,11 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "After next battle, choose one of 3 Dreamsigns from the Dreamsign pool.",
+            text: `After next battle, ${dreamsignDraftText(3).replace(/^Choose/u, "choose")}`,
             triggers: [{ kind: "after_next_battle" }],
             effects: [dreamsignDraft(3)],
             targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-            effect: 90,
+            effect: Math.round(valueDreamsignDraft(dreamsignDraft(3), context) * 0.75),
             uncertainty: -8,
           }),
         ],
@@ -653,7 +746,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "For the next battle, add Fast to a chosen card from the card pool.",
+            text: `For the next battle, add Fast to ${chosenCardText()}.`,
             effects: [{ kind: "card_rewrite", keyword: "Fast", duration: "next battle" }],
             targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
             effect: 70,
@@ -665,21 +758,6 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             effects: [gainOmen(1)],
             effect: 65,
             uncertainty: -5,
-          }),
-        ],
-        precommitted: {},
-      };
-    case "take_any_number":
-      return {
-        options: [
-          option({ number: 1, text: "Take: gain 25 essence.", effects: [gainEssence(25)], effect: 25 }),
-          option({ number: 2, text: "Take: gain 1 omen.", effects: [gainOmen(1)], effect: 65 }),
-          option({
-            number: 3,
-            text: "Take: purge up to 1 chosen Starter card.",
-            effects: [starterCleanup(1)],
-            targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
-            effect: 85,
           }),
         ],
         precommitted: {},

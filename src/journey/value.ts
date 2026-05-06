@@ -1,7 +1,9 @@
 import type { JourneyContext } from "../quest/context.js";
 import type { JourneyOption } from "./manifest.js";
 
-export const VALUE_MODEL_VERSION: "value:v1" = "value:v1";
+import type { BaneName } from "./effects.js";
+
+export const VALUE_MODEL_VERSION: "value:v3" = "value:v3";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -31,9 +33,18 @@ export const OMEN_VALUE_CONSTANTS = {
 } as const;
 
 export const CARD_VALUE_CONSTANTS = {
-  draftBase: 45,
-  draftLogMultiplier: 18,
-  additionalDraftPickBonus: 30,
+  draftBase: 32,
+  draftChoiceValues: {
+    choices4: 12,
+    choices6: 18,
+    choices8: 23,
+    choices10: 27,
+    choices12: 30,
+    choices14: 32,
+    choices16: 33,
+  },
+  additionalDraftPickBonus: 35,
+  visibleQualifierBonus: 25,
   randomCard: 55,
   tideOrPredicateMatchBonus: 15,
   hiddenRandomPenalty: -10,
@@ -61,8 +72,15 @@ export const PURGE_VALUE_CONSTANTS = {
 export const DREAMSIGN_VALUE_CONSTANTS = {
   namedGain: 145,
   selectedTideMatchBonus: 20,
-  draftBase: 100,
-  draftLogMultiplier: 18,
+  draftBase: 300,
+  draftChoiceValues: {
+    choices1: 0,
+    choices2: 45,
+    choices3: 75,
+    choices4: 95,
+    choices5: 110,
+    choices6: 120,
+  },
   randomGain: 105,
   randomTidalMatchBonus: 20,
   loss: -120,
@@ -127,6 +145,11 @@ export const BANE_VALUE_CONSTANTS = {
 export const PAYMENT_VALUE_CONSTANTS = {
   essenceUnit: -ESSENCE_CONVERTED_ESSENCE_VALUE,
   omenEach: OMEN_VALUE_CONSTANTS.lossEach,
+} as const;
+
+export const LOSS_CHOICE_VALUE_CONSTANTS = {
+  minimumComparableMagnitude: Math.abs(OMEN_VALUE_CONSTANTS.lossEach),
+  maximumComparableRatio: 2,
 } as const;
 
 export const STAGE_PRIORITY_TAGS = {
@@ -211,6 +234,7 @@ export const VALUE_MODEL_VALUES = {
   timingAndRandomness: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   banes: BANE_VALUE_CONSTANTS,
   payments: PAYMENT_VALUE_CONSTANTS,
+  lossChoices: LOSS_CHOICE_VALUE_CONSTANTS,
   stagePriorityTags: STAGE_PRIORITY_TAGS,
   runStateModifiers: RUN_STATE_VALUE_MODIFIERS,
   essenceConvertedEssenceValue: ESSENCE_CONVERTED_ESSENCE_VALUE,
@@ -238,6 +262,129 @@ export type ValueBreakdown = {
   net: number;
   detail: string[];
 };
+
+function roundToNearestFive(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
+function choiceCurveValue(
+  choiceCount: number,
+  curve: Readonly<Record<string, number>>,
+): number {
+  const choices = Object.entries(curve)
+    .map(([key, value]) => ({
+      choiceCount: Number.parseInt(key.replace("choices", ""), 10),
+      value,
+    }))
+    .filter((entry) => Number.isFinite(entry.choiceCount))
+    .sort((left, right) => left.choiceCount - right.choiceCount);
+
+  const exact = choices.find((entry) => entry.choiceCount === choiceCount);
+
+  if (exact) {
+    return exact.value;
+  }
+
+  const lowerOrEqual = choices.filter((entry) => entry.choiceCount <= choiceCount).at(-1);
+  const upper = choices.find((entry) => entry.choiceCount > choiceCount);
+
+  if (!lowerOrEqual) {
+    return choices[0]?.value ?? 0;
+  }
+
+  if (!upper) {
+    return lowerOrEqual.value;
+  }
+
+  const span = upper.choiceCount - lowerOrEqual.choiceCount;
+  const progress = (choiceCount - lowerOrEqual.choiceCount) / span;
+
+  return lowerOrEqual.value + (upper.value - lowerOrEqual.value) * progress;
+}
+
+function capAwareEssenceAmount(amount: number, context?: JourneyContext): number {
+  if (!context) {
+    return amount;
+  }
+
+  const resources = context.state.quest.resources;
+
+  return Math.max(0, Math.min(amount, resources.maxEssence - resources.essence));
+}
+
+function hasVisibleDraftQualifier(predicate: unknown): boolean {
+  if (typeof predicate !== "object" || predicate === null || Array.isArray(predicate)) {
+    return false;
+  }
+
+  const record = predicate as Record<string, unknown>;
+
+  return typeof record.cardType === "string" ||
+    typeof record.rarity === "string" ||
+    typeof record.minEnergyCost === "number" ||
+    typeof record.maxEnergyCost === "number" ||
+    record.isFast === true ||
+    Array.isArray(record.names) ||
+    Array.isArray(record.ids);
+}
+
+export function valueEssenceGain(amount: number, context?: JourneyContext): number {
+  return capAwareEssenceAmount(amount, context);
+}
+
+export function valueOmenGain(amount: number): number {
+  return amount * OMEN_VALUE_CONSTANTS.gainEach;
+}
+
+export function valueOmenLoss(amount: number): number {
+  return amount * OMEN_VALUE_CONSTANTS.lossEach;
+}
+
+export function valueBaneGain(baneName: BaneName, count: number): number {
+  return (BANE_VALUE_CONSTANTS.gainedByName[baneName] ?? BANE_VALUE_CONSTANTS.gainedByName.Nightmare) * count;
+}
+
+export function valueCardDraft(input: {
+  takeCount: number;
+  choiceCount: number;
+  predicate?: unknown;
+}): number {
+  const firstCard = CARD_VALUE_CONSTANTS.draftBase;
+  const additionalCards = Math.max(0, input.takeCount - 1) *
+    CARD_VALUE_CONSTANTS.additionalDraftPickBonus;
+  const breadth = choiceCurveValue(input.choiceCount, CARD_VALUE_CONSTANTS.draftChoiceValues);
+  const qualifier = hasVisibleDraftQualifier(input.predicate)
+    ? CARD_VALUE_CONSTANTS.visibleQualifierBonus
+    : 0;
+
+  return roundToNearestFive(firstCard + additionalCards + breadth + qualifier);
+}
+
+export function valueDreamsignDraft(input: {
+  choiceCount: number;
+}, context?: JourneyContext): number {
+  if (context && context.state.quest.dreamsignPoolIds.length === 0) {
+    return 0;
+  }
+
+  return roundToNearestFive(
+    DREAMSIGN_VALUE_CONSTANTS.draftBase +
+    choiceCurveValue(input.choiceCount, DREAMSIGN_VALUE_CONSTANTS.draftChoiceValues),
+  );
+}
+
+export function commonEssenceRewardAmount(context?: JourneyContext): number {
+  const baseAmount = 150;
+
+  if (!context) {
+    return baseAmount;
+  }
+
+  const availableCapacity = context.state.quest.resources.maxEssence -
+    context.state.quest.resources.essence;
+
+  return Math.max(0, Math.min(baseAmount, availableCapacity));
+}
 
 function signedValue(value: number): string {
   return value > 0 ? `+${value}` : String(value);

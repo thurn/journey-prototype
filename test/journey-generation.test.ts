@@ -204,6 +204,62 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("keeps internal draft and Dreamsign pool sources out of generated ability text", async () => {
+    const journeyContext = await context();
+
+    for (const shape of JOURNEY_SHAPES) {
+      const manifest = fillForShape(shape.id, journeyContext);
+      const targetDescriptions = manifest.options.flatMap((option) =>
+        option.targets
+          .filter((target): target is { description: string } =>
+            typeof target === "object" &&
+            target !== null &&
+            "description" in target &&
+            typeof target.description === "string",
+          )
+          .map((target) => target.description),
+      );
+
+      expect(generatedOptionText(manifest), shape.id).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/from the (?:card|Dreamsign) pool/iu)]),
+      );
+      expect(targetDescriptions, shape.id).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/from the (?:card|Dreamsign) pool/iu)]),
+      );
+    }
+  });
+
+  it("balances the common positive reward menu with stronger Dreamsigns and weaker bare drafts", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("curated_reward_trio", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Gain 150 essence.",
+      "Draft 1 of 6 cards.",
+      "Choose 1 of 3 Dreamsigns.",
+    ]);
+    expect(manifest.options[0]?.effectConvertedEssence).toBe(150);
+    expect(manifest.options[1]?.effectConvertedEssence).toBeLessThan(75);
+    expect(manifest.options[2]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
+  });
+
+  it("keeps choose-your-loss essence payments comparable to non-essence losses", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("choose_your_loss", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Pay 95 essence.",
+      "Lose 1 omen.",
+      "Gain 1 Nightmare.",
+    ]);
+    expect(manifest.options.map((option) => option.netConvertedEssence)).toEqual([
+      -95,
+      -65,
+      -125,
+    ]);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
   it("does not throw with an empty Dreamsign pool", async () => {
     const journeyContext = await contextWithEmptyDreamsignPool();
     const manifest = generateNextJourney({ context: journeyContext });
@@ -217,7 +273,7 @@ describe("generateNextJourney", () => {
 
   it("advances a sequential manifest without changing the Journey identity", async () => {
     const journeyContext = await context();
-    const manifest = fillForShape("take_up_to_n", journeyContext);
+    const manifest = fillForShape("take_any_number", journeyContext);
     const result = advanceSequenceJourney({
       context: journeyContext,
       manifest,
@@ -234,6 +290,41 @@ describe("generateNextJourney", () => {
     expect(result.manifest.sequence).toMatchObject({ step: 2, status: "active" });
     expect(result.manifest.options).toEqual(manifest.precommitted.sequenceMenus?.step2);
     expect(validateJourneyManifest(result.manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("requires take-any-number rewards to carry a real limiting structure", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("take_any_number", journeyContext);
+    const unlimitedOptions = manifest.options.map((journeyOption) =>
+      journeyOption.number === 1
+        ? {
+            ...journeyOption,
+            text: "Take cache reward 1: gain 1 omen, then choose whether to take the final reward.",
+            costs: [],
+            costConvertedEssence: 0,
+            netConvertedEssence:
+              journeyOption.effectConvertedEssence +
+              journeyOption.burdenConvertedEssence +
+              journeyOption.uncertaintyConvertedEssence,
+          }
+        : journeyOption,
+    );
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: unlimitedOptions,
+      precommitted: {
+        ...manifest.precommitted,
+        sequenceMenus: {
+          ...manifest.precommitted.sequenceMenus,
+          step1: unlimitedOptions,
+        },
+      },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "open_pick_without_limiting_structure",
+    });
   });
 
   it("exposes terminal sequence status for next-root command transitions", async () => {
@@ -313,6 +404,29 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "invalid_option",
+    });
+  });
+
+  it("rejects choose-your-loss menus with trivial losses beside severe losses", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("choose_your_loss", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        {
+          ...manifest.options[0]!,
+          text: "Pay 25 essence.",
+          costs: [{ kind: "essence", amount: 25, timing: "immediate" }],
+          costConvertedEssence: 25,
+          netConvertedEssence: -25,
+        },
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "loss_not_comparable",
     });
   });
 

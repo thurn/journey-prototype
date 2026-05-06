@@ -146,7 +146,7 @@ function quest(overrides: Partial<QuestState> = {}): QuestState {
 
 describe("EFFECT_CATALOG", () => {
   it("exports the pinned version and required mechanical families", () => {
-    expect(EFFECT_CATALOG_VERSION).toBe("effects:v1");
+    expect(EFFECT_CATALOG_VERSION).toBe("effects:v2");
     expect(DEFAULT_BANE_NAME).toBe("Nightmare");
     expect(BANE_NAMES).toContain("Nightmare");
 
@@ -187,7 +187,7 @@ describe("EFFECT_CATALOG", () => {
       "risk",
       "wager",
       "random-outcome",
-      "take-up-to-n",
+      "take-any-number",
       "push-your-luck",
       "sequential-offer",
     ].forEach((id) => expect(ids).toContain(id));

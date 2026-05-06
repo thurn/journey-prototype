@@ -67,7 +67,7 @@ terminal output.
 The Journey generation design is shape-first. A Journey site is not assembled
 by sampling unrelated effects from a global bucket. Instead, generation chooses
 a Journey Shape such as `same_cost_different_rewards`, `shop_row`,
-`take_up_to_n`, or `push_your_luck`, fills that topology from reusable effect
+`take_any_number`, or `push_your_luck`, fills that topology from reusable effect
 entries, validates coherence, checks converted essence values, repairs invalid
 fills, and freezes a manifest.
 
@@ -88,7 +88,7 @@ Journey generator.
 
 - Provide a standalone TypeScript CLI named `journey`.
 - Generate Dream Journey choices using the shape-first model.
-- Support the full canonical V2 Journey Shape catalog from the generation
+- Support the full canonical V3 Journey Shape catalog from the generation
   design.
 - Cover a broad programmatic reward, cost, and burden catalog, including at
   least the effect families listed in the brainstorming document.
@@ -209,7 +209,7 @@ Journey generation.
 
 ### Journey Content Model
 
-The CLI must implement the full canonical V2 Journey Shape catalog from the
+The CLI must implement the full canonical V3 Journey Shape catalog from the
 generation design. This includes direct menu shapes, single-offer shapes,
 random shapes, delayed shapes, route-shaping shapes, and sequential shapes.
 
@@ -244,7 +244,7 @@ should cover at least the families listed in the brainstorming document:
   existing cards.
 - Route edits for current and future dreamscapes.
 - Triggered and delayed rewards.
-- Risk, wager, random outcome, take-up-to-N, push-your-luck, and sequential
+- Risk, wager, random outcome, take-any-number, push-your-luck, and sequential
   offer effects.
 
 The catalog must use real cards and Dreamsigns wherever a generated option

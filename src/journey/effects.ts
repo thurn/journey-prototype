@@ -7,7 +7,7 @@ import type {
 } from "../content/model.js";
 import type { QuestState } from "../state/schema.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v1" = "effects:v1";
+export const EFFECT_CATALOG_VERSION: "effects:v2" = "effects:v2";
 
 export type EffectEntry = {
   readonly id: string;
@@ -247,7 +247,7 @@ const EFFECT_DEFINITIONS = [
   {
     id: "dreamsign-draft",
     family: "dreamsign",
-    textTemplate: "Choose one of {choiceCount} {predicate} Dreamsigns.",
+    textTemplate: "Choose 1 of {choiceCount} {predicate} Dreamsigns.",
     tags: ["reward", "dreamsign", "choice"],
   },
   {
@@ -377,10 +377,10 @@ const EFFECT_DEFINITIONS = [
     tags: ["random", "reward"],
   },
   {
-    id: "take-up-to-n",
+    id: "take-any-number",
     family: "choice",
-    textTemplate: "Take up to {count}: {menuText}.",
-    tags: ["choice", "bounded"],
+    textTemplate: "Take any number up to {count}: {menuText}.",
+    tags: ["choice", "bounded", "sequential"],
   },
   {
     id: "push-your-luck",

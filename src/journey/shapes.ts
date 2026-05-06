@@ -19,7 +19,6 @@ export type JourneyShapeId =
   | "paired_return"
   | "timed_window_menu"
   | "take_any_number"
-  | "take_up_to_n"
   | "repeat_to_scale"
   | "push_your_luck"
   | "resolved_random_series"
@@ -49,7 +48,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v2";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v3";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -493,40 +492,22 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   },
   {
     id: "take_any_number",
-    topology: "direct_menu",
-    rootOptionCount: { min: 2, max: 5 },
-    supportedTags: ["subset", "reward", "cap", "cache", "menu"],
-    validationRules: [
-      ...commonValidationRules,
-      "visible_menu_has_bounded_subset_rule",
-      "open_pick_variants_have_cap_or_limiting_structure",
-    ],
-    repairPreferences: [
-      "add_subset_cap",
-      "add_shared_burden_or_limit",
-      "reduce_visible_menu_size",
-    ],
-    debugLabel: "Take any number",
-    versionContribution: versionContribution("take_any_number", "direct_menu"),
-  },
-  {
-    id: "take_up_to_n",
     topology: "sequential",
     rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["sequence", "cap", "reward", "burden", "stop"],
+    supportedTags: ["sequence", "subset", "cap", "reward", "burden", "stop"],
     validationRules: [
       ...commonValidationRules,
       "sequence_has_visible_max_steps",
-      "each_step_changes_stake_or_option_quality",
+      "each_take_has_cap_or_limiting_structure",
       "stop_option_available_after_each_pick",
     ],
     repairPreferences: [
       "add_stop_option",
-      "increase_later_step_pressure",
+      "add_shared_burden_or_limit",
       "lower_sequence_cap",
     ],
-    debugLabel: "Take up to N",
-    versionContribution: versionContribution("take_up_to_n", "sequential"),
+    debugLabel: "Take any number",
+    versionContribution: versionContribution("take_any_number", "sequential"),
   },
   {
     id: "repeat_to_scale",

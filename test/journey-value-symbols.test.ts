@@ -3,6 +3,9 @@ import type { JourneyOption } from "../src/journey/manifest.js";
 import { symbolsForOption } from "../src/journey/symbols.js";
 import {
   evaluateOptionValue,
+  valueCardDraft,
+  valueDreamsignDraft,
+  valueEssenceGain,
   VALUE_MODEL_CONTRIBUTION,
   VALUE_MODEL_VERSION,
 } from "../src/journey/value.js";
@@ -59,9 +62,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v1");
+    expect(VALUE_MODEL_VERSION).toBe("value:v3");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v1",
+      version: "value:v3",
       values: {
         essence: {
           gainUnit: 1,
@@ -77,10 +80,17 @@ describe("evaluateOptionValue", () => {
           lossEach: -65,
         },
         cards: {
+          draftBase: 32,
           namedVisibleByRarity: {
             common: 75,
             uncommon: 95,
             rare: 120,
+          },
+        },
+        dreamsigns: {
+          draftBase: 300,
+          draftChoiceValues: {
+            choices3: 75,
           },
         },
         banes: {
@@ -90,8 +100,21 @@ describe("evaluateOptionValue", () => {
           },
           purgeInverseMultiplier: 0.9,
         },
+        lossChoices: {
+          minimumComparableMagnitude: 65,
+          maximumComparableRatio: 2,
+        },
       },
     });
+  });
+
+  it("keeps literal essence, unqualified card drafts, and Dreamsign choices in distinct value bands", () => {
+    expect(valueEssenceGain(150)).toBe(150);
+    expect(valueCardDraft({ takeCount: 1, choiceCount: 6 })).toBeLessThan(75);
+    expect(valueDreamsignDraft({ choiceCount: 3 })).toBeGreaterThanOrEqual(300);
+    expect(valueDreamsignDraft({ choiceCount: 3 })).toBeGreaterThan(
+      valueCardDraft({ takeCount: 1, choiceCount: 6 }),
+    );
   });
 });
 
