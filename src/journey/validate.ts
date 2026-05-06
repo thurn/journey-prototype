@@ -233,17 +233,27 @@ function scanIllegalStructuredValue(value: unknown): ValidationResult {
   return { ok: true };
 }
 
-function validateOption(option: JourneyOption, context: JourneyContext): ValidationResult {
-  if (option.text.includes("Shape:") || /^Shape:/u.test(option.text.trim())) {
+function validateNormalOutputText(text: string): ValidationResult {
+  if (text.includes("Shape:") || /^Shape:/u.test(text.trim())) {
     return fail("normal_output_shape_line", "Normal Journey text cannot require a top-level Shape line");
   }
 
-  if (referencesTides(option.text)) {
+  if (referencesTides(text)) {
     return fail("normal_output_tide_reference", "Normal Journey ability text cannot mention tides");
   }
 
-  if (requiresNarrativeName(option.text)) {
+  if (requiresNarrativeName(text)) {
     return fail("normal_output_narrative_name", "Normal Journey text cannot require narrative Journey names or invented event names");
+  }
+
+  return { ok: true };
+}
+
+function validateOption(option: JourneyOption, context: JourneyContext): ValidationResult {
+  const textResult = validateNormalOutputText(option.text);
+
+  if (!textResult.ok) {
+    return textResult;
   }
 
   const costResult = validateCosts(option, context);
@@ -315,6 +325,12 @@ function validateTreeBranch(
   branch: NonNullable<JourneyManifest["tree"]>["nodes"][number]["branches"][number],
   context: JourneyContext,
 ): ValidationResult {
+  const textResult = validateNormalOutputText(branch.text);
+
+  if (!textResult.ok) {
+    return textResult;
+  }
+
   const costResult = validateCosts(
     {
       number: 0,
@@ -363,6 +379,28 @@ function validateTreeBranch(
   ]);
 }
 
+function validateProbabilityLadder(manifest: JourneyManifest): ValidationResult {
+  const successBranches = manifest.tree?.nodes.flatMap((node) =>
+    node.branches.filter((branch) => branch.label === "Success")
+  ) ?? [];
+
+  if (successBranches.length === 0) {
+    return fail("probability_ladder_missing_success", "Probability ladders require visible success outcomes");
+  }
+
+  for (const branch of successBranches) {
+    if (branch.nextNodeId || !branch.terminal) {
+      return fail("fixed_reward_can_be_won_once", "Probability ladder success must end the Journey");
+    }
+
+    if (branch.effects.length === 0) {
+      return fail("fixed_reward_can_be_won_once", "Probability ladder success must award the fixed reward");
+    }
+  }
+
+  return { ok: true };
+}
+
 function validateDecisionTree(
   manifest: JourneyManifest,
   context: JourneyContext,
@@ -383,6 +421,14 @@ function validateDecisionTree(
 
   for (const node of manifest.tree.nodes) {
     const hasRandomOutcomes = node.branches.some((branch) => branch.kind === "random_chance");
+
+    if (node.description) {
+      const descriptionResult = validateNormalOutputText(node.description);
+
+      if (!descriptionResult.ok) {
+        return descriptionResult;
+      }
+    }
 
     if (node.branches.length === 0) {
       return fail("missing_tree_branches", `${node.id} must have outgoing branches`);
@@ -435,6 +481,14 @@ function validateDecisionTree(
     !manifest.rewardPool?.summary.includes("replacement")
   ) {
     return fail("missing_pool_replacement_policy", "Random pool draws must state the replacement policy");
+  }
+
+  if (manifest.shapeId === "probability_ladder") {
+    const probabilityResult = validateProbabilityLadder(manifest);
+
+    if (!probabilityResult.ok) {
+      return probabilityResult;
+    }
   }
 
   return { ok: true };

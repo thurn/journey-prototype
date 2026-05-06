@@ -2,7 +2,7 @@
 import { realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Option } from "commander";
 import { handleJourney } from "./commands/journey.js";
 import type { CommandResult, CommonCommandOptions } from "./commands/options.js";
 import { handleRun } from "./commands/run.js";
@@ -52,8 +52,14 @@ function addGenerationFlags(command: Command): Command {
     .option("--debug", "print generation metadata")
     .option("--debug-context", "print generated quest context")
     .option("--seed <seed>", "seed for deterministic generation")
-    .option("--stage <stage>", "force Journey stage: early, mid, or late")
-    .option("--shape <shape>", "force a canonical Journey shape");
+    .addOption(
+      new Option("--stage <stage>", "force Journey stage: early, mid, or late")
+        .choices(["early", "mid", "late"]),
+    )
+    .addOption(
+      new Option("--shape <shape>", "force a canonical Journey shape")
+        .choices(JOURNEY_SHAPES.map((shape) => shape.id)),
+    );
 }
 
 function writeResult(result: CommandResult): void {
@@ -70,55 +76,6 @@ function writeResult(result: CommandResult): void {
 
 async function runHandler(result: Promise<CommandResult>): Promise<void> {
   writeResult(await result);
-}
-
-function parseGenerationArgs(args: string[]): RawCommonOptions {
-  const parsed: RawCommonOptions = {};
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-
-    if (arg === "--json") {
-      parsed.json = true;
-    } else if (arg === "--no-color") {
-      parsed.color = false;
-    } else if (arg === "--debug") {
-      parsed.debug = true;
-    } else if (arg === "--debug-context") {
-      parsed.debugContext = true;
-    } else if (arg === "--seed") {
-      parsed.seed = args[++index];
-    } else if (arg === "--stage") {
-      parsed.stage = args[++index] as RawCommonOptions["stage"];
-    } else if (arg === "--shape") {
-      parsed.shape = args[++index];
-    }
-  }
-
-  return parsed;
-}
-
-function shouldUseDirectGeneration(argv: string[]): "journey" | "run" | null {
-  const args = argv.slice(2);
-
-  if (args.includes("--help") || args.includes("-h")) {
-    return null;
-  }
-
-  if (args[0] === "run") {
-    return "run";
-  }
-
-  const firstNonFlag = args.find((arg, index) => {
-    const previous = args[index - 1];
-
-    return !arg.startsWith("-") &&
-      previous !== "--seed" &&
-      previous !== "--stage" &&
-      previous !== "--shape";
-  });
-
-  return firstNonFlag ? null : "journey";
 }
 
 export function buildProgram(): Command {
@@ -159,18 +116,6 @@ export function buildProgram(): Command {
 }
 
 export async function main(argv: string[] = process.argv): Promise<void> {
-  const direct = shouldUseDirectGeneration(argv);
-
-  if (direct === "run") {
-    await runHandler(handleRun(buildCommonOptions(parseGenerationArgs(argv.slice(3)))));
-    return;
-  }
-
-  if (direct === "journey") {
-    await runHandler(handleJourney(buildCommonOptions(parseGenerationArgs(argv.slice(2)))));
-    return;
-  }
-
   const program = buildProgram();
 
   try {

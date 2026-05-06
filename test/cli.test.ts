@@ -38,6 +38,41 @@ describe("buildProgram", () => {
     expect(stdout).not.toContain("state [options]");
   }, 20_000);
 
+  it("rejects unknown and incomplete generation flags", async () => {
+    await expect(
+      execFileAsync(
+        "npm",
+        ["run", "journey", "--", "--not-a-real-flag"],
+        { cwd: process.cwd(), timeout: 15_000 },
+      ),
+    ).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("unknown option '--not-a-real-flag'"),
+    });
+
+    await expect(
+      execFileAsync(
+        "npm",
+        ["run", "journey", "--", "--seed"],
+        { cwd: process.cwd(), timeout: 15_000 },
+      ),
+    ).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("option '--seed <seed>' argument missing"),
+    });
+
+    await expect(
+      execFileAsync(
+        "npm",
+        ["run", "journey", "--", "run", "--not-a-real-flag"],
+        { cwd: process.cwd(), timeout: 15_000 },
+      ),
+    ).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("unknown option '--not-a-real-flag'"),
+    });
+  }, 30_000);
+
   it("emits parseable stateless JSON through the npm run journey contract", async () => {
     const result = await execFileAsync(
       "npm",

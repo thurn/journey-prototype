@@ -352,6 +352,25 @@ describe("generateNextJourney", () => {
       expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
     }
   });
+
+  it("rejects probability ladders whose success branch can award the fixed reward more than once", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("probability_ladder", journeyContext);
+    const invalid = structuredClone(manifest);
+    const successBranch = invalid.tree?.nodes[0]?.branches.find((branch) =>
+      branch.label === "Success"
+    );
+
+    expect(successBranch).toBeDefined();
+    delete successBranch!.terminal;
+    successBranch!.nextNodeId = "level-2";
+    successBranch!.text = "Gain the Dreamsign. Go to Level 2.";
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "fixed_reward_can_be_won_once",
+    });
+  });
 });
 
 describe("validateJourneyManifest", () => {
@@ -525,6 +544,23 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "normal_output_tide_reference",
+    });
+  });
+
+  it.each([
+    ["normal_output_shape_line", "Shape: leaked implementation detail."],
+    ["normal_output_narrative_name", "The Glass Orchard: Gain 1 omen."],
+    ["normal_output_tide_reference", "Choose one of 3 tidal Dreamsigns."],
+  ])("rejects invalid normal tree branch text for %s", async (rule, text) => {
+    const journeyContext = await context();
+    const manifest = fillForShape("prize_ladder", journeyContext);
+    const invalid = structuredClone(manifest);
+
+    invalid.tree!.nodes[0]!.branches[0]!.text = text;
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule,
     });
   });
 });
