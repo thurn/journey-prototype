@@ -98,6 +98,30 @@ describe("command risk transitions", () => {
     });
   });
 
+  it("state query in human and JSON modes leaves state bytes unchanged", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      await handleRun(options());
+      const beforeHumanState = await readStateBytes(statePath);
+
+      const humanResult = await handleState(options());
+      const afterHumanState = await readStateBytes(statePath);
+
+      const jsonResult = await handleState(options({ json: true }));
+      const afterJsonState = await readStateBytes(statePath);
+
+      expect(humanResult).toMatchObject({
+        exitCode: ExitCode.Success,
+        stderr: "",
+      });
+      expect(jsonResult).toMatchObject({
+        exitCode: ExitCode.Success,
+        stderr: "",
+      });
+      expect(afterHumanState.equals(beforeHumanState)).toBe(true);
+      expect(afterJsonState.equals(beforeHumanState)).toBe(true);
+    });
+  });
+
   it("invalid pick exits 2 on stderr only and leaves state bytes unchanged", async () => {
     await withTempState(async ({ statePath, options }) => {
       await handleRun(options());
