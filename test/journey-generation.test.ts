@@ -79,6 +79,10 @@ function fillForShape(shapeId: JourneyShapeId, journeyContext: Awaited<ReturnTyp
 function generatedOptionText(manifest: JourneyManifest): string[] {
   const text = manifest.options.map((option) => option.text);
 
+  if (manifest.rewardPool) {
+    text.push(manifest.rewardPool.summary);
+  }
+
   for (const menu of Object.values(manifest.precommitted.sequenceMenus ?? {})) {
     text.push(...menu.map((option) => option.text));
   }
@@ -488,6 +492,47 @@ describe("generateNextJourney", () => {
       expect(manifest.tree?.nodes[0]?.branches.some((branch) => branch.terminal), shapeId).toBe(true);
       expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
     }
+  });
+
+  it("varies true sequential shape content by seed", async () => {
+    const treeShapeIds: JourneyShapeId[] = [
+      "prize_ladder",
+      "probability_ladder",
+      "random_pool_draws",
+      "push_your_luck",
+      "escalating_reward_chain",
+    ];
+
+    for (const shapeId of treeShapeIds) {
+      const outputs = new Set<string>();
+
+      for (const seed of ["sequential-a", "sequential-b", "sequential-c", "sequential-d"]) {
+        const journeyContext = await context(seed);
+        const manifest = fillForShape(shapeId, journeyContext);
+
+        expect(validateJourneyManifest(manifest, journeyContext), `${shapeId}:${seed}`).toEqual({ ok: true });
+        outputs.add(generatedOptionText(manifest).join("\n"));
+      }
+
+      expect(outputs.size, shapeId).toBeGreaterThan(1);
+    }
+  }, 15000);
+
+  it("does not emit the reference examples as production sequential trees", async () => {
+    const probabilityContext = await context("reference-probability");
+    const probabilityText = generatedOptionText(fillForShape("probability_ladder", probabilityContext));
+
+    expect(probabilityText).not.toContain("Pay 25 essence for a 25% chance to gain a Dreamsign.");
+    expect(probabilityText).not.toContain("Pay 45 essence for a 45% chance to gain a Dreamsign.");
+    expect(probabilityText).not.toContain("Pay 70 essence for a 70% chance to gain a Dreamsign.");
+
+    const chainContext = await context("reference-chain");
+    const chainText = generatedOptionText(fillForShape("escalating_reward_chain", chainContext));
+
+    expect(chainText).not.toContain("Pay 10 essence and transfigure a random card. Go to Level 2.");
+    expect(chainText).not.toContain("Pay 20 essence and transfigure a random card. Go to Level 3.");
+    expect(chainText).not.toContain("Pay 40 essence and transfigure a random card. Go to Level 4.");
+    expect(chainText).not.toContain("Pay all essence and transfigure all cards in your deck. End the Journey.");
   });
 
   it("rejects probability ladders whose success branch can award the fixed reward more than once", async () => {

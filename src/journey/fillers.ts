@@ -62,6 +62,13 @@ type OptionArgs = {
   pickBehavior?: PickBehavior;
 };
 
+type SequentialReward = {
+  text: string;
+  effects: unknown[];
+  targets?: unknown[];
+  effect: number;
+};
+
 function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en-US"));
 }
@@ -275,6 +282,77 @@ function dreamsignDraft(choiceCount: number) {
   };
 }
 
+function pickSequentialVariant<T>(
+  drawContext: DrawContext,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
+}
+
+function sentenceCase(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function payableSequentialCost(context: JourneyContext, desiredAmount: number): number {
+  return Math.min(desiredAmount, context.state.quest.resources.essence);
+}
+
+function sequentialReward(context: JourneyContext, drawContext: DrawContext, label: string): SequentialReward {
+  const cardProfile = legalCardDraftProfile(context, [
+    CARD_DRAFT_PROFILES.events,
+    CARD_DRAFT_PROFILES.lowCostCharacters,
+    CARD_DRAFT_PROFILES.characters,
+  ]);
+  const cardDraft = draftCards(cardProfile);
+  const essenceAmount = pickSequentialVariant(drawContext, `${label}:essence`, [90, 110, 130]);
+  const variants: SequentialReward[] = [
+    {
+      text: `gain ${essenceAmount} essence.`,
+      effects: [gainEssence(essenceAmount)],
+      effect: valueEssenceGain(essenceAmount, context),
+    },
+    {
+      text: "gain 2 omens.",
+      effects: [gainOmen(2)],
+      effect: valueOmenGain(2),
+    },
+    {
+      text: `${lowerFirst(cardDraftText(cardProfile))}`,
+      effects: [cardDraft],
+      targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)],
+      effect: valueCardDraft(cardDraft),
+    },
+  ];
+
+  if (context.state.quest.dreamsignPoolIds.length > 0) {
+    const choiceCount = pickSequentialVariant(drawContext, `${label}:dreamsign-choice`, [2, 3]);
+    const dreamsignReward = dreamsignDraft(choiceCount);
+
+    variants.push({
+      text: `${lowerFirst(dreamsignDraftText(choiceCount))}`,
+      effects: [dreamsignReward],
+      targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
+      effect: valueDreamsignDraft(dreamsignReward, context),
+    });
+  }
+
+  if (context.state.quest.deck.summary.starterCards > 0) {
+    variants.push({
+      text: "purge up to 1 chosen Starter card.",
+      effects: [starterCleanup(1)],
+      targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
+      effect: 85,
+    });
+  }
+
+  return pickSequentialVariant(drawContext, label, variants);
+}
+
 function delayedDreamsignDraftValue(
   reward: ReturnType<typeof dreamsignDraft>,
   context: JourneyContext,
@@ -472,136 +550,161 @@ function tree(nodes: JourneyTree["nodes"]): JourneyTree {
   };
 }
 
-function buildPrizeLadderTree(): JourneyTree {
-  return tree([
-    {
-      id: "level-1",
-      levelLabel: "Level 1",
-      branches: [
-        treeBranch({
-          id: "level-1-stop",
-          label: "Stop",
-          text: "Gain 1 omen. End the Journey.",
-          effects: [gainOmen(1)],
-          effect: valueOmenGain(1),
-          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(1)], burdens: [], targets: [], routeEffects: [] },
-        }),
-        treeBranch({
-          id: "level-1-continue",
-          label: "Continue",
-          text: "Pay 35 essence. Go to Level 2.",
-          costs: [cost("essence", 35)],
-          cost: 35,
-          nextNodeId: "level-2",
-        }),
-      ],
-    },
-    {
-      id: "level-2",
-      levelLabel: "Level 2",
-      branches: [
-        treeBranch({
-          id: "level-2-stop",
-          label: "Stop",
-          text: "Gain 2 omens. End the Journey.",
-          effects: [gainOmen(2)],
-          effect: valueOmenGain(2),
-          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(2)], burdens: [], targets: [], routeEffects: [] },
-        }),
-        treeBranch({
-          id: "level-2-continue",
-          label: "Continue",
-          text: "Pay 70 essence. Go to Level 3.",
-          costs: [cost("essence", 70)],
-          cost: 70,
-          nextNodeId: "level-3",
-        }),
-      ],
-    },
-    {
-      id: "level-3",
-      levelLabel: "Level 3",
-      branches: [
-        treeBranch({
-          id: "level-3-stop",
-          label: "Stop",
-          text: "Gain 3 omens. End the Journey.",
-          effects: [gainOmen(3)],
-          effect: valueOmenGain(3),
-          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [gainOmen(3)], burdens: [], targets: [], routeEffects: [] },
-        }),
-        treeBranch({
-          id: "level-3-claim",
-          label: "Claim",
-          text: "Pay 100 essence and choose 1 of 3 Dreamsigns. End the Journey.",
-          costs: [cost("essence", 100)],
-          effects: [dreamsignDraft(3)],
-          targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-          cost: 100,
-          effect: 300,
-          terminal: { text: "End the Journey.", outcome: "claim", costs: [cost("essence", 100)], effects: [dreamsignDraft(3)], burdens: [], targets: [], routeEffects: [] },
-        }),
-      ],
-    },
+function buildPrizeLadderTree(context: JourneyContext, drawContext: DrawContext): JourneyTree {
+  const claimReward = sequentialReward(context, drawContext, "prize-ladder:claim-reward");
+  const profile = pickSequentialVariant(drawContext, "prize-ladder:profile", [
+    { costs: [25, 55, 85], stop: [gainEssence(45), gainEssence(80), gainEssence(120)], stopText: ["Gain 45 essence.", "Gain 80 essence.", "Gain 120 essence."], stopValue: [45, 80, 120] },
+    { costs: [30, 60, 95], stop: [gainOmen(1), gainOmen(2), gainOmen(3)], stopText: ["Gain 1 omen.", "Gain 2 omens.", "Gain 3 omens."], stopValue: [valueOmenGain(1), valueOmenGain(2), valueOmenGain(3)] },
+    { costs: [20, 50, 90], stop: [gainEssence(35), gainOmen(1), gainOmen(2)], stopText: ["Gain 35 essence.", "Gain 1 omen.", "Gain 2 omens."], stopValue: [35, valueOmenGain(1), valueOmenGain(2)] },
   ]);
+
+  return tree([1, 2, 3].map((level) => {
+    const stopEffect = profile.stop[level - 1]!;
+    const stopText = `${profile.stopText[level - 1]!} End the Journey.`;
+    const stopValue = profile.stopValue[level - 1]!;
+    const price = payableSequentialCost(context, profile.costs[level - 1]!);
+    const isFinal = level === 3;
+
+    return {
+      id: `level-${level}`,
+      levelLabel: `Level ${level}`,
+      branches: [
+        treeBranch({
+          id: `level-${level}-stop`,
+          label: "Stop",
+          text: stopText,
+          effects: [stopEffect],
+          effect: stopValue,
+          terminal: { text: "End the Journey.", outcome: "end", costs: [], effects: [stopEffect], burdens: [], targets: [], routeEffects: [] },
+        }),
+        treeBranch({
+          id: `level-${level}-${isFinal ? "claim" : "continue"}`,
+          label: isFinal ? "Claim" : "Continue",
+          text: isFinal
+            ? `Pay ${price} essence and ${lowerFirst(claimReward.text)} End the Journey.`
+            : `Pay ${price} essence. Go to Level ${level + 1}.`,
+          costs: [cost("essence", price)],
+          effects: isFinal ? claimReward.effects : [],
+          targets: isFinal ? claimReward.targets ?? [] : [],
+          cost: price,
+          effect: isFinal ? claimReward.effect : 0,
+          ...(isFinal
+            ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", price)], effects: claimReward.effects, burdens: [], targets: claimReward.targets ?? [], routeEffects: [] } }
+            : { nextNodeId: `level-${level + 1}` }),
+        }),
+      ],
+    };
+  }));
 }
 
-function buildProbabilityLadderTree(): JourneyTree {
-  const dreamsign = dreamsignDraft(1);
-
-  return tree([
-    {
-      id: "level-1",
-      levelLabel: "Level 1",
-      branches: [
-        treeBranch({ id: "level-1-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-1-attempt", label: "Attempt", text: "Pay 25 essence for a 25% chance to gain a Dreamsign.", costs: [cost("essence", 25)], cost: 25, odds: odds(25) }),
-        treeBranch({ id: "level-1-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(25), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-1-failure", label: "Failure", kind: "random_chance", text: "Go to Level 2.", odds: odds(75), nextNodeId: "level-2" }),
-      ],
-    },
-    {
-      id: "level-2",
-      levelLabel: "Level 2",
-      branches: [
-        treeBranch({ id: "level-2-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-2-attempt", label: "Attempt", text: "Pay 45 essence for a 45% chance to gain a Dreamsign.", costs: [cost("essence", 45)], cost: 45, odds: odds(45) }),
-        treeBranch({ id: "level-2-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(45), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-2-failure", label: "Failure", kind: "random_chance", text: "Go to Level 3.", odds: odds(55), nextNodeId: "level-3" }),
-      ],
-    },
-    {
-      id: "level-3",
-      levelLabel: "Level 3",
-      branches: [
-        treeBranch({ id: "level-3-stop", label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-3-attempt", label: "Attempt", text: "Pay 70 essence for a 70% chance to gain a Dreamsign.", costs: [cost("essence", 70)], cost: 70, odds: odds(70) }),
-        treeBranch({ id: "level-3-success", label: "Success", kind: "random_chance", text: "Gain the Dreamsign. End the Journey.", effects: [dreamsign], effect: 300, odds: odds(70), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: [dreamsign], burdens: [], targets: [], routeEffects: [] } }),
-        treeBranch({ id: "level-3-failure", label: "Failure", kind: "random_chance", text: "End the Journey.", odds: odds(30), terminal: { text: "End the Journey.", outcome: "failure", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
-      ],
-    },
+function buildProbabilityLadderTree(context: JourneyContext, drawContext: DrawContext): JourneyTree {
+  const reward = sequentialReward(context, drawContext, "probability-ladder:reward");
+  const profile = pickSequentialVariant(drawContext, "probability-ladder:profile", [
+    { costs: [20, 40, 65], chances: [30, 50, 70] },
+    { costs: [15, 35, 60], chances: [20, 45, 75] },
+    { costs: [30, 50, 80], chances: [35, 55, 80] },
+    { costs: [20, 35, 55, 75], chances: [25, 40, 55, 70] },
   ]);
+
+  return tree(profile.costs.map((desiredPrice, index) => {
+    const level = index + 1;
+    const chance = profile.chances[index]!;
+    const isFinal = level === profile.costs.length;
+    const price = payableSequentialCost(context, desiredPrice);
+
+    return {
+      id: `level-${level}`,
+      levelLabel: `Level ${level}`,
+      branches: [
+        treeBranch({ id: `level-${level}-stop`, label: "Stop", text: "Leave.", terminal: { text: "Leave.", outcome: "leave", costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }),
+        treeBranch({ id: `level-${level}-attempt`, label: "Attempt", text: `Pay ${price} essence for a ${chance}% chance to ${reward.text}`, costs: [cost("essence", price)], cost: price, odds: odds(chance) }),
+        treeBranch({ id: `level-${level}-success`, label: "Success", kind: "random_chance", text: `${sentenceCase(reward.text)} End the Journey.`, effects: reward.effects, targets: reward.targets ?? [], effect: reward.effect, odds: odds(chance), terminal: { text: "End the Journey.", outcome: "claim", costs: [], effects: reward.effects, burdens: [], targets: reward.targets ?? [], routeEffects: [] } }),
+        treeBranch({
+          id: `level-${level}-failure`,
+          label: "Failure",
+          kind: "random_chance",
+          text: isFinal ? "End the Journey." : `Go to Level ${level + 1}.`,
+          odds: odds(100 - chance),
+          ...(isFinal
+            ? { terminal: { text: "End the Journey.", outcome: "failure" as const, costs: [], effects: [], burdens: [], targets: [], routeEffects: [] } }
+            : { nextNodeId: `level-${level + 1}` }),
+        }),
+      ],
+    };
+  }));
 }
 
-function randomPool(): JourneyRewardPool {
+function randomPool(context: JourneyContext, drawContext: DrawContext): JourneyRewardPool {
   const eventDraft = draftCards(CARD_DRAFT_PROFILES.events);
+  const characterProfile = legalCardDraftProfile(context, [
+    CARD_DRAFT_PROFILES.lowCostCharacters,
+    CARD_DRAFT_PROFILES.characters,
+  ]);
+  const characterDraft = draftCards(characterProfile);
+  const transfiguration = pickSequentialVariant(drawContext, "random-pool:transfiguration", [
+    "Bronze",
+    "Scarlet",
+    "Viridian",
+  ]);
+  const cleanupReward = context.state.quest.deck.summary.starterCards > 0
+    ? starterCleanup(1)
+    : gainEssence(100);
+  const cleanupSummary = context.state.quest.deck.summary.starterCards > 0
+    ? "purge a starter card"
+    : "100 essence";
+  const variants: { summary: string; rewards: unknown[] }[] = [
+    {
+      summary: `Randomly gain one: 60 essence, 1 omen, draft 1 of 4 ${characterProfile.label}, apply {${transfiguration} Transfiguration} to a random card, or ${cleanupSummary}. Outcomes draw with replacement.`,
+      rewards: [
+        gainEssence(60),
+        gainOmen(1),
+        characterDraft,
+        { kind: "transfiguration", transfigurationName: transfiguration, scope: "random_card" },
+        cleanupReward,
+      ],
+    },
+    {
+      summary: "Randomly gain one: 40 essence, 90 essence, 1 omen, 2 omens, or draft 1 of 4 events. Outcomes draw with replacement.",
+      rewards: [
+        gainEssence(40),
+        gainEssence(90),
+        gainOmen(1),
+        gainOmen(2),
+        eventDraft,
+      ],
+    },
+  ];
+
+  if (context.state.quest.dreamsignPoolIds.length > 0) {
+    variants.push({
+      summary: `Randomly gain one: a Dreamsign, draft 1 of 4 events, {${transfiguration} Transfiguration}, 2 omens, 75 essence, or ${cleanupSummary}. Outcomes draw with replacement.`,
+      rewards: [
+        dreamsignDraft(1),
+        eventDraft,
+        { kind: "transfiguration", transfigurationName: transfiguration },
+        gainOmen(2),
+        gainEssence(75),
+        cleanupReward,
+      ],
+    });
+  }
+  const selected = pickSequentialVariant(drawContext, "random-pool:profile", variants);
 
   return {
-    summary: "Randomly gain one: a Dreamsign, draft 1 of 4 events, {Scarlet Transfiguration}, 2 omens, 75 essence, or purge a starter card. Outcomes draw with replacement.",
+    summary: selected.summary,
     replacement: "with_replacement",
-    rewards: [
-      dreamsignDraft(1),
-      eventDraft,
-      { kind: "transfiguration", transfigurationName: "Scarlet" },
-      gainOmen(2),
-      gainEssence(75),
-      starterCleanup(1),
-    ],
+    rewards: selected.rewards,
   };
 }
 
-function buildRandomPoolDrawsTree(): JourneyTree {
-  return tree([1, 2, 3].map((level) => ({
+function buildRandomPoolDrawsTree(context: JourneyContext, drawContext: DrawContext): JourneyTree {
+  const levelCount = pickSequentialVariant(drawContext, "random-pool:levels", [3, 4]);
+  const price = payableSequentialCost(
+    context,
+    pickSequentialVariant(drawContext, "random-pool:price", [35, 45, 55]),
+  );
+
+  return tree(Array.from({ length: levelCount }, (_, index) => index + 1).map((level) => ({
     id: `level-${level}`,
     levelLabel: `Level ${level}`,
     branches: [
@@ -614,27 +717,72 @@ function buildRandomPoolDrawsTree(): JourneyTree {
       treeBranch({
         id: `level-${level}-draw`,
         label: "Draw",
-        text: `Pay 50 essence and gain a random reward from the pool. ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
-        costs: [cost("essence", 50)],
+        text: `Pay ${price} essence and gain a random reward from the pool. ${level === levelCount ? "End the Journey." : `Go to Level ${level + 1}.`}`,
+        costs: [cost("essence", price)],
         effects: [{ kind: "random_reward", pool: "visible_pool", replacement: "with_replacement" }],
-        cost: 50,
+        cost: price,
         effect: 100,
         uncertainty: -15,
-        ...(level === 3
-          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", 50)], effects: [{ kind: "random_reward", pool: "visible_pool", replacement: "with_replacement" }], burdens: [], targets: [], routeEffects: [] } }
+        ...(level === levelCount
+          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", price)], effects: [{ kind: "random_reward", pool: "visible_pool", replacement: "with_replacement" }], burdens: [], targets: [], routeEffects: [] } }
           : { nextNodeId: `level-${level + 1}` }),
       }),
     ],
   })));
 }
 
-function buildEscalatingRewardChainTree(): JourneyTree {
-  return tree([
-    [1, 10, "Pay 10 essence and transfigure a random card. Go to Level 2."],
-    [2, 20, "Pay 20 essence and transfigure a random card. Go to Level 3."],
-    [3, 40, "Pay 40 essence and transfigure a random card. Go to Level 4."],
-    [4, 120, "Pay all essence and transfigure all cards in your deck. End the Journey."],
-  ].map(([level, price, text]) => ({
+function buildEscalatingRewardChainTree(context: JourneyContext, drawContext: DrawContext): JourneyTree {
+  const cardProfile = legalCardDraftProfile(context, [
+    CARD_DRAFT_PROFILES.lowCostCharacters,
+    CARD_DRAFT_PROFILES.characters,
+  ]);
+  const cardDraft = draftCards(cardProfile);
+  const profiles: { costs: number[]; rewards: SequentialReward[] }[] = [
+    {
+      costs: [15, 35, 65],
+      rewards: [
+        { text: "apply Bronze to a random card.", effects: [{ kind: "transfiguration", transfigurationName: "Bronze", scope: "random_card" }], targets: [target("card", "a random card in deck", { source: "deck" })], effect: 85 },
+        { text: "apply Viridian to a random card and gain 1 omen.", effects: [{ kind: "transfiguration", transfigurationName: "Viridian", scope: "random_card" }, gainOmen(1)], targets: [target("card", "a random card in deck", { source: "deck" })], effect: 85 + valueOmenGain(1) },
+        { text: "apply Golden to up to 2 chosen cards.", effects: [{ kind: "transfiguration", transfigurationName: "Golden", scope: "up_to_2_chosen_cards" }], targets: [target("card", "cards in deck", { source: "deck" })], effect: 170 },
+      ],
+    },
+    {
+      costs: [20, 40, 70],
+      rewards: [
+        { text: "gain 1 omen.", effects: [gainOmen(1)], effect: valueOmenGain(1) },
+        { text: "gain 2 omens.", effects: [gainOmen(2)], effect: valueOmenGain(2) },
+        { text: "gain 4 omens.", effects: [gainOmen(4)], effect: valueOmenGain(4) },
+      ],
+    },
+    {
+      costs: [25, 45, 75],
+      rewards: [
+        { text: `${lowerFirst(cardDraftText(cardProfile))}`, effects: [cardDraft], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) },
+        { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 1 omen.`, effects: [cardDraft, gainOmen(1)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(1) },
+        { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`, effects: [cardDraft, gainOmen(2)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(2) },
+      ],
+    },
+  ];
+
+  if (context.state.quest.deck.summary.starterCards > 0) {
+    profiles.push({
+      costs: [10, 30, 55],
+      rewards: [
+        { text: "purge up to 1 chosen Starter card.", effects: [starterCleanup(1)], targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })], effect: 85 },
+        { text: "purge up to 1 chosen Starter card and gain 1 omen.", effects: [starterCleanup(1), gainOmen(1)], targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })], effect: 85 + valueOmenGain(1) },
+        { text: "purge up to 2 chosen Starter cards and gain 2 omens.", effects: [starterCleanup(2), gainOmen(2)], targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })], effect: 170 + valueOmenGain(2) },
+      ],
+    });
+  }
+
+  const profile = pickSequentialVariant(drawContext, "escalating-chain:profile", profiles);
+
+  return tree(profile.rewards.map((reward, index) => {
+    const level = index + 1;
+    const price = payableSequentialCost(context, profile.costs[index]!);
+    const isFinal = level === profile.rewards.length;
+
+    return {
     id: `level-${level}`,
     levelLabel: `Level ${level}`,
     branches: [
@@ -647,28 +795,58 @@ function buildEscalatingRewardChainTree(): JourneyTree {
       treeBranch({
         id: `level-${level}-take`,
         label: "Take",
-        text: String(text),
-        costs: [cost("essence", Number(price))],
-        effects: [{ kind: "transfiguration", transfigurationName: level === 4 ? "Prismatic" : "Scarlet", scope: level === 4 ? "all_cards_in_deck" : "random_card" }],
-        targets: [target("card", level === 4 ? "all cards in deck" : "a random card", { source: "deck" })],
-        cost: Number(price),
-        effect: level === 4 ? 350 : 85,
-        ...(level === 4
-          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", Number(price))], effects: [{ kind: "transfiguration", transfigurationName: "Prismatic", scope: "all_cards_in_deck" }], burdens: [], targets: [], routeEffects: [] } }
-          : { nextNodeId: `level-${Number(level) + 1}` }),
+        text: `Pay ${price} essence and ${reward.text} ${isFinal ? "End the Journey." : `Go to Level ${level + 1}.`}`,
+        costs: [cost("essence", price)],
+        effects: reward.effects,
+        targets: reward.targets ?? [],
+        cost: price,
+        effect: reward.effect,
+        ...(isFinal
+          ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [cost("essence", price)], effects: reward.effects, burdens: [], targets: reward.targets ?? [], routeEffects: [] } }
+          : { nextNodeId: `level-${level + 1}` }),
       }),
     ],
-  })));
+    };
+  }));
 }
 
-function buildPushYourLuckTree(): JourneyTree {
+function buildPushYourLuckTree(context: JourneyContext, drawContext: DrawContext): JourneyTree {
+  const cardProfile = legalCardDraftProfile(context, [
+    CARD_DRAFT_PROFILES.events,
+    CARD_DRAFT_PROFILES.characters,
+  ]);
+  const cardDraft = draftCards(cardProfile);
+  const profiles: { chances: number[]; rewards: SequentialReward[] }[] = [
+    {
+      chances: [80, 60, 40],
+      rewards: [
+        { text: "gain 45 essence.", effects: [gainEssence(45)], effect: 45 },
+        { text: "gain 95 essence.", effects: [gainEssence(95)], effect: 95 },
+        { text: "gain 170 essence.", effects: [gainEssence(170)], effect: 170 },
+      ],
+    },
+    {
+      chances: [75, 55, 35],
+      rewards: [
+        { text: "gain 1 omen.", effects: [gainOmen(1)], effect: valueOmenGain(1) },
+        { text: "gain 2 omens.", effects: [gainOmen(2)], effect: valueOmenGain(2) },
+        { text: "gain 4 omens.", effects: [gainOmen(4)], effect: valueOmenGain(4) },
+      ],
+    },
+    {
+      chances: [70, 50, 30],
+      rewards: [
+        { text: lowerFirst(cardDraftText(cardProfile)), effects: [cardDraft], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) },
+        { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 1 omen.`, effects: [cardDraft, gainOmen(1)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(1) },
+        { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`, effects: [cardDraft, gainOmen(2)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(2) },
+      ],
+    },
+  ];
+  const profile = pickSequentialVariant(drawContext, "push-your-luck:profile", profiles);
+
   return tree([1, 2, 3].map((level) => {
-    const rewardText = level === 1
-      ? "Gain 50 essence."
-      : level === 2
-        ? "Gain 100 essence."
-        : "Gain 175 essence.";
-    const successPercent = level === 1 ? 75 : level === 2 ? 55 : 35;
+    const reward = profile.rewards[level - 1]!;
+    const successPercent = profile.chances[level - 1]!;
 
     return {
       id: `level-${level}`,
@@ -683,14 +861,15 @@ function buildPushYourLuckTree(): JourneyTree {
         treeBranch({
           id: `level-${level}-push`,
           label: "Push",
-          text: `Risk immediate failure for a ${successPercent}% chance to ${rewardText.toLowerCase()} ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
+          text: `Risk immediate failure for a ${successPercent}% chance to ${reward.text} ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
           odds: odds(successPercent),
-          effects: [gainEssence(level === 1 ? 50 : level === 2 ? 100 : 175)],
-          effect: level === 1 ? 50 : level === 2 ? 100 : 175,
+          effects: reward.effects,
+          targets: reward.targets ?? [],
+          effect: reward.effect,
           uncertainty: -30,
           nextNodeId: level === 3 ? undefined : `level-${level + 1}`,
           ...(level === 3
-            ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [], effects: [gainEssence(175)], burdens: [], targets: [], routeEffects: [] } }
+            ? { terminal: { text: "End the Journey.", outcome: "claim" as const, costs: [], effects: reward.effects, burdens: [], targets: reward.targets ?? [], routeEffects: [] } }
             : {}),
         }),
         treeBranch({
@@ -708,26 +887,29 @@ function buildPushYourLuckTree(): JourneyTree {
   }));
 }
 
-function decisionTreeForShape(shapeId: JourneyShapeId): {
+function decisionTreeForShape(shapeId: JourneyShapeId, context: JourneyContext, drawContext: DrawContext): {
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;
   precommitted: PrecommittedOutcomes;
 } {
   switch (shapeId) {
     case "prize_ladder":
-      return { tree: buildPrizeLadderTree(), precommitted: {} };
+      return { tree: buildPrizeLadderTree(context, drawContext), precommitted: {} };
     case "probability_ladder":
-      return { tree: buildProbabilityLadderTree(), precommitted: { random: [{ kind: "probability_ladder", bounded: true }] } };
-    case "random_pool_draws":
+      return { tree: buildProbabilityLadderTree(context, drawContext), precommitted: { random: [{ kind: "probability_ladder", bounded: true }] } };
+    case "random_pool_draws": {
+      const pool = randomPool(context, drawContext);
+
       return {
-        tree: buildRandomPoolDrawsTree(),
-        rewardPool: randomPool(),
-        precommitted: { random: randomPool().rewards },
+        tree: buildRandomPoolDrawsTree(context, drawContext),
+        rewardPool: pool,
+        precommitted: { random: pool.rewards },
       };
+    }
     case "push_your_luck":
-      return { tree: buildPushYourLuckTree(), precommitted: { random: [{ kind: "push_failure", bounded: true }] } };
+      return { tree: buildPushYourLuckTree(context, drawContext), precommitted: { random: [{ kind: "push_failure", bounded: true }] } };
     case "escalating_reward_chain":
-      return { tree: buildEscalatingRewardChainTree(), precommitted: {} };
+      return { tree: buildEscalatingRewardChainTree(context, drawContext), precommitted: {} };
     default:
       return { precommitted: {} };
   }
@@ -935,7 +1117,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "random_pool_draws":
     case "push_your_luck":
     case "escalating_reward_chain": {
-      const filled = decisionTreeForShape(shapeId);
+      const filled = decisionTreeForShape(shapeId, context, drawContext);
 
       return {
         options: [],
