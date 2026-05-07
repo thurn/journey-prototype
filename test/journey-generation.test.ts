@@ -774,6 +774,69 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
   });
 
+  it("models risk-or-skip downside as a bounded chance envelope", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("risk_or_skip", journeyContext);
+
+    expect(manifest.options[0]?.text).toBe(
+      "Gain 160 essence. 50% chance to gain 1 Nightmare; otherwise no downside.",
+    );
+    expect(manifest.options[0]?.effects).toEqual([{ kind: "gain_essence", amount: 160 }]);
+    expect(manifest.options[0]?.burdens).toEqual([]);
+    expect(manifest.precommitted.random?.[0]).toMatchObject({
+      kind: "risk_downside_roll",
+      optionNumber: 1,
+      odds: { percent: 50 },
+      downside: { kind: "bane_gain", baneName: "Nightmare", count: 1 },
+      safe: { kind: "no_downside" },
+      committedResult: expect.stringMatching(/^(downside|safe)$/u),
+      presentation: "visible_odds_debug_roll",
+    });
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("rejects risk-or-skip accept options with guaranteed downside payloads", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("risk_or_skip", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        {
+          ...manifest.options[0]!,
+          text: "Gain 160 essence. Gain 1 Nightmare.",
+          burdens: [{ kind: "bane_gain", baneName: "Nightmare", count: 1 }],
+          burdenConvertedEssence: -125,
+          netConvertedEssence:
+            manifest.options[0]!.effectConvertedEssence -
+            manifest.options[0]!.costConvertedEssence -
+            125 +
+            manifest.options[0]!.uncertaintyConvertedEssence,
+        },
+        manifest.options[1]!,
+      ],
+      precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "downside_is_random_inside_visible_envelope",
+    });
+  });
+
+  it("rejects risk-or-skip metadata that lacks a safe downside roll", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("risk_or_skip", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "downside_is_random_inside_visible_envelope",
+    });
+  });
+
   it("reveals committed non-wager random reward values in root option copy", async () => {
     const journeyContext = await context();
 

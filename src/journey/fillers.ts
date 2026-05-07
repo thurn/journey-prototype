@@ -1259,21 +1259,38 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         precommitted: {},
       };
     case "risk_or_skip":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: "Gain 160 essence. Gain 1 Nightmare.",
-            effects: [gainEssence(160)],
-            burdens: [nightmare(1)],
-            effect: 160,
-            burden: -125,
-            uncertainty: -10,
-          }),
-          option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
-        ],
-        precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
-      };
+      {
+        const rewardAmount = 160;
+        const downsideChancePercent = 50;
+        const roll = drawInt(drawContext, "risk-or-skip-downside-roll:1", 1, 100);
+        const downside = nightmare(1);
+
+        return {
+          options: [
+            option({
+              number: 1,
+              text: `Gain ${rewardAmount} essence. ${downsideChancePercent}% chance to gain 1 Nightmare; otherwise no downside.`,
+              effects: [gainEssence(rewardAmount)],
+              effect: valueEssenceGain(rewardAmount, context),
+              uncertainty: Math.round(valueBaneGain("Nightmare", 1) * (downsideChancePercent / 100)),
+            }),
+            option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
+          ],
+          precommitted: {
+            random: [
+              {
+                kind: "risk_downside_roll",
+                optionNumber: 1,
+                odds: odds(downsideChancePercent),
+                downside,
+                safe: { kind: "no_downside" },
+                committedResult: roll <= downsideChancePercent ? "downside" : "safe",
+                presentation: "visible_odds_debug_roll",
+              },
+            ],
+          },
+        };
+      }
     case "single_wager":
       {
         const firstSuccessPercent = 50;

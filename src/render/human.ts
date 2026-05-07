@@ -189,6 +189,19 @@ function committedOutcomeText(value: unknown): string {
       return `Gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
     case "visible_downside":
       return `Visible downside: gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
+    case "risk_downside_roll": {
+      const downside = isRecord(value.downside) ? value.downside : {};
+      const baneName = String(downside.baneName ?? "Bane");
+      const count = downside.count;
+      const percent = isRecord(value.odds) && typeof value.odds.percent === "number"
+        ? `${value.odds.percent}%`
+        : "bounded";
+      const committedResult = typeof value.committedResult === "string"
+        ? value.committedResult
+        : "precommitted";
+
+      return `Risk downside roll: ${percent} chance to gain ${countText(count, baneName, `${baneName}s`)}; committed result: ${committedResult}.`;
+    }
     case "probability_ladder":
       return `Probability ladder outcome is ${value.bounded === true ? "bounded" : "precommitted"}.`;
     case "push_failure":

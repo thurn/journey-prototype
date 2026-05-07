@@ -107,7 +107,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v8",
+        catalogVersion: "journey-shapes:v9",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
