@@ -135,4 +135,20 @@ describe("state IO", () => {
       parseJourneyState(new TextEncoder().encode(stableStringify(state))),
     ).toThrow(/contentVersion/);
   });
+
+  it("rejects persisted pending V2 manifests without required version metadata", () => {
+    const state = minimalState({
+      pendingJourney: {
+        schemaVersion: 2,
+        journeyId: "journey-1",
+        seed: "default",
+        rootJourneyIndex: 1,
+        shapeId: "threshold-choice",
+      } as JourneyState["pendingJourney"],
+    });
+
+    expect(() =>
+      parseJourneyState(new TextEncoder().encode(stableStringify(state))),
+    ).toThrow(/pendingJourney\.versions/);
+  });
 });

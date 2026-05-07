@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import {
   MANIFEST_SCHEMA_VERSION,
   type JourneyManifest,
+  type JourneyVersionMetadata,
 } from "../journey/manifest.js";
 import type { JourneyShapeId } from "../journey/shapes.js";
 import { STATE_SCHEMA_VERSION, type JourneyState } from "./schema.js";
@@ -119,6 +120,31 @@ function validateDreamsignRefs(
   });
 }
 
+const MANIFEST_VERSION_METADATA_FIELDS: (keyof JourneyVersionMetadata)[] = [
+  "contentVersion",
+  "shapeCatalogVersion",
+  "effectCatalogVersion",
+  "valueModelVersion",
+  "rendererVersion",
+  "manifestContractVersion",
+  "validationContractVersion",
+];
+
+function validateManifestVersions(
+  errors: string[],
+  value: unknown,
+  path: string,
+): asserts value is JourneyVersionMetadata {
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object`);
+    return;
+  }
+
+  for (const field of MANIFEST_VERSION_METADATA_FIELDS) {
+    requireString(errors, value[field], `${path}.${field}`);
+  }
+}
+
 function validateManifest(
   errors: string[],
   value: unknown,
@@ -141,6 +167,7 @@ function validateManifest(
   requireString(errors, value.seed, `${path}.seed`);
   requireInteger(errors, value.rootJourneyIndex, `${path}.rootJourneyIndex`);
   requireString(errors, value.shapeId, `${path}.shapeId`);
+  validateManifestVersions(errors, value.versions, `${path}.versions`);
 }
 
 function validateHistory(errors: string[], value: unknown): void {
