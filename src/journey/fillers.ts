@@ -222,6 +222,15 @@ function legalCardDraftProfile(
   ) ?? GENERIC_CARD_DRAFT_PROFILE;
 }
 
+function pickLegalCardDraftProfile(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+  profiles: readonly CardDraftProfile[],
+): CardDraftProfile {
+  return legalCardDraftProfile(context, shuffleDeterministic(drawContext, label, profiles));
+}
+
 function target(kind: "card" | "dreamsign", description: string, predicate: unknown) {
   return {
     kind,
@@ -406,15 +415,33 @@ function referencesFor(content: ContentBundle, cardIds: readonly string[], dream
   };
 }
 
-function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
-  const essenceAmount = commonEssenceRewardAmount(context);
-  const essenceValue = valueEssenceGain(essenceAmount, context);
-  const cardDraftProfile = legalCardDraftProfile(context, [
+function renumberOptions(options: readonly JourneyOption[]): JourneyOption[] {
+  return options.map((item, index) => ({
+    ...item,
+    number: index + 1,
+  }));
+}
+
+function commonPositiveOptions(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+): JourneyOption[] {
+  const essenceAmount = pickSequentialVariant(
+    drawContext,
+    `${label}:essence-amount`,
+    [330, 350, commonEssenceRewardAmount(context)],
+  );
+  const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${label}:card-profile`, [
     CARD_DRAFT_PROFILES.characters,
     CARD_DRAFT_PROFILES.events,
+    CARD_DRAFT_PROFILES.lowCostCharacters,
+    CARD_DRAFT_PROFILES.reclaimEvents,
+    CARD_DRAFT_PROFILES.dissolveEvents,
   ]);
   const cardDraft = draftCards(cardDraftProfile);
-  const dreamsignChoice = dreamsignDraft(3);
+  const dreamsignChoiceCount = pickSequentialVariant(drawContext, `${label}:dreamsign-choice-count`, [2, 3]);
+  const dreamsignChoice = dreamsignDraft(dreamsignChoiceCount);
   const fallbackReward = context.state.quest.deck.summary.starterCards > 0
     ? option({
         number: 3,
@@ -429,19 +456,25 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
         effects: [gainEssence(330)],
         effect: valueEssenceGain(330, context),
       });
-  const resourceOption = essenceValue >= 300
-    ? option({
-        number: 1,
-        text: `Gain ${essenceAmount} essence.`,
-        effects: [gainEssence(essenceAmount)],
-        effect: essenceValue,
-      })
-    : option({
-        number: 1,
-        text: "Gain 6 omens.",
-        effects: [gainOmen(6)],
-        effect: valueOmenGain(6),
-      });
+  const resourceOptions = [
+    option({
+      number: 1,
+      text: `Gain ${essenceAmount} essence.`,
+      effects: [gainEssence(essenceAmount)],
+      effect: valueEssenceGain(essenceAmount, context),
+    }),
+    option({
+      number: 1,
+      text: "Gain 5 omens.",
+      effects: [gainOmen(5)],
+      effect: valueOmenGain(5),
+    }),
+  ];
+  const resourceOption = pickSequentialVariant(
+    drawContext,
+    `${label}:resource-kind`,
+    resourceOptions,
+  );
 
   return [
     resourceOption,
@@ -455,9 +488,9 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
     context.state.quest.dreamsignPoolIds.length > 0
       ? option({
           number: 3,
-          text: dreamsignDraftText(3),
+          text: dreamsignDraftText(dreamsignChoiceCount),
           effects: [dreamsignChoice],
-          targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
+          targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignChoice.predicate)],
           effect: valueDreamsignDraft(dreamsignChoice, context),
         })
       : fallbackReward,
@@ -466,11 +499,13 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
 
 function paidDraft(
   context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
   number: number,
   price: number,
   profiles: readonly CardDraftProfile[],
 ): JourneyOption {
-  const cardDraftProfile = legalCardDraftProfile(context, profiles);
+  const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, label, profiles);
   const cardDraft = draftCards(cardDraftProfile);
 
   return option({
@@ -951,43 +986,52 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
 
   switch (shapeId) {
     case "random_allocation":
-      return { options: commonPositiveOptions(context), precommitted: {} };
+      return { options: commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`), precommitted: {} };
     case "same_cost_different_rewards":
       return {
         options: [
-          paidDraft(context, 1, Math.min(20, context.state.quest.resources.essence), [
+          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.warriors,
-            CARD_DRAFT_PROFILES.characters,
+            CARD_DRAFT_PROFILES.lowCostCharacters,
           ]),
-          paidDraft(context, 2, Math.min(20, context.state.quest.resources.essence), [
+          paidDraft(context, drawContext, `${shapeId}:draft:2`, 2, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.dissolveEvents,
-            CARD_DRAFT_PROFILES.events,
+            CARD_DRAFT_PROFILES.reclaimEvents,
           ]),
-          paidDraft(context, 3, Math.min(20, context.state.quest.resources.essence), [
+          paidDraft(context, drawContext, `${shapeId}:draft:3`, 3, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.materializedCharacters,
             CARD_DRAFT_PROFILES.spiritAnimals,
+            CARD_DRAFT_PROFILES.fastCharacters,
           ]),
         ],
         precommitted: {},
       };
     case "same_reward_different_costs": {
-      const discountProfile = legalCardDraftProfile(context, [
+      const discountProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:discount-profile`, [
         CARD_DRAFT_PROFILES.lowCostCharacters,
         CARD_DRAFT_PROFILES.characters,
       ]);
       const discountDraft = draftCards(discountProfile);
-      const omenProfile = legalCardDraftProfile(context, [
+      const omenProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:omen-profile`, [
         CARD_DRAFT_PROFILES.events,
         CARD_DRAFT_PROFILES.characters,
       ]);
       const omenDraft = draftCards(omenProfile);
-      const premiumProfile = legalCardDraftProfile(context, [
+      const premiumProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:premium-profile`, [
         CARD_DRAFT_PROFILES.reclaimEvents,
         CARD_DRAFT_PROFILES.dissolveEvents,
         CARD_DRAFT_PROFILES.events,
       ]);
       const premiumDraft = draftCards(premiumProfile);
-      const premiumOmenCount = premiumProfile === omenProfile ? 2 : 1;
+      let premiumOmenCount = premiumProfile === omenProfile ? 2 : 1;
+
+      while (
+        valueCardDraft(premiumDraft) + valueOmenGain(premiumOmenCount) - premiumPrice <=
+          valueCardDraft(omenDraft) + valueOmenGain(1) - payablePrice &&
+        premiumOmenCount < 3
+      ) {
+        premiumOmenCount += 1;
+      }
 
       return {
         options: [
@@ -1034,9 +1078,11 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
           }),
           (() => {
             const price = Math.min(25, context.state.quest.resources.essence);
-            const cardDraftProfile = legalCardDraftProfile(context, [
+            const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:service-draft-profile`, [
               CARD_DRAFT_PROFILES.survivors,
-              CARD_DRAFT_PROFILES.characters,
+              CARD_DRAFT_PROFILES.materializedCharacters,
+              CARD_DRAFT_PROFILES.dissolveEvents,
+              CARD_DRAFT_PROFILES.reclaimEvents,
             ]);
             const cardDraft = draftCards(cardDraftProfile);
 
@@ -1063,34 +1109,35 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "shop_row":
       return {
         options: [
-          paidDraft(context, 1, 15, [
+          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, 15, [
             CARD_DRAFT_PROFILES.lowCostCharacters,
             CARD_DRAFT_PROFILES.characters,
           ]),
-          paidDraft(context, 2, 20, [
+          paidDraft(context, drawContext, `${shapeId}:draft:2`, 2, 20, [
             CARD_DRAFT_PROFILES.fastCharacters,
             CARD_DRAFT_PROFILES.events,
+            CARD_DRAFT_PROFILES.dissolveEvents,
           ]),
-          paidDraft(context, 3, 25, [
+          paidDraft(context, drawContext, `${shapeId}:draft:3`, 3, 25, [
             CARD_DRAFT_PROFILES.spiritAnimals,
             CARD_DRAFT_PROFILES.materializedCharacters,
+            CARD_DRAFT_PROFILES.reclaimEvents,
           ]),
         ],
         precommitted: {},
       };
     case "curated_reward_trio":
-      return { options: commonPositiveOptions(context), precommitted: {} };
+      return { options: commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`), precommitted: {} };
     case "heterogeneous_pair": {
-      const positiveOptions = commonPositiveOptions(context);
-      const options = positiveOptions.length >= 3
-        ? [positiveOptions[0]!, positiveOptions[2]!]
-        : positiveOptions.slice(0, 2);
+      const positiveOptions = shuffleDeterministic(
+        drawContext,
+        `${shapeId}:positive-pair`,
+        commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`),
+      );
+      const options = positiveOptions.slice(0, 2);
 
       return {
-        options: options.map((item, index) => ({
-          ...item,
-          number: index + 1,
-        })),
+        options: renumberOptions(options),
         precommitted: {},
       };
     }
@@ -1261,13 +1308,21 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         };
       }
     case "single_reward":
-      return { options: commonPositiveOptions(context).slice(0, 2), precommitted: {} };
+      return {
+        options: renumberOptions(shuffleDeterministic(
+          drawContext,
+          `${shapeId}:single-reward-options`,
+          commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`),
+        ).slice(0, 2)),
+        precommitted: {},
+      };
     case "single_offer":
       return {
         options: [
-          paidDraft(context, 1, payablePrice, [
+          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, payablePrice, [
             CARD_DRAFT_PROFILES.materializedCharacters,
             CARD_DRAFT_PROFILES.characters,
+            CARD_DRAFT_PROFILES.reclaimEvents,
           ]),
           option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
         ],
@@ -1406,9 +1461,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "reward_after_trigger":
       {
         const dreamsignReward = dreamsignDraft(3);
-        const cardDraftProfile = legalCardDraftProfile(context, [
+        const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:trigger-card-profile`, [
           CARD_DRAFT_PROFILES.characters,
           CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
         ]);
         const cardDraftReward = draftCards(cardDraftProfile);
 
@@ -1466,9 +1522,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
       }
     case "paired_return":
       {
-        const cardDraftProfile = legalCardDraftProfile(context, [
+        const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:return-card-profile`, [
           CARD_DRAFT_PROFILES.characters,
           CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
         ]);
         const cardDraftReward = draftCards(cardDraftProfile);
 
@@ -1601,11 +1658,12 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "commit_now_future_payoff":
       {
         const dreamsignReward = dreamsignDraft(3);
-        const firstCardDraftProfile = legalCardDraftProfile(context, [
+        const firstCardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:first-card-profile`, [
           CARD_DRAFT_PROFILES.characters,
           CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
         ]);
-        const secondCardDraftProfile = legalCardDraftProfile(context, [
+        const secondCardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:second-card-profile`, [
           CARD_DRAFT_PROFILES.reclaimEvents,
           CARD_DRAFT_PROFILES.lowCostCharacters,
           CARD_DRAFT_PROFILES.events,

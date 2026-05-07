@@ -245,10 +245,8 @@ describe("generateNextJourney", () => {
     const journeyContext = await context("random:3aa6092e-d433-4819-b86c-ccf61b9f51cd");
     const manifest = fillForShape("reward_after_trigger", journeyContext);
 
-    expect(manifest.options.map((option) => option.text)).toEqual([
-      "After next battle, choose 1 of 3 Dreamsigns.",
-      "After next battle, draft 1 of 4 characters. Gain 1 omen.",
-    ]);
+    expect(manifest.options[0]?.text).toBe("After next battle, choose 1 of 3 Dreamsigns.");
+    expect(manifest.options[1]?.text).toMatch(/^After next battle, draft 1 of 4 .+\. Gain 1 omen\.$/u);
     expect(manifest.options[0]?.effectConvertedEssence).toBe(300);
     expect(manifest.options[0]?.netConvertedEssence).toBe(292);
     expect(manifest.options[1]?.effectConvertedEssence).toBe(72);
@@ -260,11 +258,9 @@ describe("generateNextJourney", () => {
     const journeyContext = await context();
     const manifest = fillForShape("commit_now_future_payoff", journeyContext);
 
-    expect(manifest.options.map((option) => option.text)).toEqual([
-      "Pay 30 essence now. At the next dreamscape, gain 160 essence.",
-      "Gain 1 Nightmare now. At the next dreamscape, choose 1 of 3 Dreamsigns.",
-      "Pay 55 essence now. At the next dreamscape, draft 1 of 4 Reclaim events. Gain 2 omens.",
-    ]);
+    expect(manifest.options[0]?.text).toBe("Pay 30 essence now. At the next dreamscape, gain 160 essence.");
+    expect(manifest.options[1]?.text).toBe("Gain 1 Nightmare now. At the next dreamscape, choose 1 of 3 Dreamsigns.");
+    expect(manifest.options[2]?.text).toMatch(/^Pay 55 essence now\. At the next dreamscape, draft 1 of 4 .+\. Gain 2 omens\.$/u);
     expect(manifest.precommitted.delayed?.map((entry) =>
       typeof entry === "object" && entry !== null && "optionNumber" in entry
         ? entry.optionNumber
@@ -349,20 +345,71 @@ describe("generateNextJourney", () => {
   it("balances the common positive reward menu while keeping broad four-card drafts modest", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("curated_reward_trio", journeyContext);
+    const resourceOption = manifest.options[0]!;
+    const draftEffect = manifest.options[1]?.effects.find((effect): effect is {
+      kind: "card_draft";
+      takeCount: number;
+      choiceCount: number;
+      predicate?: Record<string, unknown>;
+    } =>
+      typeof effect === "object" &&
+        effect !== null &&
+        "kind" in effect &&
+        effect.kind === "card_draft"
+    );
+    const dreamsignEffect = manifest.options[2]?.effects.find((effect): effect is {
+      kind: "dreamsign_draft";
+      choiceCount: number;
+    } =>
+      typeof effect === "object" &&
+        effect !== null &&
+        "kind" in effect &&
+        effect.kind === "dreamsign_draft"
+    );
 
-    expect(manifest.options.map((option) => option.text)).toEqual([
-      "Gain 400 essence.",
-      "Draft 1 of 4 characters. Gain 4 omens.",
-      "Choose 1 of 3 Dreamsigns.",
+    expect(manifest.options).toHaveLength(3);
+    expect(resourceOption.effects).toEqual([
+      expect.objectContaining({ kind: expect.stringMatching(/^gain_(?:essence|omens)$/u) }),
     ]);
-    expect(manifest.options[0]?.effectConvertedEssence).toBe(380);
-    expect(manifest.options[1]?.effectConvertedEssence).toBe(285);
+    expect(draftEffect).toEqual(expect.objectContaining({ takeCount: 1, choiceCount: 4 }));
+    expect(manifest.options[1]?.effectConvertedEssence).toBeGreaterThanOrEqual(285);
+    expect(dreamsignEffect?.choiceCount).toBeGreaterThanOrEqual(2);
+    expect(dreamsignEffect?.choiceCount).toBeLessThanOrEqual(3);
     expect(manifest.options[2]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
     expect(
       Math.max(...manifest.options.map((option) => option.netConvertedEssence)) -
         Math.min(...manifest.options.map((option) => option.netConvertedEssence)),
     ).toBeLessThanOrEqual(100);
   });
+
+  it("varies positive menu filler slots across seeds while preserving deterministic replay", async () => {
+    const positiveMenuShapeIds: JourneyShapeId[] = [
+      "random_allocation",
+      "curated_reward_trio",
+      "heterogeneous_pair",
+      "single_reward",
+    ];
+
+    for (const shapeId of positiveMenuShapeIds) {
+      const stableContext = await context(`positive-stable:${shapeId}`);
+
+      expect(stableStringify(fillForShape(shapeId, stableContext))).toBe(
+        stableStringify(fillForShape(shapeId, stableContext)),
+      );
+
+      const outputs = new Set<string>();
+
+      for (const seed of ["positive-a", "positive-b", "positive-c", "positive-d", "positive-e"]) {
+        const journeyContext = await context(`${shapeId}:${seed}`);
+        const manifest = fillForShape(shapeId, journeyContext);
+
+        expect(validateJourneyManifest(manifest, journeyContext), `${shapeId}:${seed}`).toEqual({ ok: true });
+        outputs.add(generatedOptionText(manifest).join("\n"));
+      }
+
+      expect(outputs.size, shapeId).toBeGreaterThan(1);
+    }
+  }, 15000);
 
   it("keeps generated card drafts at four choices with visible card predicates", async () => {
     const journeyContext = await context();
@@ -484,11 +531,10 @@ describe("generateNextJourney", () => {
     const journeyContext = await context("random:f3c7440a-d810-4c24-a0da-3fa0a45a0882");
     const manifest = fillForShape("same_reward_different_costs", journeyContext);
 
-    expect(manifest.options.map((option) => option.text)).toEqual([
-      "Pay 20 essence. Draft 1 of 4 low-cost characters.",
-      "Pay 30 essence. Draft 1 of 4 events. Gain 1 omen.",
-      "Pay 45 essence. Draft 1 of 4 events. Gain 2 omens.",
-    ]);
+    expect(manifest.options.map((option) => option.text)).toHaveLength(3);
+    expect(manifest.options[0]?.text).toMatch(/^Pay 20 essence\. Draft 1 of 4 .+\.$/u);
+    expect(manifest.options[1]?.text).toMatch(/^Pay 30 essence\. Draft 1 of 4 .+\. Gain 1 omen\.$/u);
+    expect(manifest.options[2]?.text).toMatch(/^Pay 45 essence\. Draft 1 of 4 .+\. Gain [123] omens?\.$/u);
     expect(manifest.options[2]!.netConvertedEssence).toBeGreaterThan(
       manifest.options[1]!.netConvertedEssence,
     );
