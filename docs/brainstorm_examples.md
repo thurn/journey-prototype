@@ -76,7 +76,7 @@
 ## Veiled Cache
 
 - Pay 60 essence. Roll for 160 essence, 2 omens, or {Tarot Card}.
-- Pay 60 essence. Roll for a random Bane purge, draft 1 of 8 cards, or {Curved Blade}.
+- Pay 60 essence. Roll for a random Bane purge, draft 1 of 4 cards, or {Curved Blade}.
 
 ## Sleeping Contract
 
@@ -250,13 +250,13 @@
 ## Starter Debt
 
 - Gain 3 additional starter cards. Gain {Worm Apple}.
-- Apply {Fractured Transfiguration} to a random starter card. Draft 1 of 10 cards.
+- Apply {Fractured Transfiguration} to a random starter card. Draft 1 of 4 events.
 - Remove the transfiguration from {Nocturne Strummer}. Gain 2 omens.
 
 ## Stolen Verbs
 
 - Remove Reclaim from {Moonlit Voyage}. Gain {Cauldron}.
-- Remove Foresee from {Synaptic Sentinel}. Draft 2 of 8 fast cards.
+- Remove Foresee from {Synaptic Sentinel}. Draft 2 of 4 fast cards.
 - Draw 5 cards from your deck and purge one. Gain {Dragon Egg}.
 
 ## Narrow Gate
@@ -298,7 +298,7 @@
 
 - Gain {Green Amulet} for 3 battles. Then lose it and pay 100 essence.
 - Gain {Wolf Sigil} for 2 battles. Then lose it and gain 1 {Nightmare}.
-- Draft 2 of 10 cards for 2 battles. Then purge both cards.
+- Draft 2 of 4 cards for 2 battles. Then purge both cards.
 
 ## Duplicate Draft
 
