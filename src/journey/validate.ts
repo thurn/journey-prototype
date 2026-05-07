@@ -650,34 +650,45 @@ function hasOdds(value: unknown): boolean {
 }
 
 function validateSingleWager(manifest: JourneyManifest): ValidationResult {
-  const option = manifest.options[0];
+  const wagerOptions = manifest.options.filter((option) => option.pickBehavior !== "leave");
 
-  if (!option || option.costs.length === 0) {
-    return fail("known_stake_is_visible_before_commit", "Single wager requires a visible stake");
+  for (const option of wagerOptions) {
+    if (option.costs.length === 0) {
+      return fail("known_stake_is_visible_before_commit", "Single wager requires a visible stake");
+    }
+
+    if (!/\b\d+%\s+chance\b/iu.test(option.text) || !/\botherwise\b|\bnothing\b|\bfail/iu.test(option.text)) {
+      return fail(
+        "reward_outcome_is_bounded_random_envelope",
+        "Single wager must show odds and the failure outcome before commitment",
+      );
+    }
   }
 
-  if (!/\b\d+%\s+chance\b/iu.test(option.text) || !/\botherwise\b|\bnothing\b|\bfail/iu.test(option.text)) {
-    return fail(
-      "reward_outcome_is_bounded_random_envelope",
-      "Single wager must show odds and the failure outcome before commitment",
-    );
-  }
-
-  const wager = manifest.precommitted.random?.find((entry) =>
+  const wagers = manifest.precommitted.random?.filter((entry) =>
     isRecord(entry) && entry.kind === "wager_roll"
-  );
+  ) ?? [];
 
-  if (
-    !isRecord(wager) ||
-    !hasOdds(wager) ||
-    !("success" in wager) ||
-    !("failure" in wager) ||
-    typeof wager.committedResult !== "string"
-  ) {
+  if (wagers.length < wagerOptions.length) {
     return fail(
       "reward_outcome_is_bounded_random_envelope",
-      "Single wager precommit must store odds, success and failure outcomes, and the committed roll",
+      "Single wager precommit must store one committed roll per wager option",
     );
+  }
+
+  for (const wager of wagers) {
+    if (
+      !isRecord(wager) ||
+      !hasOdds(wager) ||
+      !("success" in wager) ||
+      !("failure" in wager) ||
+      typeof wager.committedResult !== "string"
+    ) {
+      return fail(
+        "reward_outcome_is_bounded_random_envelope",
+        "Single wager precommit must store odds, success and failure outcomes, and the committed roll",
+      );
+    }
   }
 
   return { ok: true };

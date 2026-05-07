@@ -168,13 +168,15 @@ There are a few things that Dreamtides journeys do not do:
 - Dream Journeys are generated when a dreamscape becomes available and then
   frozen.
 - The player must understand the class of consequence they are opting into.
-- Normal Journey sites may show between 1 and 3 root options, with the average
-  target being about 2. Some Journey Shapes may contain a bounded internal
+- Normal non-tree Journey sites must show at least 2 root options. The `single`
+  shapes still describe one reward or random-outcome family, but the generated
+  site must present multiple variants in that family rather than a forced
+  one-line acceptance. Some Journey Shapes may contain a bounded internal
   decision tree, but that tree must be fully visible when the Journey is shown.
 - A root option should show dream art, short hover text, and referenced-object
   popups when needed.
-- If a site presents exactly 1 root option, it is normally forced. Refusal
-  belongs only to `single_offer` and `risk_or_skip`.
+- Refusal belongs only to `single_offer` and `risk_or_skip`, and it must not be
+  used to make a forced one-option site look like a strategic choice.
 - Sites with 3 root options should usually have an explicit linking property
   such as shared cost, reward class, target, operation, timing, or motif. Truly
   unrelated offers should be uncommon and mostly reserved for 2-option sites.

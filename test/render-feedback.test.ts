@@ -225,6 +225,18 @@ describe("review feedback regressions", () => {
             trigger: "after next victory",
             reward: { kind: "gain_omens", amount: 1 },
           },
+          {
+            trigger: "after next battle",
+            reward: [
+              {
+                kind: "card_draft",
+                takeCount: 1,
+                choiceCount: 4,
+                predicate: { source: "draftPool", cardType: "Character" },
+              },
+              { kind: "gain_omens", amount: 1 },
+            ],
+          },
         ],
       },
     };
@@ -240,6 +252,7 @@ describe("review feedback regressions", () => {
     expect(output).toContain("2. 50% wager: success: Gain 160 essence. failure: Gain nothing. committed roll: failure (roll 73).");
     expect(output).toContain("3. Draft 1 of 4 cards (subtype Character; source draftPool).");
     expect(output).toContain("after next victory: Gain 1 omen.");
+    expect(output).toContain("after next battle: Draft 1 of 4 cards (card type Character; source draftPool). Gain 1 omen.");
   });
 
   it("keeps precommitted outcomes out of normal human output unless option copy reveals them", () => {

@@ -87,6 +87,16 @@ describe("JOURNEY_SHAPES", () => {
     }
   });
 
+  it("requires non-tree shapes to expose a root choice", () => {
+    for (const definition of JOURNEY_SHAPES) {
+      if (definition.topology === "decision_tree") {
+        continue;
+      }
+
+      expect(definition.rootOptionCount.min, definition.id).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it("freezes shared catalog definitions against accidental mutation", () => {
     const definition = getShapeDefinition("random_allocation");
     const canonicalBeforeMutationAttempts = canonicalShapeDefinitions();
@@ -140,7 +150,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v5;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v6;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

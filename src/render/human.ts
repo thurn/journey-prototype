@@ -153,6 +153,10 @@ function predicateSummary(predicate: unknown): string {
 }
 
 function committedOutcomeText(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(committedOutcomeText).join(" ");
+  }
+
   if (!isRecord(value)) {
     return stableStringify(value).trim();
   }

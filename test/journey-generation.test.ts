@@ -215,6 +215,39 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("keeps delayed-hook shapes as real root choices", async () => {
+    const journeyContext = await context();
+    const delayedChoiceShapeIds: JourneyShapeId[] = [
+      "now_vs_later",
+      "reward_after_trigger",
+      "paired_return",
+      "commit_now_future_payoff",
+    ];
+
+    for (const shapeId of delayedChoiceShapeIds) {
+      const manifest = fillForShape(shapeId, journeyContext);
+
+      expect(manifest.options, shapeId).toHaveLength(2);
+      expect(manifest.options.map((option) => option.number), shapeId).toEqual([1, 2]);
+      expect(manifest.precommitted.delayed, shapeId).toBeDefined();
+      expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
+    }
+  });
+
+  it("rejects a non-tree delayed hook that collapses to one root option", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.slice(0, 1),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "root_option_count_within_bounds",
+    });
+  });
+
   it("never exposes tide terminology in generated ability text", async () => {
     const journeyContext = await context();
 
@@ -516,7 +549,7 @@ describe("validateJourneyManifest", () => {
       precommitted: {},
     };
 
-    expect(manifest.precommitted.random).toHaveLength(1);
+    expect(manifest.precommitted.random).toHaveLength(manifest.options.length);
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "missing_precommitted_outcomes",
@@ -530,10 +563,23 @@ describe("validateJourneyManifest", () => {
     expect(manifest.options[0]?.text).toBe(
       "Pay 30 essence. 50% chance to gain 160 essence; otherwise gain nothing.",
     );
+    expect(manifest.options[1]?.text).toBe(
+      "Pay 50 essence. 65% chance to gain 190 essence; otherwise gain nothing.",
+    );
     expect(manifest.precommitted.random?.[0]).toMatchObject({
       kind: "wager_roll",
+      optionNumber: 1,
       odds: { percent: 50 },
       success: { kind: "gain_essence", amount: 160 },
+      failure: { kind: "no_reward" },
+      committedResult: expect.stringMatching(/^(success|failure)$/u),
+      presentation: "visible_odds_debug_roll",
+    });
+    expect(manifest.precommitted.random?.[1]).toMatchObject({
+      kind: "wager_roll",
+      optionNumber: 2,
+      odds: { percent: 65 },
+      success: { kind: "gain_essence", amount: 190 },
       failure: { kind: "no_reward" },
       committedResult: expect.stringMatching(/^(success|failure)$/u),
       presentation: "visible_odds_debug_roll",
@@ -547,8 +593,14 @@ describe("validateJourneyManifest", () => {
     expect(fillForShape("single_random_outcome", journeyContext).options[0]?.text).toBe(
       "Gain the precommitted reward: 70 essence.",
     );
+    expect(fillForShape("single_random_outcome", journeyContext).options[1]?.text).toBe(
+      "Gain the precommitted reward: 1 omen.",
+    );
     expect(fillForShape("resolved_random_series", journeyContext).options[0]?.text).toBe(
       "Resolve the precommitted rewards: gain 25 essence, gain 1 omen, then draft 1 of 4 characters.",
+    );
+    expect(fillForShape("resolved_random_series", journeyContext).options[1]?.text).toBe(
+      "Resolve the precommitted rewards: gain 50 essence, draft 1 of 4 events, then gain 1 omen.",
     );
   });
 
@@ -562,6 +614,7 @@ describe("validateJourneyManifest", () => {
           ...manifest.options[0]!,
           text: "Pay 30 essence. Gain the precommitted reward: 110 essence.",
         },
+        manifest.options[1]!,
       ],
       precommitted: { random: [{ kind: "gain_essence", amount: 110 }] },
     };
@@ -580,7 +633,7 @@ describe("validateJourneyManifest", () => {
       precommitted: {},
     };
 
-    expect(manifest.precommitted.delayed).toHaveLength(1);
+    expect(manifest.precommitted.delayed).toHaveLength(manifest.options.length);
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "missing_precommitted_outcomes",

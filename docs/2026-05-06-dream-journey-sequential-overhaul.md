@@ -245,9 +245,10 @@ should not print next commands for `pick`, should not say a pending Journey was
 stored, and should not imply state was updated.
 
 Direct-menu shapes should continue to render as concise numbered mechanical
-options with symbols where useful. Single-offer, single-reward, random-commit,
-delayed-hook, and route-edit shapes can keep their existing mechanical style as
-long as they do not reference interactive picking.
+options with symbols where useful. Non-tree shapes must render at least two
+root choices. Single-reward, random-commit, delayed-hook, and route-edit shapes
+can keep their existing mechanical style only by offering multiple variants in
+the same family; they must not collapse into forced one-line acceptances.
 
 True sequential shapes should render as decision trees. The tree does not need
 ASCII art. It should be a readable hierarchical listing with levels, branches,

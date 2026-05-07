@@ -50,7 +50,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v5";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v6";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -338,7 +338,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "single_reward",
     topology: "single_reward",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["reward", "boon", "cleanse", "single"],
     validationRules: [
       "root_option_count_within_bounds",
@@ -399,7 +399,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "single_wager",
     topology: "random_commit",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["wager", "random", "cost", "reward", "commit"],
     validationRules: [
       ...commonValidationRules,
@@ -435,10 +435,10 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "reward_after_trigger",
     topology: "delayed_hook",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["trigger", "delayed", "reward", "promise"],
     validationRules: [
-      "root_option_count_within_bounds",
+      ...commonValidationRules,
       "future_reward_has_visible_trigger",
       "future_reward_is_stored_not_applied",
     ],
@@ -456,7 +456,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "paired_return",
     topology: "delayed_hook",
-    rootOptionCount: { min: 1, max: 2 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["callback", "delayed", "memory", "reward", "choice"],
     validationRules: [
       ...commonValidationRules,
@@ -604,7 +604,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "resolved_random_series",
     topology: "random_commit",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["random", "series", "reward", "commit"],
     validationRules: [
       "root_option_count_within_bounds",
@@ -625,7 +625,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "single_random_outcome",
     topology: "random_commit",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["random", "reward", "commit", "omen"],
     validationRules: [
       "root_option_count_within_bounds",
@@ -646,10 +646,10 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "commit_now_future_payoff",
     topology: "delayed_hook",
-    rootOptionCount: { min: 1, max: 1 },
+    rootOptionCount: { min: 2, max: 2 },
     supportedTags: ["commitment", "delayed", "reward", "future"],
     validationRules: [
-      "root_option_count_within_bounds",
+      ...commonValidationRules,
       "commitment_is_visible_immediately",
       "future_payoff_is_significant_and_precommitted",
     ],
@@ -667,7 +667,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "alter_dreamscapes",
     topology: "route_edit",
-    rootOptionCount: { min: 1, max: 3 },
+    rootOptionCount: { min: 2, max: 3 },
     supportedTags: ["route", "dreamscape", "timing", "structural"],
     validationRules: [
       ...commonValidationRules,
