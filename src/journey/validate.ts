@@ -2240,8 +2240,9 @@ function validateRandomRangeEnvelope(value: Record<string, unknown>): Validation
   }
 
   if (
-    typeof value.committedAmount === "number" &&
-    (value.committedAmount < value.minimum || value.committedAmount > value.maximum)
+    typeof value.committedAmount !== "number" ||
+    value.committedAmount < value.minimum ||
+    value.committedAmount > value.maximum
   ) {
     return fail("incoherent_random_range_bounds", "Committed random range amount must fall within bounds");
   }
@@ -2336,9 +2337,14 @@ function validateRandomEnvelopePayload(value: unknown): ValidationResult {
     if (
       !Array.isArray(value.rolls) ||
       value.rolls.length !== 2 ||
+      !value.rolls.every((roll) => typeof roll === "number") ||
       typeof value.keptRoll !== "number"
     ) {
       return fail("invalid_roll_twice_payload", "Roll-twice envelopes require two rolls and one kept roll");
+    }
+
+    if (!value.rolls.includes(value.keptRoll)) {
+      return fail("invalid_roll_twice_payload", "Roll-twice kept roll must be one of the committed rolls");
     }
   }
 

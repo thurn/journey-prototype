@@ -634,8 +634,36 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
           },
         };
       }
-      case "push_your_luck":
-        return { tree: buildPushYourLuckTree(context, drawContext), precommitted: { random: [{ kind: "push_failure", bounded: true }] } };
+      case "push_your_luck": {
+        const pushTree = buildPushYourLuckTree(context, drawContext);
+        const failureBranches = pushTree.nodes.flatMap((node) =>
+          node.branches.filter((branch) => branch.kind === "random_chance")
+        );
+        const firstFailure = failureBranches[0];
+
+        return {
+          tree: pushTree,
+          precommitted: {
+            random: [{
+              kind: "push_choice",
+              bounded: true,
+              odds: firstFailure?.odds ?? odds(50),
+              hazard: {
+                branches: failureBranches.map((branch) => ({
+                  id: branch.id,
+                  odds: branch.odds,
+                  burdens: branch.burdens ?? [],
+                })),
+              },
+              visibilityPolicy: {
+                outcomeVisibility: "visible",
+                disclosure: "Push-your-luck failure odds and hazards are visible on each push branch.",
+                playerVisible: true,
+              },
+            }],
+          },
+        };
+      }
       case "escalating_reward_chain":
         return { tree: buildEscalatingRewardChainTree(context, drawContext), precommitted: {} };
       default:

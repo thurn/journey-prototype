@@ -2172,6 +2172,34 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("precommits push-your-luck failures as a typed random envelope", async () => {
+    const journeyContext = await context("push-choice-envelope");
+    const manifest = fillForShape("push_your_luck", journeyContext);
+    const random = manifest.precommitted.random ?? [];
+
+    expect(random.some((entry) => entry.kind === "push_failure")).toBe(false);
+    expect(random).toEqual([
+      expect.objectContaining({
+        kind: "push_choice",
+        bounded: true,
+        odds: expect.objectContaining({
+          numerator: expect.any(Number),
+          denominator: 100,
+          percent: expect.any(Number),
+        }),
+        hazard: expect.objectContaining({
+          branches: expect.any(Array),
+        }),
+        visibilityPolicy: expect.objectContaining({
+          outcomeVisibility: "visible",
+          playerVisible: true,
+          disclosure: expect.any(String),
+        }),
+      }),
+    ]);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
   it("varies true sequential shape content by seed", async () => {
     const treeShapeIds: JourneyShapeId[] = [
       "prize_ladder",
@@ -2974,6 +3002,31 @@ describe("validateJourneyManifest", () => {
     }), "random_range"), journeyContext)).toMatchObject({
       ok: false,
       rule: "incoherent_random_range_bounds",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => {
+      const { committedAmount: _committedAmount, ...rest } = entry;
+
+      return rest;
+    }, "random_range"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "incoherent_random_range_bounds",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => ({
+      ...entry,
+      minimum: 1,
+      maximum: 3,
+      committedAmount: 9,
+    }), "random_range"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "incoherent_random_range_bounds",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => ({
+      ...entry,
+      rolls: [3, 7],
+      keptRoll: 99,
+    }), "roll_twice_keep_one"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_roll_twice_payload",
     });
   });
 
