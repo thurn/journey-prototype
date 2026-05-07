@@ -25,6 +25,7 @@ import {
   commonEssenceRewardAmount,
   evaluateOptionValue,
   LOSS_CHOICE_VALUE_CONSTANTS,
+  TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   valueBaneGain,
   valueCardDraft,
   valueDreamsignDraft,
@@ -135,8 +136,6 @@ const CARD_POOL_TARGET_DESCRIPTION = "eligible draft cards";
 const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
 const CARD_DRAFT_CHOICE_COUNT = 4;
 const BATTLE_WINDOW_DURATION = "next 3 battles";
-const ORDINARY_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.35;
-const COMMITTED_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.6;
 
 type CardDraftProfile = {
   label: string;
@@ -357,7 +356,7 @@ function sequentialReward(context: JourneyContext, drawContext: DrawContext, lab
 function delayedDreamsignDraftValue(
   reward: ReturnType<typeof dreamsignDraft>,
   context: JourneyContext,
-  multiplier = ORDINARY_DELAYED_DREAMSIGN_VALUE_MULTIPLIER,
+  multiplier: number,
 ): number {
   return Math.round(valueDreamsignDraft(reward, context) * multiplier);
 }
@@ -416,6 +415,20 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
   ]);
   const cardDraft = draftCards(cardDraftProfile);
   const dreamsignChoice = dreamsignDraft(3);
+  const fallbackReward = context.state.quest.deck.summary.starterCards > 0
+    ? option({
+        number: 3,
+        text: "Purge up to 1 chosen Starter card. Gain 4 omens.",
+        effects: [starterCleanup(1), gainOmen(4)],
+        targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
+        effect: 85 + valueOmenGain(4),
+      })
+    : option({
+        number: 3,
+        text: "Gain 330 essence.",
+        effects: [gainEssence(330)],
+        effect: valueEssenceGain(330, context),
+      });
   const resourceOption = essenceValue >= 300
     ? option({
         number: 1,
@@ -439,14 +452,16 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
       targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
       effect: valueCardDraft(cardDraft) + valueOmenGain(4),
     }),
-    option({
-      number: 3,
-      text: dreamsignDraftText(3),
-      effects: [dreamsignChoice],
-      targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-      effect: valueDreamsignDraft(dreamsignChoice, context),
-    }),
-  ].slice(0, context.state.quest.dreamsignPoolIds.length > 0 ? 3 : 2);
+    context.state.quest.dreamsignPoolIds.length > 0
+      ? option({
+          number: 3,
+          text: dreamsignDraftText(3),
+          effects: [dreamsignChoice],
+          targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
+          effect: valueDreamsignDraft(dreamsignChoice, context),
+        })
+      : fallbackReward,
+  ];
 }
 
 function paidDraft(
@@ -940,15 +955,15 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "same_cost_different_rewards":
       return {
         options: [
-          paidDraft(context, 1, payablePrice, [
+          paidDraft(context, 1, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.warriors,
             CARD_DRAFT_PROFILES.characters,
           ]),
-          paidDraft(context, 2, payablePrice, [
+          paidDraft(context, 2, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.dissolveEvents,
             CARD_DRAFT_PROFILES.events,
           ]),
-          paidDraft(context, 3, payablePrice, [
+          paidDraft(context, 3, Math.min(20, context.state.quest.resources.essence), [
             CARD_DRAFT_PROFILES.materializedCharacters,
             CARD_DRAFT_PROFILES.spiritAnimals,
           ]),
@@ -1048,15 +1063,15 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "shop_row":
       return {
         options: [
-          paidDraft(context, 1, 45, [
+          paidDraft(context, 1, 15, [
             CARD_DRAFT_PROFILES.lowCostCharacters,
             CARD_DRAFT_PROFILES.characters,
           ]),
-          paidDraft(context, 2, 65, [
+          paidDraft(context, 2, 20, [
             CARD_DRAFT_PROFILES.fastCharacters,
             CARD_DRAFT_PROFILES.events,
           ]),
-          paidDraft(context, 3, 85, [
+          paidDraft(context, 3, 25, [
             CARD_DRAFT_PROFILES.spiritAnimals,
             CARD_DRAFT_PROFILES.materializedCharacters,
           ]),
@@ -1360,7 +1375,11 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
               triggers: [{ kind: "in_two_dreamscapes" }],
               effects: [dreamsignReward],
               targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-              effect: delayedDreamsignDraftValue(dreamsignReward, context),
+              effect: delayedDreamsignDraftValue(
+                dreamsignReward,
+                context,
+                TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.twoDreamscapesMultiplier,
+              ),
               uncertainty: -16,
             })
           : option({
@@ -1402,7 +1421,11 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
                   triggers: [{ kind: "after_next_battle" }],
                   effects: [dreamsignReward],
                   targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-                  effect: delayedDreamsignDraftValue(dreamsignReward, context),
+                  effect: delayedDreamsignDraftValue(
+                    dreamsignReward,
+                    context,
+                    TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
+                  ),
                   uncertainty: -8,
                 })
               : option({
@@ -1410,7 +1433,9 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
                   text: "After next battle, gain 150 essence.",
                   triggers: [{ kind: "after_next_battle" }],
                   effects: [gainEssence(150)],
-                  effect: 112,
+                  effect: Math.round(
+                    valueEssenceGain(150, context) * TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
+                  ),
                   uncertainty: -8,
                 }),
             option({
@@ -1419,7 +1444,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
               triggers: [{ kind: "after_next_battle" }],
               effects: [cardDraftReward, gainOmen(1)],
               targets: [target("card", cardDraftProfile.targetDescription, cardDraftReward.predicate)],
-              effect: Math.round((valueCardDraft(cardDraftReward) + valueOmenGain(1)) * 0.75),
+              effect: Math.round(
+                (valueCardDraft(cardDraftReward) + valueOmenGain(1)) *
+                  TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
+              ),
               uncertainty: -8,
             }),
           ],
@@ -1596,7 +1624,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
               effect: delayedDreamsignDraftValue(
                 dreamsignReward,
                 context,
-                COMMITTED_DELAYED_DREAMSIGN_VALUE_MULTIPLIER,
+                TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.burdenedFuturePayoffMultiplier,
               ),
               burden: valueBaneGain("Nightmare", 1),
               uncertainty: -8,

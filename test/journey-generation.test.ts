@@ -241,6 +241,21 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("values next-battle Dreamsign rewards as near-term premium rewards", async () => {
+    const journeyContext = await context("random:3aa6092e-d433-4819-b86c-ccf61b9f51cd");
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "After next battle, choose 1 of 3 Dreamsigns.",
+      "After next battle, draft 1 of 4 characters. Gain 1 omen.",
+    ]);
+    expect(manifest.options[0]?.effectConvertedEssence).toBe(300);
+    expect(manifest.options[0]?.netConvertedEssence).toBe(292);
+    expect(manifest.options[1]?.effectConvertedEssence).toBe(72);
+    expect(manifest.options[1]?.netConvertedEssence).toBe(64);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
   it("fills commit-now future payoffs as three comparable visible commitments", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("commit_now_future_payoff", journeyContext);
@@ -331,7 +346,7 @@ describe("generateNextJourney", () => {
     }
   });
 
-  it("balances the common positive reward menu with stronger Dreamsigns and typed four-card drafts", async () => {
+  it("balances the common positive reward menu while keeping broad four-card drafts modest", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("curated_reward_trio", journeyContext);
 
@@ -341,7 +356,7 @@ describe("generateNextJourney", () => {
       "Choose 1 of 3 Dreamsigns.",
     ]);
     expect(manifest.options[0]?.effectConvertedEssence).toBe(380);
-    expect(manifest.options[1]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
+    expect(manifest.options[1]?.effectConvertedEssence).toBe(285);
     expect(manifest.options[2]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
     expect(
       Math.max(...manifest.options.map((option) => option.netConvertedEssence)) -

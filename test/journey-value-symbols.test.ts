@@ -62,9 +62,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v4");
+    expect(VALUE_MODEL_VERSION).toBe("value:v5");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v4",
+      version: "value:v5",
       values: {
         essence: {
           gainUnit: 1,
@@ -80,7 +80,12 @@ describe("evaluateOptionValue", () => {
           lossEach: -65,
         },
         cards: {
-          draftBase: 32,
+          draftBase: 18,
+          draftSpecificityValues: {
+            broadCardType: 0,
+            subtype: 15,
+            namedOrId: 40,
+          },
           namedVisibleByRarity: {
             common: 75,
             uncommon: 95,
@@ -127,6 +132,28 @@ describe("evaluateOptionValue", () => {
         predicate: { cardType: "Character" },
       }),
     );
+  });
+
+  it("scales card draft value by predicate specificity", () => {
+    const broadCharacters = valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: { cardType: "Character" },
+    });
+    const warriorCharacters = valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: { cardType: "Character", subtype: "Warrior" },
+    });
+    const namedCards = valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: { ids: ["card-1"] },
+    });
+
+    expect(broadCharacters).toBe(25);
+    expect(warriorCharacters).toBeGreaterThan(broadCharacters);
+    expect(namedCards).toBeGreaterThan(warriorCharacters);
   });
 });
 

@@ -3,7 +3,7 @@ import type { JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v4" = "value:v4";
+export const VALUE_MODEL_VERSION: "value:v5" = "value:v5";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -33,18 +33,27 @@ export const OMEN_VALUE_CONSTANTS = {
 } as const;
 
 export const CARD_VALUE_CONSTANTS = {
-  draftBase: 32,
+  draftBase: 18,
   draftChoiceValues: {
-    choices4: 12,
-    choices6: 18,
-    choices8: 23,
-    choices10: 27,
-    choices12: 30,
-    choices14: 32,
-    choices16: 33,
+    choices4: 7,
+    choices6: 11,
+    choices8: 14,
+    choices10: 17,
+    choices12: 19,
+    choices14: 20,
+    choices16: 21,
   },
   additionalDraftPickBonus: 35,
-  visibleQualifierBonus: 25,
+  draftSpecificityValues: {
+    broadCardType: 0,
+    subtype: 15,
+    rarity: 15,
+    energyBound: 10,
+    fast: 10,
+    textMatch: 20,
+    namedOrId: 40,
+    maximum: 60,
+  },
   randomCard: 55,
   tideOrPredicateMatchBonus: 15,
   hiddenRandomPenalty: -10,
@@ -116,9 +125,12 @@ export const ROUTE_VALUE_CONSTANTS = {
 
 export const TIMING_AND_RANDOMNESS_VALUE_CONSTANTS = {
   delayedRewardMultiplier: 0.75,
+  nextBattleMultiplier: 0.8,
   nextVictoryMultiplier: 0.8,
   twoVictoriesMultiplier: 0.65,
   nextDreamscapeMultiplier: 0.8,
+  twoDreamscapesMultiplier: 0.35,
+  burdenedFuturePayoffMultiplier: 0.6,
   randomRewardExpectedValueMultiplier: 0.85,
   randomDownsideFlatRiskPremium: 20,
   randomDownsideWorstCaseMultiplier: 0.25,
@@ -318,23 +330,45 @@ function capAwareEssenceAmount(amount: number, context?: JourneyContext): number
   return Math.max(0, Math.min(amount, resources.maxEssence - resources.essence));
 }
 
-function hasVisibleDraftQualifier(predicate: unknown): boolean {
+function preciseDraftQualifierValue(predicate: unknown): number {
   if (typeof predicate !== "object" || predicate === null || Array.isArray(predicate)) {
-    return false;
+    return 0;
   }
 
   const record = predicate as Record<string, unknown>;
+  let specificity = typeof record.cardType === "string"
+    ? CARD_VALUE_CONSTANTS.draftSpecificityValues.broadCardType
+    : 0;
 
-  return typeof record.cardType === "string" ||
-    typeof record.subtype === "string" ||
-    typeof record.rarity === "string" ||
-    typeof record.minEnergyCost === "number" ||
-    typeof record.maxEnergyCost === "number" ||
-    record.isFast === true ||
-    typeof record.renderedTextIncludes === "string" ||
-    Array.isArray(record.renderedTextIncludes) ||
-    Array.isArray(record.names) ||
-    Array.isArray(record.ids);
+  if (typeof record.subtype === "string") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.subtype;
+  }
+
+  if (typeof record.rarity === "string") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.rarity;
+  }
+
+  if (typeof record.minEnergyCost === "number") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.energyBound;
+  }
+
+  if (typeof record.maxEnergyCost === "number") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.energyBound;
+  }
+
+  if (record.isFast === true) {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.fast;
+  }
+
+  if (typeof record.renderedTextIncludes === "string" || Array.isArray(record.renderedTextIncludes)) {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.textMatch;
+  }
+
+  if (Array.isArray(record.names) || Array.isArray(record.ids)) {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.namedOrId;
+  }
+
+  return Math.min(specificity, CARD_VALUE_CONSTANTS.draftSpecificityValues.maximum);
 }
 
 export function valueEssenceGain(amount: number, context?: JourneyContext): number {
@@ -362,9 +396,7 @@ export function valueCardDraft(input: {
   const additionalCards = Math.max(0, input.takeCount - 1) *
     CARD_VALUE_CONSTANTS.additionalDraftPickBonus;
   const breadth = choiceCurveValue(input.choiceCount, CARD_VALUE_CONSTANTS.draftChoiceValues);
-  const qualifier = hasVisibleDraftQualifier(input.predicate)
-    ? CARD_VALUE_CONSTANTS.visibleQualifierBonus
-    : 0;
+  const qualifier = preciseDraftQualifierValue(input.predicate);
 
   return roundToNearestFive(firstCard + additionalCards + breadth + qualifier);
 }
