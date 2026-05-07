@@ -88,6 +88,43 @@ type SequentialReward = {
   effect: number;
 };
 
+const RESOURCE_EDGE_CASE_VALUE_BANDS = Object.freeze([
+  {
+    id: "maximum",
+    label: "maximum",
+    description: "resource reward is evaluated against the current maximum.",
+  },
+  {
+    id: "percentage",
+    label: "percentage",
+    description: "resource reward is expressed as a percentage of a resource pool.",
+    amount: 50,
+  },
+  {
+    id: "all_remaining",
+    label: "all-remaining",
+    description: "resource cost or reward consumes all remaining resource.",
+  },
+  {
+    id: "random_range",
+    label: "random-range",
+    description: "resource amount is selected from an explicit random range.",
+    minimum: 1,
+    maximum: 3,
+  },
+  {
+    id: "cap_change",
+    label: "cap-change",
+    description: "resource effect changes a maximum resource cap.",
+  },
+  {
+    id: "multi_omen",
+    label: "multi-omen",
+    description: "omen effect is evaluated as a multi-omen bundle.",
+    amount: 2,
+  },
+] as const);
+
 type RewardSlot = {
   key: string;
   text: string;
@@ -1844,12 +1881,81 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
   }
 }
 
+function isResourceEdgeCasePayload(debugPayload: DebugPayloadSelection | undefined): boolean {
+  return debugPayload?.qaId === "resource/resource-edge-cases";
+}
+
+function recordKind(value: unknown): string | undefined {
+  return typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    "kind" in value &&
+    typeof value.kind === "string"
+    ? value.kind
+    : undefined;
+}
+
+function isResourceBandLegacyKind(kind: string | undefined): boolean {
+  return kind === "gain_essence" ||
+    kind === "gain_omens" ||
+    kind === "essence" ||
+    kind === "omens" ||
+    kind === "essence_loss" ||
+    kind === "omen_loss" ||
+    kind === "random_series";
+}
+
+function operationReceivesResourceBands(operation: JourneyOption["operations"][number]): boolean {
+  return isResourceBandLegacyKind(operation.legacyKind) ||
+    (operation.operationKind === "reward" && operation.rewardKind === "resource") ||
+    (operation.operationKind === "cost" && (operation.resource === "essence" || operation.resource === "omens")) ||
+    (operation.operationKind === "burden" && operation.burdenKind === "resource_loss");
+}
+
+function withValueBands(value: unknown): unknown {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? {
+        ...value,
+        valueBands: RESOURCE_EDGE_CASE_VALUE_BANDS,
+      }
+    : value;
+}
+
+function withResourceEdgeCaseValueBands(options: readonly JourneyOption[]): JourneyOption[] {
+  return options.map((journeyOption) => ({
+    ...journeyOption,
+    effects: journeyOption.effects.map((effect) =>
+      isResourceBandLegacyKind(recordKind(effect))
+        ? withValueBands(effect)
+        : effect
+    ),
+    operations: journeyOption.operations.map((operation) =>
+      operationReceivesResourceBands(operation)
+        ? {
+            ...operation,
+            value: {
+              ...(operation.value ?? {}),
+              bands: RESOURCE_EDGE_CASE_VALUE_BANDS.map((band) => ({ ...band })),
+            },
+            payload: {
+              ...operation.payload,
+              valueBands: RESOURCE_EDGE_CASE_VALUE_BANDS.map((band) => ({ ...band })),
+            },
+          }
+        : operation
+    ),
+  }));
+}
+
 export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManifest {
   const selectedCards = selectedCardTargets(args.context, args.drawContext).slice(0, 3);
   const selectedDreamsigns = selectedDreamsignTargets(args.context, args.drawContext).slice(0, 3);
   const shape = getShapeDefinition(args.shapeId);
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
-  const options = filled.options.slice(0, shape.rootOptionCount.max);
+  const filledOptions = filled.options.slice(0, shape.rootOptionCount.max);
+  const options = isResourceEdgeCasePayload(args.debugPayload)
+    ? withResourceEdgeCaseValueBands(filledOptions)
+    : filledOptions;
   const optionRouteEffects = options.flatMap((journeyOption) => journeyOption.routeEffects);
   const legacyPrecommitted = optionRouteEffects.length > 0 && filled.precommitted.routeEdits === undefined
     ? {

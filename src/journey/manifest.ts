@@ -60,6 +60,20 @@ export type OperationValueMetadata = {
   convertedEssence?: number;
   expectedConvertedEssence?: number;
   uncertaintyConvertedEssence?: number;
+  bands?: {
+    id:
+      | "maximum"
+      | "percentage"
+      | "all_remaining"
+      | "random_range"
+      | "cap_change"
+      | "multi_omen";
+    label: string;
+    description: string;
+    amount?: number;
+    minimum?: number;
+    maximum?: number;
+  }[];
 };
 
 export type TargetSelector =

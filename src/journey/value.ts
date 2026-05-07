@@ -303,7 +303,8 @@ export type ValueBreakdown = {
       | "target-quality"
       | "object-quality"
       | "route-scope"
-      | "status-scope";
+      | "status-scope"
+      | "value-band";
     operationId?: string;
     label: string;
     value: number;
@@ -520,6 +521,15 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
         operationId: operation.operationId,
         label: `${operation.operationKind} uncertainty`,
         value: operation.value.uncertaintyConvertedEssence,
+      });
+    }
+
+    for (const band of operation.value?.bands ?? []) {
+      components.push({
+        kind: "value-band",
+        operationId: operation.operationId,
+        label: `${band.id} ${band.label}`,
+        value: 0,
       });
     }
 

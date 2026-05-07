@@ -11,7 +11,7 @@ import {
 } from "../src/journey/operationAdapters.js";
 import { repairOrFallbackJourney } from "../src/journey/repair.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
-import { validateJourneyManifest } from "../src/journey/validate.js";
+import { buildValidationReport, validateJourneyManifest } from "../src/journey/validate.js";
 import { buildJourneyContext } from "../src/quest/context.js";
 import { createInitialJourneyState } from "../src/quest/init.js";
 import {
@@ -363,6 +363,34 @@ function refreshPrecommittedOperations(
   };
 }
 
+function expectValidationReportMatchesValidator(
+  manifest: JourneyManifest,
+  journeyContext: Awaited<ReturnType<typeof context>>,
+) {
+  const result = validateJourneyManifest(manifest, journeyContext);
+  const report = buildValidationReport(manifest, journeyContext);
+
+  expect(result.ok).toBe(false);
+  if (result.ok) {
+    throw new Error("expected invalid manifest");
+  }
+
+  expect(report.ok).toBe(false);
+  expect(report.firstFailure).toMatchObject({
+    ruleId: result.rule,
+    message: result.message,
+  });
+  expect(report.rules).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        ruleId: result.rule,
+        status: "fail",
+        message: result.message,
+      }),
+    ]),
+  );
+}
+
 function largestGroupSize(signatures: readonly string[]): number {
   const counts = new Map<string, number>();
 
@@ -527,6 +555,53 @@ describe("generateNextJourney", () => {
     })).toThrow(
       "Debug payload 'future/shop-only' does not support shape 'single_reward'. Supported shapes: shop_row.",
     );
+  });
+
+  it("exposes resource edge-case value-band semantics in operations and value debug", async () => {
+    const journeyContext = await context("value-resource");
+    const resourcePayload = {
+      familyId: "resource",
+      variantId: "resource-edge-cases",
+      qaId: "resource/resource-edge-cases",
+      description: "Resource edge cases for value-band coverage.",
+      supportedShapes: "all",
+      supportedStages: "all",
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedShapeId: "resolved_random_series",
+      forcedDebugPayload: resourcePayload,
+    });
+    const operationBands = manifest.options.flatMap((journeyOption) =>
+      journeyOption.operations.flatMap((operation) => operation.value?.bands ?? [])
+    );
+    const valueBandComponents = manifest.debug.optionValues.flatMap((entry) =>
+      entry.components.filter((component) => component.kind === "value-band")
+    );
+
+    expect(operationBands.map((band) => band.id)).toEqual(expect.arrayContaining([
+      "maximum",
+      "percentage",
+      "all_remaining",
+      "random_range",
+      "cap_change",
+      "multi_omen",
+    ]));
+    expect(operationBands.map((band) => band.label)).toEqual(expect.arrayContaining([
+      "all-remaining",
+      "random-range",
+      "cap-change",
+      "multi-omen",
+    ]));
+    expect(valueBandComponents.map((component) => component.label)).toEqual(expect.arrayContaining([
+      expect.stringContaining("maximum"),
+      expect.stringContaining("percentage"),
+      expect.stringContaining("all_remaining"),
+      expect.stringContaining("random_range"),
+      expect.stringContaining("cap_change"),
+      expect.stringContaining("multi_omen"),
+    ]));
   });
 
   it("has a legal conservative filler path for every canonical shape", async () => {
@@ -1210,6 +1285,78 @@ describe("generateNextJourney", () => {
 });
 
 describe("validateJourneyManifest", () => {
+  it("derives structured failures from the same ordered validator pipeline", async () => {
+    const journeyContext = await context();
+    const takeAnyNumber = fillForShape("take_any_number", journeyContext);
+    const singleWager = fillForShape("single_wager", journeyContext);
+    const delayedContext = await context();
+    delayedContext.state.quest.route.unresolvedHooks = ["a", "b", "c", "d"];
+    const delayed = fillForShape("reward_after_trigger", delayedContext);
+    const randomPool = fillForShape("random_pool_draws", journeyContext);
+    const deckCardIds = new Set(journeyContext.state.quest.deck.entries.map((entry) => entry.cardId));
+    const nonDeckCard = journeyContext.content.cards.find((card) => !deckCardIds.has(card.id))!;
+    const structuredValue = fillForShape("single_reward", journeyContext);
+    const cases = [
+      {
+        ...takeAnyNumber,
+        options: takeAnyNumber.options.map((journeyOption) =>
+          journeyOption.number === 1
+            ? refreshOptionOperations({
+                ...journeyOption,
+                text: "Take cache reward 1: gain 1 omen, then choose whether to take the final reward.",
+                costs: [],
+                burdens: [],
+                uncertaintyConvertedEssence: 0,
+                costConvertedEssence: 0,
+                burdenConvertedEssence: 0,
+                netConvertedEssence: journeyOption.effectConvertedEssence,
+              })
+            : journeyOption
+        ),
+      },
+      {
+        ...singleWager,
+        precommitted: refreshPrecommittedOperations({
+          random: [{ kind: "gain_essence", amount: 110 }],
+        }),
+      },
+      delayed,
+      {
+        ...randomPool,
+        rewardPool: randomPool.rewardPool
+          ? {
+              ...randomPool.rewardPool,
+              operations: randomPool.rewardPool.operations.map((operation, index) =>
+                index === 0
+                  ? {
+                      ...operation,
+                      targetSelector: {
+                        selectorKind: "card",
+                        selection: "predicate",
+                        referenceKind: "content",
+                        source: "deck",
+                        predicate: { source: "deck", names: [nonDeckCard.name] },
+                        required: true,
+                      },
+                    }
+                  : operation
+              ),
+            }
+          : randomPool.rewardPool,
+      },
+      {
+        ...structuredValue,
+        precommitted: refreshPrecommittedOperations({
+          delayed: [{ kind: "status", statusName: "Illegal Status" }],
+        }),
+      },
+    ] satisfies JourneyManifest[];
+
+    for (const invalid of cases) {
+      expectValidationReportMatchesValidator(invalid, invalid === delayed ? delayedContext : journeyContext);
+    }
+  });
+
   it("rejects stale manifest version metadata", async () => {
     const journeyContext = await context();
     const manifest = generateNextJourney({ context: journeyContext });

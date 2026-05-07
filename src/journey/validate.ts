@@ -76,10 +76,14 @@ function manifestCheckedPayloads(manifest: JourneyManifest): ValidationCheckedPa
       shapeId: manifest.shapeId,
       payloadFamily,
     },
-    ...manifest.options.map((option) => ({
-      path: `$.options[${option.number - 1}]`,
+    ...manifest.options.map((option, index) => ({
+      path: `$.options[${
+        isRecord(option) && typeof option.number === "number"
+          ? option.number - 1
+          : index
+      }]`,
       scope: "option" as const,
-      optionNumber: option.number,
+      ...(isRecord(option) && typeof option.number === "number" ? { optionNumber: option.number } : {}),
       shapeId: manifest.shapeId,
       payloadFamily,
     })),
@@ -1555,26 +1559,14 @@ function validateRootMechanicalDistinction(manifest: JourneyManifest): Validatio
   return { ok: true };
 }
 
-export function validateJourneyManifest(
+type ValidationPipelineOptions = {
+  stopAfterFirstFailure?: boolean;
+};
+
+function rootOptionCountResult(
   manifest: JourneyManifest,
-  context: JourneyContext,
+  definition: ReturnType<typeof getShapeDefinition>,
 ): ValidationResult {
-  if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
-    return fail("manifest_schema_version", `Manifest schema version must be ${MANIFEST_SCHEMA_VERSION}`);
-  }
-
-  const versionMetadataResult = validateVersionMetadata(manifest, context);
-
-  if (!versionMetadataResult.ok) {
-    return versionMetadataResult;
-  }
-
-  if (!/^J-\d{6}$/u.test(manifest.journeyId)) {
-    return fail("journey_id_format", "Root Journey IDs must use J-000001 formatting");
-  }
-
-  const definition = getShapeDefinition(manifest.shapeId);
-
   if (manifest.options.length === 0 && definition.topology !== "decision_tree") {
     return fail("missing_options", "Non-tree Journey manifests require at least one option");
   }
@@ -1586,12 +1578,13 @@ export function validateJourneyManifest(
     return fail("root_option_count_within_bounds", `${manifest.shapeId} has an invalid root option count`);
   }
 
-  const referencesResult = validateReferences(manifest, context);
+  return { ok: true };
+}
 
-  if (!referencesResult.ok) {
-    return referencesResult;
-  }
-
+function rootOptionPayloadsResult(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
   for (const [index, option] of manifest.options.entries()) {
     const optionShapeResult = validateOptionShape(option, index);
 
@@ -1606,64 +1599,33 @@ export function validateJourneyManifest(
     }
   }
 
-  const distinctionResult = validateRootMechanicalDistinction(manifest);
+  return { ok: true };
+}
 
-  if (!distinctionResult.ok) {
-    return distinctionResult;
-  }
-
-  const treeBranches = manifest.tree?.nodes.flatMap((node) => node.branches) ?? [];
-  const routeEffectsResult = validateRouteEffects([
-    ...manifest.options.flatMap((option) => option.routeEffects),
-    ...treeBranches.flatMap((branch) => branch.routeEffects),
-  ]);
-
-  if (!routeEffectsResult.ok) {
-    return routeEffectsResult;
-  }
-
-  if (manifest.shapeId === "risk_or_skip") {
-    const riskOrSkipResult = validateRiskOrSkip(manifest);
-
-    if (!riskOrSkipResult.ok) {
-      return riskOrSkipResult;
-    }
-  }
-
+function rootValueResult(manifest: JourneyManifest): ValidationResult {
   const nets = manifest.options
     .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
     .map((journeyOption) => journeyOption.netConvertedEssence);
 
-  if (manifest.shapeId === "timed_window_menu") {
-    const timedWindowResult = validateTimedWindowMenu(manifest);
-
-    if (!timedWindowResult.ok) {
-      return timedWindowResult;
-    }
-  }
-
   if (manifest.shapeId === "choose_your_loss") {
-    const lossResult = validateChooseYourLossValues(nets);
-
-    if (!lossResult.ok) {
-      return lossResult;
-    }
-  } else if (manifest.shapeId === "commit_now_future_payoff") {
-    const payoffResult = validateCommitNowFuturePayoffValues(nets);
-
-    if (!payoffResult.ok) {
-      return payoffResult;
-    }
-  } else if (nets.length > 0 && nets.every((net) => net < 0)) {
-    return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
-  } else {
-    const comparableResult = validatePositiveMenuValues(manifest.shapeId, nets);
-
-    if (!comparableResult.ok) {
-      return comparableResult;
-    }
+    return validateChooseYourLossValues(nets);
   }
 
+  if (manifest.shapeId === "commit_now_future_payoff") {
+    return validateCommitNowFuturePayoffValues(nets);
+  }
+
+  if (nets.length > 0 && nets.every((net) => net < 0)) {
+    return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
+  }
+
+  return validatePositiveMenuValues(manifest.shapeId, nets);
+}
+
+function offerRefusalResult(
+  manifest: JourneyManifest,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
   if (
     definition.topology === "single_offer_refusal" &&
     !manifest.options.some((journeyOption) => journeyOption.pickBehavior === "leave")
@@ -1671,14 +1633,13 @@ export function validateJourneyManifest(
     return fail("fake_strategic_refusal", "Offer shapes require a real leave option");
   }
 
-  if (definition.topology === "decision_tree") {
-    const treeResult = validateDecisionTree(manifest, context);
+  return { ok: true };
+}
 
-    if (!treeResult.ok) {
-      return treeResult;
-    }
-  }
-
+function repeatableMenuLeaveResult(
+  manifest: JourneyManifest,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
   if (
     definition.topology === "repeatable_menu" &&
     !manifest.options.some((option) => option.pickBehavior === "leave")
@@ -1686,26 +1647,42 @@ export function validateJourneyManifest(
     return fail("missing_leave_option", "Repeatable menus require a leave option");
   }
 
-  if (definition.topology === "repeatable_menu") {
-    for (const option of manifest.options) {
-      if (!/^take\b/iu.test(option.text)) {
-        continue;
-      }
+  return { ok: true };
+}
 
-      const hasLimitingStructure =
-        option.costs.length > 0 ||
-        option.burdens.length > 0 ||
-        option.uncertaintyConvertedEssence < 0;
+function repeatableMenuLimitResult(
+  manifest: JourneyManifest,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
+  if (definition.topology !== "repeatable_menu") {
+    return { ok: true };
+  }
 
-      if (!hasLimitingStructure) {
-        return fail(
-          "open_pick_without_limiting_structure",
-          "Repeatable take options require a cost, burden, or risk",
-        );
-      }
+  for (const option of manifest.options) {
+    if (!/^take\b/iu.test(option.text)) {
+      continue;
+    }
+
+    const hasLimitingStructure =
+      option.costs.length > 0 ||
+      option.burdens.length > 0 ||
+      option.uncertaintyConvertedEssence < 0;
+
+    if (!hasLimitingStructure) {
+      return fail(
+        "open_pick_without_limiting_structure",
+        "Repeatable take options require a cost, burden, or risk",
+      );
     }
   }
 
+  return { ok: true };
+}
+
+function randomPrecommittedResult(
+  manifest: JourneyManifest,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
   if (
     (definition.topology === "random_commit" ||
       manifest.shapeId === "risk_or_skip" ||
@@ -1715,31 +1692,40 @@ export function validateJourneyManifest(
     return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
   }
 
-  if (manifest.shapeId === "single_wager") {
-    const singleWagerResult = validateSingleWager(manifest);
+  return { ok: true };
+}
 
-    if (!singleWagerResult.ok) {
-      return singleWagerResult;
-    }
-  }
-
+function delayedPrecommittedResult(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
   if (
-    definition.topology === "delayed_hook" ||
-    manifest.options.some(optionImpliesDelayedOutcome)
+    definition.topology !== "delayed_hook" &&
+    !manifest.options.some(optionImpliesDelayedOutcome)
   ) {
-    if (!hasPrecommitted(manifest.precommitted.delayed)) {
-      return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
-    }
-
-    if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
-      return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
-    }
-
-    if (context.state.quest.route.unresolvedHooks.length > 3) {
-      return fail("delayed_hook_over_persistence_budget", "Delayed hooks exceed persistence budget");
-    }
+    return { ok: true };
   }
 
+  if (!hasPrecommitted(manifest.precommitted.delayed)) {
+    return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
+  }
+
+  if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
+    return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
+  }
+
+  if (context.state.quest.route.unresolvedHooks.length > 3) {
+    return fail("delayed_hook_over_persistence_budget", "Delayed hooks exceed persistence budget");
+  }
+
+  return { ok: true };
+}
+
+function routePrecommittedPresenceResult(
+  manifest: JourneyManifest,
+  definition: ReturnType<typeof getShapeDefinition>,
+): ValidationResult {
   if (
     (definition.topology === "route_edit" ||
       manifest.options.some((option) => option.routeEffects.length > 0)) &&
@@ -1748,142 +1734,120 @@ export function validateJourneyManifest(
     return fail("missing_precommitted_outcomes", "Route shapes require committed route edits");
   }
 
-  if (manifest.precommitted.routeEdits !== undefined) {
-    const routePrecommitResult = validateRouteEffects(manifest.precommitted.routeEdits);
-
-    if (!routePrecommitResult.ok) {
-      return routePrecommitResult;
-    }
-  }
-
-  if (manifest.rewardPool) {
-    const rewardPoolTargetResult = validateOperationTargetSelectors(
-      manifest.rewardPool.operations,
-      context,
-      "Reward pool",
-    );
-
-    if (!rewardPoolTargetResult.ok) {
-      return rewardPoolTargetResult;
-    }
-  }
-
-  const precommittedTargetResult = validateOperationTargetSelectors(
-    manifest.precommitted.operations,
-    context,
-    "Precommitted outcomes",
-  );
-
-  if (!precommittedTargetResult.ok) {
-    return precommittedTargetResult;
-  }
-
-  const semanticOperationsResult = validateSemanticOperations(manifest);
-
-  if (!semanticOperationsResult.ok) {
-    return semanticOperationsResult;
-  }
-
-  const precommittedResult = scanIllegalStructuredValue(manifest.precommitted);
-
-  if (!precommittedResult.ok) {
-    return precommittedResult;
-  }
-
   return { ok: true };
 }
 
-export function buildValidationReport(
+function routePrecommittedPayloadResult(manifest: JourneyManifest): ValidationResult {
+  return manifest.precommitted.routeEdits !== undefined
+    ? validateRouteEffects(manifest.precommitted.routeEdits)
+    : { ok: true };
+}
+
+function validationRuleOutcomes(
   manifest: JourneyManifest,
   context: JourneyContext,
-): ValidationReport {
+  options: ValidationPipelineOptions = {},
+): ValidationRuleOutcome[] {
   const checked = manifestCheckedPayloads(manifest);
   const manifestChecked = checked.filter((entry) => entry.scope === "manifest");
   const optionChecked = checked.filter((entry) => entry.scope === "option");
+  const treeChecked = checked.filter((entry) =>
+    entry.scope === "tree_branch" || entry.scope === "tree_terminal"
+  );
+  const rewardPoolChecked = checked.filter((entry) => entry.scope === "reward_pool");
   const precommittedChecked = checked.filter((entry) => entry.scope === "precommitted");
   const rules: ValidationRuleOutcome[] = [];
+  const definition = getShapeDefinition(manifest.shapeId);
+  const pushRule = (
+    ruleId: string,
+    result: ValidationResult,
+    ruleChecked: ValidationCheckedPayload[],
+    passMessage: string,
+    ruleOptions: { fatal?: boolean } = {},
+  ): boolean => {
+    const outcome = resultToOutcome(ruleId, result, ruleChecked, passMessage);
+    rules.push(outcome);
 
-  rules.push(resultToOutcome(
+    return outcome.status === "pass" ||
+      !(options.stopAfterFirstFailure || ruleOptions.fatal);
+  };
+
+  if (!pushRule(
     "manifest_schema_version",
     manifest.schemaVersion === MANIFEST_SCHEMA_VERSION
       ? { ok: true }
       : fail("manifest_schema_version", `Manifest schema version must be ${MANIFEST_SCHEMA_VERSION}`),
     manifestChecked,
     "Manifest schema version matches the active contract.",
-  ));
+    { fatal: true },
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  if (!pushRule(
     "manifest_version_metadata",
     validateVersionMetadata(manifest, context),
     manifestChecked,
     "Manifest version metadata matches the content, catalog, renderer, value, and validation contracts.",
-  ));
+    { fatal: true },
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  if (!pushRule(
     "journey_id_format",
     /^J-\d{6}$/u.test(manifest.journeyId)
       ? { ok: true }
       : fail("journey_id_format", "Root Journey IDs must use J-000001 formatting"),
     manifestChecked,
     "Journey ID uses the stable root Journey format.",
-  ));
+    { fatal: true },
+  )) {
+    return rules;
+  }
 
-  const definition = getShapeDefinition(manifest.shapeId);
-  const optionCountResult =
-    manifest.options.length === 0 && definition.topology !== "decision_tree"
-      ? fail("missing_options", "Non-tree Journey manifests require at least one option")
-      : manifest.options.length < definition.rootOptionCount.min ||
-          manifest.options.length > definition.rootOptionCount.max
-        ? fail("root_option_count_within_bounds", `${manifest.shapeId} has an invalid root option count`)
-        : { ok: true } as const;
-
-  rules.push(resultToOutcome(
+  const optionCountResult = rootOptionCountResult(manifest, definition);
+  if (!pushRule(
     "root_option_count_within_bounds",
     optionCountResult,
     optionChecked.length > 0 ? optionChecked : manifestChecked,
     "Root option count is legal for the selected shape.",
-  ));
+    { fatal: true },
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  if (!pushRule(
     "unresolved_reference",
     validateReferences(manifest, context),
     checked,
     "All manifest references resolve to known content or controlled vocabulary.",
-  ));
-
-  let optionResult: ValidationResult = { ok: true };
-  for (const [index, option] of manifest.options.entries()) {
-    const optionShapeResult = validateOptionShape(option, index);
-
-    if (!optionShapeResult.ok) {
-      optionResult = optionShapeResult;
-      break;
-    }
-
-    const result = validateOption(option, context);
-
-    if (!result.ok) {
-      optionResult = result;
-      break;
-    }
+  )) {
+    return rules;
   }
 
-  rules.push(resultToOutcome(
+  const optionResult = rootOptionPayloadsResult(manifest, context);
+  if (!pushRule(
     optionResult.ok ? "root_option_payloads" : optionResult.rule,
     optionResult,
     optionChecked,
     "Root option text, costs, targets, and structured payloads are legal.",
-  ));
+    { fatal: true },
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  if (!pushRule(
     "duplicate_root_option_mechanics",
     validateRootMechanicalDistinction(manifest),
     optionChecked,
     "Root options are mechanically distinct where the shape requires it.",
-  ));
+  )) {
+    return rules;
+  }
 
   const treeBranches = manifest.tree?.nodes.flatMap((node) => node.branches) ?? [];
-  rules.push(resultToOutcome(
+  if (!pushRule(
     "route_effects",
     validateRouteEffects([
       ...manifest.options.flatMap((option) => option.routeEffects),
@@ -1891,115 +1855,208 @@ export function buildValidationReport(
     ]),
     checked.filter((entry) => entry.scope === "option" || entry.scope === "tree_branch"),
     "Route effects use legal route edit structures.",
-  ));
+  )) {
+    return rules;
+  }
 
-  const nets = manifest.options
-    .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
-    .map((journeyOption) => journeyOption.netConvertedEssence);
-  const valueResult =
-    manifest.shapeId === "choose_your_loss"
-      ? validateChooseYourLossValues(nets)
-      : manifest.shapeId === "commit_now_future_payoff"
-        ? validateCommitNowFuturePayoffValues(nets)
-        : nets.length > 0 && nets.every((net) => net < 0)
-          ? fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options")
-          : validatePositiveMenuValues(manifest.shapeId, nets);
+  const riskResult = manifest.shapeId === "risk_or_skip"
+    ? validateRiskOrSkip(manifest)
+    : { ok: true } as const;
+  if (!pushRule(
+    riskResult.ok ? "risk_or_skip_envelope" : riskResult.rule,
+    riskResult,
+    optionChecked.length > 0 ? optionChecked : precommittedChecked,
+    "Risk-or-skip envelopes expose bounded downside metadata when applicable.",
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  const timedWindowResult = manifest.shapeId === "timed_window_menu"
+    ? validateTimedWindowMenu(manifest)
+    : { ok: true } as const;
+  if (!pushRule(
+    timedWindowResult.ok ? "timed_window_menu" : timedWindowResult.rule,
+    timedWindowResult,
+    optionChecked,
+    "Timed window menus use multi-battle, play-changing rewards when applicable.",
+  )) {
+    return rules;
+  }
+
+  const valueResult = rootValueResult(manifest);
+  if (!pushRule(
     valueResult.ok ? "shape_value_comparability" : valueResult.rule,
     valueResult,
     optionChecked,
     "Root option values are coherent for the selected shape.",
-  ));
-
-  let topologyResult: ValidationResult = { ok: true };
-  if (manifest.shapeId === "risk_or_skip") {
-    topologyResult = validateRiskOrSkip(manifest);
-  } else if (manifest.shapeId === "timed_window_menu") {
-    topologyResult = validateTimedWindowMenu(manifest);
-  } else if (definition.topology === "decision_tree") {
-    topologyResult = validateDecisionTree(manifest, context);
-  } else if (
-    definition.topology === "single_offer_refusal" &&
-    !manifest.options.some((journeyOption) => journeyOption.pickBehavior === "leave")
-  ) {
-    topologyResult = fail("fake_strategic_refusal", "Offer shapes require a real leave option");
-  } else if (
-    definition.topology === "repeatable_menu" &&
-    !manifest.options.some((option) => option.pickBehavior === "leave")
-  ) {
-    topologyResult = fail("missing_leave_option", "Repeatable menus require a leave option");
+  )) {
+    return rules;
   }
 
-  rules.push(resultToOutcome(
-    topologyResult.ok ? "shape_topology_invariants" : topologyResult.rule,
-    topologyResult,
-    checked,
-    "Shape topology invariants pass.",
-  ));
-
-  let precommittedResult: ValidationResult = { ok: true };
-  if (
-    (definition.topology === "random_commit" ||
-      manifest.shapeId === "risk_or_skip" ||
-      manifest.options.some(optionImpliesRandomOrHiddenOutcome)) &&
-    !hasPrecommitted(manifest.precommitted.random)
-  ) {
-    precommittedResult = fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
-  } else if (
-    definition.topology === "delayed_hook" ||
-    manifest.options.some(optionImpliesDelayedOutcome)
-  ) {
-    if (!hasPrecommitted(manifest.precommitted.delayed)) {
-      precommittedResult = fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
-    } else if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
-      precommittedResult = fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
-    }
-  } else if (
-    (definition.topology === "route_edit" ||
-      manifest.options.some((option) => option.routeEffects.length > 0)) &&
-    !hasPrecommitted(manifest.precommitted.routeEdits)
-  ) {
-    precommittedResult = fail("missing_precommitted_outcomes", "Route shapes require committed route edits");
+  const refusalResult = offerRefusalResult(manifest, definition);
+  if (!pushRule(
+    refusalResult.ok ? "offer_refusal_invariants" : refusalResult.rule,
+    refusalResult,
+    optionChecked,
+    "Offer shapes include a real leave option when required.",
+  )) {
+    return rules;
   }
 
-  if (precommittedResult.ok && manifest.precommitted.routeEdits !== undefined) {
-    precommittedResult = validateRouteEffects(manifest.precommitted.routeEdits);
+  const treeResult = definition.topology === "decision_tree"
+    ? validateDecisionTree(manifest, context)
+    : { ok: true } as const;
+  if (!pushRule(
+    treeResult.ok ? "decision_tree_invariants" : treeResult.rule,
+    treeResult,
+    treeChecked.length > 0 ? treeChecked : checked,
+    "Decision-tree topology is complete and legal when applicable.",
+  )) {
+    return rules;
   }
 
-  rules.push(resultToOutcome(
-    precommittedResult.ok ? "precommitted_outcomes" : precommittedResult.rule,
-    precommittedResult,
+  const repeatableLeaveResult = repeatableMenuLeaveResult(manifest, definition);
+  if (!pushRule(
+    repeatableLeaveResult.ok ? "repeatable_menu_leave_option" : repeatableLeaveResult.rule,
+    repeatableLeaveResult,
+    optionChecked,
+    "Repeatable menus include a real leave option when applicable.",
+  )) {
+    return rules;
+  }
+
+  const repeatableLimitResult = repeatableMenuLimitResult(manifest, definition);
+  if (!pushRule(
+    repeatableLimitResult.ok ? "repeatable_menu_limiting_structure" : repeatableLimitResult.rule,
+    repeatableLimitResult,
+    optionChecked,
+    "Repeatable take options include a cost, burden, or risk when applicable.",
+  )) {
+    return rules;
+  }
+
+  const randomResult = randomPrecommittedResult(manifest, definition);
+  if (!pushRule(
+    randomResult.ok ? "random_precommitted_outcomes" : randomResult.rule,
+    randomResult,
     precommittedChecked,
-    "Precommitted outcomes are present and legal where required.",
-  ));
+    "Random or hidden outcomes are precommitted when required.",
+  )) {
+    return rules;
+  }
 
-  const targetResult =
-    validateOperationTargetSelectors(manifest.precommitted.operations, context, "Precommitted outcomes");
-
-  rules.push(resultToOutcome(
-    targetResult.ok ? "operation_target_selectors" : targetResult.rule,
-    targetResult,
+  const wagerResult = manifest.shapeId === "single_wager"
+    ? validateSingleWager(manifest)
+    : { ok: true } as const;
+  if (!pushRule(
+    wagerResult.ok ? "single_wager_envelope" : wagerResult.rule,
+    wagerResult,
     checked,
-    "Typed operation target selectors resolve where required.",
-  ));
+    "Single wager options expose stakes, odds, and committed roll metadata when applicable.",
+  )) {
+    return rules;
+  }
 
-  rules.push(resultToOutcome(
+  const delayedResult = delayedPrecommittedResult(manifest, context, definition);
+  if (!pushRule(
+    delayedResult.ok ? "delayed_precommitted_outcomes" : delayedResult.rule,
+    delayedResult,
+    precommittedChecked,
+    "Delayed outcomes are precommitted and within persistence budget when required.",
+  )) {
+    return rules;
+  }
+
+  const routePresenceResult = routePrecommittedPresenceResult(manifest, definition);
+  if (!pushRule(
+    routePresenceResult.ok ? "route_precommitted_outcomes" : routePresenceResult.rule,
+    routePresenceResult,
+    precommittedChecked,
+    "Route edits are precommitted when required.",
+  )) {
+    return rules;
+  }
+
+  const routePrecommitResult = routePrecommittedPayloadResult(manifest);
+  if (!pushRule(
+    routePrecommitResult.ok ? "route_precommitted_payloads" : routePrecommitResult.rule,
+    routePrecommitResult,
+    precommittedChecked,
+    "Precommitted route edits use legal route edit structures.",
+  )) {
+    return rules;
+  }
+
+  const rewardPoolTargetResult = manifest.rewardPool
+    ? validateOperationTargetSelectors(manifest.rewardPool.operations, context, "Reward pool")
+    : { ok: true } as const;
+  if (!pushRule(
+    rewardPoolTargetResult.ok ? "reward_pool_target_selectors" : rewardPoolTargetResult.rule,
+    rewardPoolTargetResult,
+    rewardPoolChecked.length > 0 ? rewardPoolChecked : checked,
+    "Reward pool typed operation target selectors resolve where required.",
+  )) {
+    return rules;
+  }
+
+  const precommittedTargetResult = validateOperationTargetSelectors(
+    manifest.precommitted.operations,
+    context,
+    "Precommitted outcomes",
+  );
+  if (!pushRule(
+    precommittedTargetResult.ok ? "operation_target_selectors" : precommittedTargetResult.rule,
+    precommittedTargetResult,
+    precommittedChecked,
+    "Precommitted typed operation target selectors resolve where required.",
+  )) {
+    return rules;
+  }
+
+  if (!pushRule(
     "semantic_operations",
     validateSemanticOperations(manifest),
     checked,
     "Legacy payload records have typed semantic operation counterparts.",
-  ));
-
-  const fullResult = validateJourneyManifest(manifest, context);
-  if (!fullResult.ok && !rules.some((rule) => rule.status === "fail" && rule.ruleId === fullResult.rule)) {
-    rules.push(resultToOutcome(
-      fullResult.rule,
-      fullResult,
-      checked,
-      "Full manifest validation passed.",
-    ));
+  )) {
+    return rules;
   }
 
-  return buildReport(rules);
+  pushRule(
+    "precommitted_structured_values",
+    scanIllegalStructuredValue(manifest.precommitted),
+    precommittedChecked,
+    "Precommitted structured values are legal.",
+  );
+
+  return rules;
+}
+
+export function validateJourneyManifest(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
+  const firstFailure = validationRuleOutcomes(
+    manifest,
+    context,
+    { stopAfterFirstFailure: true },
+  ).find((rule) => rule.status === "fail");
+
+  if (!firstFailure) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    rule: firstFailure.ruleId,
+    message: firstFailure.message,
+    ...(firstFailure.debug ? { debug: firstFailure.debug } : {}),
+  };
+}
+
+export function buildValidationReport(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationReport {
+  return buildReport(validationRuleOutcomes(manifest, context));
 }
