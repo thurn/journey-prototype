@@ -124,14 +124,14 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "hook",
     description: "Delayed trigger hook payloads.",
     variants: [
-      variant("hook", "delayed-trigger-matrix", "unimplemented", "Reserved for delayed hook trigger and reward matrices.", ["reward_after_trigger", "commit_now_future_payoff"], ["mid", "late"]),
+      variant("hook", "delayed-trigger-matrix", "available", "Deterministic delayed hook trigger and reward matrices.", ["service_menu"], ["mid", "late"]),
     ],
   },
   {
     id: "return",
     description: "Paired return, seal, borrow, and trade payloads.",
     variants: [
-      variant("return", "paired-return-seal-borrow-trade", "unimplemented", "Reserved for paired-return, seal, borrow, and future trade scenes.", ["paired_return"], ["mid", "late"]),
+      variant("return", "paired-return-seal-borrow-trade", "available", "Deterministic paired-return, seal, borrow, and future trade scenes.", ["paired_return"], ["mid", "late"]),
     ],
   },
   {

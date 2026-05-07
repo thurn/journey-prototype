@@ -80,6 +80,92 @@ export type OperationValueMetadata = {
   }[];
 };
 
+export type HookTriggerSelector = {
+  triggerKind:
+    | "battle"
+    | "victory"
+    | "each_battle"
+    | "site_visit"
+    | "named_card_play"
+    | "dreamsign_trigger"
+    | "card_added"
+    | "essence_payment"
+    | "future_shop"
+    | "future_dream_journey";
+  label: string;
+  count?: number;
+  siteType?: string;
+  cardId?: string;
+  cardName?: string;
+  dreamsignId?: string;
+  dreamsignName?: string;
+  amount?: number;
+};
+
+export type BoundedDuration = {
+  durationKind: "battle_count" | "dreamscape_count" | "shop_count" | "journey_count" | "until_trigger";
+  count?: number;
+  label: string;
+};
+
+export type HookExpirationPolicy = {
+  policyKind: "forfeit_reward" | "resolve_partial" | "pay_cost" | "return_unchanged" | "discard_obligation";
+  label: string;
+};
+
+export type HookVisibilityPolicy = {
+  outcomeVisibility: "visible" | "hidden_until_resolution" | "debug_only";
+  disclosure: string;
+};
+
+export type HookControlledScene = {
+  sceneKind: "reward" | "cost" | "transformation" | "trade" | "return";
+  label: string;
+};
+
+export type DelayedHookContract = {
+  hookId: string;
+  optionNumber?: number;
+  triggerSelector: HookTriggerSelector;
+  trackedCondition: string;
+  resolution: string;
+  expiration: HookExpirationPolicy;
+  duration: BoundedDuration;
+  controlledScene: HookControlledScene;
+  visibilityPolicy: HookVisibilityPolicy;
+  hookBudgetCost: number;
+};
+
+export type PairedReturnContract = {
+  pairedReturnId: string;
+  optionNumber?: number;
+  anchor: string;
+  created: {
+    referenceKind: "sealed_object" | "borrowed_object" | "trade_promise" | "status" | "cost" | "promise";
+    referenceId: string;
+    label: string;
+    objectKind?: "card" | "dreamsign" | "status" | "cost" | "promise";
+    cardId?: string;
+    cardName?: string;
+    dreamsignId?: string;
+    dreamsignName?: string;
+    statusScope?: string;
+    cost?: {
+      resource: "essence" | "omens";
+      amount: number;
+    };
+  };
+  returnScene: {
+    returnSceneKind: "sealed_object_return" | "borrowed_object_return" | "future_trade";
+    triggerSelector: HookTriggerSelector;
+    referencesCreatedId: string;
+    resolution: string;
+    expiration: HookExpirationPolicy;
+    duration: BoundedDuration;
+  };
+  visibilityPolicy: HookVisibilityPolicy;
+};
+
 export type ResourceAmountSemantics = {
   resource: "essence" | "omens" | "maxEssence";
   amountKind:
@@ -293,6 +379,14 @@ export type DelayedHookOperation = OperationBase & {
   operationKind: "delayed_hook";
   role: "trigger" | "delayed_hook";
   hookKind: string;
+  triggerSelector?: HookTriggerSelector;
+  trackedCondition?: string;
+  resolution?: string;
+  expiration?: HookExpirationPolicy;
+  duration?: BoundedDuration;
+  controlledScene?: HookControlledScene;
+  visibilityPolicy?: HookVisibilityPolicy;
+  hookBudgetCost?: number;
   rewardOperations?: JourneyOperation[];
 };
 
@@ -300,6 +394,7 @@ export type PairedReturnOperation = OperationBase & {
   operationKind: "paired_return";
   role: "paired_return";
   anchor?: string;
+  contract?: PairedReturnContract;
 };
 
 export type RandomEnvelopeOperation = OperationBase & {

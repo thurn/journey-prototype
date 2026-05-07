@@ -1054,6 +1054,192 @@ describe("generateNextJourney", () => {
     });
   });
 
+  it("forces delayed hook trigger matrices with typed bounded contracts", async () => {
+    const journeyContext = await context("hook-matrix");
+    const hookPayload = {
+      familyId: "hook",
+      variantId: "delayed-trigger-matrix",
+      qaId: "hook/delayed-trigger-matrix",
+      description: "Delayed hook matrix QA.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: hookPayload,
+    });
+    const hookOperations = manifest.precommitted.operations?.filter((operation) =>
+      operation.operationKind === "delayed_hook" && operation.role === "delayed_hook"
+    ) ?? [];
+    const triggerKinds = hookOperations.map((operation) =>
+      operation.operationKind === "delayed_hook" ? operation.triggerSelector?.triggerKind : undefined
+    );
+    const hookBudget = manifest.options.flatMap((option) => option.triggers)
+      .reduce((sum, trigger) =>
+        typeof trigger === "object" &&
+          trigger !== null &&
+          !Array.isArray(trigger) &&
+          typeof (trigger as { hookBudgetCost?: unknown }).hookBudgetCost === "number"
+          ? sum + ((trigger as { hookBudgetCost: number }).hookBudgetCost)
+          : sum, 0);
+
+    expect(manifest.shapeId).toBe("service_menu");
+    expect(manifest.debug.validation).toMatchObject({ ok: true, failed: 0 });
+    expect(triggerKinds).toEqual(expect.arrayContaining([
+      "battle",
+      "victory",
+      "each_battle",
+      "site_visit",
+      "named_card_play",
+      "dreamsign_trigger",
+      "card_added",
+      "essence_payment",
+      "future_shop",
+      "future_dream_journey",
+    ]));
+    expect(hookBudget).toBeLessThanOrEqual(3);
+    expect(hookOperations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        trackedCondition: expect.any(String),
+        resolution: expect.any(String),
+        expiration: expect.objectContaining({ policyKind: expect.any(String) }),
+        duration: expect.objectContaining({ durationKind: expect.any(String) }),
+        controlledScene: expect.objectContaining({ sceneKind: expect.any(String) }),
+        visibilityPolicy: expect.objectContaining({ disclosure: expect.any(String) }),
+        rewardOperations: expect.any(Array),
+      }),
+    ]));
+    expect(generatedOptionText(manifest).join("\n")).toMatch(/Track .*Resolve .*expir/iu);
+  });
+
+  it("forces paired return, seal, borrow, and trade scenes with typed return contracts", async () => {
+    const journeyContext = await context("return-matrix");
+    const returnPayload = {
+      familyId: "return",
+      variantId: "paired-return-seal-borrow-trade",
+      qaId: "return/paired-return-seal-borrow-trade",
+      description: "Paired return QA.",
+      supportedShapes: ["paired_return"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: returnPayload,
+    });
+    const pairedOperations = manifest.precommitted.operations?.filter((operation) =>
+      operation.operationKind === "paired_return"
+    ) ?? [];
+
+    expect(manifest.shapeId).toBe("paired_return");
+    expect(manifest.debug.validation).toMatchObject({ ok: true, failed: 0 });
+    expect(manifest.precommitted.pairedReturn).toHaveLength(3);
+    expect(pairedOperations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        contract: expect.objectContaining({
+          created: expect.objectContaining({ referenceKind: "sealed_object" }),
+          returnScene: expect.objectContaining({ returnSceneKind: "sealed_object_return" }),
+        }),
+      }),
+      expect.objectContaining({
+        contract: expect.objectContaining({
+          created: expect.objectContaining({ referenceKind: "borrowed_object" }),
+          returnScene: expect.objectContaining({ returnSceneKind: "borrowed_object_return" }),
+        }),
+      }),
+      expect.objectContaining({
+        contract: expect.objectContaining({
+          created: expect.objectContaining({ referenceKind: "trade_promise" }),
+          returnScene: expect.objectContaining({ returnSceneKind: "future_trade" }),
+        }),
+      }),
+    ]));
+    expect(manifest.precommitted.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "delayed_hook",
+        triggerSelector: expect.objectContaining({ triggerKind: "future_dream_journey" }),
+        controlledScene: expect.objectContaining({ sceneKind: "return" }),
+      }),
+    ]));
+    expect(generatedOptionText(manifest).join("\n")).toMatch(/Seal .*return .*expires|Borrow .*Return/iu);
+  });
+
+  it("rejects invalid hook trigger and paired-return references", async () => {
+    const journeyContext = await context("invalid-hook-return");
+    const hookPayload = {
+      familyId: "hook",
+      variantId: "delayed-trigger-matrix",
+      qaId: "hook/delayed-trigger-matrix",
+      description: "Delayed hook matrix QA.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const hookManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: hookPayload,
+    });
+    const invalidHook = {
+      ...(hookManifest.precommitted.delayed?.[0] as Record<string, unknown>),
+      triggerSelector: {
+        ...((hookManifest.precommitted.delayed?.[0] as Record<string, unknown>).triggerSelector as Record<string, unknown>),
+        triggerKind: "unsupported_trigger",
+      },
+    };
+    const invalidHookManifest: JourneyManifest = {
+      ...hookManifest,
+      precommitted: refreshPrecommittedOperations({
+        ...hookManifest.precommitted,
+        delayed: [
+          invalidHook,
+          ...(hookManifest.precommitted.delayed ?? []).slice(1),
+        ],
+      }),
+    };
+
+    expect(validateJourneyManifest(invalidHookManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_hook_trigger",
+    });
+
+    const returnPayload = {
+      familyId: "return",
+      variantId: "paired-return-seal-borrow-trade",
+      qaId: "return/paired-return-seal-borrow-trade",
+      description: "Paired return QA.",
+      supportedShapes: ["paired_return"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const returnManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: returnPayload,
+    });
+    const invalidReturn = {
+      ...(returnManifest.precommitted.pairedReturn?.[0] as Record<string, unknown>),
+      returnScene: {
+        ...((returnManifest.precommitted.pairedReturn?.[0] as Record<string, unknown>).returnScene as Record<string, unknown>),
+        referencesCreatedId: "missing-created-reference",
+      },
+    };
+    const invalidReturnManifest: JourneyManifest = {
+      ...returnManifest,
+      precommitted: refreshPrecommittedOperations({
+        ...returnManifest.precommitted,
+        pairedReturn: [
+          invalidReturn,
+          ...(returnManifest.precommitted.pairedReturn ?? []).slice(1),
+        ],
+      }),
+    };
+
+    expect(validateJourneyManifest(invalidReturnManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_paired_return_reference",
+    });
+  });
+
   it("forces named card operation menus with typed real-card operation payloads", async () => {
     const requiredRewardKinds = new Set([
       "card_gain",

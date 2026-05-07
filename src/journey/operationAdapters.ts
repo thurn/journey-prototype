@@ -10,6 +10,13 @@ import type {
   PrecommittedOutcomes,
   RandomEnvelopeOperation,
   RewardOperation,
+  BoundedDuration,
+  DelayedHookContract,
+  HookControlledScene,
+  HookExpirationPolicy,
+  HookTriggerSelector,
+  HookVisibilityPolicy,
+  PairedReturnContract,
   TargetSelectionMode,
   TargetSelector,
 } from "./manifest.js";
@@ -718,15 +725,37 @@ function adaptTarget(value: unknown, operationId: string): JourneyOperation {
 }
 
 function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
-  const kind = legacyKind(value) ?? "delayed_trigger";
+  const contract = delayedHookContractFromPayload(value);
+  const triggerSelector = contract?.triggerSelector ?? hookTriggerSelectorFromPayload(value);
+  const kind = triggerSelector?.triggerKind ?? legacyKind(value) ?? "delayed_trigger";
 
   return {
     operationId,
     operationKind: "delayed_hook",
     role: "trigger",
     hookKind: kind,
-    timing: { timingKind: "delayed", trigger: kind },
+    timing: { timingKind: "delayed", trigger: triggerSelector?.label ?? kind },
     visibility: "visible",
+    ...(triggerSelector ? { triggerSelector } : {}),
+    ...(contract?.trackedCondition ? { trackedCondition: contract.trackedCondition } : {}),
+    ...(contract?.resolution ? { resolution: contract.resolution } : {}),
+    ...(contract?.expiration ?? hookExpirationFromPayload(value)
+      ? { expiration: contract?.expiration ?? hookExpirationFromPayload(value) }
+      : {}),
+    ...(contract?.duration ?? hookDurationFromPayload(value)
+      ? { duration: contract?.duration ?? hookDurationFromPayload(value) }
+      : {}),
+    ...(contract?.controlledScene ?? hookControlledSceneFromPayload(value)
+      ? { controlledScene: contract?.controlledScene ?? hookControlledSceneFromPayload(value) }
+      : {}),
+    ...(contract?.visibilityPolicy ?? hookVisibilityFromPayload(value)
+      ? { visibilityPolicy: contract?.visibilityPolicy ?? hookVisibilityFromPayload(value) }
+      : {}),
+    ...(contract?.hookBudgetCost !== undefined
+      ? { hookBudgetCost: contract.hookBudgetCost }
+      : isRecord(value) && typeof value.hookBudgetCost === "number"
+        ? { hookBudgetCost: value.hookBudgetCost }
+        : {}),
     legacyKind: kind,
     payload: clonePayload(value),
   };
@@ -799,10 +828,69 @@ function rewardPayloadsFromDelayedPrecommit(value: unknown): unknown[] {
   return Array.isArray(value.reward) ? value.reward : [value.reward];
 }
 
+function hookTriggerSelectorFromPayload(value: unknown): HookTriggerSelector | undefined {
+  return isRecord(value) && isRecord(value.triggerSelector)
+    ? value.triggerSelector as HookTriggerSelector
+    : undefined;
+}
+
+function hookExpirationFromPayload(value: unknown): HookExpirationPolicy | undefined {
+  return isRecord(value) && isRecord(value.expiration)
+    ? value.expiration as HookExpirationPolicy
+    : undefined;
+}
+
+function hookDurationFromPayload(value: unknown): BoundedDuration | undefined {
+  return isRecord(value) && isRecord(value.duration)
+    ? value.duration as BoundedDuration
+    : undefined;
+}
+
+function hookControlledSceneFromPayload(value: unknown): HookControlledScene | undefined {
+  return isRecord(value) && isRecord(value.controlledScene)
+    ? value.controlledScene as HookControlledScene
+    : undefined;
+}
+
+function hookVisibilityFromPayload(value: unknown): HookVisibilityPolicy | undefined {
+  return isRecord(value) && isRecord(value.visibilityPolicy)
+    ? value.visibilityPolicy as HookVisibilityPolicy
+    : undefined;
+}
+
+function delayedHookContractFromPayload(value: unknown): DelayedHookContract | undefined {
+  return isRecord(value) &&
+    typeof value.hookId === "string" &&
+    isRecord(value.triggerSelector) &&
+    typeof value.trackedCondition === "string" &&
+    typeof value.resolution === "string" &&
+    isRecord(value.expiration) &&
+    isRecord(value.duration) &&
+    isRecord(value.controlledScene) &&
+    isRecord(value.visibilityPolicy) &&
+    typeof value.hookBudgetCost === "number"
+    ? {
+        hookId: value.hookId,
+        ...(typeof value.optionNumber === "number" ? { optionNumber: value.optionNumber } : {}),
+        triggerSelector: value.triggerSelector as HookTriggerSelector,
+        trackedCondition: value.trackedCondition,
+        resolution: value.resolution,
+        expiration: value.expiration as HookExpirationPolicy,
+        duration: value.duration as BoundedDuration,
+        controlledScene: value.controlledScene as HookControlledScene,
+        visibilityPolicy: value.visibilityPolicy as HookVisibilityPolicy,
+        hookBudgetCost: value.hookBudgetCost,
+      }
+    : undefined;
+}
+
 function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOperation {
-  const trigger = isRecord(value) && typeof value.trigger === "string"
-    ? value.trigger
-    : "committed trigger";
+  const contract = delayedHookContractFromPayload(value);
+  const triggerSelector = contract?.triggerSelector ?? hookTriggerSelectorFromPayload(value);
+  const trigger = triggerSelector?.label ??
+    (isRecord(value) && typeof value.trigger === "string"
+      ? value.trigger
+      : "committed trigger");
   const rewardOperations = rewardPayloadsFromDelayedPrecommit(value)
     .map((reward, index) => {
       const nestedOperationId = `${operationId}:reward:${index + 1}`;
@@ -821,21 +909,66 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     operationId,
     operationKind: "delayed_hook",
     role: "delayed_hook",
-    hookKind: trigger,
+    hookKind: triggerSelector?.triggerKind ?? trigger,
     timing: { timingKind: "delayed", trigger },
     visibility: "precommitted",
+    ...(triggerSelector ? { triggerSelector } : {}),
+    ...(contract?.trackedCondition ? { trackedCondition: contract.trackedCondition } : {}),
+    ...(contract?.resolution ? { resolution: contract.resolution } : {}),
+    ...(contract?.expiration ?? hookExpirationFromPayload(value)
+      ? { expiration: contract?.expiration ?? hookExpirationFromPayload(value) }
+      : {}),
+    ...(contract?.duration ?? hookDurationFromPayload(value)
+      ? { duration: contract?.duration ?? hookDurationFromPayload(value) }
+      : {}),
+    ...(contract?.controlledScene ?? hookControlledSceneFromPayload(value)
+      ? { controlledScene: contract?.controlledScene ?? hookControlledSceneFromPayload(value) }
+      : {}),
+    ...(contract?.visibilityPolicy ?? hookVisibilityFromPayload(value)
+      ? { visibilityPolicy: contract?.visibilityPolicy ?? hookVisibilityFromPayload(value) }
+      : {}),
+    ...(contract?.hookBudgetCost !== undefined
+      ? { hookBudgetCost: contract.hookBudgetCost }
+      : isRecord(value) && typeof value.hookBudgetCost === "number"
+        ? { hookBudgetCost: value.hookBudgetCost }
+        : {}),
     ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
     payload,
   };
 }
 
+function pairedReturnContractFromPayload(value: unknown): PairedReturnContract | undefined {
+  return isRecord(value) &&
+    typeof value.pairedReturnId === "string" &&
+    typeof value.anchor === "string" &&
+    isRecord(value.created) &&
+    isRecord(value.returnScene) &&
+    isRecord(value.visibilityPolicy)
+    ? {
+        pairedReturnId: value.pairedReturnId,
+        ...(typeof value.optionNumber === "number" ? { optionNumber: value.optionNumber } : {}),
+        anchor: value.anchor,
+        created: value.created as PairedReturnContract["created"],
+        returnScene: value.returnScene as PairedReturnContract["returnScene"],
+        visibilityPolicy: value.visibilityPolicy as HookVisibilityPolicy,
+      }
+    : undefined;
+}
+
 function adaptPairedReturn(value: unknown, operationId: string): JourneyOperation {
+  const contract = pairedReturnContractFromPayload(value);
+
   return {
     operationId,
     operationKind: "paired_return",
     role: "paired_return",
     visibility: "precommitted",
-    ...(isRecord(value) && typeof value.anchor === "string" ? { anchor: value.anchor } : {}),
+    ...(contract?.anchor
+      ? { anchor: contract.anchor }
+      : isRecord(value) && typeof value.anchor === "string"
+        ? { anchor: value.anchor }
+        : {}),
+    ...(contract ? { contract } : {}),
     payload: clonePayload(value),
   };
 }

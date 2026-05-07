@@ -162,6 +162,36 @@ function committedOutcomeText(value: unknown): string {
   }
 
   switch (value.kind) {
+    case "delayed_hook_contract": {
+      const trigger = isRecord(value.triggerSelector) && typeof value.triggerSelector.label === "string"
+        ? value.triggerSelector.label
+        : typeof value.trigger === "string"
+          ? value.trigger
+          : "committed trigger";
+      const tracked = typeof value.trackedCondition === "string" ? value.trackedCondition : "Track a condition.";
+      const resolution = typeof value.resolution === "string" ? value.resolution : "Resolve the hook.";
+      const expiration = isRecord(value.expiration) && typeof value.expiration.label === "string"
+        ? value.expiration.label
+        : "Expires after its bounded window.";
+
+      return `${trigger}: ${tracked} ${resolution} Expiration: ${expiration}`;
+    }
+    case "paired_return_contract": {
+      const anchor = typeof value.anchor === "string" ? value.anchor : "paired return";
+      const created = isRecord(value.created) && typeof value.created.label === "string"
+        ? value.created.label
+        : "Remember the created object.";
+      const returnScene = isRecord(value.returnScene) && typeof value.returnScene.resolution === "string"
+        ? value.returnScene.resolution
+        : "Resolve the return scene.";
+      const expiration = isRecord(value.returnScene) &&
+        isRecord(value.returnScene.expiration) &&
+        typeof value.returnScene.expiration.label === "string"
+        ? value.returnScene.expiration.label
+        : "Expires after its bounded window.";
+
+      return `${anchor}: ${created} Return: ${returnScene} Expiration: ${expiration}`;
+    }
     case "wager_roll": {
       const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
         ? `${value.odds.percent}%`
@@ -384,6 +414,55 @@ function operationPoolDebugText(operation: JourneyOption["operations"][number]):
     : undefined;
 }
 
+function operationContractDebugText(operation: JourneyOption["operations"][number]): string[] {
+  const lines: string[] = [];
+
+  if (operation.operationKind === "delayed_hook") {
+    if (operation.triggerSelector) {
+      lines.push(`  Trigger: ${operation.triggerSelector.triggerKind} (${operation.triggerSelector.label}).`);
+    }
+
+    if (operation.trackedCondition) {
+      lines.push(`  Tracks: ${operation.trackedCondition}`);
+    }
+
+    if (operation.resolution) {
+      lines.push(`  Resolves: ${operation.resolution}`);
+    }
+
+    if (operation.expiration) {
+      lines.push(`  Expires: ${operation.expiration.label}`);
+    }
+
+    if (operation.duration) {
+      lines.push(`  Duration: ${operation.duration.label}.`);
+    }
+
+    if (operation.controlledScene) {
+      lines.push(`  Scene: ${operation.controlledScene.sceneKind} ${operation.controlledScene.label}.`);
+    }
+
+    if (operation.visibilityPolicy) {
+      lines.push(`  Visibility: ${operation.visibilityPolicy.outcomeVisibility}; ${operation.visibilityPolicy.disclosure}`);
+    }
+
+    if (operation.hookBudgetCost !== undefined) {
+      lines.push(`  Hook budget cost: ${operation.hookBudgetCost}.`);
+    }
+  }
+
+  if (operation.operationKind === "paired_return" && operation.contract) {
+    lines.push(
+      `  Paired return: ${operation.contract.pairedReturnId}; created=${operation.contract.created.referenceId}; scene=${operation.contract.returnScene.returnSceneKind}.`,
+      `  Return trigger: ${operation.contract.returnScene.triggerSelector.triggerKind} (${operation.contract.returnScene.triggerSelector.label}).`,
+      `  Return resolution: ${operation.contract.returnScene.resolution}`,
+      `  Return expiration: ${operation.contract.returnScene.expiration.label}`,
+    );
+  }
+
+  return lines;
+}
+
 function operationDebugLines(manifest: JourneyManifest): string[] {
   const lines: string[] = [];
   const optionOperations = manifest.options.flatMap((option) =>
@@ -438,6 +517,8 @@ function operationDebugLines(manifest: JourneyManifest): string[] {
     if (value) {
       lines.push(`  ${value}`);
     }
+
+    lines.push(...operationContractDebugText(operation));
   }
 
   return lines;

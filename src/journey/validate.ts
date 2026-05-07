@@ -481,6 +481,238 @@ function validateStatusPayloadContract(payload: Record<string, unknown>): Valida
   return { ok: true };
 }
 
+const HOOK_TRIGGER_KINDS = new Set([
+  "battle",
+  "victory",
+  "each_battle",
+  "site_visit",
+  "named_card_play",
+  "dreamsign_trigger",
+  "card_added",
+  "essence_payment",
+  "future_shop",
+  "future_dream_journey",
+]);
+
+const HOOK_EXPIRATION_POLICIES = new Set([
+  "forfeit_reward",
+  "resolve_partial",
+  "pay_cost",
+  "return_unchanged",
+  "discard_obligation",
+]);
+
+const HOOK_DURATION_KINDS = new Set([
+  "battle_count",
+  "dreamscape_count",
+  "shop_count",
+  "journey_count",
+  "until_trigger",
+]);
+
+const HOOK_CONTROLLED_SCENES = new Set(["reward", "cost", "transformation", "trade", "return"]);
+
+function validateHookTriggerSelector(value: unknown): ValidationResult {
+  if (!isRecord(value)) {
+    return fail("invalid_hook_trigger", "Delayed hooks require a structured trigger selector");
+  }
+
+  if (typeof value.triggerKind !== "string" || !HOOK_TRIGGER_KINDS.has(value.triggerKind)) {
+    return fail("invalid_hook_trigger", "Delayed hooks require a legal trigger kind");
+  }
+
+  if (typeof value.label !== "string" || value.label.length === 0) {
+    return fail("invalid_hook_trigger", "Delayed hook trigger selectors require a player-facing label");
+  }
+
+  if (
+    (value.triggerKind === "named_card_play" || value.triggerKind === "card_added") &&
+    (typeof value.cardId !== "string" || typeof value.cardName !== "string")
+  ) {
+    return fail("invalid_hook_trigger", "Card-play and card-addition hooks require a named card reference");
+  }
+
+  if (
+    value.triggerKind === "dreamsign_trigger" &&
+    (typeof value.dreamsignId !== "string" || typeof value.dreamsignName !== "string")
+  ) {
+    return fail("invalid_hook_trigger", "Dreamsign-trigger hooks require a named Dreamsign reference");
+  }
+
+  if (value.triggerKind === "site_visit" && typeof value.siteType !== "string") {
+    return fail("invalid_hook_trigger", "Site-visit hooks require a site type");
+  }
+
+  if (value.triggerKind === "essence_payment" && (typeof value.amount !== "number" || value.amount <= 0)) {
+    return fail("invalid_hook_trigger", "Essence-payment hooks require a positive payment threshold");
+  }
+
+  return { ok: true };
+}
+
+function validateHookDuration(value: unknown): ValidationResult {
+  if (!isRecord(value)) {
+    return fail("invalid_hook_duration", "Delayed hooks require a bounded duration");
+  }
+
+  if (typeof value.durationKind !== "string" || !HOOK_DURATION_KINDS.has(value.durationKind)) {
+    return fail("invalid_hook_duration", "Delayed hooks require a legal duration kind");
+  }
+
+  if (typeof value.label !== "string" || value.label.length === 0) {
+    return fail("invalid_hook_duration", "Delayed hook durations require a player-facing label");
+  }
+
+  if (
+    value.durationKind !== "until_trigger" &&
+    (typeof value.count !== "number" || value.count < 1 || value.count > 3)
+  ) {
+    return fail("invalid_hook_duration", "Delayed hook durations must be bounded to 1..3 units");
+  }
+
+  return { ok: true };
+}
+
+function validateHookExpiration(value: unknown): ValidationResult {
+  if (!isRecord(value)) {
+    return fail("invalid_hook_expiration", "Delayed hooks require an expiration policy");
+  }
+
+  if (typeof value.policyKind !== "string" || !HOOK_EXPIRATION_POLICIES.has(value.policyKind)) {
+    return fail("invalid_hook_expiration", "Delayed hooks require a legal expiration policy");
+  }
+
+  if (typeof value.label !== "string" || value.label.length === 0) {
+    return fail("invalid_hook_expiration", "Delayed hook expiration policies require a player-facing label");
+  }
+
+  return { ok: true };
+}
+
+function validateHookVisibility(value: unknown): ValidationResult {
+  if (!isRecord(value)) {
+    return fail("invalid_hook_visibility", "Delayed hooks require a visibility policy");
+  }
+
+  if (
+    value.outcomeVisibility !== "visible" &&
+    value.outcomeVisibility !== "hidden_until_resolution" &&
+    value.outcomeVisibility !== "debug_only"
+  ) {
+    return fail("invalid_hook_visibility", "Delayed hook visibility must be visible, hidden-until-resolution, or debug-only");
+  }
+
+  if (typeof value.disclosure !== "string" || value.disclosure.length === 0) {
+    return fail("hidden_outcome_disclosure", "Delayed hooks require disclosure text for their outcome visibility");
+  }
+
+  return { ok: true };
+}
+
+function validateHookControlledScene(value: unknown): ValidationResult {
+  if (!isRecord(value)) {
+    return fail("invalid_hook_resolution", "Delayed hooks require a controlled reward, cost, transformation, trade, or return scene");
+  }
+
+  if (typeof value.sceneKind !== "string" || !HOOK_CONTROLLED_SCENES.has(value.sceneKind)) {
+    return fail("invalid_hook_resolution", "Delayed hook controlled scenes require a legal scene kind");
+  }
+
+  if (typeof value.label !== "string" || value.label.length === 0) {
+    return fail("invalid_hook_resolution", "Delayed hook controlled scenes require a player-facing label");
+  }
+
+  return { ok: true };
+}
+
+function validateDelayedHookContractPayload(
+  payload: Record<string, unknown>,
+  hasResolvedPayload = false,
+): ValidationResult {
+  const triggerResult = validateHookTriggerSelector(payload.triggerSelector);
+  if (!triggerResult.ok) {
+    return triggerResult;
+  }
+
+  if (typeof payload.trackedCondition !== "string" || payload.trackedCondition.length === 0) {
+    return fail("invalid_hook_tracking", "Delayed hooks require a tracked condition");
+  }
+
+  if (typeof payload.resolution !== "string" || payload.resolution.length === 0) {
+    return fail("invalid_hook_resolution", "Delayed hooks require a resolution description");
+  }
+
+  const expirationResult = validateHookExpiration(payload.expiration);
+  if (!expirationResult.ok) {
+    return expirationResult;
+  }
+
+  const durationResult = validateHookDuration(payload.duration);
+  if (!durationResult.ok) {
+    return durationResult;
+  }
+
+  const sceneResult = validateHookControlledScene(payload.controlledScene);
+  if (!sceneResult.ok) {
+    return sceneResult;
+  }
+
+  const visibilityResult = validateHookVisibility(payload.visibilityPolicy);
+  if (!visibilityResult.ok) {
+    return visibilityResult;
+  }
+
+  if (typeof payload.hookBudgetCost !== "number" || payload.hookBudgetCost < 0 || payload.hookBudgetCost > 1) {
+    return fail("invalid_hook_budget", "Each delayed hook contract must cost 0 or 1 hook budget");
+  }
+
+  if (payload.reward === undefined && !isRecord(payload.returnScene) && !hasResolvedPayload) {
+    return fail("invalid_hook_resolution", "Delayed hooks require a reward, cost, transformation, trade, or return payload");
+  }
+
+  return { ok: true };
+}
+
+function validatePairedReturnContractPayload(payload: Record<string, unknown>): ValidationResult {
+  if (typeof payload.pairedReturnId !== "string" || payload.pairedReturnId.length === 0) {
+    return fail("invalid_paired_return_reference", "Paired returns require a stable pairedReturnId");
+  }
+
+  if (typeof payload.anchor !== "string" || payload.anchor.length === 0) {
+    return fail("invalid_paired_return_reference", "Paired returns require an anchor");
+  }
+
+  if (!isRecord(payload.created) || typeof payload.created.referenceId !== "string") {
+    return fail("invalid_paired_return_reference", "Paired returns require a created object, status, cost, or promise reference");
+  }
+
+  if (!isRecord(payload.returnScene) || payload.returnScene.referencesCreatedId !== payload.created.referenceId) {
+    return fail("invalid_paired_return_reference", "Paired return scenes must reference the created object, status, cost, or promise");
+  }
+
+  const triggerResult = validateHookTriggerSelector(payload.returnScene.triggerSelector);
+  if (!triggerResult.ok) {
+    return triggerResult;
+  }
+
+  const expirationResult = validateHookExpiration(payload.returnScene.expiration);
+  if (!expirationResult.ok) {
+    return expirationResult;
+  }
+
+  const durationResult = validateHookDuration(payload.returnScene.duration);
+  if (!durationResult.ok) {
+    return durationResult;
+  }
+
+  const visibilityResult = validateHookVisibility(payload.visibilityPolicy);
+  if (!visibilityResult.ok) {
+    return visibilityResult;
+  }
+
+  return { ok: true };
+}
+
 function flattenOperationContracts(operations: readonly JourneyOperation[]): JourneyOperation[] {
   return operations.flatMap((operation) => [
     operation,
@@ -544,6 +776,35 @@ function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationRes
 
     if (operation.operationKind === "status") {
       const result = validateStatusPayloadContract(operation.payload);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+
+    if (
+      operation.operationKind === "delayed_hook" &&
+      (
+        operation.payload.kind === "delayed_hook_contract" ||
+        operation.payload.kind === "paired_return_contract" ||
+        operation.triggerSelector !== undefined
+      )
+    ) {
+      const result = validateDelayedHookContractPayload(
+        operation.payload,
+        Array.isArray(operation.rewardOperations) && operation.rewardOperations.length > 0,
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+
+    if (
+      operation.operationKind === "paired_return" &&
+      (operation.payload.kind === "paired_return_contract" || operation.contract !== undefined)
+    ) {
+      const result = validatePairedReturnContractPayload(operation.payload);
 
       if (!result.ok) {
         return result;
