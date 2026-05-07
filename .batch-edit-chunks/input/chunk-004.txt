@@ -1,0 +1,79 @@
+# Custom Cards, Dreamsigns, and Transfigurations
+
+Dream journeys are the home of custom card designs and custom dreamsigns which
+do not exist in the main draft pool. They also offer many custom
+transfigurations beyond the scope of the normal colored transfiguration options.
+Almost any modification to a card’s cost, character type, spark, rules etc, etc
+is available for use during dream journeys. Examples:
+
+- Appears in your opening hand
+- When discarded, placed on top of your deck
+- Remove predicate restrictions on targeting
+
+# Compound Effects
+
+A compound effect is simply one which doesn’t make sense in a “cost: effect”
+format. This is typically because the effect already has a built-in cost or
+downside.
+
+- Add {x} bane cards to your deck, they transform into {powerful card} after
+  {duration}
+- Gain one time use effect: Banish your hand and draw 10 cards
+- The next battle you win yields a dreamsign draft instead of card rewards
+- Gain an inert dreamsign that transforms into {good_dreamsign} after {duration}
+- X% chance to pay {cost}, otherwise gain {simple effect}
+- Create a custom card for your deck, i.e. you pick the ability text and the
+  game assigns a cost/spark value to it
+- Gain a special dreamsign which you can trade for a very powerful effect in a
+  future dream journey
+- Randomize a card, e.g. randomize all its numerical values
+- Gain a battle/quest tradeoff, e.g. a powerful battle effect that depletes your
+  essence or adds bane cards to your deck
+- Show X simple effects and apply one at random
+- Apply a random simple effect from a pool of choices, not disclosed in advance
+- Gain essence but lose maximum essence
+- Gain {reward} if you complete some {condition}
+- Purge a card and have it come back stronger later
+
+# Conditions/Triggers
+
+A condition or trigger is a requirement for an effect to take place
+
+- When you win your next battle
+- If you have X essence
+- If you have X {predicate} cards in your deck,
+- If you have X dreamsigns
+- If you have a named card or named dreamsign
+- Win your next battle in X turns
+
+# Durations
+
+A duration controls how long an effect will take place for, or how long it will
+be *until* that effect takes place
+
+- Permanent
+- After X battles
+- After you pay X essence
+- After you add X {predicate} cards to your deck
+- After you trigger {dreamsign} X times
+
+# Predicates
+
+A predicate specifies a certain type of card for an effect to apply to.
+
+- Events
+- Characters
+- Card with X, \<X or >X cost
+- Card with X, \<X or >X spark
+- Neutral card
+- Neutral dreamsign
+- Character type (warrior, spirit animal, survivor)
+- Card with a given ability, e.g. with a “materialized” ability
+- Fast card
+- Starter card
+- Dreamsign from a curated pool
+- Card from a curated pool
+- Specific tide
+- Legendary card
+- Transfigured card
+

@@ -357,7 +357,7 @@ A predicate specifies a certain type of card for an effect to apply to.
 - Card with X, \<X or >X spark
 - Neutral card
 - Neutral dreamsign
-- Character type (warrior, spirit animal, etc)
+- Character type (warrior, spirit animal, survivor)
 - Card with a given ability, e.g. with a “materialized” ability
 - Fast card
 - Starter card

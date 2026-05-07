@@ -1,0 +1,141 @@
+# Dream Journeys
+
+A Dream Journey in Dreamtides is a random effect that modifies a quest in some
+way. It is the home of the most dramatic effects that can change a player's
+experience within a single run, and the main place where neutral or negative
+effects belong (Dreamsigns and Dreamcallers are usually only positive). Journeys
+are also the primary vehicle for adding Bane cards to the player's deck and for
+adding battlefield slot modifications.
+
+A Dream Journey is the Dreamtides equivalent of an event in a game like Slay the
+Spire or Monster Train. The player enters a journey site, sees options with
+short ability text describing they offer, and decides which to picck.
+
+The Dream Journey site presents the player with between 1 and 3 dreams the
+player can enter, with the average being 2. Each dream has associated art in a
+circular frame. Hovering over one of the dreams displays a popup with a one
+sentence mechanical description of its effect, and sometimes shows additional
+popups describing other relevant game objects (e.g. a dream that adds a card to
+the player’s deck will show the card). Each dream has a purple button to enter
+that dream. In cases where only 1 dream is displayed, the choice is forced,
+there is no “skip” option. Some dreams have repeated choices, e.g. they may
+prompt to pick an option multiple times for a varying reward.
+
+Unlike in other roguelike deckbuilding games, Dreamtides journeys are
+procedurally generated, meaning there are millions of possible effects, no two
+quests should ever face the same choices. In order to achieve this, journeys are
+built up from different constituent parts:
+
+- Simple Effects: These are the most basic atomic elements of the dream, things
+  like gaining essence or adding a card to your deck. Simple effects must be
+  beneficial to the player, at least in some situations.
+- Costs: These are negative effects which harm the player in some way, such as
+  losing essence or gaining Bane cards. Costs and simple effects can be combined
+  to give the player interesting cost/benefit choices.
+- Custom Cards/Dreamsigns/Transfigurations: Dream journeys are the home of the
+  most strange and purpose-designed versions of things like cards, dreamsigns,
+  and transfigurations. Because these don’t need to be suitable for the main
+  draft pool, they can be much more experimental.
+- Compound Effects: These are more complex dream abilities which don’t strictly
+  make sense as part of cost + effect procedural generation, often because they
+  contain internally connected positive and negative elements.
+- Conditions/Triggers: Some effects give the player a “mini quest” to complete
+  within the game, and don’t provide their reward until this is achieved.
+- Durations: Some costs and effects are time linked, e.g. they are temporary or
+  will apply in the future. Durations allow them to apply
+- Predicates: Predicates are used to modify the game objects a cost or effect
+  applies to in order to vary their behavior, for example “gain a warrior card”
+  uses the “warrior” predicate, but could be randomized to “gain a fast event”
+  instead.
+- Battlefield Slot Modifications: A unique aspect of the Dreamtides grid system
+  is that the battlefield can be modified by dream journey effects, giving each
+  battle unique terrain to navigate. Each slot can have up to 1 modification,
+  represented by an icon.
+- Statuses: Dream journeys are able to create ongoing changes to the quest
+  state, which can change future gameplay dramatically
+- Shapes: A journey shape is a specific meta-configuration which controls the
+  set of dreams presented at a dream journey site, connecting them in some
+  thematically or mechanically linked way.
+
+When designing dreamtides procedural generation, a helpful strategy to use is to
+go through the events in a game like Slay the Spire and ask “is an event like
+this going to happen frequently in Dreamtides?”. The events should **feel** like
+a human designer manually curated them.
+
+# Weighted Randomness
+
+The goal of dream journey generation is absolutely **not** to take a big pool of
+effects and show them to the player uniformly at random, because this isn’t fun.
+The dream journey system uses procedural generation to offer experienced that
+are curated in a fun way, while still having variance between quests. This needs
+to be data driven via configuration files at a core level, and the “shapes”
+system below is a major component of the weighting here.
+
+There’s a lot of aesethetic judgment in generating good events. Something like
+“Draft a card from 20 choices” is a cool event because it has kind of a “wow”
+factor in a way that “Draft 2 cards from 19 choices” doesn’t, even if the later
+is probably actually more powerful. In a similar way “lose all your essence to
+do an amazing effect” is better game design than “lose 90% of your essence”. The
+system needs to capture this emotional resonance.
+
+In similar way, aesthetics are very important in presenting costs and effects.
+It’s desirable to have a good percentage of dream journeys have some internal
+symmetry, such as “do one of these 3 things to this card”, or “pay the same cost
+for these different effects”, or “pick one of these 3 dreamsigns but lose
+maximum essence”, or “pick one of these characters with the scarlet
+transfiguration”.
+
+Picking costs and effects purely at random has a place, but it shouldn’t be the
+majority. Generally when showing 3 options it’s good to have some form of
+symmetry. Totally mechanically unrelated choices are good to reserve for cases
+when only 2 options are shown.
+
+# Hidden Information
+
+Dream Journeys show a mechanical description on hover, such as “Red Dusk: Purge
+3 random cards.”. Our contract with the player is that they should understand
+what will happen when they pick this option, but it’s fine for the level of
+information shown to vary. Text like “Purge a random card”, “Purge a chosen
+card”, or “Purge Aspiring Guardian” all have very different game effects, and
+most random effects can be altered by making the random selection *in advance*
+(and thus showing the player the result) or making it afterwards.
+
+Sometimes we present players with choices that are explicit in the dreams
+offered themselves (e.g. we show 3 dreams, each has a known card the player will
+receive) and sometimes the choices are the effect of entering a given dream
+(e.g. enter this dream and you will pick one of 3 cards).
+
+# Matching Costs and Effects
+
+Not all costs and effects are equivalent in scope, and it’s very easy to get
+“obviously stupid” results like “pay 10 essence, transfigure every card in your
+deck” or “pay 500 essence to purge a chosen card”. In order to prevent this,
+costs and effects are tagged with an “effect size” rating, and paired up
+accordingly.
+
+# Overlap with Dreamsigns
+
+Dream Journeys and Dreamsigns have some overlap in what they can do. Generally,
+any kind of persistent benefit which applies to the player should be represented
+by a dreamsign (which may be a journey-specific custom dreamsign). Any other
+kind of neutral or negative effect is represented by a “quest status effect”, a
+secondary type of ongoing modification. Positive effects which *harm the
+opponent* during battles are also only available via status effects, since these
+generally are not fun to have as dreamsigns.
+
+# Out of Scope
+
+There are a few things that Dreamtides journeys do NOT do:
+
+- Initiate battles in any way
+- Trigger off of the player losing battles (dreamtides is single-elimination by
+  default)
+- Allow the player to have an extremely deterministic deck as a result of a
+  single journey, e.g. having 15 or fewer cards or strongly controlling their
+  starting hand
+- Directly apply ongoing player benefits instead of using a dreamsign
+- Allow more than 1 dreamcaller per battle
+- Show named tides to the player to pick from, or require the player to
+  understand what tides are good for their deck
+- Play mini games beyond sequential button clicks, such as a matching game
+

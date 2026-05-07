@@ -1,0 +1,89 @@
+# Simple Effects
+
+Simple effects are the basic building block of dream journeys. They can
+optionally be combined with a cost.
+
+- Gain X essence
+- Gain maximum essence
+- Set essence to X% of your maximum essence
+- Gain X-Y essence (random roll)
+- Gain X omens
+- Purge up to X chosen {predicate} cards
+- Purge up to X chosen {predicate} card and gain a random {predicate}
+  replacement
+- Gain X random {predicate} cards
+- Draft X {predicate} cards from Y choices
+- Take any number of {predicate} cards from X choices
+- Gain essence up to your maximum
+- Apply a transfiguration of your choice to chosen card
+- Apply {transfiguration} to X chosen {predicate} cards
+- Apply {transfiguration} to {card_name}
+- Apply {transfiguration} to X random {predicate} cards
+- Transfigure X random starter cards
+- Transfigure all starter cards
+- Gain X {card_name}
+- Gain {custom_card_name} (card design specifically for this journey)
+- Gain a random {predicate} dreamsign
+- Gain {dreamsign}
+- Gain {card_name} for {duration}
+- Gain {dreamsign} for {duration}
+- Choose 1 of X {predicate} dreamsigns
+- Gain {custom_dreamsign_name}
+- Gain {mutated_dreamsign} (modified version of a certain dreamsign)
+- Gain X random {predicate} dreamsigns
+- Gain a card from {tide}
+- Draft a card from {tide}
+- Immediately perform X drafts from Y choices
+- Apply a random simple effect
+- Purge {starter_card}
+- Purge a random starter card
+- Purge a random starter card and gain a {predicate} replacement
+- Purge all starter cards and replace them with new starter cards
+- Choose one of two packs of cards to add to your deck
+- The next X cards you draft are transfigured
+- Draw X additional cards in your next Y battles
+- Transfigure all cards in your deck
+- Add {site} to this dreamscape
+- Add a {site} to the next dreamscape you visit
+- Apply a custom transfiguration to a card, outside of the normal set
+- Choose a starter card to transform into {card_name}
+- Transform {card_name_in_deck} into {card_name}
+- Transform a {predicate} card into {card_name}
+- Create X duplicates of {card_name}
+- Duplicate X chosen cards
+- Duplicate X random {predicate} cards
+- Modify {card_name}’s text to reference {card_type} (e.g. warriors ->
+  survivors)
+- Change {card_name} to become a {card_type}
+- Modify X random cards to become {card_types}
+- Purge X bane cards from your deck
+- Purge all bane cards
+- Change {card_name} to have fast
+- Change X random cards to have fast
+- Draw X cards from your deck and duplicate one of them
+- Draw X cards from your deck and transfigure one of them
+- Draw X more cards in your opening hand for {duration}
+- Your starting dreamwell card is {positive_dreamwell_card} for {duration}
+- Shuffle X {positive_dreamwell_cards} into your dreamwell for {duration}
+- Shop rerolls are free for {duration}
+- The next X items you purchase from sohps are free
+- Add an ability to your dreamcaller
+- Once you play {cardname} X times, gain some reward
+- Gain a card, once you play it X times, gain some reward
+- Gain a dreamsign, once you trigger it X times, gain some reward
+- Merge two cards into a combined card which plays both of them
+- Split a card with multiple abilities into multiple cards with each of the
+  abilities
+- Make one of your events become the materialized ability of a character
+- Gain the ability of a second dreamcaller as a special dreamsign
+- Gain {simple effect} for {duration}, e.g. gain a dreamsign after each of the
+  next 3 battles
+- Change your dreamcaller
+- Gain a copy of a dreamsign
+- Duplicate your dreamcaller’s effect
+- Remove {tide} from the draft pool
+- Remove {predicate} dreamsigns from the pool, e.g. all neutral dreamsigns
+- X% higher chance to see {site} in future dreamscapes
+- Pick one of the 4 the best cards for your dreamcaller in the card pool
+- Transfigure {dreamwell_card} in your dreamwell to have a better effect
+
