@@ -138,7 +138,7 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "random",
     description: "Reveal, roll, and wager random envelope payloads.",
     variants: [
-      variant("random", "reveal-roll-wager", "unimplemented", "Reserved for reveal envelopes, rolls, wheels, and wagers.", ["single_wager", "random_pool_draws", "resolved_random_series", "single_random_outcome"]),
+      variant("random", "reveal-roll-wager", "available", "Deterministic reveal envelopes, rolls, random ranges, visible pools, push choices, and wagers.", ["single_random_outcome", "single_wager", "random_pool_draws", "resolved_random_series"]),
     ],
   },
   {

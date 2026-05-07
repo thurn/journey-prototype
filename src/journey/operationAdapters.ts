@@ -508,6 +508,26 @@ function valueMetadata(convertedEssence?: number): OperationValueMetadata | unde
   return convertedEssence === undefined ? undefined : { convertedEssence };
 }
 
+function randomValueMetadata(value: unknown): OperationValueMetadata | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const metadata: OperationValueMetadata = {
+    ...(typeof value.expectedConvertedEssence === "number"
+      ? { expectedConvertedEssence: value.expectedConvertedEssence }
+      : {}),
+    ...(typeof value.riskPremiumConvertedEssence === "number"
+      ? {
+          riskPremiumConvertedEssence: value.riskPremiumConvertedEssence,
+          uncertaintyConvertedEssence: value.riskPremiumConvertedEssence,
+        }
+      : {}),
+  };
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 function adaptCost(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
   const kind = legacyKind(value);
   const resource = kind === "omens" ? "omens" : "essence";
@@ -806,15 +826,23 @@ function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: 
 
 function adaptRandomEnvelope(value: unknown, operationId: string): JourneyOperation {
   const kind = legacyKind(value) ?? (Array.isArray(value) ? "random_series" : "random_outcome");
+  const operationKind = kind.includes("reveal") ? "reveal_envelope" : "random_envelope";
+  const visibilityLabel = isRecord(value) && isRecord(value.visibilityPolicy) && typeof value.visibilityPolicy.outcomeVisibility === "string"
+    ? value.visibilityPolicy.outcomeVisibility
+    : undefined;
+  const timing = visibilityLabel === "delayed" || visibilityLabel === "hidden_until_resolution"
+    ? { timingKind: "delayed" as const, trigger: "random resolution", label: visibilityLabel }
+    : { timingKind: "random" as const };
 
   return {
     operationId,
-    operationKind: "random_envelope",
+    operationKind,
     role: "random",
     envelopeKind: kind,
-    timing: { timingKind: "random" },
+    timing,
     visibility: "precommitted",
     ...(oddsFromPayload(value) ? { odds: oddsFromPayload(value) } : {}),
+    ...(randomValueMetadata(value) ? { value: randomValueMetadata(value) } : {}),
     legacyKind: kind,
     payload: clonePayload(value),
   };

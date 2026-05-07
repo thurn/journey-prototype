@@ -64,6 +64,7 @@ export type OperationValueMetadata = {
   convertedEssence?: number;
   expectedConvertedEssence?: number;
   uncertaintyConvertedEssence?: number;
+  riskPremiumConvertedEssence?: number;
   bands?: {
     id:
       | "maximum"
@@ -408,6 +409,137 @@ export type RandomEnvelopeOperation = OperationBase & {
   };
 };
 
+export type RandomOdds = {
+  numerator: number;
+  denominator: number;
+  percent: number;
+};
+
+export type RandomOutcomeVisibility =
+  | "visible"
+  | "hidden_until_resolution"
+  | "delayed"
+  | "pre_rolled"
+  | "resolved"
+  | "debug_only";
+
+export type RandomVisibilityPolicy = {
+  outcomeVisibility: RandomOutcomeVisibility;
+  disclosure: string;
+  playerVisible: boolean;
+  revealTiming?: string;
+};
+
+export type RandomPoolReplacementPolicy = "with_replacement" | "without_replacement" | "precommitted_order";
+
+type RandomPrecommitBase = {
+  kind: string;
+  optionNumber?: number;
+  visibilityPolicy?: RandomVisibilityPolicy;
+  odds?: RandomOdds;
+  expectedConvertedEssence?: number;
+  riskPremiumConvertedEssence?: number;
+  presentation?: string;
+};
+
+export type RandomPrecommittedOutcome =
+  | (RandomPrecommitBase & {
+    kind: "visible_pool";
+    poolId: string;
+    summary: string;
+    rewards: unknown[];
+    replacement: RandomPoolReplacementPolicy;
+  })
+  | (RandomPrecommitBase & {
+    kind: "random_cost";
+    cost: unknown;
+    committedCost: unknown;
+  })
+  | (RandomPrecommitBase & {
+    kind: "random_reward";
+    reward: unknown;
+    committedReward: unknown;
+  })
+  | (RandomPrecommitBase & {
+    kind: "chance_to_gain_bane";
+    baneName: string;
+    count: number;
+    committedResult: "bane" | "safe";
+  })
+  | (RandomPrecommitBase & {
+    kind: "chance_to_pay_cost";
+    cost: unknown;
+    committedResult: "paid" | "free";
+  })
+  | (RandomPrecommitBase & {
+    kind: "reveal_rewards";
+    revealCount: number;
+    rewards: unknown[];
+  })
+  | (RandomPrecommitBase & {
+    kind: "choose_one_revealed_reward";
+    revealCount: number;
+    rewards: unknown[];
+  })
+  | (RandomPrecommitBase & {
+    kind: "choose_one_random_revealed_reward";
+    revealCount: number;
+    rewards: unknown[];
+    committedReward: unknown;
+  })
+  | (RandomPrecommitBase & {
+    kind: "gain_one_random_reward";
+    poolId: string;
+    rewards: unknown[];
+    committedReward: unknown;
+  })
+  | (RandomPrecommitBase & {
+    kind: "roll_twice_keep_one";
+    rolls: number[];
+    keptRoll: number;
+    outcomes: unknown[];
+  })
+  | (RandomPrecommitBase & {
+    kind: "repeated_pool_draws";
+    poolId: string;
+    drawCount: number;
+    rewards: unknown[];
+    committedDraws: unknown[];
+    replacement: RandomPoolReplacementPolicy;
+  })
+  | (RandomPrecommitBase & {
+    kind: "random_range";
+    resource: "essence" | "omens";
+    minimum: number;
+    maximum: number;
+    committedAmount: number;
+  })
+  | (RandomPrecommitBase & {
+    kind: "wager";
+    stake: unknown;
+    success: unknown;
+    failure: unknown;
+    roll: number;
+    committedResult: "success" | "failure";
+  })
+  | (RandomPrecommitBase & {
+    kind: "probability_ladder";
+    bounded: true;
+    levels?: { level: number; odds: RandomOdds; reward: unknown }[];
+  })
+  | (RandomPrecommitBase & {
+    kind: "push_choice";
+    bounded: true;
+    hazard: unknown;
+    committedResult?: "success" | "failure";
+  })
+  | (RandomPrecommitBase & {
+    kind: "resolved_random_series";
+    series: unknown[];
+    resolved: true;
+  })
+  | ({ kind: string; optionNumber?: number } & Record<string, unknown>);
+
 export type TargetOperation = OperationBase & {
   operationKind: "target";
   role: "target";
@@ -493,7 +625,7 @@ export type RepairOutcomeMetadata = {
 };
 
 export type PrecommittedOutcomes = {
-  random?: unknown[];
+  random?: RandomPrecommittedOutcome[];
   delayed?: unknown[];
   pairedReturn?: unknown[];
   routeEdits?: unknown[];

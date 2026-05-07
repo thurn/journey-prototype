@@ -553,7 +553,7 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
         kind: "risk",
         operationId: operation.operationId,
         label: `${operation.operationKind} risk premium`,
-        value: 0,
+        value: operation.value?.riskPremiumConvertedEssence ?? 0,
       });
     }
 

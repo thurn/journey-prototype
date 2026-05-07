@@ -2846,6 +2846,137 @@ describe("validateJourneyManifest", () => {
     ]);
   });
 
+  it("forces deterministic reveal, roll, range, pool, push, and wager payload envelopes", async () => {
+    const journeyContext = await context("random-reveal-roll-wager");
+    const randomPayload = {
+      familyId: "random",
+      variantId: "reveal-roll-wager",
+      qaId: "random/reveal-roll-wager",
+      description: "Reveal, roll, and wager payload coverage.",
+      supportedShapes: ["single_random_outcome", "single_wager", "random_pool_draws", "resolved_random_series"],
+      supportedStages: ["late"],
+    } satisfies DebugPayloadSelection;
+    const first = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: randomPayload,
+    });
+    const second = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: randomPayload,
+    });
+    const kinds = first.precommitted.random?.map((entry) => entry.kind) ?? [];
+
+    expect(stableStringify(first)).toBe(stableStringify(second));
+    expect(validateJourneyManifest(first, journeyContext)).toEqual({ ok: true });
+    expect(first.debug.debugPayload).toMatchObject({
+      qaId: "random/reveal-roll-wager",
+      source: "forced",
+    });
+    expect(kinds).toEqual(expect.arrayContaining([
+      "visible_pool",
+      "random_cost",
+      "random_reward",
+      "chance_to_gain_bane",
+      "chance_to_pay_cost",
+      "reveal_rewards",
+      "choose_one_revealed_reward",
+      "choose_one_random_revealed_reward",
+      "gain_one_random_reward",
+      "roll_twice_keep_one",
+      "repeated_pool_draws",
+      "random_range",
+      "wager",
+      "probability_ladder",
+      "push_choice",
+      "resolved_random_series",
+    ]));
+    expect(first.options.map((option) => option.text).join(" ")).toMatch(/\d+% chance/u);
+    expect(first.options.map((option) => option.text).join(" ")).toMatch(/\d+-\d+ random essence/u);
+    expect(first.precommitted.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "reveal_envelope",
+        role: "random",
+        value: expect.objectContaining({
+          expectedConvertedEssence: expect.any(Number),
+          riskPremiumConvertedEssence: expect.any(Number),
+        }),
+      }),
+      expect.objectContaining({
+        operationKind: "random_envelope",
+        role: "random",
+        payload: expect.objectContaining({
+          visibilityPolicy: expect.objectContaining({
+            outcomeVisibility: expect.stringMatching(/^(visible|hidden_until_resolution|delayed|pre_rolled|resolved)$/u),
+            disclosure: expect.any(String),
+          }),
+        }),
+      }),
+    ]));
+  });
+
+  it("rejects incoherent random envelope metadata with stable rule IDs", async () => {
+    const journeyContext = await context("random-envelope-invalid");
+    const randomPayload = {
+      familyId: "random",
+      variantId: "reveal-roll-wager",
+      qaId: "random/reveal-roll-wager",
+      description: "Reveal, roll, and wager payload coverage.",
+      supportedShapes: ["single_random_outcome", "single_wager", "random_pool_draws", "resolved_random_series"],
+      supportedStages: ["late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: randomPayload,
+    });
+
+    const withRandom = (
+      updater: (entry: Record<string, unknown>) => Record<string, unknown>,
+      kind: string,
+    ): JourneyManifest => ({
+      ...manifest,
+      precommitted: refreshPrecommittedOperations({
+        random: (manifest.precommitted.random ?? []).map((entry) =>
+          entry.kind === kind ? updater(entry) : entry
+        ),
+      }),
+    });
+
+    expect(validateJourneyManifest(withRandom((entry) => ({
+      ...entry,
+      odds: { numerator: 0, denominator: 100, percent: 0 },
+    }), "wager"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_random_odds",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => ({
+      ...entry,
+      rewards: [],
+    }), "visible_pool"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "empty_random_pool",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => {
+      const { visibilityPolicy: _visibilityPolicy, ...rest } = entry;
+
+      return rest;
+    }, "gain_one_random_reward"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "hidden_outcome_disclosure",
+    });
+    expect(validateJourneyManifest(withRandom((entry) => ({
+      ...entry,
+      minimum: 9,
+      maximum: 3,
+      committedAmount: 5,
+    }), "random_range"), journeyContext)).toMatchObject({
+      ok: false,
+      rule: "incoherent_random_range_bounds",
+    });
+  });
+
   it("rejects deterministic reward metadata masquerading as a wager", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("single_wager", journeyContext);

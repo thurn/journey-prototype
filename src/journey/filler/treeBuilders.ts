@@ -598,14 +598,40 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
       case "prize_ladder":
         return { tree: buildPrizeLadderTree(context, drawContext), precommitted: {} };
       case "probability_ladder":
-        return { tree: buildProbabilityLadderTree(context, drawContext), precommitted: { random: [{ kind: "probability_ladder", bounded: true }] } };
+        return {
+          tree: buildProbabilityLadderTree(context, drawContext),
+          precommitted: {
+            random: [{
+              kind: "probability_ladder",
+              bounded: true,
+              visibilityPolicy: {
+                outcomeVisibility: "visible",
+                disclosure: "Probability ladder odds are bounded and shown on each branch.",
+                playerVisible: true,
+              },
+            }],
+          },
+        };
       case "random_pool_draws": {
         const pool = randomPool(context, drawContext);
   
         return {
           tree: buildRandomPoolDrawsTree(context, drawContext),
           rewardPool: pool,
-          precommitted: { random: pool.rewards },
+          precommitted: {
+            random: [{
+              kind: "visible_pool",
+              poolId: "random-pool-draws",
+              summary: pool.summary,
+              rewards: pool.rewards,
+              replacement: pool.replacement,
+              visibilityPolicy: {
+                outcomeVisibility: "visible",
+                disclosure: "The fixed reward pool and replacement policy are visible before each draw.",
+                playerVisible: true,
+              },
+            }],
+          },
         };
       }
       case "push_your_luck":

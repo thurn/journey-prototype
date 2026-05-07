@@ -103,6 +103,19 @@ function countText(value: unknown, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function visibilityPolicyText(value: unknown): string {
+  if (!isRecord(value)) {
+    return "visibility policy is unspecified";
+  }
+
+  const visibility = typeof value.outcomeVisibility === "string"
+    ? value.outcomeVisibility.replace(/_/gu, " ")
+    : "unknown visibility";
+  const disclosure = typeof value.disclosure === "string" ? value.disclosure : "no disclosure";
+
+  return `${visibility}: ${disclosure}`;
+}
+
 function predicateSummary(predicate: unknown): string {
   if (!isRecord(predicate)) {
     return "";
@@ -203,6 +216,64 @@ function committedOutcomeText(value: unknown): string {
 
       return `${odds} wager: success: ${committedOutcomeText(value.success)} failure: ${committedOutcomeText(value.failure)} committed roll: ${result}${roll}.`;
     }
+    case "visible_pool": {
+      const summary = typeof value.summary === "string" ? value.summary : "Visible random pool.";
+      const replacement = typeof value.replacement === "string" ? ` ${value.replacement.replace(/_/gu, " ")}.` : "";
+
+      return `${summary}${replacement}`;
+    }
+    case "reveal_rewards":
+    case "choose_one_revealed_reward":
+    case "choose_one_random_revealed_reward": {
+      const revealCount = typeof value.revealCount === "number" ? value.revealCount : "?";
+      const mode = value.kind === "choose_one_revealed_reward"
+        ? "choose one revealed reward"
+        : value.kind === "choose_one_random_revealed_reward"
+          ? "choose one random revealed reward"
+          : "reveal rewards";
+
+      return `${mode}: reveal ${revealCount}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
+    }
+    case "gain_one_random_reward":
+      return `Gain one random reward from ${String(value.poolId ?? "a committed pool")}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
+    case "roll_twice_keep_one": {
+      const rolls = Array.isArray(value.rolls) ? value.rolls.join(", ") : "precommitted";
+      const kept = typeof value.keptRoll === "number" ? value.keptRoll : "best";
+
+      return `Roll twice keep one: rolls ${rolls}; kept ${kept}.`;
+    }
+    case "repeated_pool_draws":
+      return `Repeated pool draws: ${value.drawCount ?? "?"} draws from ${String(value.poolId ?? "a committed pool")}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
+    case "random_range":
+      return `Random ${String(value.resource ?? "resource")} range ${value.minimum ?? "?"}-${value.maximum ?? "?"}; committed amount ${value.committedAmount ?? "?"}.`;
+    case "random_cost":
+    case "chance_to_pay_cost": {
+      const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
+        ? `${value.odds.percent}%`
+        : "precommitted";
+
+      return `${odds} chance to pay cost; committed result: ${String(value.committedResult ?? "committed")}.`;
+    }
+    case "chance_to_gain_bane": {
+      const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
+        ? `${value.odds.percent}%`
+        : "precommitted";
+
+      return `${odds} chance to gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}; committed result: ${String(value.committedResult ?? "committed")}.`;
+    }
+    case "wager": {
+      const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
+        ? `${value.odds.percent}%`
+        : "precommitted";
+      const result = typeof value.committedResult === "string" ? value.committedResult : "unknown";
+      const roll = typeof value.roll === "number" ? ` (roll ${value.roll})` : "";
+
+      return `${odds} wager: success: ${committedOutcomeText(value.success)} failure: ${committedOutcomeText(value.failure)} committed roll: ${result}${roll}.`;
+    }
+    case "push_choice":
+      return `Push choice hazard is ${value.bounded === true ? "bounded" : "precommitted"}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
+    case "resolved_random_series":
+      return `Resolved random series: ${Array.isArray(value.series) ? value.series.length : "?"} committed payloads.`;
     case "no_reward":
       return "Gain nothing.";
     case "gain_essence":
@@ -380,6 +451,9 @@ function operationValueDebugText(operation: JourneyOption["operations"][number])
       : undefined,
     typeof operation.value.uncertaintyConvertedEssence === "number"
       ? `uncertainty=${operation.value.uncertaintyConvertedEssence}`
+      : undefined,
+    typeof operation.value.riskPremiumConvertedEssence === "number"
+      ? `riskPremium=${operation.value.riskPremiumConvertedEssence}`
       : undefined,
     operation.value.bands && operation.value.bands.length > 0
       ? `bands=${operation.value.bands.map((band) => band.id).join(",")}`
