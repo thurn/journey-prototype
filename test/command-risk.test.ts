@@ -72,6 +72,30 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("batch generation increments root indexes without writing simulator state", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const result = await handleJourney(options({
+        json: true,
+        seed: "qa",
+        stage: "early",
+        count: 4,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+
+      const payload = JSON.parse(result.stdout);
+
+      expect(payload.journeys.map((entry: { manifest: { journeyId: string } }) =>
+        entry.manifest.journeyId
+      )).toEqual(["J-000001", "J-000002", "J-000003", "J-000004"]);
+      expect(payload.journeys.every((entry: { stage: string }) =>
+        entry.stage === "early"
+      )).toBe(true);
+      await expectMissingState(statePath);
+    });
+  });
+
   it("seeded stage and forced shape produce a complete tree", async () => {
     await withTempState(async ({ statePath, options }) => {
       const result = await handleJourney(options({

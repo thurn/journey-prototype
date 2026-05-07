@@ -2,7 +2,7 @@
 import { realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Command, CommanderError, Option } from "commander";
+import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { handleJourney } from "./commands/journey.js";
 import type { CommandResult, CommonCommandOptions } from "./commands/options.js";
 import { handleRun } from "./commands/run.js";
@@ -18,6 +18,7 @@ export type RawCommonOptions = {
   seed?: string;
   stage?: "early" | "mid" | "late";
   shape?: string;
+  count?: number;
 };
 
 function defaultProjectRoot(): string {
@@ -42,7 +43,22 @@ export function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandO
     ...(rawOptions.seed !== undefined ? { seed: rawOptions.seed } : {}),
     ...(rawOptions.stage !== undefined ? { stage: rawOptions.stage } : {}),
     ...(rawOptions.shape !== undefined ? { shape: rawOptions.shape } : {}),
+    ...(rawOptions.count !== undefined ? { count: rawOptions.count } : {}),
   };
+}
+
+function parseCount(value: string): number {
+  if (!/^\d+$/u.test(value)) {
+    throw new InvalidArgumentError("count must be a positive integer");
+  }
+
+  const count = Number.parseInt(value, 10);
+
+  if (count < 1 || count > 1000) {
+    throw new InvalidArgumentError("count must be between 1 and 1000");
+  }
+
+  return count;
 }
 
 function addGenerationFlags(command: Command): Command {
@@ -52,6 +68,12 @@ function addGenerationFlags(command: Command): Command {
     .option("--debug", "print generation metadata")
     .option("--debug-context", "print generated quest context")
     .option("--seed <seed>", "seed for deterministic generation")
+    .option(
+      "--count <count>",
+      "generate multiple stateless Dream Journeys",
+      parseCount,
+      1,
+    )
     .addOption(
       new Option("--stage <stage>", "force Journey stage: early, mid, or late")
         .choices(["early", "mid", "late"]),

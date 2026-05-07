@@ -9,6 +9,7 @@ export type CommonCommandOptions = {
   seed?: string;
   stage?: "early" | "mid" | "late";
   shape?: string;
+  count?: number;
 };
 
 export type CommandResult = {

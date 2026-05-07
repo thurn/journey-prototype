@@ -18,7 +18,7 @@ only as a compatibility alias for the same stateless generation path.
 ## Command Surface
 
 ```text
-journey [--seed <seed>] [--stage early|mid|late] [--shape <shape_id>] [--json] [--debug] [--debug-context] [--no-color]
+journey [--seed <seed>] [--stage early|mid|late] [--shape <shape_id>] [--count <count>] [--json] [--debug] [--debug-context] [--no-color]
 journey run [same flags]
 ```
 
@@ -26,6 +26,11 @@ Documented commands:
 
 - `journey`: generate one Journey.
 - `journey run`: compatibility alias for `journey`.
+
+`--count <count>` generates a deterministic stateless batch. The default count
+is 1. In a batch, each item uses the same quest seed and command parameters but
+increments the root Journey index, producing stable Journey IDs and independent
+root generation rolls without writing simulator state.
 
 Removed from the documented workflow:
 
@@ -38,8 +43,8 @@ Those old commands described a stateful simulator and are not part of V2.
 ## Determinism
 
 Without `--seed`, each invocation chooses a fresh random seed. With the same
-seed, stage, shape constraint, catalog version, content version, and command
-parameters, output is deterministic.
+seed, stage, shape constraint, count, catalog version, content version, and
+command parameters, output is deterministic.
 
 When `--stage` is absent, the command chooses `early`, `mid`, or `late` for the
 in-memory context. When `--shape` is supplied, the generator must still fill,

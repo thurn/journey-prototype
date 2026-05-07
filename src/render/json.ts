@@ -91,6 +91,7 @@ export function journeyCommandPayload(
           seed: commandOptions.seed ?? null,
           stage: commandOptions.stage ?? null,
           shape: commandOptions.shape ?? null,
+          count: commandOptions.count ?? 1,
           debug: commandOptions.debug,
           debugContext: commandOptions.debugContext,
         }
@@ -115,6 +116,60 @@ export function journeyCommandPayload(
     manifest: manifestJson(manifest),
     previousPick: pick,
     debug: manifest.debug,
+  };
+}
+
+export function journeyBatchCommandPayload(
+  entries: readonly { state: JourneyState; manifest: JourneyManifest }[],
+  command: "journey" | "run",
+  options: CommonCommandOptions,
+) {
+  const first = entries[0];
+
+  if (!first) {
+    throw new Error("Batch Journey payload requires at least one Journey");
+  }
+
+  return {
+    status: "ok",
+    command,
+    contentVersion: first.state.contentVersion,
+    catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+    seed: first.manifest.seed,
+    count: entries.length,
+    parameters: {
+      seed: options.seed ?? null,
+      stage: options.stage ?? null,
+      shape: options.shape ?? null,
+      count: options.count ?? entries.length,
+      debug: options.debug,
+      debugContext: options.debugContext,
+    },
+    journeys: entries.map(({ state, manifest }, index) => ({
+      index: index + 1,
+      seed: manifest.seed,
+      stage: manifest.stage,
+      shapeId: manifest.shapeId,
+      context: {
+        schemaVersion: state.schemaVersion,
+        seed: state.quest.seed,
+        dreamcaller: state.quest.dreamcaller,
+        resources: state.quest.resources,
+        selectedTides: state.quest.selectedTides,
+        mandatoryTides: state.quest.mandatoryTides,
+        optionalSubset: state.quest.optionalSubset,
+        deck: state.quest.deck,
+        dreamsignPoolSummary: state.quest.dreamsignPoolSummary,
+        dreamsignPoolIds: state.quest.dreamsignPoolIds,
+        activeDreamsigns: state.quest.activeDreamsigns,
+        draftPool: state.quest.draftPool,
+        draftPoolSummary: state.quest.draftPoolSummary,
+        generator: state.generator,
+        historyCount: state.history.length,
+      },
+      manifest: manifestJson(manifest),
+      debug: manifest.debug,
+    })),
   };
 }
 
