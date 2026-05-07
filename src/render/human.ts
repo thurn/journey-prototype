@@ -93,6 +93,164 @@ function selectedLine(option: JourneyOption, options: RenderOptions): string {
   return `${color(`Selected ${option.number}.`, "optionNumber", options)} ${symbolText}${option.text}\n\n`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function countText(value: unknown, singular: string, plural: string): string {
+  const count = typeof value === "number" ? value : 1;
+
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function predicateSummary(predicate: unknown): string {
+  if (!isRecord(predicate)) {
+    return "";
+  }
+
+  const parts: string[] = [];
+  const pushString = (key: string, label: string) => {
+    if (typeof predicate[key] === "string") {
+      parts.push(`${label} ${predicate[key]}`);
+    }
+  };
+
+  pushString("cardType", "card type");
+  pushString("subtype", "subtype");
+  pushString("rarity", "rarity");
+
+  if (predicate.isFast === true) {
+    parts.push("Fast");
+  }
+
+  if (typeof predicate.minEnergyCost === "number") {
+    parts.push(`cost >= ${predicate.minEnergyCost}`);
+  }
+
+  if (typeof predicate.maxEnergyCost === "number") {
+    parts.push(`cost <= ${predicate.maxEnergyCost}`);
+  }
+
+  if (Array.isArray(predicate.renderedTextIncludes)) {
+    parts.push(`text includes ${predicate.renderedTextIncludes.join(", ")}`);
+  } else if (typeof predicate.renderedTextIncludes === "string") {
+    parts.push(`text includes ${predicate.renderedTextIncludes}`);
+  }
+
+  if (Array.isArray(predicate.names)) {
+    parts.push(`names ${predicate.names.join(", ")}`);
+  }
+
+  if (Array.isArray(predicate.ids)) {
+    parts.push(`ids ${predicate.ids.join(", ")}`);
+  }
+
+  if (typeof predicate.source === "string") {
+    parts.push(`source ${predicate.source}`);
+  }
+
+  return parts.length === 0 ? "" : ` (${parts.join("; ")})`;
+}
+
+function committedOutcomeText(value: unknown): string {
+  if (!isRecord(value)) {
+    return stableStringify(value).trim();
+  }
+
+  switch (value.kind) {
+    case "wager_roll": {
+      const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
+        ? `${value.odds.percent}%`
+        : "precommitted";
+      const result = typeof value.committedResult === "string"
+        ? value.committedResult
+        : "unknown";
+      const roll = typeof value.roll === "number" ? ` (roll ${value.roll})` : "";
+
+      return `${odds} wager: success: ${committedOutcomeText(value.success)} failure: ${committedOutcomeText(value.failure)} committed roll: ${result}${roll}.`;
+    }
+    case "no_reward":
+      return "Gain nothing.";
+    case "gain_essence":
+      return `Gain ${value.amount} essence.`;
+    case "gain_omens":
+      return `Gain ${countText(value.amount, "omen", "omens")}.`;
+    case "card_draft":
+      return `Draft ${value.takeCount ?? 1} of ${value.choiceCount ?? "?"} cards${predicateSummary(value.predicate)}.`;
+    case "dreamsign_draft":
+      return `Choose 1 of ${value.choiceCount ?? "?"} Dreamsigns${predicateSummary(value.predicate)}.`;
+    case "starter_cleanup":
+      return `Purge up to ${value.count ?? 1} chosen Starter cards.`;
+    case "bane_gain":
+      return `Gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
+    case "visible_downside":
+      return `Visible downside: gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
+    case "probability_ladder":
+      return `Probability ladder outcome is ${value.bounded === true ? "bounded" : "precommitted"}.`;
+    case "push_failure":
+      return `Push-your-luck failure is ${value.bounded === true ? "bounded" : "precommitted"}.`;
+    default:
+      return stableStringify(value).trim();
+  }
+}
+
+function committedOutcomeLines(manifest: JourneyManifest): string[] {
+  const lines: string[] = [];
+  const random = manifest.precommitted.random ?? [];
+  const delayed = manifest.precommitted.delayed ?? [];
+  const pairedReturn = manifest.precommitted.pairedReturn ?? [];
+  const routeEdits = manifest.precommitted.routeEdits ?? [];
+  const sequenceMenus = manifest.precommitted.sequenceMenus ?? {};
+
+  if (random.length > 0) {
+    lines.push("Random:");
+    random.forEach((outcome, index) => {
+      lines.push(`  ${index + 1}. ${committedOutcomeText(outcome)}`);
+    });
+  }
+
+  if (delayed.length > 0) {
+    lines.push("Delayed:");
+    delayed.forEach((entry, index) => {
+      if (isRecord(entry) && "reward" in entry) {
+        const trigger = typeof entry.trigger === "string" ? entry.trigger : "committed trigger";
+        lines.push(`  ${index + 1}. ${trigger}: ${committedOutcomeText(entry.reward)}`);
+      } else {
+        lines.push(`  ${index + 1}. ${committedOutcomeText(entry)}`);
+      }
+    });
+  }
+
+  if (pairedReturn.length > 0) {
+    lines.push("Paired return:");
+    pairedReturn.forEach((entry, index) => {
+      if (isRecord(entry) && "reward" in entry) {
+        const anchor = typeof entry.anchor === "string" ? entry.anchor : "committed anchor";
+        lines.push(`  ${index + 1}. ${anchor}: ${committedOutcomeText(entry.reward)}`);
+      } else {
+        lines.push(`  ${index + 1}. ${committedOutcomeText(entry)}`);
+      }
+    });
+  }
+
+  if (routeEdits.length > 0) {
+    lines.push("Route edits:");
+    routeEdits.forEach((entry, index) => {
+      lines.push(`  ${index + 1}. ${committedOutcomeText(entry)}`);
+    });
+  }
+
+  const menuEntries = Object.entries(sequenceMenus);
+  if (menuEntries.length > 0) {
+    lines.push("Sequence menus:");
+    for (const [key, menu] of menuEntries) {
+      lines.push(`  ${key}: ${menu.map((option) => `${option.number}. ${option.text}`).join(" | ")}`);
+    }
+  }
+
+  return lines;
+}
+
 function optionValueDebugLines(
   value: JourneyManifest["debug"]["optionValues"][number],
 ): string[] {
@@ -162,6 +320,11 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   const topScore = manifest.debug.shapeScores[0];
   if (topScore) {
     lines.push(`Shape scoring: ${topScore.shapeId} ${topScore.score}`);
+  }
+
+  const outcomes = committedOutcomeLines(manifest);
+  if (outcomes.length > 0) {
+    lines.push("", "Precommitted outcomes:", ...outcomes);
   }
 
   for (const optionValue of manifest.debug.optionValues) {

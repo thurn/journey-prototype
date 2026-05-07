@@ -153,4 +153,22 @@ describe("stateless command risk transitions", () => {
       expect(result.stdout).toContain("Selected shape:");
     });
   });
+
+  it("forced wager output shows odds and debugs the committed roll", async () => {
+    await withTempState(async ({ options }) => {
+      const result = await handleJourney(options({
+        seed: "qa",
+        stage: "early",
+        shape: "single_wager",
+        debug: true,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain("Pay 30 essence. 50% chance to gain 160 essence; otherwise gain nothing.");
+      expect(result.stdout).toContain("Precommitted outcomes:");
+      expect(result.stdout).toContain("1. 50% wager:");
+      expect(result.stdout).toContain("committed roll:");
+    });
+  });
 });

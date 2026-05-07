@@ -33,7 +33,7 @@ import {
   valueOmenLoss,
   type ValueBreakdown,
 } from "./value.js";
-import { shuffleDeterministic, type DrawContext } from "../util/rng.js";
+import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
 
 type BuildArgs = {
   context: JourneyContext;
@@ -723,7 +723,7 @@ function decisionTreeForShape(shapeId: JourneyShapeId): {
   }
 }
 
-function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
+function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawContext: DrawContext): {
   options: JourneyOption[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;
@@ -1059,20 +1059,39 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
       };
     case "single_wager":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: "Pay 30 essence. Resolve the precommitted wager reward.",
-            costs: [cost("essence", payablePrice)],
-            effects: [{ kind: "random_reward", table: "precommitted" }],
-            cost: payablePrice,
-            effect: 80,
-            uncertainty: -12,
-          }),
-        ],
-        precommitted: { random: [{ kind: "gain_essence", amount: 110 }] },
-      };
+      {
+        const successPercent = 50;
+        const successReward = gainEssence(160);
+        const roll = drawInt(drawContext, "single-wager-roll", 1, 100);
+        const committedResult = roll <= successPercent ? "success" : "failure";
+
+        return {
+          options: [
+            option({
+              number: 1,
+              text: "Pay 30 essence. 50% chance to gain 160 essence; otherwise gain nothing.",
+              costs: [cost("essence", payablePrice)],
+              effects: [{ kind: "random_reward", table: "wager", odds: odds(successPercent) }],
+              cost: payablePrice,
+              effect: 80,
+              uncertainty: -12,
+            }),
+          ],
+          precommitted: {
+            random: [
+              {
+                kind: "wager_roll",
+                odds: odds(successPercent),
+                success: successReward,
+                failure: { kind: "no_reward" },
+                roll,
+                committedResult,
+                presentation: "visible_odds_debug_roll",
+              },
+            ],
+          },
+        };
+      }
     case "now_vs_later":
       return {
         options: [
@@ -1146,7 +1165,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Resolve a precommitted series of three rewards.",
+            text: "Resolve the precommitted rewards: gain 25 essence, gain 1 omen, then draft 1 of 4 characters.",
             effects: [{ kind: "random_series", count: 3 }],
             effect: 105,
             uncertainty: -12,
@@ -1159,7 +1178,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
         options: [
           option({
             number: 1,
-            text: "Resolve one precommitted reward.",
+            text: "Gain the precommitted reward: 70 essence.",
             effects: [{ kind: "random_reward", table: "precommitted" }],
             effect: 70,
             uncertainty: -12,
@@ -1210,7 +1229,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const selectedCards = selectedCardTargets(args.context, args.drawContext).slice(0, 3);
   const selectedDreamsigns = selectedDreamsignTargets(args.context, args.drawContext).slice(0, 3);
   const shape = getShapeDefinition(args.shapeId);
-  const filled = fillOptions(args.shapeId, args.context);
+  const filled = fillOptions(args.shapeId, args.context, args.drawContext);
   const options = filled.options.slice(0, shape.rootOptionCount.max);
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),

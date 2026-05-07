@@ -523,6 +523,55 @@ describe("validateJourneyManifest", () => {
     });
   });
 
+  it("shows wager odds in root option copy while keeping the committed roll in metadata", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_wager", journeyContext);
+
+    expect(manifest.options[0]?.text).toBe(
+      "Pay 30 essence. 50% chance to gain 160 essence; otherwise gain nothing.",
+    );
+    expect(manifest.precommitted.random?.[0]).toMatchObject({
+      kind: "wager_roll",
+      odds: { percent: 50 },
+      success: { kind: "gain_essence", amount: 160 },
+      failure: { kind: "no_reward" },
+      committedResult: expect.stringMatching(/^(success|failure)$/u),
+      presentation: "visible_odds_debug_roll",
+    });
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("reveals committed non-wager random reward values in root option copy", async () => {
+    const journeyContext = await context();
+
+    expect(fillForShape("single_random_outcome", journeyContext).options[0]?.text).toBe(
+      "Gain the precommitted reward: 70 essence.",
+    );
+    expect(fillForShape("resolved_random_series", journeyContext).options[0]?.text).toBe(
+      "Resolve the precommitted rewards: gain 25 essence, gain 1 omen, then draft 1 of 4 characters.",
+    );
+  });
+
+  it("rejects deterministic reward metadata masquerading as a wager", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_wager", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        {
+          ...manifest.options[0]!,
+          text: "Pay 30 essence. Gain the precommitted reward: 110 essence.",
+        },
+      ],
+      precommitted: { random: [{ kind: "gain_essence", amount: 110 }] },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "reward_outcome_is_bounded_random_envelope",
+    });
+  });
+
   it("requires delayed hook outcomes to be precommitted", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("reward_after_trigger", journeyContext);

@@ -198,6 +198,67 @@ describe("review feedback regressions", () => {
     expect(output).not.toContain("999 converted essence");
   });
 
+  it("renders precommitted outcomes in human debug output", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      precommitted: {
+        random: [
+          { kind: "gain_essence", amount: 110 },
+          {
+            kind: "wager_roll",
+            odds: { numerator: 50, denominator: 100, percent: 50 },
+            success: { kind: "gain_essence", amount: 160 },
+            failure: { kind: "no_reward" },
+            roll: 73,
+            committedResult: "failure",
+            presentation: "visible_odds_debug_roll",
+          },
+          {
+            kind: "card_draft",
+            takeCount: 1,
+            choiceCount: 4,
+            predicate: { source: "draftPool", subtype: "Character" },
+          },
+        ],
+        delayed: [
+          {
+            trigger: "after next victory",
+            reward: { kind: "gain_omens", amount: 1 },
+          },
+        ],
+      },
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: true,
+      color: false,
+    });
+
+    expect(output).toContain("Precommitted outcomes:");
+    expect(output).toContain("1. Gain 110 essence.");
+    expect(output).toContain("2. 50% wager: success: Gain 160 essence. failure: Gain nothing. committed roll: failure (roll 73).");
+    expect(output).toContain("3. Draft 1 of 4 cards (subtype Character; source draftPool).");
+    expect(output).toContain("after next victory: Gain 1 omen.");
+  });
+
+  it("keeps precommitted outcomes out of normal human output unless option copy reveals them", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      precommitted: {
+        random: [{ kind: "gain_essence", amount: 110 }],
+      },
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: false,
+      color: false,
+    });
+
+    expect(output).not.toContain("Precommitted outcomes:");
+  });
+
   it("renders state history effect simulation in human-readable text", () => {
     const state = fixtureState();
 

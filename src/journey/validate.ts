@@ -641,6 +641,48 @@ function validateRouteEffects(routeEffects: readonly unknown[]): ValidationResul
   return { ok: true };
 }
 
+function hasOdds(value: unknown): boolean {
+  return isRecord(value) &&
+    isRecord(value.odds) &&
+    typeof value.odds.percent === "number" &&
+    value.odds.percent > 0 &&
+    value.odds.percent < 100;
+}
+
+function validateSingleWager(manifest: JourneyManifest): ValidationResult {
+  const option = manifest.options[0];
+
+  if (!option || option.costs.length === 0) {
+    return fail("known_stake_is_visible_before_commit", "Single wager requires a visible stake");
+  }
+
+  if (!/\b\d+%\s+chance\b/iu.test(option.text) || !/\botherwise\b|\bnothing\b|\bfail/iu.test(option.text)) {
+    return fail(
+      "reward_outcome_is_bounded_random_envelope",
+      "Single wager must show odds and the failure outcome before commitment",
+    );
+  }
+
+  const wager = manifest.precommitted.random?.find((entry) =>
+    isRecord(entry) && entry.kind === "wager_roll"
+  );
+
+  if (
+    !isRecord(wager) ||
+    !hasOdds(wager) ||
+    !("success" in wager) ||
+    !("failure" in wager) ||
+    typeof wager.committedResult !== "string"
+  ) {
+    return fail(
+      "reward_outcome_is_bounded_random_envelope",
+      "Single wager precommit must store odds, success and failure outcomes, and the committed roll",
+    );
+  }
+
+  return { ok: true };
+}
+
 function validateSequenceMenu(
   menu: unknown,
   context: JourneyContext,
@@ -880,6 +922,14 @@ export function validateJourneyManifest(
     !hasPrecommitted(manifest.precommitted.random)
   ) {
     return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
+  }
+
+  if (manifest.shapeId === "single_wager") {
+    const singleWagerResult = validateSingleWager(manifest);
+
+    if (!singleWagerResult.ok) {
+      return singleWagerResult;
+    }
   }
 
   if (
