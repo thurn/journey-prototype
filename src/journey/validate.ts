@@ -553,11 +553,19 @@ function validateNamedCardOperationTarget(
 
   const selector = operation.targetSelector;
 
-  if (selector.selectorKind !== "card" || (selector.source ?? "deck") !== "deck") {
+  if (selector.selectorKind !== "card") {
     return { ok: true };
   }
 
-  const resolution = resolveTargetSelector(context.content, context.state.quest, selector);
+  const deckSelector: Extract<TargetSelector, { selectorKind: "card" }> = {
+    ...selector,
+    source: "deck",
+    predicate: {
+      ...(typeof selector.predicate === "object" && selector.predicate !== null ? selector.predicate : {}),
+      source: "deck",
+    },
+  };
+  const resolution = resolveTargetSelector(context.content, context.state.quest, deckSelector);
 
   if (resolution.candidateCount === 0) {
     return fail(

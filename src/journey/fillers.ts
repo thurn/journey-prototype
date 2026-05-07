@@ -2214,7 +2214,9 @@ function starterCleanupReplacementOptions(
       option({
         number: index + 1,
         text: entry.text,
-        effects: [entry.effect],
+        effects: entry.effect.kind === "starter_cleanup"
+          ? [entry.effect, gainOmen(2)]
+          : [entry.effect],
         targets: [target("card", `${entry.effect.targetCardName} in starter deck`, {
           source: "deck",
           starter: true,

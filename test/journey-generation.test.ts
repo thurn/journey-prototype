@@ -685,15 +685,17 @@ describe("generateNextJourney", () => {
     const rewardOperations = manifest.options.flatMap((option) =>
       option.operations.filter((operation) => operation.operationKind === "reward")
     );
+    const cardRewardOperations = rewardOperations.filter((operation) => operation.rewardKind !== "resource");
     const starterIds = new Set(journeyContext.state.quest.deck.entries.map((entry) => entry.cardId));
-    const draftReplacement = rewardOperations.find((operation) =>
+    const draftReplacement = cardRewardOperations.find((operation) =>
       operation.rewardKind === "starter_replacement" &&
         operation.payload.replacementMode === "draft"
     );
+    const cleanupOption = manifest.options.find((option) => option.text.includes("Gain 2 omens."))!;
 
     expect(manifest.shapeId).toBe("curated_reward_trio");
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
-    expect(rewardOperations.map((operation) => operation.rewardKind)).toEqual(expect.arrayContaining([
+    expect(cardRewardOperations.map((operation) => operation.rewardKind)).toEqual(expect.arrayContaining([
       "starter_cleanup",
       "starter_replacement",
     ]));
@@ -702,15 +704,31 @@ describe("generateNextJourney", () => {
       choiceCount: 4,
       predicate: expect.objectContaining({ source: "draftPool" }),
     });
+    expect(cleanupOption.effects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "starter_cleanup" }),
+      expect.objectContaining({ kind: "gain_omens", amount: 2 }),
+    ]));
+    expect(cleanupOption.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "reward",
+        rewardKind: "resource",
+        legacyKind: "gain_omens",
+        payload: expect.objectContaining({ amount: 2 }),
+      }),
+    ]));
 
-    for (const operation of rewardOperations) {
+    for (const operation of cardRewardOperations) {
       expect(operation.targetResolution).toMatchObject({
         selectorKind: "card",
         sourcePool: "deck",
         candidateCount: 1,
       });
       expect(starterIds.has(String(operation.payload.targetCardId))).toBe(true);
-      expect(operation.value?.convertedEssence).toEqual(expect.any(Number));
+      if (operation.rewardKind === "starter_cleanup") {
+        expect(cleanupOption.effectConvertedEssence).toBeGreaterThan(0);
+      } else {
+        expect(operation.value?.convertedEssence).toEqual(expect.any(Number));
+      }
     }
   });
 
@@ -778,6 +796,83 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "named_card_target_unavailable",
+    });
+  });
+
+  it("rejects unavailable deck-affecting named card operations even when the selector source is catalog", async () => {
+    const journeyContext = await context("named-card-catalog-invalid");
+    const unavailable = journeyContext.content.cards.find((card) => card.rarity !== "Starter")!;
+    const cardPayload = {
+      familyId: "card",
+      variantId: "named-card-operation-menu",
+      qaId: "card/named-card-operation-menu",
+      description: "Named card operation menu coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: cardPayload,
+    });
+    const targetOptionIndex = manifest.options.findIndex((option) =>
+      option.operations.some((operation) =>
+        operation.operationKind === "reward" &&
+          operation.rewardKind !== "card_gain"
+      )
+    );
+    const targetOption = manifest.options[targetOptionIndex]!;
+    const invalidOperationIndex = targetOption.operations.findIndex((operation) =>
+      operation.operationKind === "reward" &&
+        operation.rewardKind !== "card_gain"
+    );
+    const invalidOperation = targetOption.operations[invalidOperationIndex]!;
+    const invalid: JourneyManifest = attachTargetResolutionMetadata({
+      ...manifest,
+      options: manifest.options.map((option, optionIndex) =>
+        optionIndex === targetOptionIndex
+          ? {
+              ...option,
+              operations: option.operations.map((operation, operationIndex) =>
+                operationIndex === invalidOperationIndex
+                  ? {
+                      ...invalidOperation,
+                      payload: {
+                        ...invalidOperation.payload,
+                        source: "catalog",
+                        targetCardId: unavailable.id,
+                        targetCardName: unavailable.name,
+                      },
+                      targetSelector: {
+                        selectorKind: "card",
+                        selection: "exact",
+                        referenceKind: "content",
+                        source: "catalog",
+                        ids: [unavailable.id],
+                        names: [unavailable.name],
+                        required: true,
+                      },
+                    }
+                  : operation
+              ),
+            }
+          : option
+      ),
+    }, journeyContext.content, journeyContext.state.quest);
+
+    expect(invalid.options[targetOptionIndex]!.operations[invalidOperationIndex]!.targetResolution).toMatchObject({
+      sourcePool: "catalog",
+      candidateCount: 1,
+    });
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "named_card_target_unavailable",
+      debug: {
+        targetResolution: expect.objectContaining({
+          sourcePool: "deck",
+          candidateCount: 0,
+        }),
+      },
     });
   });
 
