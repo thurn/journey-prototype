@@ -549,6 +549,11 @@ The site presents several options that all share the same temporary window,
 duration, or future timing. This shape is useful when the shared timing is the
 main identity of the scene rather than a secondary fill detail.
 
+Battle-window versions must be broad enough to change how the player approaches
+upcoming fights. They should use a multi-battle duration and alter battle play
+directly, rather than wrapping ordinary resource rewards in battle timing or
+temporarily modifying only one low-impact card.
+
 ### take_any_number
 
 The site reveals a bounded cache of rewards and lets the player claim any

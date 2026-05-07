@@ -150,7 +150,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v7;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v8;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

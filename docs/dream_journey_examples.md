@@ -346,6 +346,7 @@
 
 ## Three Battles
 
+- For the next 3 battles, all event cards in your deck have Fast.
 - For the next 3 battles, draw 1 extra card in your opening hand.
 - For the next 3 battles, gain 1 extra energy on turn 1.
 - For the next 3 battles, your first character each turn enters with +1 spark.

@@ -585,6 +585,39 @@ function validatePositiveMenuValues(
   return { ok: true };
 }
 
+function validateTimedWindowMenu(manifest: JourneyManifest): ValidationResult {
+  for (const option of manifest.options.filter((entry) => entry.pickBehavior !== "leave")) {
+    const records = option.effects.filter(isRecord);
+    const hasBattleWindow = records.some((record) =>
+      typeof record.duration === "string" &&
+      /^next [2-9]\d* battles$/u.test(record.duration)
+    );
+
+    if (!hasBattleWindow) {
+      return fail(
+        "timed_window_requires_battle_window",
+        "Timed window options must use a meaningful multi-battle duration",
+      );
+    }
+
+    if (records.some((record) => record.kind === "gain_omens" || record.kind === "gain_essence")) {
+      return fail(
+        "timed_window_resource_only_reward",
+        "Timed window options must alter battle play rather than grant plain resources",
+      );
+    }
+
+    if (option.netConvertedEssence < 120) {
+      return fail(
+        "timed_window_low_impact",
+        "Timed window options must be impactful enough to define upcoming battles",
+      );
+    }
+  }
+
+  return { ok: true };
+}
+
 function looksLikeInventedTitle(prefix: string): boolean {
   const words = prefix.trim().split(/\s+/u);
 
@@ -942,6 +975,14 @@ export function validateJourneyManifest(
   const nets = manifest.options
     .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
     .map((journeyOption) => journeyOption.netConvertedEssence);
+
+  if (manifest.shapeId === "timed_window_menu") {
+    const timedWindowResult = validateTimedWindowMenu(manifest);
+
+    if (!timedWindowResult.ok) {
+      return timedWindowResult;
+    }
+  }
 
   if (manifest.shapeId === "choose_your_loss") {
     const lossResult = validateChooseYourLossValues(nets);

@@ -397,6 +397,74 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("fills timed window menus with broad multi-battle combat effects", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("timed_window_menu", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "For the next 3 battles, all event cards in your deck have Fast.",
+      "For the next 3 battles, draw 1 extra card in your opening hand.",
+      "For the next 3 battles, gain 1 extra energy on turn 1.",
+    ]);
+    expect(manifest.options.map((option) => option.netConvertedEssence)).toEqual([
+      165,
+      155,
+      160,
+    ]);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it.each([
+    [
+      "timed_window_requires_battle_window",
+      {
+        text: "For the next battle, add Fast to a chosen card.",
+        effects: [{ kind: "card_rewrite", keyword: "Fast", duration: "next battle" }],
+        effectConvertedEssence: 70,
+        netConvertedEssence: 65,
+      },
+    ],
+    [
+      "timed_window_resource_only_reward",
+      {
+        text: "For the next 3 battles, gain 1 omen.",
+        effects: [
+          { kind: "battle_window_modifier", duration: "next 3 battles", modifier: "reward_timing" },
+          { kind: "gain_omens", amount: 1 },
+        ],
+        effectConvertedEssence: 170,
+        netConvertedEssence: 160,
+      },
+    ],
+    [
+      "timed_window_low_impact",
+      {
+        text: "For the next 3 battles, add Fast to a chosen card.",
+        effects: [{ kind: "card_rewrite", keyword: "Fast", duration: "next 3 battles" }],
+        effectConvertedEssence: 80,
+        netConvertedEssence: 80,
+      },
+    ],
+  ])("rejects weak timed window menus for %s", async (rule, patch) => {
+    const journeyContext = await context();
+    const manifest = fillForShape("timed_window_menu", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        {
+          ...manifest.options[0]!,
+          ...patch,
+        },
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule,
+    });
+  });
+
   it("does not emit a higher-cost duplicate card draft reward when typed draft predicates fall back", async () => {
     const journeyContext = await context("random:f3c7440a-d810-4c24-a0da-3fa0a45a0882");
     const manifest = fillForShape("same_reward_different_costs", journeyContext);

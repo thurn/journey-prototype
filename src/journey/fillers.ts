@@ -134,6 +134,7 @@ function selectedDreamsignTargets(context: JourneyContext, drawContext: DrawCont
 const CARD_POOL_TARGET_DESCRIPTION = "eligible draft cards";
 const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
 const CARD_DRAFT_CHOICE_COUNT = 4;
+const BATTLE_WINDOW_DURATION = "next 3 battles";
 const ORDINARY_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.35;
 const COMMITTED_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.6;
 
@@ -1463,18 +1464,46 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         options: [
           option({
             number: 1,
-            text: `For the next battle, add Fast to ${chosenCardText()}.`,
-            effects: [{ kind: "card_rewrite", keyword: "Fast", duration: "next battle" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 70,
-            uncertainty: -5,
+            text: "For the next 3 battles, all event cards in your deck have Fast.",
+            effects: [
+              {
+                kind: "card_rewrite",
+                keyword: "Fast",
+                duration: BATTLE_WINDOW_DURATION,
+                scope: "all_matching_cards_in_deck",
+                predicate: { cardType: "Event" },
+              },
+            ],
+            effect: 175,
+            uncertainty: -10,
           }),
           option({
             number: 2,
-            text: "For the next battle, gain 1 omen.",
-            effects: [gainOmen(1)],
-            effect: 65,
-            uncertainty: -5,
+            text: "For the next 3 battles, draw 1 extra card in your opening hand.",
+            effects: [
+              {
+                kind: "battle_window_modifier",
+                duration: BATTLE_WINDOW_DURATION,
+                modifier: "opening_hand_cards",
+                amount: 1,
+              },
+            ],
+            effect: 165,
+            uncertainty: -10,
+          }),
+          option({
+            number: 3,
+            text: "For the next 3 battles, gain 1 extra energy on turn 1.",
+            effects: [
+              {
+                kind: "battle_window_modifier",
+                duration: BATTLE_WINDOW_DURATION,
+                modifier: "turn_1_energy",
+                amount: 1,
+              },
+            ],
+            effect: 170,
+            uncertainty: -10,
           }),
         ],
         precommitted: {},

@@ -50,7 +50,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v7";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v8";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -480,6 +480,9 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
       ...commonValidationRules,
       "all_options_share_temporary_window",
       "shared_timing_is_primary_scene_identity",
+      "timed_window_requires_battle_window",
+      "timed_window_resource_only_reward",
+      "timed_window_low_impact",
     ],
     repairPreferences: [
       "align_option_timing_window",
