@@ -763,6 +763,16 @@ function dreamsignPredicateFromPayload(
   };
 }
 
+function resolveDreamsignPayloadField(
+  payload: Record<string, unknown>,
+  context: JourneyContext,
+  fields: { id: string; name: string; source?: string },
+) {
+  const predicate = dreamsignPredicateFromPayload(payload, fields);
+
+  return resolveDreamsignTargets(context.content, context.state.quest, predicate);
+}
+
 function validateDreamsignPayload(
   payload: Record<string, unknown>,
   context: JourneyContext,
@@ -793,7 +803,10 @@ function validateDreamsignPayload(
       "dreamsign_copy_gain",
       "dreamsign_temporary_grant",
       "dreamsign_transform",
+      "dreamsign_pool_edit",
       "dreamsign_trigger_counter",
+      "dreamsign_random_reward",
+      "dreamsign_trade_hook",
     ].includes(kind) &&
     sourceMatches.length === 0
   ) {
@@ -863,6 +876,22 @@ function validateDreamsignPayload(
     return fail("dreamsign_random_reward_pool_missing", `Option ${optionNumber} random Dreamsign reward requires a source pool`);
   }
 
+  if (kind === "dreamsign_random_reward") {
+    const rewardPoolDreamsignIds = payload.rewardPoolDreamsignIds as unknown[];
+
+    if (
+      !rewardPoolDreamsignIds.every((entry) =>
+        typeof entry === "string" &&
+        resolveDreamsignTargets(context.content, context.state.quest, {
+          source: "pool",
+          ids: [entry],
+        }).length > 0
+      )
+    ) {
+      return fail("dreamsign_random_reward_pool_unavailable", `Option ${optionNumber} random Dreamsign reward source pool must contain resolvable pool Dreamsigns`);
+    }
+  }
+
   if (
     kind === "dreamsign_trade_hook" &&
     (typeof payload.obligation !== "string" ||
@@ -870,6 +899,32 @@ function validateDreamsignPayload(
       typeof payload.receiveDreamsignName !== "string")
   ) {
     return fail("dreamsign_trade_hook_obligation_missing", `Option ${optionNumber} Dreamsign trade hook requires explicit give and receive obligations`);
+  }
+
+  if (kind === "dreamsign_trade_hook") {
+    const giveMatches = resolveDreamsignPayloadField(payload, context, {
+      id: "giveDreamsignId",
+      name: "giveDreamsignName",
+      source: "source",
+    });
+    const receiveMatches = resolveDreamsignPayloadField(payload, context, {
+      id: "receiveDreamsignId",
+      name: "receiveDreamsignName",
+      source: "resultSource",
+    });
+    const resultMatches = resolveDreamsignPayloadField(payload, context, {
+      id: "resultDreamsignId",
+      name: "resultDreamsignName",
+      source: "resultSource",
+    });
+
+    if (giveMatches.length === 0) {
+      return fail("dreamsign_trade_hook_give_unavailable", `Option ${optionNumber} Dreamsign trade hook requires a resolvable give Dreamsign`);
+    }
+
+    if (receiveMatches.length === 0 || resultMatches.length === 0) {
+      return fail("dreamsign_trade_hook_receive_unavailable", `Option ${optionNumber} Dreamsign trade hook requires a resolvable receive Dreamsign`);
+    }
   }
 
   return { ok: true };

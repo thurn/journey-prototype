@@ -391,6 +391,23 @@ function expectValidationReportMatchesValidator(
   );
 }
 
+function forcedDreamsignOperationManifest(journeyContext: Awaited<ReturnType<typeof context>>) {
+  const dreamsignPayload = {
+    familyId: "dreamsign",
+    variantId: "dreamsign-transform-duplicate-pool",
+    qaId: "dreamsign/dreamsign-transform-duplicate-pool",
+    description: "Dreamsign transform, duplicate, pool, random, trigger, and trade payload coverage.",
+    supportedShapes: ["curated_reward_trio"],
+    supportedStages: "all",
+  } satisfies DebugPayloadSelection;
+
+  return generateNextJourney({
+    context: journeyContext,
+    forcedStage: "mid",
+    forcedDebugPayload: dreamsignPayload,
+  });
+}
+
 function largestGroupSize(signatures: readonly string[]): number {
   const counts = new Map<string, number>();
 
@@ -1661,6 +1678,93 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "unresolved_reference",
+    });
+  });
+
+  it("rejects Dreamsign pool edits with unresolved source predicates", async () => {
+    const journeyContext = await context("dreamsign-pool-edit-invalid");
+    const manifest = forcedDreamsignOperationManifest(journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option) => ({
+        ...option,
+        effects: option.effects.map((effect) =>
+          typeof effect === "object" &&
+            effect !== null &&
+            !Array.isArray(effect) &&
+            "kind" in effect &&
+            effect.kind === "dreamsign_pool_edit"
+            ? { ...effect, source: "active" }
+            : effect
+        ),
+      })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "dreamsign_target_unavailable",
+    });
+  });
+
+  it("rejects random Dreamsign rewards with IDs outside the current pool", async () => {
+    const journeyContext = await context("dreamsign-random-invalid");
+    const manifest = forcedDreamsignOperationManifest(journeyContext);
+    const poolIds = new Set(journeyContext.state.quest.dreamsignPoolIds);
+    const outsidePoolDreamsign = journeyContext.content.dreamsigns.find((dreamsign) =>
+      !poolIds.has(dreamsign.id)
+    )!;
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option) => ({
+        ...option,
+        effects: option.effects.map((effect) =>
+          typeof effect === "object" &&
+            effect !== null &&
+            !Array.isArray(effect) &&
+            "kind" in effect &&
+            effect.kind === "dreamsign_random_reward"
+            ? { ...effect, rewardPoolDreamsignIds: [outsidePoolDreamsign.id] }
+            : effect
+        ),
+      })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "dreamsign_random_reward_pool_unavailable",
+    });
+  });
+
+  it("rejects Dreamsign trade hooks with give references outside the source", async () => {
+    const journeyContext = await context("dreamsign-trade-invalid");
+    const manifest = forcedDreamsignOperationManifest(journeyContext);
+    const poolIds = new Set(journeyContext.state.quest.dreamsignPoolIds);
+    const outsidePoolDreamsign = journeyContext.content.dreamsigns.find((dreamsign) =>
+      !poolIds.has(dreamsign.id)
+    )!;
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option) => ({
+        ...option,
+        effects: option.effects.map((effect) =>
+          typeof effect === "object" &&
+            effect !== null &&
+            !Array.isArray(effect) &&
+            "kind" in effect &&
+            effect.kind === "dreamsign_trade_hook"
+            ? {
+                ...effect,
+                giveDreamsignId: outsidePoolDreamsign.id,
+                giveDreamsignName: outsidePoolDreamsign.name,
+              }
+            : effect
+        ),
+      })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "dreamsign_trade_hook_give_unavailable",
     });
   });
 
