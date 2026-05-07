@@ -362,12 +362,12 @@ describe("stateless command risk transitions", () => {
         }[];
       }[];
       const dreamsignRewards = optionsJson.map((entry) =>
-        entry.operations.find((operation) => operation.rewardKind === "dreamsign_gain")
+        entry.operations.find((operation) => operation.rewardKind === "dreamsign_purchase")
       );
       const prices = optionsJson.map((entry) =>
         entry.operations.find((operation) =>
-          operation.operationKind === "cost" && operation.resource === "essence"
-        )?.amount
+          operation.operationKind === "cost"
+        )
       );
 
       expect(payload.manifest.debug.debugPayload).toMatchObject({
@@ -381,13 +381,17 @@ describe("stateless command risk transitions", () => {
         value: expect.any(String),
         components: expect.arrayContaining(["shape:shop_row", "stage:mid"]),
       });
-      expect(prices).toEqual([20, 30, 45]);
+      expect(prices).toEqual([
+        expect.objectContaining({ resource: "essence", amount: 20 }),
+        expect.objectContaining({ resource: "omens", amount: 1 }),
+        expect.objectContaining({ resource: "essence", amount: 45 }),
+      ]);
 
       for (const reward of dreamsignRewards) {
         expect(reward).toMatchObject({
           operationKind: "reward",
           role: "reward",
-          rewardKind: "dreamsign_gain",
+          rewardKind: "dreamsign_purchase",
           visibility: "visible",
           timing: {
             timingKind: "immediate",
@@ -412,6 +416,7 @@ describe("stateless command risk transitions", () => {
       }
 
       expect(human.stdout).toContain("Pay 20 essence.");
+      expect(human.stdout).toContain("Pay 1 omen.");
       expect(human.stdout).not.toContain("shop_row");
       expect(human.stdout).not.toContain("dreamsign/named-dreamsign-shop-row");
       expect(human.stdout).not.toContain("selectorKind");
@@ -455,7 +460,7 @@ describe("stateless command risk transitions", () => {
         };
       }) =>
         payload.manifest.options.map((entry) =>
-          entry.operations.find((operation) => operation.rewardKind === "dreamsign_gain")
+          entry.operations.find((operation) => operation.rewardKind === "dreamsign_purchase")
             ?.payload?.dreamsignName
         );
 
@@ -480,7 +485,7 @@ describe("stateless command risk transitions", () => {
         debugPayloadFamily: "card",
         debugPayloadVariant: "nope",
       }));
-      const reserved = await handleJourney(options({
+      const constrained = await handleJourney(options({
         json: true,
         seed: "qa",
         stage: "early",
@@ -495,11 +500,53 @@ describe("stateless command risk transitions", () => {
       expect(unknownVariant.exitCode).toBe(ExitCode.SetupOrSchema);
       expect(unknownVariant.stderr).toContain("Unknown debug payload variant 'nope' for family 'card'");
       expect(unknownVariant.stderr).not.toContain(" at ");
-      expect(reserved.exitCode).toBe(ExitCode.SetupOrSchema);
-      expect(reserved.stderr).toContain("Debug payload 'dreamsign/dreamsign-transform-duplicate-pool' is reserved but unimplemented");
-      expect(reserved.stderr).toContain("Supported shapes: all canonical shapes");
-      expect(reserved.stderr).toContain("Supported stages: mid, late");
-      expect(reserved.stderr).not.toContain(" at ");
+      expect(constrained.exitCode).toBe(ExitCode.SetupOrSchema);
+      expect(constrained.stderr).toContain("Debug payload 'dreamsign/dreamsign-transform-duplicate-pool' does not support shape 'single_reward'");
+      expect(constrained.stderr).toContain("Supported shapes: curated_reward_trio");
+      expect(constrained.stderr).not.toContain(" at ");
+    });
+  });
+
+  it("emits typed Dreamsign transform, duplicate, temporary, pool, random, trigger, and trade payloads", async () => {
+    await withTempState(async ({ options }) => {
+      const result = await handleJourney(options({
+        json: true,
+        seed: "dreamsign-transform",
+        stage: "mid",
+        debugPayloadFamily: "dreamsign",
+        debugPayloadVariant: "dreamsign-transform-duplicate-pool",
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+
+      const payload = JSON.parse(result.stdout);
+      const rewardKinds = payload.manifest.options.flatMap((entry: {
+        operations: { rewardKind?: string }[];
+      }) => entry.operations.map((operation) => operation.rewardKind).filter(Boolean));
+
+      expect(payload.manifest.shapeId).toBe("curated_reward_trio");
+      expect(payload.manifest.debug.debugPayload).toMatchObject({
+        qaId: "dreamsign/dreamsign-transform-duplicate-pool",
+        source: "forced",
+      });
+      expect(rewardKinds).toEqual(expect.arrayContaining([
+        "dreamsign_gain",
+        "dreamsign_purge",
+        "dreamsign_loss",
+        "dreamsign_transform",
+        "dreamsign_duplicate",
+        "dreamsign_temporary_grant",
+        "dreamsign_copy_gain",
+        "dreamsign_pool_edit",
+        "dreamsign_trade_hook",
+        "dreamsign_trigger_counter",
+        "dreamsign_random_reward",
+      ]));
+      expect(payload.manifest.precommitted.operations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ operationKind: "random_envelope", role: "random" }),
+        expect.objectContaining({ operationKind: "delayed_hook", role: "delayed_hook" }),
+      ]));
+      expect(payload.manifest.debug.validation).toMatchObject({ ok: true, failed: 0 });
     });
   });
 });

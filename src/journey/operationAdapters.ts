@@ -219,6 +219,22 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     };
   }
 
+  if (typeof value.targetDreamsignName === "string" || typeof value.targetDreamsignId === "string") {
+    const source = value.source === "catalog" || value.source === "active" || value.source === "pool"
+      ? value.source
+      : "pool";
+
+    return {
+      selectorKind: "dreamsign",
+      selection: "exact",
+      referenceKind: "content",
+      source,
+      ...(typeof value.targetDreamsignId === "string" ? { ids: [value.targetDreamsignId] } : {}),
+      ...(typeof value.targetDreamsignName === "string" ? { names: [value.targetDreamsignName] } : {}),
+      required: true,
+    };
+  }
+
   if (typeof value.dreamcallerName === "string" || typeof value.dreamcallerId === "string") {
     return {
       selectorKind: "dreamcaller",
@@ -337,6 +353,17 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
     case "card_draft":
     case "dreamsign_draft":
     case "dreamsign_gain":
+    case "dreamsign_purchase":
+    case "dreamsign_loss":
+    case "dreamsign_purge":
+    case "dreamsign_duplicate":
+    case "dreamsign_transform":
+    case "dreamsign_temporary_grant":
+    case "dreamsign_copy_gain":
+    case "dreamsign_pool_edit":
+    case "dreamsign_trigger_counter":
+    case "dreamsign_random_reward":
+    case "dreamsign_trade_hook":
     case "starter_cleanup":
     case "starter_replacement":
     case "card_gain":

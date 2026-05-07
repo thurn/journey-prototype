@@ -75,7 +75,7 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     description: "Named Dreamsign shops, transformations, duplicates, and pool edits.",
     variants: [
       variant("dreamsign", "named-dreamsign-shop-row", "available", "Deterministic content-backed named Dreamsign purchase rows for renderer parity QA.", ["shop_row"], ["mid", "late"]),
-      variant("dreamsign", "dreamsign-transform-duplicate-pool", "unimplemented", "Reserved for Dreamsign transform, duplicate, and pool-edit scenes.", "all", ["mid", "late"]),
+      variant("dreamsign", "dreamsign-transform-duplicate-pool", "available", "Deterministic content-backed Dreamsign transform, duplicate, temporary, and pool-edit scenes.", ["curated_reward_trio"], ["mid", "late"]),
     ],
   },
   {
