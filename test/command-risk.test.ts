@@ -136,7 +136,17 @@ describe("stateless command risk transitions", () => {
         stage: "mid",
         shapeId: "random_pool_draws",
         manifest: {
+          schemaVersion: 2,
           shapeId: "random_pool_draws",
+          versions: {
+            contentVersion: expect.any(String),
+            shapeCatalogVersion: "journey-shapes:v9",
+            effectCatalogVersion: "effects:v2",
+            valueModelVersion: "value:v5",
+            rendererVersion: "renderer:v1",
+            manifestContractVersion: "manifest:v2",
+            validationContractVersion: "validation:v1",
+          },
           tree: expect.any(Object),
           rewardPool: expect.any(Object),
         },
@@ -146,6 +156,8 @@ describe("stateless command risk transitions", () => {
           dreamsignPoolIds: expect.any(Array),
         },
       });
+      expect(payload.manifest.versions.contentVersion).toBe(payload.contentVersion);
+      expect(payload.manifest.versions.shapeCatalogVersion).toBe(payload.catalogVersion);
     });
   });
 
@@ -191,7 +203,7 @@ describe("stateless command risk transitions", () => {
       expect(result.stderr).toBe("");
       expect(result.stdout).toMatch(/Pay \d+ essence\. \d+% chance to .+ otherwise gain nothing\./u);
       expect(result.stdout).toContain("Precommitted outcomes:");
-      expect(result.stdout).toContain("1. 50% wager:");
+      expect(result.stdout).toMatch(/1\. \d+% wager:/u);
       expect(result.stdout).toContain("committed roll:");
     });
   });

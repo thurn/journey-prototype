@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
-import type { JourneyManifest } from "../journey/manifest.js";
+import {
+  MANIFEST_SCHEMA_VERSION,
+  type JourneyManifest,
+} from "../journey/manifest.js";
 import type { JourneyShapeId } from "../journey/shapes.js";
 import { STATE_SCHEMA_VERSION, type JourneyState } from "./schema.js";
 import { stableStringify } from "../util/stableJson.js";
@@ -130,8 +133,8 @@ function validateManifest(
     return;
   }
 
-  if (value.schemaVersion !== STATE_SCHEMA_VERSION) {
-    errors.push(`${path}.schemaVersion must be ${STATE_SCHEMA_VERSION}`);
+  if (value.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+    errors.push(`${path}.schemaVersion must be ${MANIFEST_SCHEMA_VERSION}`);
   }
 
   requireString(errors, value.journeyId, `${path}.journeyId`);

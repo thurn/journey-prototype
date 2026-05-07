@@ -144,13 +144,15 @@ describe("JOURNEY_SHAPES", () => {
       effectCatalogVersion: "effects:v2",
       valueModelVersion: "value:v2",
       valueModelContribution: { version: "value:v2" },
-      manifestSchemaVersion: 1,
+      manifestSchemaVersion: 2,
+      manifestContractVersion: "manifest:v2",
+      validationContractVersion: "validation:v1",
       rendererVersion: "renderer:v1",
       questInitializationVersion: "quest-init:v1",
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v9;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v9;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

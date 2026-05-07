@@ -2,7 +2,11 @@ import type { ContentBundle } from "../content/model.js";
 import { loadContent } from "../content/loadToml.js";
 import { computeContentVersion } from "../content/version.js";
 import { EFFECT_CATALOG, EFFECT_CATALOG_VERSION } from "../journey/effects.js";
-import { MANIFEST_SCHEMA_VERSION, type JourneyManifest } from "../journey/manifest.js";
+import {
+  MANIFEST_CONTRACT_VERSION,
+  MANIFEST_SCHEMA_VERSION,
+  type JourneyManifest,
+} from "../journey/manifest.js";
 import {
   canonicalShapeDefinitions,
   JOURNEY_SHAPE_CATALOG_VERSION,
@@ -19,6 +23,7 @@ import { RENDERER_VERSION } from "../render/theme.js";
 import type { JourneyState } from "../state/schema.js";
 import { ExitCode } from "../util/exitCodes.js";
 import type { CommandResult, CommonCommandOptions } from "./options.js";
+import { VALIDATION_CONTRACT_VERSION } from "../journey/validate.js";
 
 export type LoadedContentContext = {
   content: ContentBundle;
@@ -40,6 +45,8 @@ export async function loadContentContext(
     valueModelVersion: VALUE_MODEL_VERSION,
     valueModelContribution: VALUE_MODEL_CONTRIBUTION,
     manifestSchemaVersion: MANIFEST_SCHEMA_VERSION,
+    manifestContractVersion: MANIFEST_CONTRACT_VERSION,
+    validationContractVersion: VALIDATION_CONTRACT_VERSION,
     rendererVersion: RENDERER_VERSION,
     questInitializationVersion: QUEST_INITIALIZATION_VERSION,
   });

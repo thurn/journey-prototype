@@ -2,6 +2,7 @@ import type { ContentBundle } from "../content/model.js";
 import type { JourneyContext } from "../quest/context.js";
 import {
   BANE_NAMES,
+  EFFECT_CATALOG_VERSION,
   type CardTargetPredicate,
   resolveCardTargets,
   resolveDreamsignTargets,
@@ -17,8 +18,15 @@ import type {
   PickBehavior,
   PrecommittedOutcomes,
 } from "./manifest.js";
-import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
-import { getShapeDefinition, type JourneyShapeId } from "./shapes.js";
+import {
+  MANIFEST_CONTRACT_VERSION,
+  MANIFEST_SCHEMA_VERSION,
+} from "./manifest.js";
+import {
+  getShapeDefinition,
+  JOURNEY_SHAPE_CATALOG_VERSION,
+  type JourneyShapeId,
+} from "./shapes.js";
 import { symbolsForOption } from "./symbols.js";
 import {
   commonEssenceRewardAmount,
@@ -31,10 +39,13 @@ import {
   valueEssenceGain,
   valueOmenGain,
   valueOmenLoss,
+  VALUE_MODEL_VERSION,
   type ValueBreakdown,
 } from "./value.js";
 import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
 import { decisionTreeForShape, odds, type TreeBuilderTools } from "./filler/treeBuilders.js";
+import { RENDERER_VERSION } from "../render/theme.js";
+import { VALIDATION_CONTRACT_VERSION } from "./validate.js";
 
 type BuildArgs = {
   context: JourneyContext;
@@ -1839,6 +1850,15 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
 
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
+    versions: {
+      contentVersion: args.context.contentVersion,
+      shapeCatalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+      effectCatalogVersion: EFFECT_CATALOG_VERSION,
+      valueModelVersion: VALUE_MODEL_VERSION,
+      rendererVersion: RENDERER_VERSION,
+      manifestContractVersion: MANIFEST_CONTRACT_VERSION,
+      validationContractVersion: VALIDATION_CONTRACT_VERSION,
+    },
     journeyId: args.journeyId,
     seed: args.context.state.quest.seed,
     rootJourneyIndex: args.context.state.generator.rootJourneyIndex,

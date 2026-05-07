@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildCommonOptions } from "../src/cli.js";
-import type { JourneyManifest } from "../src/journey/manifest.js";
+import {
+  MANIFEST_CONTRACT_VERSION,
+  MANIFEST_SCHEMA_VERSION,
+  type JourneyManifest,
+} from "../src/journey/manifest.js";
 import { createJourneyError, renderError } from "../src/render/errors.js";
 import { renderJourneyHuman, renderStateHuman } from "../src/render/human.js";
 import type { JourneyState } from "../src/state/schema.js";
@@ -104,7 +108,16 @@ function fixtureState(): JourneyState {
 
 function fixtureManifest(): JourneyManifest {
   return {
-    schemaVersion: 1,
+    schemaVersion: MANIFEST_SCHEMA_VERSION,
+    versions: {
+      contentVersion: "test-content",
+      shapeCatalogVersion: "journey-shapes:v9",
+      effectCatalogVersion: "effects:v2",
+      valueModelVersion: "value:v5",
+      rendererVersion: "renderer:v1",
+      manifestContractVersion: MANIFEST_CONTRACT_VERSION,
+      validationContractVersion: "validation:v1",
+    },
     journeyId: "J-000001",
     seed: "seed-a",
     rootJourneyIndex: 1,

@@ -102,9 +102,19 @@ describe("buildProgram", () => {
       seed: "qa",
       stage: "late",
       manifest: {
+        schemaVersion: 2,
         journeyId: "J-000001",
         seed: "qa",
         stage: "late",
+        versions: {
+          contentVersion: expect.any(String),
+          shapeCatalogVersion: "journey-shapes:v9",
+          effectCatalogVersion: "effects:v2",
+          valueModelVersion: "value:v5",
+          rendererVersion: "renderer:v1",
+          manifestContractVersion: "manifest:v2",
+          validationContractVersion: "validation:v1",
+        },
       },
       context: {
         deck: expect.any(Object),
@@ -112,6 +122,8 @@ describe("buildProgram", () => {
     });
     expect(payload).not.toHaveProperty("nextCommands");
     expect(payload).not.toHaveProperty("pendingJourney");
+    expect(payload.manifest.versions.contentVersion).toBe(payload.contentVersion);
+    expect(payload.manifest.versions.shapeCatalogVersion).toBe(payload.catalogVersion);
   }, 30_000);
 
   it("emits a deterministic stateless JSON batch", async () => {
@@ -153,8 +165,13 @@ describe("buildProgram", () => {
           seed: "qa",
           stage: "early",
           manifest: {
+            schemaVersion: 2,
             journeyId: "J-000001",
             rootJourneyIndex: 1,
+            versions: {
+              contentVersion: expect.any(String),
+              shapeCatalogVersion: "journey-shapes:v9",
+            },
           },
         },
         {
@@ -162,8 +179,13 @@ describe("buildProgram", () => {
           seed: "qa",
           stage: "early",
           manifest: {
+            schemaVersion: 2,
             journeyId: "J-000002",
             rootJourneyIndex: 2,
+            versions: {
+              contentVersion: expect.any(String),
+              shapeCatalogVersion: "journey-shapes:v9",
+            },
           },
         },
         {
@@ -171,13 +193,22 @@ describe("buildProgram", () => {
           seed: "qa",
           stage: "early",
           manifest: {
+            schemaVersion: 2,
             journeyId: "J-000003",
             rootJourneyIndex: 3,
+            versions: {
+              contentVersion: expect.any(String),
+              shapeCatalogVersion: "journey-shapes:v9",
+            },
           },
         },
       ],
     });
     expect(payload).not.toHaveProperty("manifest");
+    for (const entry of payload.journeys) {
+      expect(entry.manifest.versions.contentVersion).toBe(payload.contentVersion);
+      expect(entry.manifest.versions.shapeCatalogVersion).toBe(payload.catalogVersion);
+    }
   }, 30_000);
 
   it("runs bare npm run journey without writing simulator state", async () => {

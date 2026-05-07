@@ -38,7 +38,9 @@ function input(overrides: Partial<Parameters<typeof computeContentVersion>[0]> =
         essence: 1,
       },
     },
-    manifestSchemaVersion: 1,
+    manifestSchemaVersion: 2,
+    manifestContractVersion: "manifest:v2",
+    validationContractVersion: "validation:v1",
     rendererVersion: "v1",
     questInitializationVersion: "v1",
     ...overrides,
@@ -96,7 +98,15 @@ describe("computeContentVersion", () => {
     },
     {
       name: "manifest schema version",
-      overrides: { manifestSchemaVersion: 2 },
+      overrides: { manifestSchemaVersion: 3 },
+    },
+    {
+      name: "manifest contract version",
+      overrides: { manifestContractVersion: "manifest:v3" },
+    },
+    {
+      name: "validation contract version",
+      overrides: { validationContractVersion: "validation:v2" },
     },
     {
       name: "renderer version",
@@ -114,7 +124,7 @@ describe("computeContentVersion", () => {
 
   it("returns a readable version string with a short content digest", () => {
     expect(computeContentVersion(input())).toMatch(
-      /^journey-catalog:v1;manifest:v1;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-catalog:v1;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

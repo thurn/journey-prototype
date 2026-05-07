@@ -1,7 +1,8 @@
 import type { JourneyShapeId } from "./shapes.js";
 import type { ValueBreakdown } from "./value.js";
 
-export const MANIFEST_SCHEMA_VERSION: 1 = 1;
+export const MANIFEST_SCHEMA_VERSION: 2 = 2;
+export const MANIFEST_CONTRACT_VERSION = "manifest:v2";
 
 export type JourneyStage = "early" | "mid" | "late";
 
@@ -51,6 +52,16 @@ export type ManifestReferences = {
   dreamsignIds: string[];
   dreamcallerIds: string[];
   baneNames: string[];
+};
+
+export type JourneyVersionMetadata = {
+  contentVersion: string;
+  shapeCatalogVersion: string;
+  effectCatalogVersion: string;
+  valueModelVersion: string;
+  rendererVersion: string;
+  manifestContractVersion: string;
+  validationContractVersion: string;
 };
 
 export type JourneyOption = {
@@ -130,7 +141,8 @@ export type JourneyTree = {
 };
 
 export type JourneyManifest = {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  versions: JourneyVersionMetadata;
   journeyId: string;
   seed: string;
   rootJourneyIndex: number;

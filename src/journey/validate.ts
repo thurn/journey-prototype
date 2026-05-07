@@ -1,5 +1,7 @@
 import type { JourneyContext } from "../quest/context.js";
+import { RENDERER_VERSION } from "../render/theme.js";
 import {
+  EFFECT_CATALOG_VERSION,
   isBaneName,
   isImmediateCostPayable,
   resolveCardTargets,
@@ -11,12 +13,21 @@ import {
   type ImmediateCost,
 } from "./effects.js";
 import type { JourneyManifest, JourneyOption } from "./manifest.js";
-import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
-import { getShapeDefinition } from "./shapes.js";
+import {
+  MANIFEST_CONTRACT_VERSION,
+  MANIFEST_SCHEMA_VERSION,
+} from "./manifest.js";
+import {
+  getShapeDefinition,
+  JOURNEY_SHAPE_CATALOG_VERSION,
+} from "./shapes.js";
 import {
   LOSS_CHOICE_VALUE_CONSTANTS,
   POSITIVE_MENU_VALUE_CONSTANTS,
+  VALUE_MODEL_VERSION,
 } from "./value.js";
+
+export const VALIDATION_CONTRACT_VERSION = "validation:v1";
 
 export type ValidationResult =
   | { ok: true }
@@ -46,6 +57,30 @@ function asImmediateCost(value: unknown): ImmediateCost | null {
   }
 
   return null;
+}
+
+function validateVersionMetadata(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
+  if (!isRecord(manifest.versions)) {
+    return fail("manifest_version_metadata", "Manifest version metadata is required");
+  }
+
+  const expected: JourneyManifest["versions"] = {
+    contentVersion: context.contentVersion,
+    shapeCatalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+    effectCatalogVersion: EFFECT_CATALOG_VERSION,
+    valueModelVersion: VALUE_MODEL_VERSION,
+    rendererVersion: RENDERER_VERSION,
+    manifestContractVersion: MANIFEST_CONTRACT_VERSION,
+    validationContractVersion: VALIDATION_CONTRACT_VERSION,
+  };
+
+  for (const [key, value] of Object.entries(expected)) {
+    if (manifest.versions[key as keyof JourneyManifest["versions"]] !== value) {
+      return fail("manifest_version_metadata", `Manifest version metadata ${key} must be ${value}`);
+    }
+  }
+
+  return { ok: true };
 }
 
 function validateReferences(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
@@ -1093,6 +1128,12 @@ export function validateJourneyManifest(
 ): ValidationResult {
   if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
     return fail("manifest_schema_version", `Manifest schema version must be ${MANIFEST_SCHEMA_VERSION}`);
+  }
+
+  const versionMetadataResult = validateVersionMetadata(manifest, context);
+
+  if (!versionMetadataResult.ok) {
+    return versionMetadataResult;
   }
 
   if (!/^J-\d{6}$/u.test(manifest.journeyId)) {

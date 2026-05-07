@@ -306,6 +306,16 @@ describe("generateNextJourney", () => {
     const second = generateNextJourney({ context: journeyContext });
 
     expect(first.journeyId).toBe("J-000001");
+    expect(first.schemaVersion).toBe(2);
+    expect(first.versions).toMatchObject({
+      contentVersion: "test-content-version",
+      shapeCatalogVersion: "journey-shapes:v9",
+      effectCatalogVersion: "effects:v2",
+      valueModelVersion: "value:v5",
+      rendererVersion: "renderer:v1",
+      manifestContractVersion: "manifest:v2",
+      validationContractVersion: "validation:v1",
+    });
     expect(stableStringify(first)).toBe(stableStringify(second));
     expect(first.debug.optionValues).toHaveLength(first.options.length);
     expect(validateJourneyManifest(first, journeyContext)).toEqual({ ok: true });
@@ -926,6 +936,23 @@ describe("generateNextJourney", () => {
 });
 
 describe("validateJourneyManifest", () => {
+  it("rejects stale manifest version metadata", async () => {
+    const journeyContext = await context();
+    const manifest = generateNextJourney({ context: journeyContext });
+    const invalid: JourneyManifest = {
+      ...manifest,
+      versions: {
+        ...manifest.versions,
+        contentVersion: "stale-content-version",
+      },
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "manifest_version_metadata",
+    });
+  });
+
   it("rejects unresolved named card and Dreamsign references", async () => {
     const journeyContext = await context();
     const manifest = generateNextJourney({ context: journeyContext });

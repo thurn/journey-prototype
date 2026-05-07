@@ -29,6 +29,7 @@ function optionJson(option: JourneyOption) {
 function manifestJson(manifest: JourneyManifest) {
   return {
     schemaVersion: manifest.schemaVersion,
+    versions: manifest.versions,
     journeyId: manifest.journeyId,
     seed: manifest.seed,
     rootJourneyIndex: manifest.rootJourneyIndex,
