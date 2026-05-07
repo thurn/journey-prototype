@@ -8,7 +8,10 @@ import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
 import { repairOrFallbackJourney } from "./repair.js";
 import { validateJourneyManifest } from "./validate.js";
 import { evaluateOptionValue } from "./value.js";
-import type { DebugPayloadSelection } from "./debugPayloads.js";
+import {
+  validateDebugPayloadCompatibility,
+  type DebugPayloadSelection,
+} from "./debugPayloads.js";
 
 export type GenerationInput = {
   context: JourneyContext;
@@ -284,6 +287,15 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
           throw new Error(`Unknown Journey shape: ${input.forcedShapeId}`);
         })()
     : selectShape(drawContext, shapeScores);
+
+  if (input.forcedDebugPayload) {
+    validateDebugPayloadCompatibility({
+      selection: input.forcedDebugPayload,
+      shapeId: selectedShapeId,
+      stage,
+    });
+  }
+
   const manifest = buildConservativeJourneyForShape({
     context,
     drawContext,
@@ -314,6 +326,14 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
 
   if (input.forcedShapeId && resolvedFinalManifest.shapeId !== input.forcedShapeId) {
     throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally`);
+  }
+
+  if (input.forcedDebugPayload) {
+    validateDebugPayloadCompatibility({
+      selection: input.forcedDebugPayload,
+      shapeId: resolvedFinalManifest.shapeId,
+      stage: resolvedFinalManifest.stage,
+    });
   }
 
   const finalValidation = validateJourneyManifest(resolvedFinalManifest, context);

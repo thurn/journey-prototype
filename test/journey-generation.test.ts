@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadContent } from "../src/content/loadToml.js";
+import type { DebugPayloadSelection } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
 import { generateNextJourney } from "../src/journey/generate.js";
@@ -482,6 +483,27 @@ describe("generateNextJourney", () => {
     expect(scores.curated_reward_trio).toBeGreaterThan(scores.single_offer);
     expect(scores.same_cost_different_rewards).toBeGreaterThan(scores.probability_ladder);
     expect(Math.min(...manifest.debug.shapeScores.map((entry) => entry.score))).toBeGreaterThan(0);
+  });
+
+  it("rejects forced debug payloads against the actual selected shape", async () => {
+    const journeyContext = await context();
+    const constrainedPayload = {
+      familyId: "future",
+      variantId: "shop-only",
+      qaId: "future/shop-only",
+      description: "Synthetic constrained payload for compatibility coverage.",
+      supportedShapes: ["shop_row"],
+      supportedStages: "all",
+    } satisfies DebugPayloadSelection;
+
+    expect(() => generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "single_reward",
+      forcedStage: "mid",
+      forcedDebugPayload: constrainedPayload,
+    })).toThrow(
+      "Debug payload 'future/shop-only' does not support shape 'single_reward'. Supported shapes: shop_row.",
+    );
   });
 
   it("has a legal conservative filler path for every canonical shape", async () => {

@@ -180,7 +180,7 @@ function findVariant(
 }
 
 function isShapeSupported(
-  variant: DebugPayloadVariant,
+  variant: Pick<DebugPayloadVariant, "supportedShapes">,
   shapeId: JourneyShapeId | string | undefined,
 ): boolean {
   return shapeId === undefined ||
@@ -189,12 +189,30 @@ function isShapeSupported(
 }
 
 function isStageSupported(
-  variant: DebugPayloadVariant,
+  variant: Pick<DebugPayloadVariant, "supportedStages">,
   stage: JourneyStage | undefined,
 ): boolean {
   return stage === undefined ||
     variant.supportedStages === "all" ||
     variant.supportedStages.includes(stage);
+}
+
+export function validateDebugPayloadCompatibility(args: {
+  selection: DebugPayloadSelection;
+  shapeId?: JourneyShapeId | string;
+  stage?: JourneyStage;
+}): void {
+  if (!isShapeSupported(args.selection, args.shapeId)) {
+    throw new Error(
+      `Debug payload '${args.selection.qaId}' does not support shape '${args.shapeId}'. Supported shapes: ${shapeConstraintText(args.selection.supportedShapes)}.`,
+    );
+  }
+
+  if (!isStageSupported(args.selection, args.stage)) {
+    throw new Error(
+      `Debug payload '${args.selection.qaId}' does not support stage '${args.stage}'. Supported stages: ${stageConstraintText(args.selection.supportedStages)}.`,
+    );
+  }
 }
 
 export function validateDebugPayloadSelection(args: {
@@ -243,19 +261,7 @@ export function validateDebugPayloadSelection(args: {
     );
   }
 
-  if (!isShapeSupported(selected, args.shapeId)) {
-    throw new Error(
-      `Debug payload '${selected.qaId}' does not support shape '${args.shapeId}'. Supported shapes: ${shapeConstraintText(selected.supportedShapes)}.`,
-    );
-  }
-
-  if (!isStageSupported(selected, args.stage)) {
-    throw new Error(
-      `Debug payload '${selected.qaId}' does not support stage '${args.stage}'. Supported stages: ${stageConstraintText(selected.supportedStages)}.`,
-    );
-  }
-
-  return {
+  const selection = {
     familyId: family.id,
     variantId: selected.id,
     qaId: selected.qaId,
@@ -263,6 +269,14 @@ export function validateDebugPayloadSelection(args: {
     supportedShapes: selected.supportedShapes,
     supportedStages: selected.supportedStages,
   };
+
+  validateDebugPayloadCompatibility({
+    selection,
+    shapeId: args.shapeId,
+    stage: args.stage,
+  });
+
+  return selection;
 }
 
 export function debugPayloadListJson() {

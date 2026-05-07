@@ -124,6 +124,7 @@ export function buildProgram(): Command {
   addGenerationFlags(program)
     .name("journey")
     .description("Generate Dream Journey offers")
+    .enablePositionalOptions()
     .addHelpText(
       "after",
       "\nRun without a subcommand to generate one stateless Dream Journey.",
@@ -136,8 +137,8 @@ export function buildProgram(): Command {
 
   const runCommand = addGenerationFlags(new Command("run"))
     .description("generate one Dream Journey")
-    .action(async (rawOptions: RawCommonOptions) => {
-      await runHandler(handleRun(buildCommonOptions(rawOptions)));
+    .action(async () => {
+      await runHandler(handleRun(buildCommonOptions(runCommand.opts<RawCommonOptions>())));
     });
 
   program.addCommand(runCommand);
