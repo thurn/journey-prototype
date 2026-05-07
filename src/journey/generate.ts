@@ -2,6 +2,7 @@ import type { JourneyContext } from "../quest/context.js";
 import type { PickHistoryEntry } from "../state/schema.js";
 import { weightedChoice, deterministicTieJitter, type DrawContext } from "../util/rng.js";
 import { buildConservativeJourneyForShape } from "./fillers.js";
+import { attachTargetResolutionMetadata } from "./effects.js";
 import type { JourneyManifest, JourneyOption, JourneyStage, SequenceState } from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
 import { repairOrFallbackJourney } from "./repair.js";
@@ -291,18 +292,28 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     shapeScores,
     previousPick: previousPickDebug(previousPick),
   });
-  const validation = validateJourneyManifest(manifest, context);
+  const resolvedManifest = attachTargetResolutionMetadata(
+    manifest,
+    context.content,
+    context.state.quest,
+  );
+  const validation = validateJourneyManifest(resolvedManifest, context);
   const finalManifest = validation.ok
-    ? manifest
+    ? resolvedManifest
     : repairOrFallbackJourney(manifest, context, validation, {
         forcedShape: input.forcedShapeId !== undefined,
       });
+  const resolvedFinalManifest = attachTargetResolutionMetadata(
+    finalManifest,
+    context.content,
+    context.state.quest,
+  );
 
-  if (input.forcedShapeId && finalManifest.shapeId !== input.forcedShapeId) {
+  if (input.forcedShapeId && resolvedFinalManifest.shapeId !== input.forcedShapeId) {
     throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally`);
   }
 
-  const finalValidation = validateJourneyManifest(finalManifest, context);
+  const finalValidation = validateJourneyManifest(resolvedFinalManifest, context);
 
   if (!finalValidation.ok && input.forcedShapeId) {
     throw new Error(
@@ -310,7 +321,7 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     );
   }
 
-  return freezeSerializable(finalManifest);
+  return freezeSerializable(resolvedFinalManifest);
 }
 
 function cloneOptions(options: readonly JourneyOption[]): JourneyOption[] {

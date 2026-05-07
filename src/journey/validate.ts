@@ -6,6 +6,7 @@ import {
   isImmediateCostPayable,
   resolveCardTargets,
   resolveDreamsignTargets,
+  resolveTargetSelector,
   STANDARD_TRANSFIGURATIONS,
   validateNamedReferences,
   type CardTargetPredicate,
@@ -31,10 +32,10 @@ export const VALIDATION_CONTRACT_VERSION = "validation:v1";
 
 export type ValidationResult =
   | { ok: true }
-  | { ok: false; rule: string; message: string };
+  | { ok: false; rule: string; message: string; debug?: Record<string, unknown> };
 
-function fail(rule: string, message: string): ValidationResult {
-  return { ok: false, rule, message };
+function fail(rule: string, message: string, debug?: Record<string, unknown>): ValidationResult {
+  return { ok: false, rule, message, ...(debug ? { debug } : {}) };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +58,12 @@ function asImmediateCost(value: unknown): ImmediateCost | null {
   }
 
   return null;
+}
+
+function stringEntries(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 function immediateCostFromOperation(operation: JourneyOperation): ImmediateCost | null {
@@ -214,6 +221,7 @@ function validateReferences(manifest: JourneyManifest, context: JourneyContext):
       ...structuredReferences.dreamcallers,
     ],
     banes: [...manifest.references.baneNames, ...structuredReferences.banes],
+    rules: structuredReferences.rules,
   });
 
   if (!result.ok) {
@@ -228,12 +236,14 @@ function collectStructuredReferences(value: unknown): {
   dreamsigns: string[];
   dreamcallers: string[];
   banes: string[];
+  rules: string[];
 } {
   const references = {
     cards: [] as string[],
     dreamsigns: [] as string[],
     dreamcallers: [] as string[],
     banes: [] as string[],
+    rules: [] as string[],
   };
 
   function visit(nested: unknown): void {
@@ -244,6 +254,34 @@ function collectStructuredReferences(value: unknown): {
 
     if (!isRecord(nested)) {
       return;
+    }
+
+    if (typeof nested.selectorKind === "string") {
+      if (nested.selectorKind === "card") {
+        references.cards.push(...stringEntries(nested.ids), ...stringEntries(nested.names));
+      } else if (nested.selectorKind === "dreamsign") {
+        references.dreamsigns.push(...stringEntries(nested.ids), ...stringEntries(nested.names));
+      } else if (nested.selectorKind === "dreamcaller") {
+        references.dreamcallers.push(...stringEntries(nested.ids), ...stringEntries(nested.names));
+      } else if (nested.selectorKind === "bane") {
+        references.banes.push(...stringEntries(nested.names));
+      } else if (nested.selectorKind === "route_site") {
+        references.rules.push(...stringEntries(nested.siteTypes));
+        if (typeof nested.siteType === "string") {
+          references.rules.push(nested.siteType);
+        }
+      } else if (nested.selectorKind === "status") {
+        if (typeof nested.scope === "string") {
+          references.rules.push(nested.scope);
+        }
+      } else if (nested.selectorKind === "generated_object") {
+        if (typeof nested.generatedObjectKind === "string") {
+          references.rules.push(nested.generatedObjectKind);
+        }
+        if (typeof nested.generatedObjectReferenceKind === "string") {
+          references.rules.push(nested.generatedObjectReferenceKind);
+        }
+      }
     }
 
     for (const [key, entry] of Object.entries(nested)) {
@@ -260,6 +298,17 @@ function collectStructuredReferences(value: unknown): {
           references.dreamcallers.push(entry);
         } else if (key === "baneName") {
           references.banes.push(entry);
+        } else if (
+          key === "transfigurationName" ||
+          key === "keyword" ||
+          key === "fromSite" ||
+          key === "toSite" ||
+          key === "siteType" ||
+          key === "statusScope" ||
+          key === "generatedObjectKind" ||
+          key === "generatedObjectReferenceKind"
+        ) {
+          references.rules.push(entry);
         }
       }
 
@@ -302,27 +351,33 @@ function validateTargetSelector(
     return { ok: true };
   }
 
-  if (selector.selectorKind === "card") {
-    const matches = resolveCardTargets(
-      context.content,
-      context.state.quest,
-      (selector.predicate ?? {}) as CardTargetPredicate,
-    );
+  const resolution = resolveTargetSelector(context.content, context.state.quest, selector);
 
-    if (matches.length === 0) {
-      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal card targets`);
-    }
+  if (resolution.candidateCount === 0) {
+    return fail(
+      "zero_legal_required_targets",
+      `Option ${optionNumber} has no legal ${selector.selectorKind} targets`,
+      { targetResolution: resolution },
+    );
   }
 
-  if (selector.selectorKind === "dreamsign") {
-    const matches = resolveDreamsignTargets(
-      context.content,
-      context.state.quest,
-      (selector.predicate ?? {}) as DreamsignTargetPredicate,
-    );
+  return { ok: true };
+}
 
-    if (matches.length === 0) {
-      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal Dreamsign targets`);
+function validateOperationTargetSelectors(
+  operations: readonly JourneyOperation[] | undefined,
+  context: JourneyContext,
+  location: string,
+): ValidationResult {
+  for (const [index, operation] of (operations ?? []).entries()) {
+    if (!("targetSelector" in operation) || !operation.targetSelector) {
+      continue;
+    }
+
+    const result = validateTargetSelector(operation.targetSelector, context, index + 1);
+
+    if (!result.ok) {
+      return fail(result.rule, `${location} operation ${index + 1}: ${result.message}`, result.debug);
     }
   }
 
@@ -346,7 +401,22 @@ function validateRequiredTarget(
     );
 
     if (matches.length === 0) {
-      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal card targets`);
+      return fail(
+        "zero_legal_required_targets",
+        `Option ${optionNumber} has no legal card targets`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "predicate",
+            referenceKind: "content",
+            ...((target.predicate as CardTargetPredicate | undefined)?.source
+              ? { source: (target.predicate as CardTargetPredicate).source }
+              : {}),
+            predicate: target.predicate,
+            required: true,
+          }),
+        },
+      );
     }
   }
 
@@ -358,7 +428,22 @@ function validateRequiredTarget(
     );
 
     if (matches.length === 0) {
-      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal Dreamsign targets`);
+      return fail(
+        "zero_legal_required_targets",
+        `Option ${optionNumber} has no legal Dreamsign targets`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "dreamsign",
+            selection: "predicate",
+            referenceKind: "content",
+            ...((target.predicate as DreamsignTargetPredicate | undefined)?.source
+              ? { source: (target.predicate as DreamsignTargetPredicate).source }
+              : {}),
+            predicate: target.predicate,
+            required: true,
+          }),
+        },
+      );
     }
   }
 
@@ -575,6 +660,28 @@ function validateTreeBranch(
 
     if (!result.ok) {
       return result;
+    }
+  }
+
+  const branchSelectorResult = validateOperationTargetSelectors(
+    branch.operations,
+    context,
+    `Tree branch ${branch.id}`,
+  );
+
+  if (!branchSelectorResult.ok) {
+    return branchSelectorResult;
+  }
+
+  if (branch.terminal) {
+    const terminalSelectorResult = validateOperationTargetSelectors(
+      branch.terminal.operations,
+      context,
+      `Tree branch ${branch.id} terminal`,
+    );
+
+    if (!terminalSelectorResult.ok) {
+      return terminalSelectorResult;
     }
   }
 
@@ -1513,6 +1620,28 @@ export function validateJourneyManifest(
     if (!routePrecommitResult.ok) {
       return routePrecommitResult;
     }
+  }
+
+  if (manifest.rewardPool) {
+    const rewardPoolTargetResult = validateOperationTargetSelectors(
+      manifest.rewardPool.operations,
+      context,
+      "Reward pool",
+    );
+
+    if (!rewardPoolTargetResult.ok) {
+      return rewardPoolTargetResult;
+    }
+  }
+
+  const precommittedTargetResult = validateOperationTargetSelectors(
+    manifest.precommitted.operations,
+    context,
+    "Precommitted outcomes",
+  );
+
+  if (!precommittedTargetResult.ok) {
+    return precommittedTargetResult;
   }
 
   const semanticOperationsResult = validateSemanticOperations(manifest);

@@ -20,6 +20,35 @@ export type SequenceState = {
 
 export type OperationVisibility = "visible" | "debug" | "precommitted";
 
+export type TargetSelectionMode =
+  | "exact"
+  | "predicate"
+  | "chosen_after_commitment"
+  | "visible_random"
+  | "hidden_random";
+
+export type TargetReferenceKind = "content" | "controlled_vocabulary" | "manifest_generated" | "placeholder";
+
+type TargetSelectorBase = {
+  selection: TargetSelectionMode;
+  referenceKind?: TargetReferenceKind;
+  description?: string;
+  required?: boolean;
+};
+
+export type TargetResolutionMetadata = {
+  selectorKind: TargetSelector["selectorKind"];
+  selection: TargetSelectionMode;
+  sourcePool: string;
+  candidateCount: number;
+  selected: {
+    id?: string;
+    name: string;
+    kind?: string;
+  }[];
+  emptyReason?: string;
+};
+
 export type OperationTiming =
   | { timingKind: "immediate"; label?: string }
   | { timingKind: "delayed"; trigger: string; label?: string }
@@ -33,36 +62,50 @@ export type OperationValueMetadata = {
 };
 
 export type TargetSelector =
-  | {
+  | (TargetSelectorBase & {
     selectorKind: "card";
     source?: "catalog" | "deck" | "draftPool";
-    description?: string;
+    ids?: string[];
+    names?: string[];
     predicate?: unknown;
-    required?: boolean;
-  }
-  | {
+  })
+  | (TargetSelectorBase & {
     selectorKind: "dreamsign";
     source?: "catalog" | "active" | "pool";
-    description?: string;
+    ids?: string[];
+    names?: string[];
     predicate?: unknown;
-    required?: boolean;
-  }
-  | {
+  })
+  | (TargetSelectorBase & {
+    selectorKind: "dreamcaller";
+    source?: "catalog" | "state";
+    ids?: string[];
+    names?: string[];
+  })
+  | (TargetSelectorBase & {
     selectorKind: "bane";
     source?: "vocabulary" | "state";
     names?: string[];
-    required?: boolean;
-  }
-  | {
+  })
+  | (TargetSelectorBase & {
     selectorKind: "route_site";
-    site?: string;
-    required?: boolean;
-  }
-  | {
+    scope?: "current_dreamscape" | "next_dreamscape" | "route";
+    siteType?: string;
+    siteTypes?: string[];
+  })
+  | (TargetSelectorBase & {
+    selectorKind: "status";
+    scope: string;
+    statusId?: string;
+    statusName?: string;
+  })
+  | (TargetSelectorBase & {
     selectorKind: "generated_object";
-    generatedObjectId: string;
-    required?: boolean;
-  }
+    generatedObjectId?: string;
+    generatedObjectKind?: GeneratedObjectDefinition["generatedObjectKind"];
+    generatedObjectReferenceKind?: "definition" | "placeholder";
+    name?: string;
+  })
   | {
     selectorKind: "none";
   };
@@ -111,6 +154,7 @@ type OperationBase = {
   timing?: OperationTiming;
   value?: OperationValueMetadata;
   targetSelector?: TargetSelector;
+  targetResolution?: TargetResolutionMetadata;
   legacyKind?: string;
   payload: Record<string, unknown>;
 };

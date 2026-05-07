@@ -3,6 +3,7 @@ import type { JourneyContext } from "../quest/context.js";
 import {
   BANE_NAMES,
   EFFECT_CATALOG_VERSION,
+  attachTargetResolutionMetadata,
   type CardTargetPredicate,
   resolveCardTargets,
   resolveDreamsignTargets,
@@ -1862,7 +1863,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     evaluateOptionValue(journeyOption, args.context),
   );
 
-  return {
+  const manifest: JourneyManifest = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     versions: {
       contentVersion: args.context.contentVersion,
@@ -1898,6 +1899,8 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
       selectedDreamsigns.map((dreamsign) => dreamsign.id),
     ),
   };
+
+  return attachTargetResolutionMetadata(manifest, args.context.content, args.context.state.quest);
 }
 
 export const FALLBACK_SHAPE_IDS = Object.freeze([

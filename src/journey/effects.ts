@@ -6,6 +6,14 @@ import type {
   TideId,
 } from "../content/model.js";
 import type { QuestState } from "../state/schema.js";
+import type {
+  GeneratedObjectDefinition,
+  JourneyManifest,
+  JourneyOperation,
+  TargetResolutionMetadata,
+  TargetSelectionMode,
+  TargetSelector,
+} from "./manifest.js";
 
 export const EFFECT_CATALOG_VERSION: "effects:v2" = "effects:v2";
 
@@ -134,6 +142,27 @@ export const BATTLE_KEYWORDS = Object.freeze([
   "Kindle",
 ] as const);
 
+export const STATUS_SCOPES = Object.freeze([
+  "quest",
+  "battle",
+  "shop",
+  "dreamwell",
+  "route",
+  "reward",
+] as const);
+
+export const GENERATED_OBJECT_REFERENCE_KINDS = Object.freeze([
+  "definition",
+  "placeholder",
+] as const);
+
+export const GENERATED_OBJECT_KINDS = Object.freeze([
+  "card",
+  "dreamsign",
+  "status",
+  "transfiguration",
+] as const);
+
 export const ALLOWED_RULES_VOCABULARY = Object.freeze({
   resources: Object.freeze(["essence", "max essence", "omens"] as const),
   siteTypes: SITE_TYPES,
@@ -141,6 +170,9 @@ export const ALLOWED_RULES_VOCABULARY = Object.freeze({
   transfigurations: STANDARD_TRANSFIGURATIONS,
   timingsAndTriggers: TIMING_TRIGGERS,
   battleKeywords: BATTLE_KEYWORDS,
+  statusScopes: STATUS_SCOPES,
+  generatedObjectReferenceKinds: GENERATED_OBJECT_REFERENCE_KINDS,
+  generatedObjectKinds: GENERATED_OBJECT_KINDS,
 });
 
 const EFFECT_DEFINITIONS = [
@@ -448,6 +480,9 @@ const ALLOWED_RULES = new Set(
     ...ALLOWED_RULES_VOCABULARY.transfigurations,
     ...ALLOWED_RULES_VOCABULARY.timingsAndTriggers,
     ...ALLOWED_RULES_VOCABULARY.battleKeywords,
+    ...ALLOWED_RULES_VOCABULARY.statusScopes,
+    ...ALLOWED_RULES_VOCABULARY.generatedObjectReferenceKinds,
+    ...ALLOWED_RULES_VOCABULARY.generatedObjectKinds,
   ].map(normalizeKey),
 );
 
@@ -657,6 +692,314 @@ export function resolveBaneTargets(
 
     return wanted === null || wanted.has(normalizeKey(name));
   });
+}
+
+function selectedContentMetadata(
+  items: readonly ({ id: string; name: string } & Record<string, unknown>)[],
+  selector: { selection: TargetSelectionMode },
+): TargetResolutionMetadata["selected"] {
+  if (selector.selection === "hidden_random") {
+    return [];
+  }
+
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    ...(typeof item.kind === "string" ? { kind: item.kind } : {}),
+    ...(typeof item.cardType === "string" ? { kind: item.cardType } : {}),
+  }));
+}
+
+function selectedNameMetadata(
+  names: readonly string[],
+  selector: { selection: TargetSelectionMode },
+): TargetResolutionMetadata["selected"] {
+  return selector.selection === "hidden_random"
+    ? []
+    : names.map((name) => ({ name }));
+}
+
+function sourcePoolForCard(selector: Extract<TargetSelector, { selectorKind: "card" }>, predicate: CardTargetPredicate): string {
+  return selector.source ?? predicate.source ?? "catalog";
+}
+
+function sourcePoolForDreamsign(
+  selector: Extract<TargetSelector, { selectorKind: "dreamsign" }>,
+  predicate: DreamsignTargetPredicate,
+): string {
+  return selector.source ?? predicate.source ?? "catalog";
+}
+
+function emptyReason(sourcePool: string): string {
+  switch (sourcePool) {
+    case "deck":
+      return "empty_deck_or_no_matching_targets";
+    case "draftPool":
+      return "empty_draft_pool_or_no_matching_targets";
+    case "active":
+      return "empty_active_dreamsigns_or_no_matching_targets";
+    case "pool":
+      return "empty_dreamsign_pool_or_no_matching_targets";
+    case "state":
+      return "empty_state_pool_or_no_matching_targets";
+    default:
+      return "no_matching_targets";
+  }
+}
+
+function metadata(args: {
+  selectorKind: TargetSelector["selectorKind"];
+  selection: TargetSelectionMode;
+  sourcePool: string;
+  candidateCount: number;
+  selected: TargetResolutionMetadata["selected"];
+}): TargetResolutionMetadata {
+  return {
+    ...args,
+    ...(args.candidateCount === 0 ? { emptyReason: emptyReason(args.sourcePool) } : {}),
+  };
+}
+
+function dreamcallerMatches(dreamcaller: DreamcallerContent, selector: Extract<TargetSelector, { selectorKind: "dreamcaller" }>): boolean {
+  return idOrNameMatches(dreamcaller, selector.ids) && idOrNameMatches(dreamcaller, selector.names);
+}
+
+function generatedObjectMatches(
+  generatedObject: GeneratedObjectDefinition,
+  selector: Extract<TargetSelector, { selectorKind: "generated_object" }>,
+): boolean {
+  if (selector.generatedObjectId && generatedObject.generatedObjectId !== selector.generatedObjectId) {
+    return false;
+  }
+
+  if (selector.generatedObjectKind && generatedObject.generatedObjectKind !== selector.generatedObjectKind) {
+    return false;
+  }
+
+  return true;
+}
+
+export function resolveTargetSelector(
+  content: ContentBundle,
+  quest: QuestState,
+  selector: TargetSelector,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
+): TargetResolutionMetadata {
+  if (selector.selectorKind === "none") {
+    return metadata({
+      selectorKind: "none",
+      selection: "exact",
+      sourcePool: "none",
+      candidateCount: 0,
+      selected: [],
+    });
+  }
+
+  if (selector.selectorKind === "card") {
+    const predicate = {
+      ...(typeof selector.predicate === "object" && selector.predicate !== null ? selector.predicate : {}),
+      ...(selector.source ? { source: selector.source } : {}),
+      ...(selector.ids ? { ids: selector.ids } : {}),
+      ...(selector.names ? { names: selector.names } : {}),
+    } as CardTargetPredicate;
+    const sourcePool = sourcePoolForCard(selector, predicate);
+    const candidates = resolveCardTargets(content, quest, predicate);
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool,
+      candidateCount: candidates.length,
+      selected: selectedContentMetadata(candidates, selector),
+    });
+  }
+
+  if (selector.selectorKind === "dreamsign") {
+    const predicate = {
+      ...(typeof selector.predicate === "object" && selector.predicate !== null ? selector.predicate : {}),
+      ...(selector.source ? { source: selector.source } : {}),
+      ...(selector.ids ? { ids: selector.ids } : {}),
+      ...(selector.names ? { names: selector.names } : {}),
+    } as DreamsignTargetPredicate;
+    const sourcePool = sourcePoolForDreamsign(selector, predicate);
+    const candidates = resolveDreamsignTargets(content, quest, predicate);
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool,
+      candidateCount: candidates.length,
+      selected: selectedContentMetadata(candidates, selector),
+    });
+  }
+
+  if (selector.selectorKind === "dreamcaller") {
+    const candidates = selector.source === "state"
+      ? content.dreamcallers.filter((dreamcaller) =>
+          dreamcaller.id === quest.dreamcaller.id && dreamcallerMatches(dreamcaller, selector)
+        )
+      : content.dreamcallers.filter((dreamcaller) => dreamcallerMatches(dreamcaller, selector));
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool: selector.source ?? "catalog",
+      candidateCount: candidates.length,
+      selected: selectedContentMetadata(candidates, selector),
+    });
+  }
+
+  if (selector.selectorKind === "bane") {
+    const candidates = resolveBaneTargets(
+      {
+        source: selector.source,
+        names: selector.names as BaneName[] | undefined,
+      },
+      { baneNames: [] },
+    );
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool: selector.source ?? "vocabulary",
+      candidateCount: candidates.length,
+      selected: selectedNameMetadata(candidates, selector),
+    });
+  }
+
+  if (selector.selectorKind === "route_site") {
+    const siteTypes = selector.siteTypes ?? (selector.siteType ? [selector.siteType] : [...SITE_TYPES]);
+    const candidates = siteTypes.filter((siteType) => isAllowedRulesReference(siteType));
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool: selector.scope ?? "route",
+      candidateCount: candidates.length,
+      selected: selectedNameMetadata(candidates, selector),
+    });
+  }
+
+  if (selector.selectorKind === "status") {
+    const candidates = isAllowedRulesReference(selector.scope)
+      ? [selector.statusName ?? selector.statusId ?? selector.scope]
+      : [];
+
+    return metadata({
+      selectorKind: selector.selectorKind,
+      selection: selector.selection,
+      sourcePool: selector.scope,
+      candidateCount: candidates.length,
+      selected: selectedNameMetadata(candidates, selector),
+    });
+  }
+
+  const candidates = generatedObjects.filter((generatedObject) => generatedObjectMatches(generatedObject, selector));
+  const placeholderName = selector.name ?? selector.generatedObjectId ?? selector.generatedObjectKind ?? "generated object placeholder";
+  const selected = candidates.length > 0
+    ? candidates.map((generatedObject) => ({
+        id: generatedObject.generatedObjectId,
+        name: generatedObject.name,
+        kind: generatedObject.generatedObjectKind,
+      }))
+    : selector.generatedObjectReferenceKind === "placeholder"
+      ? [{ id: selector.generatedObjectId, name: placeholderName, kind: selector.generatedObjectKind }]
+      : [];
+
+  return metadata({
+    selectorKind: selector.selectorKind,
+    selection: selector.selection,
+    sourcePool: selector.generatedObjectReferenceKind === "placeholder" ? "manifest_placeholder" : "manifest_generated",
+    candidateCount: selected.length,
+    selected,
+  });
+}
+
+function generatedObjectDefinitionsFromOperations(operations: readonly JourneyOperation[]): GeneratedObjectDefinition[] {
+  return operations.flatMap((operation) =>
+    operation.operationKind === "generated_object" ? [operation.generatedObject] : []
+  );
+}
+
+function withTargetResolutionMetadata(
+  operations: readonly JourneyOperation[],
+  content: ContentBundle,
+  quest: QuestState,
+  generatedObjects: readonly GeneratedObjectDefinition[],
+): JourneyOperation[] {
+  return operations.map((operation) => {
+    if (!operation.targetSelector) {
+      return operation;
+    }
+
+    return {
+      ...operation,
+      targetResolution: resolveTargetSelector(content, quest, operation.targetSelector, generatedObjects),
+    } as JourneyOperation;
+  });
+}
+
+export function attachTargetResolutionMetadata(
+  manifest: JourneyManifest,
+  content: ContentBundle,
+  quest: QuestState,
+): JourneyManifest {
+  const rootOperations = [
+    ...manifest.options.flatMap((option) => option.operations),
+    ...(manifest.precommitted.operations ?? []),
+    ...(manifest.rewardPool?.operations ?? []),
+    ...(manifest.tree?.nodes.flatMap((node) =>
+      node.branches.flatMap((branch) => [
+        ...branch.operations,
+        ...(branch.terminal?.operations ?? []),
+      ])
+    ) ?? []),
+  ];
+  const generatedObjects = generatedObjectDefinitionsFromOperations(rootOperations);
+
+  return {
+    ...manifest,
+    options: manifest.options.map((option) => ({
+      ...option,
+      operations: withTargetResolutionMetadata(option.operations, content, quest, generatedObjects),
+    })),
+    ...(manifest.tree
+      ? {
+          tree: {
+            ...manifest.tree,
+            nodes: manifest.tree.nodes.map((node) => ({
+              ...node,
+              branches: node.branches.map((branch) => ({
+                ...branch,
+                operations: withTargetResolutionMetadata(branch.operations, content, quest, generatedObjects),
+                ...(branch.terminal
+                  ? {
+                      terminal: {
+                        ...branch.terminal,
+                        operations: withTargetResolutionMetadata(branch.terminal.operations, content, quest, generatedObjects),
+                      },
+                    }
+                  : {}),
+              })),
+            })),
+          },
+        }
+      : {}),
+    ...(manifest.rewardPool
+      ? {
+          rewardPool: {
+            ...manifest.rewardPool,
+            operations: withTargetResolutionMetadata(manifest.rewardPool.operations, content, quest, generatedObjects),
+          },
+        }
+      : {}),
+    precommitted: {
+      ...manifest.precommitted,
+      ...(manifest.precommitted.operations
+        ? { operations: withTargetResolutionMetadata(manifest.precommitted.operations, content, quest, generatedObjects) }
+        : {}),
+    },
+  };
 }
 
 export function isImmediateCostPayable(

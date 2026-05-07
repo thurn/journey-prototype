@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadContent } from "../src/content/loadToml.js";
+import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
@@ -1197,6 +1198,193 @@ describe("validateJourneyManifest", () => {
       ok: false,
       rule: "unresolved_reference",
     });
+  });
+
+  it("resolves named card and Dreamsign selectors into JSON/debug metadata", async () => {
+    const journeyContext = await context();
+    const card = journeyContext.content.cards[0]!;
+    const dreamsign = journeyContext.content.dreamsigns[0]!;
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const withNamedSelectors: JourneyManifest = attachTargetResolutionMetadata(
+      {
+        ...manifest,
+        options: [
+          refreshOptionOperations({
+            ...manifest.options[0]!,
+            text: `Gain {${card.name}}.`,
+            effects: [{ kind: "card_gain", cardName: card.name }],
+          }),
+          refreshOptionOperations({
+            ...manifest.options[1]!,
+            text: `Gain {${dreamsign.name}}.`,
+            effects: [{ kind: "dreamsign_gain", dreamsignName: dreamsign.name }],
+          }),
+        ],
+      },
+      journeyContext.content,
+      journeyContext.state.quest,
+    );
+
+    expect(validateJourneyManifest(withNamedSelectors, journeyContext)).toEqual({ ok: true });
+    expect(withNamedSelectors.options[0]?.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetSelector: expect.objectContaining({
+            selectorKind: "card",
+            selection: "exact",
+            names: [card.name],
+          }),
+          targetResolution: expect.objectContaining({
+            sourcePool: "catalog",
+            candidateCount: 1,
+            selected: [expect.objectContaining({ id: card.id, name: card.name })],
+          }),
+        }),
+      ]),
+    );
+    expect(withNamedSelectors.options[1]?.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetSelector: expect.objectContaining({
+            selectorKind: "dreamsign",
+            selection: "exact",
+            names: [dreamsign.name],
+          }),
+          targetResolution: expect.objectContaining({
+            sourcePool: "catalog",
+            candidateCount: 1,
+            selected: [expect.objectContaining({ id: dreamsign.id, name: dreamsign.name })],
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("reports empty required target pools with stable debug metadata", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const deckCardIds = new Set(journeyContext.state.quest.deck.entries.map((entry) => entry.cardId));
+    const nonDeckCard = journeyContext.content.cards.find((card) => !deckCardIds.has(card.id))!;
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        refreshOptionOperations({
+          ...manifest.options[0]!,
+          targets: [
+            {
+              kind: "card",
+              description: "impossible deck cards",
+              predicate: { source: "deck", names: [nonDeckCard.name] },
+              required: true,
+            },
+          ],
+        }),
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "zero_legal_required_targets",
+      debug: {
+        targetResolution: {
+          selectorKind: "card",
+          sourcePool: "deck",
+          candidateCount: 0,
+          selected: [],
+          emptyReason: "empty_deck_or_no_matching_targets",
+        },
+      },
+    });
+  });
+
+  it("keeps generated-object, Bane, route, deferred, and random selectors structured in generated JSON", async () => {
+    const journeyContext = await context();
+    const randomManifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "single_random_outcome",
+    });
+    const routeManifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "alter_dreamscapes",
+    });
+    const baseManifest = fillForShape("heterogeneous_pair", journeyContext);
+    const generatedSelectorManifest = attachTargetResolutionMetadata(
+      {
+        ...baseManifest,
+        options: [
+          {
+            ...baseManifest.options[0]!,
+            operations: [
+              {
+                operationId: "test:generated-placeholder",
+                operationKind: "target",
+                role: "target",
+                visibility: "debug",
+                targetSelector: {
+                  selectorKind: "generated_object",
+                  selection: "exact",
+                  referenceKind: "placeholder",
+                  generatedObjectReferenceKind: "placeholder",
+                  generatedObjectKind: "card",
+                  generatedObjectId: "generated-card-placeholder",
+                  name: "Generated Card Placeholder",
+                  required: true,
+                },
+                payload: {},
+              },
+              {
+                operationId: "test:bane",
+                operationKind: "target",
+                role: "target",
+                visibility: "debug",
+                targetSelector: {
+                  selectorKind: "bane",
+                  selection: "exact",
+                  referenceKind: "controlled_vocabulary",
+                  source: "vocabulary",
+                  names: ["Nightmare"],
+                  required: true,
+                },
+                payload: {},
+              },
+            ],
+          },
+          ...baseManifest.options.slice(1),
+        ],
+      },
+      journeyContext.content,
+      journeyContext.state.quest,
+    );
+
+    expect(validateJourneyManifest(generatedSelectorManifest, journeyContext)).toEqual({ ok: true });
+    expect(generatedSelectorManifest.options[0]?.operations.map((operation) => operation.targetSelector)).toEqual([
+      expect.objectContaining({ selectorKind: "generated_object", generatedObjectReferenceKind: "placeholder" }),
+      expect.objectContaining({ selectorKind: "bane", names: ["Nightmare"] }),
+    ]);
+    expect(routeManifest.options.flatMap((option) => option.operations)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetSelector: expect.objectContaining({
+            selectorKind: "route_site",
+            selection: "exact",
+          }),
+          targetResolution: expect.objectContaining({
+            selectorKind: "route_site",
+            candidateCount: expect.any(Number),
+          }),
+        }),
+      ]),
+    );
+    expect(randomManifest.precommitted.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "random_envelope",
+          timing: expect.objectContaining({ timingKind: "random" }),
+          visibility: "precommitted",
+        }),
+      ]),
+    );
   });
 
   it("rejects malformed option entries instead of throwing", async () => {

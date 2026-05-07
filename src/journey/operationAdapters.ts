@@ -8,6 +8,7 @@ import type {
   PrecommittedOutcomes,
   RandomEnvelopeOperation,
   RewardOperation,
+  TargetSelectionMode,
   TargetSelector,
 } from "./manifest.js";
 
@@ -39,6 +40,48 @@ function sourceFromPredicate(predicate: unknown): string | undefined {
     : undefined;
 }
 
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = value.filter((entry): entry is string => typeof entry === "string");
+
+  return entries.length > 0 ? entries : undefined;
+}
+
+function selectionFromLegacy(value: PayloadRecord, predicate: unknown): TargetSelectionMode {
+  if (
+    value.selection === "exact" ||
+    value.selection === "predicate" ||
+    value.selection === "chosen_after_commitment" ||
+    value.selection === "visible_random" ||
+    value.selection === "hidden_random"
+  ) {
+    return value.selection;
+  }
+
+  if (
+    stringArray(value.ids) ||
+    stringArray(value.names) ||
+    (isRecord(predicate) && (stringArray(predicate.ids) || stringArray(predicate.names)))
+  ) {
+    return "exact";
+  }
+
+  const description = typeof value.description === "string" ? value.description.toLowerCase() : "";
+
+  if (description.includes("random")) {
+    return "hidden_random";
+  }
+
+  if (description.includes("chosen")) {
+    return "chosen_after_commitment";
+  }
+
+  return "predicate";
+}
+
 function targetSelectorFromTarget(value: unknown): TargetSelector {
   if (!isRecord(value)) {
     return { selectorKind: "none" };
@@ -48,12 +91,19 @@ function targetSelectorFromTarget(value: unknown): TargetSelector {
   const description = typeof value.description === "string" ? value.description : undefined;
   const required = value.required === true;
   const source = sourceFromPredicate(predicate);
+  const selection = selectionFromLegacy(value, predicate);
+  const ids = stringArray(value.ids) ?? (isRecord(predicate) ? stringArray(predicate.ids) : undefined);
+  const names = stringArray(value.names) ?? (isRecord(predicate) ? stringArray(predicate.names) : undefined);
 
   if (value.kind === "card") {
     return {
       selectorKind: "card",
+      selection,
+      referenceKind: "content",
       ...(source === "catalog" || source === "deck" || source === "draftPool" ? { source } : {}),
       ...(description ? { description } : {}),
+      ...(ids ? { ids } : {}),
+      ...(names ? { names } : {}),
       ...(predicate !== undefined ? { predicate } : {}),
       required,
     };
@@ -62,22 +112,39 @@ function targetSelectorFromTarget(value: unknown): TargetSelector {
   if (value.kind === "dreamsign") {
     return {
       selectorKind: "dreamsign",
+      selection,
+      referenceKind: "content",
       ...(source === "catalog" || source === "active" || source === "pool" ? { source } : {}),
       ...(description ? { description } : {}),
+      ...(ids ? { ids } : {}),
+      ...(names ? { names } : {}),
       ...(predicate !== undefined ? { predicate } : {}),
       required,
     };
   }
 
   if (value.kind === "bane") {
-    const names = Array.isArray(value.names)
-      ? value.names.filter((entry): entry is string => typeof entry === "string")
-      : undefined;
-
     return {
       selectorKind: "bane",
+      selection,
+      referenceKind: "controlled_vocabulary",
       ...(source === "vocabulary" || source === "state" ? { source } : {}),
       ...(names && names.length > 0 ? { names } : {}),
+      required,
+    };
+  }
+
+  if (value.kind === "route_site") {
+    const siteTypes = stringArray(value.siteTypes);
+
+    return {
+      selectorKind: "route_site",
+      selection,
+      referenceKind: "controlled_vocabulary",
+      ...(typeof value.scope === "string" ? { scope: value.scope as "current_dreamscape" | "next_dreamscape" | "route" } : {}),
+      ...(typeof value.siteType === "string" ? { siteType: value.siteType } : {}),
+      ...(siteTypes ? { siteTypes } : {}),
+      ...(description ? { description } : {}),
       required,
     };
   }
@@ -90,12 +157,47 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     return undefined;
   }
 
+  if (typeof value.cardName === "string" || typeof value.cardId === "string") {
+    return {
+      selectorKind: "card",
+      selection: "exact",
+      referenceKind: "content",
+      source: "catalog",
+      ...(typeof value.cardId === "string" ? { ids: [value.cardId] } : {}),
+      ...(typeof value.cardName === "string" ? { names: [value.cardName] } : {}),
+    };
+  }
+
+  if (typeof value.dreamsignName === "string" || typeof value.dreamsignId === "string") {
+    return {
+      selectorKind: "dreamsign",
+      selection: "exact",
+      referenceKind: "content",
+      source: "catalog",
+      ...(typeof value.dreamsignId === "string" ? { ids: [value.dreamsignId] } : {}),
+      ...(typeof value.dreamsignName === "string" ? { names: [value.dreamsignName] } : {}),
+    };
+  }
+
+  if (typeof value.dreamcallerName === "string" || typeof value.dreamcallerId === "string") {
+    return {
+      selectorKind: "dreamcaller",
+      selection: "exact",
+      referenceKind: "content",
+      source: "catalog",
+      ...(typeof value.dreamcallerId === "string" ? { ids: [value.dreamcallerId] } : {}),
+      ...(typeof value.dreamcallerName === "string" ? { names: [value.dreamcallerName] } : {}),
+    };
+  }
+
   if (isRecord(value.predicate)) {
     const source = sourceFromPredicate(value.predicate);
 
     if (value.kind === "card_draft" || source === "draftPool" || source === "deck") {
       return {
         selectorKind: "card",
+        selection: "predicate",
+        referenceKind: "content",
         ...(source === "catalog" || source === "deck" || source === "draftPool" ? { source } : {}),
         predicate: value.predicate,
       };
@@ -104,6 +206,8 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     if (value.kind === "dreamsign_draft" || source === "pool" || source === "active") {
       return {
         selectorKind: "dreamsign",
+        selection: "predicate",
+        referenceKind: "content",
         ...(source === "catalog" || source === "active" || source === "pool" ? { source } : {}),
         predicate: value.predicate,
       };
@@ -111,7 +215,13 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   }
 
   if (typeof value.scope === "string" && value.scope.includes("card")) {
-    return { selectorKind: "card", source: "deck", description: value.scope };
+    return {
+      selectorKind: "card",
+      selection: value.scope.includes("random") ? "hidden_random" : "chosen_after_commitment",
+      referenceKind: "content",
+      source: "deck",
+      description: value.scope,
+    };
   }
 
   return undefined;
@@ -211,6 +321,15 @@ function adaptBurden(value: unknown, operationId: string, convertedEssence?: num
     : kind === "omen_loss" || kind === "essence_loss"
       ? "resource_loss"
       : "unknown";
+  const targetSelector = burdenKind === "bane_gain"
+    ? {
+        selectorKind: "bane" as const,
+        selection: "exact" as const,
+        referenceKind: "controlled_vocabulary" as const,
+        source: "vocabulary" as const,
+        names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : "Nightmare"],
+      }
+    : undefined;
 
   return {
     operationId,
@@ -219,6 +338,7 @@ function adaptBurden(value: unknown, operationId: string, convertedEssence?: num
     burdenKind,
     timing: { timingKind: "immediate" },
     visibility: "visible",
+    ...(targetSelector ? { targetSelector } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
@@ -260,6 +380,15 @@ function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: 
   const timing = isRecord(value) && typeof value.timing === "string"
     ? value.timing
     : "";
+  const targetSelector = isRecord(value) && (typeof value.fromSite === "string" || typeof value.toSite === "string")
+    ? {
+        selectorKind: "route_site" as const,
+        selection: "exact" as const,
+        referenceKind: "controlled_vocabulary" as const,
+        scope: timing.includes("next") ? "next_dreamscape" as const : "current_dreamscape" as const,
+        siteTypes: [value.fromSite, value.toSite].filter((entry): entry is string => typeof entry === "string"),
+      }
+    : undefined;
 
   return {
     operationId,
@@ -272,6 +401,7 @@ function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: 
       scope: timing.includes("next") ? "next_dreamscape" : "current_dreamscape",
       ...(timing ? { label: timing } : {}),
     },
+    ...(targetSelector ? { targetSelector } : {}),
     ...(isRecord(value) && typeof value.fromSite === "string" ? { fromSite: value.fromSite } : {}),
     ...(isRecord(value) && typeof value.toSite === "string" ? { toSite: value.toSite } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),

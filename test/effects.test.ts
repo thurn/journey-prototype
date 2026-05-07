@@ -13,9 +13,11 @@ import {
   resolveDreamcallerReference,
   resolveDreamsignReference,
   resolveDreamsignTargets,
+  resolveTargetSelector,
   STANDARD_TRANSFIGURATIONS,
   validateNamedReferences,
 } from "../src/journey/effects.js";
+import type { TargetSelector } from "../src/journey/manifest.js";
 import type { QuestState } from "../src/state/schema.js";
 
 const cards: CardContent[] = [
@@ -353,5 +355,147 @@ describe("target resolvers", () => {
     expect(isImmediateCostPayable(quest(), { essence: 12, omens: 1 })).toBe(true);
     expect(isImmediateCostPayable(quest(), { essence: 13 })).toBe(false);
     expect(isImmediateCostPayable(quest(), { omens: 2 })).toBe(false);
+  });
+
+  it("resolves typed target selectors with debug-friendly metadata", () => {
+    const selectors: TargetSelector[] = [
+      {
+        selectorKind: "card",
+        selection: "exact",
+        referenceKind: "content",
+        source: "catalog",
+        names: ["Fast Character"],
+        required: true,
+      },
+      {
+        selectorKind: "dreamsign",
+        selection: "exact",
+        referenceKind: "content",
+        source: "catalog",
+        names: ["Tidal Sign"],
+        required: true,
+      },
+      {
+        selectorKind: "dreamcaller",
+        selection: "exact",
+        referenceKind: "content",
+        source: "state",
+        names: ["Caller One"],
+        required: true,
+      },
+      {
+        selectorKind: "bane",
+        selection: "exact",
+        referenceKind: "controlled_vocabulary",
+        source: "vocabulary",
+        names: ["Nightmare"],
+        required: true,
+      },
+      {
+        selectorKind: "route_site",
+        selection: "exact",
+        referenceKind: "controlled_vocabulary",
+        scope: "next_dreamscape",
+        siteType: "Shop",
+        required: true,
+      },
+      {
+        selectorKind: "status",
+        selection: "chosen_after_commitment",
+        referenceKind: "controlled_vocabulary",
+        scope: "battle",
+        statusName: "Next battle discount",
+        required: true,
+      },
+      {
+        selectorKind: "generated_object",
+        selection: "exact",
+        referenceKind: "placeholder",
+        generatedObjectReferenceKind: "placeholder",
+        generatedObjectKind: "card",
+        generatedObjectId: "generated-card-1",
+        name: "Lantern Made Of Rain",
+        required: true,
+      },
+    ];
+
+    expect(selectors.map((selector) => resolveTargetSelector(content, quest(), selector))).toEqual([
+      expect.objectContaining({
+        selectorKind: "card",
+        selection: "exact",
+        sourcePool: "catalog",
+        candidateCount: 1,
+        selected: [{ id: "fast-character", name: "Fast Character", kind: "Character" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "dreamsign",
+        sourcePool: "catalog",
+        candidateCount: 1,
+        selected: [{ id: "tidal-sign", name: "Tidal Sign", kind: "tidal" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "dreamcaller",
+        sourcePool: "state",
+        candidateCount: 1,
+        selected: [{ id: "caller-1", name: "Caller One" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "bane",
+        sourcePool: "vocabulary",
+        candidateCount: 1,
+        selected: [{ name: "Nightmare" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "route_site",
+        sourcePool: "next_dreamscape",
+        candidateCount: 1,
+        selected: [{ name: "Shop" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "status",
+        sourcePool: "battle",
+        candidateCount: 1,
+        selected: [{ name: "Next battle discount" }],
+      }),
+      expect.objectContaining({
+        selectorKind: "generated_object",
+        sourcePool: "manifest_placeholder",
+        candidateCount: 1,
+        selected: [{ id: "generated-card-1", name: "Lantern Made Of Rain", kind: "card" }],
+      }),
+    ]);
+  });
+
+  it("keeps predicate, deferred, visible random, and hidden random selectors structured", () => {
+    const selectorBase = {
+      selectorKind: "card",
+      referenceKind: "content",
+      source: "deck",
+      predicate: { source: "deck" },
+      required: true,
+    } as const;
+
+    const resolutions = [
+      resolveTargetSelector(content, quest(), { ...selectorBase, selection: "predicate" }),
+      resolveTargetSelector(content, quest(), { ...selectorBase, selection: "chosen_after_commitment" }),
+      resolveTargetSelector(content, quest(), { ...selectorBase, selection: "visible_random" }),
+      resolveTargetSelector(content, quest(), { ...selectorBase, selection: "hidden_random" }),
+    ];
+
+    expect(resolutions.map((resolution) => resolution.selection)).toEqual([
+      "predicate",
+      "chosen_after_commitment",
+      "visible_random",
+      "hidden_random",
+    ]);
+    expect(resolutions[0]).toMatchObject({
+      sourcePool: "deck",
+      candidateCount: 2,
+    });
+    expect(resolutions[3]).toMatchObject({
+      sourcePool: "deck",
+      candidateCount: 2,
+      selected: [],
+    });
   });
 });
