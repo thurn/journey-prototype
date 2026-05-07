@@ -998,6 +998,95 @@ function validateSequenceMenus(
   return { ok: true };
 }
 
+function normalizedMechanicalValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizedMechanicalValue);
+  }
+
+  if (!isRecord(value)) {
+    return typeof value === "number" ? "#" : value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => ![
+        "text",
+        "description",
+        "amount",
+        "count",
+        "choiceCount",
+        "takeCount",
+        "costConvertedEssence",
+        "effectConvertedEssence",
+        "burdenConvertedEssence",
+        "uncertaintyConvertedEssence",
+        "netConvertedEssence",
+      ].includes(key))
+      .sort(([left], [right]) => left.localeCompare(right, "en-US"))
+      .map(([key, entry]) => [key, normalizedMechanicalValue(entry)]),
+  );
+}
+
+function randomPrecommitForOption(manifest: JourneyManifest, optionNumber: number): unknown {
+  const random = manifest.precommitted.random;
+
+  if (!Array.isArray(random)) {
+    return undefined;
+  }
+
+  return random.find((entry) =>
+    isRecord(entry) && entry.optionNumber === optionNumber
+  ) ?? random[optionNumber - 1];
+}
+
+function mechanicalOptionSignature(manifest: JourneyManifest, option: JourneyOption): string {
+  return JSON.stringify(normalizedMechanicalValue({
+    costs: option.costs,
+    effects: option.effects,
+    burdens: option.burdens,
+    targets: option.targets,
+    triggers: option.triggers,
+    routeEffects: option.routeEffects,
+    pickBehavior: option.pickBehavior,
+    randomPrecommit: randomPrecommitForOption(manifest, option.number),
+  }));
+}
+
+function validateRootMechanicalDistinction(manifest: JourneyManifest): ValidationResult {
+  if (manifest.options.length < 2) {
+    return { ok: true };
+  }
+
+  if (
+    getShapeDefinition(manifest.shapeId).topology === "random_commit" &&
+    !hasPrecommitted(manifest.precommitted.random)
+  ) {
+    return { ok: true };
+  }
+
+  const seen = new Map<string, number>();
+
+  for (const option of manifest.options) {
+    if (option.pickBehavior === "leave") {
+      continue;
+    }
+
+    const signature = mechanicalOptionSignature(manifest, option);
+    const previous = seen.get(signature);
+
+    if (previous !== undefined) {
+      return fail(
+        "duplicate_root_option_mechanics",
+        `Options ${previous} and ${option.number} have duplicate mechanical payloads`,
+      );
+    }
+
+    seen.set(signature, option.number);
+  }
+
+  return { ok: true };
+}
+
 export function validateJourneyManifest(
   manifest: JourneyManifest,
   context: JourneyContext,
@@ -1041,6 +1130,12 @@ export function validateJourneyManifest(
     if (!result.ok) {
       return result;
     }
+  }
+
+  const distinctionResult = validateRootMechanicalDistinction(manifest);
+
+  if (!distinctionResult.ok) {
+    return distinctionResult;
   }
 
   const treeBranches = manifest.tree?.nodes.flatMap((node) => node.branches) ?? [];

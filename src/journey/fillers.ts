@@ -70,6 +70,26 @@ type SequentialReward = {
   effect: number;
 };
 
+type RewardSlot = {
+  key: string;
+  text: string;
+  effects: unknown[];
+  targets?: unknown[];
+  triggers?: unknown[];
+  routeEffects?: unknown[];
+  effect: number;
+  uncertainty?: number;
+};
+
+type CostSlot = {
+  key: string;
+  prefix: string;
+  costs?: unknown[];
+  burdens?: unknown[];
+  cost?: number;
+  burden?: number;
+};
+
 function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en-US"));
 }
@@ -538,6 +558,255 @@ function routeEdit(number: number, future = false): JourneyOption {
   });
 }
 
+function routeReplacementReward(future = false): RewardSlot {
+  const timing = future ? "in the next dreamscape" : "in the current dreamscape";
+  const routeEffect = {
+    kind: future ? "future_route_replacement" : "current_route_replacement",
+    fromSite: future ? "Draft" : "Shop",
+    toSite: future ? "Dreamsign Offering" : "Purge",
+    timing: future ? "next dreamscape" : "current dreamscape",
+    source: "simulated_manifest_only",
+  };
+
+  return {
+    key: future ? "future-route-replacement" : "current-route-replacement",
+    text: `Replace a ${routeEffect.fromSite} site ${timing} with a ${routeEffect.toSite} site.`,
+    effects: [],
+    routeEffects: [routeEffect],
+    effect: future ? 305 : 295,
+  };
+}
+
+function rewardSlotOption(
+  number: number,
+  reward: RewardSlot,
+  extra: Omit<OptionArgs, "number" | "text" | "effects" | "targets" | "triggers" | "routeEffects" | "effect"> = {},
+): JourneyOption {
+  return option({
+    number,
+    text: reward.text,
+    effects: reward.effects,
+    targets: reward.targets ?? [],
+    triggers: reward.triggers ?? [],
+    routeEffects: reward.routeEffects ?? [],
+    effect: reward.effect,
+    uncertainty: reward.uncertainty,
+    ...extra,
+  });
+}
+
+function rewardSlots(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+): RewardSlot[] {
+  const essenceAmount = pickSequentialVariant(drawContext, `${label}:essence`, [300, 320, 340]);
+  const omenAmount = 5;
+  const cardProfile = pickLegalCardDraftProfile(context, drawContext, `${label}:card-profile`, [
+    CARD_DRAFT_PROFILES.characters,
+    CARD_DRAFT_PROFILES.events,
+    CARD_DRAFT_PROFILES.lowCostCharacters,
+    CARD_DRAFT_PROFILES.reclaimEvents,
+    CARD_DRAFT_PROFILES.dissolveEvents,
+    CARD_DRAFT_PROFILES.fastCharacters,
+    CARD_DRAFT_PROFILES.materializedCharacters,
+  ]);
+  const cardDraft = draftCards(cardProfile);
+  const secondCardProfile = pickLegalCardDraftProfile(context, drawContext, `${label}:second-card-profile`, [
+    CARD_DRAFT_PROFILES.survivors,
+    CARD_DRAFT_PROFILES.warriors,
+    CARD_DRAFT_PROFILES.spiritAnimals,
+    CARD_DRAFT_PROFILES.events,
+  ]);
+  const secondCardDraft = draftCards(secondCardProfile);
+  const dreamsignChoiceCount = pickSequentialVariant(drawContext, `${label}:dreamsign-choice`, [2, 3]);
+  const dreamsignChoice = dreamsignDraft(dreamsignChoiceCount);
+  const transfiguration = pickSequentialVariant(drawContext, `${label}:transfiguration`, [
+    "Bronze",
+    "Scarlet",
+    "Viridian",
+    "Prismatic",
+    "Golden",
+  ]);
+  const slots: RewardSlot[] = [
+    {
+      key: "essence",
+      text: `Gain ${essenceAmount} essence.`,
+      effects: [gainEssence(essenceAmount)],
+      effect: valueEssenceGain(essenceAmount, context),
+    },
+    {
+      key: "omens",
+      text: `Gain ${omenAmount} omens.`,
+      effects: [gainOmen(omenAmount)],
+      effect: valueOmenGain(omenAmount),
+    },
+    {
+      key: `draft:${cardProfile.label}`,
+      text: `${cardDraftText(cardProfile)} Gain 4 omens.`,
+      effects: [cardDraft, gainOmen(4)],
+      targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)],
+      effect: Math.max(320, valueCardDraft(cardDraft) + valueOmenGain(4)),
+    },
+    {
+      key: `draft-transfigure:${secondCardProfile.label}`,
+      text: `${cardDraftText(secondCardProfile)} Apply {${transfiguration} Transfiguration} to it.`,
+      effects: [
+        secondCardDraft,
+        { kind: "transfiguration", transfigurationName: transfiguration, scope: "drafted_card" },
+      ],
+      targets: [target("card", secondCardProfile.targetDescription, secondCardDraft.predicate)],
+      effect: Math.max(320, valueCardDraft(secondCardDraft) + 185),
+    },
+    {
+      key: "random-transfiguration",
+      text: `Apply {${transfiguration} Transfiguration} to a random card in your deck. Gain 3 omens.`,
+      effects: [
+        { kind: "transfiguration", transfigurationName: transfiguration, scope: "random_card" },
+        gainOmen(3),
+      ],
+      targets: [target("card", "a random card in deck", { source: "deck" })],
+      effect: 320,
+    },
+    routeReplacementReward(false),
+  ];
+
+  if (context.state.quest.dreamsignPoolIds.length > 0) {
+    slots.push({
+      key: "dreamsign-draft",
+      text: dreamsignDraftText(dreamsignChoiceCount),
+      effects: [dreamsignChoice],
+      targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignChoice.predicate)],
+      effect: valueDreamsignDraft(dreamsignChoice, context),
+    });
+  }
+
+  if (context.state.quest.deck.summary.starterCards > 0) {
+    slots.push({
+      key: "starter-cleanup",
+      text: "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      effects: [starterCleanup(1), gainOmen(4)],
+      targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
+      effect: 345,
+    });
+  }
+
+  return shuffleDeterministic(drawContext, `${label}:reward-slots`, slots);
+}
+
+function costSlots(context: JourneyContext, drawContext: DrawContext, label: string): CostSlot[] {
+  const lowEssence = Math.min(
+    pickSequentialVariant(drawContext, `${label}:low-essence`, [15, 20, 25]),
+    context.state.quest.resources.essence,
+  );
+  const highEssence = Math.min(
+    pickSequentialVariant(drawContext, `${label}:high-essence`, [35, 45, 55]),
+    context.state.quest.resources.essence,
+  );
+  const slots: CostSlot[] = [
+    {
+      key: "low-essence",
+      prefix: `Pay ${lowEssence} essence.`,
+      costs: [cost("essence", lowEssence)],
+      cost: lowEssence,
+    },
+    {
+      key: "high-essence",
+      prefix: `Pay ${highEssence} essence.`,
+      costs: [cost("essence", highEssence)],
+      cost: highEssence,
+    },
+    {
+      key: "nightmare",
+      prefix: "Gain 1 Nightmare.",
+      burdens: [nightmare(1)],
+      burden: valueBaneGain("Nightmare", 1),
+    },
+  ];
+
+  if (context.state.quest.resources.omens >= 1) {
+    slots.push({
+      key: "omen",
+      prefix: "Lose 1 omen.",
+      costs: [cost("omens", 1)],
+      cost: Math.abs(valueOmenLoss(1)),
+    });
+  }
+
+  return shuffleDeterministic(drawContext, `${label}:cost-slots`, slots);
+}
+
+function costedRewardOption(
+  number: number,
+  costSlot: CostSlot,
+  reward: RewardSlot,
+): JourneyOption {
+  return option({
+    number,
+    text: `${costSlot.prefix} ${reward.text}`,
+    costs: costSlot.costs ?? [],
+    burdens: costSlot.burdens ?? [],
+    effects: reward.effects,
+    targets: reward.targets ?? [],
+    triggers: reward.triggers ?? [],
+    routeEffects: reward.routeEffects ?? [],
+    cost: costSlot.cost,
+    burden: costSlot.burden,
+    effect: reward.effect,
+    uncertainty: reward.uncertainty,
+  });
+}
+
+function delayedRewardOption(
+  number: number,
+  trigger: { key: string; text: string; kind: string; multiplier: number; uncertainty: number },
+  reward: RewardSlot,
+): JourneyOption {
+  return option({
+    number,
+    text: `${trigger.text}, ${lowerFirst(reward.text)}`,
+    triggers: [{ kind: trigger.kind }],
+    effects: reward.effects,
+    targets: reward.targets ?? [],
+    routeEffects: reward.routeEffects ?? [],
+    effect: Math.round(reward.effect * trigger.multiplier),
+    uncertainty: trigger.uncertainty,
+  });
+}
+
+function timingSlots(drawContext: DrawContext, label: string) {
+  return shuffleDeterministic(drawContext, `${label}:timings`, [
+    {
+      key: "next-battle",
+      text: "After next battle",
+      kind: "after_next_battle",
+      multiplier: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
+      uncertainty: -8,
+    },
+    {
+      key: "next-victory",
+      text: "After next victory",
+      kind: "after_next_victory",
+      multiplier: 0.75,
+      uncertainty: -8,
+    },
+    {
+      key: "next-dreamscape",
+      text: "At the next dreamscape",
+      kind: "next_dreamscape",
+      multiplier: 0.8,
+      uncertainty: -8,
+    },
+    {
+      key: "two-dreamscapes",
+      text: "In 2 dreamscapes",
+      kind: "in_two_dreamscapes",
+      multiplier: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.twoDreamscapesMultiplier,
+      uncertainty: -16,
+    },
+  ] as const);
+}
+
 type TreeBranchArgs = {
   id: string;
   label: string;
@@ -797,6 +1066,7 @@ function buildEscalatingRewardChainTree(context: JourneyContext, drawContext: Dr
     CARD_DRAFT_PROFILES.characters,
   ]);
   const cardDraft = draftCards(cardProfile);
+  const dreamsignReward = dreamsignDraft(2);
   const profiles: { costs: number[]; rewards: SequentialReward[] }[] = [
     {
       costs: [15, 35, 65],
@@ -822,6 +1092,30 @@ function buildEscalatingRewardChainTree(context: JourneyContext, drawContext: Dr
         { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`, effects: [cardDraft, gainOmen(2)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(2) },
       ],
     },
+    {
+      costs: [15, 30, 50],
+      rewards: [
+        { text: "gain 60 essence.", effects: [gainEssence(60)], effect: 60 },
+        { text: "gain 120 essence.", effects: [gainEssence(120)], effect: 120 },
+        { text: "gain 210 essence.", effects: [gainEssence(210)], effect: 210 },
+      ],
+    },
+    {
+      costs: [20, 45, 70],
+      rewards: [
+        { text: "choose 1 of 2 Dreamsigns.", effects: [dreamsignReward], targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)], effect: valueDreamsignDraft(dreamsignReward, context) },
+        { text: "choose 1 of 2 Dreamsigns and gain 1 omen.", effects: [dreamsignReward, gainOmen(1)], targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)], effect: valueDreamsignDraft(dreamsignReward, context) + valueOmenGain(1) },
+        { text: "choose 1 of 3 Dreamsigns and gain 2 omens.", effects: [dreamsignDraft(3), gainOmen(2)], targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)], effect: valueDreamsignDraft(dreamsignDraft(3), context) + valueOmenGain(2) },
+      ],
+    },
+    {
+      costs: [10, 25, 45],
+      rewards: [
+        { text: "draw 1 extra card in your opening hand for the next 3 battles.", effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "opening_hand_cards", amount: 1 }], effect: 155 },
+        { text: "gain 1 extra energy on turn 1 for the next 3 battles.", effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "turn_1_energy", amount: 1 }], effect: 160 },
+        { text: "give all event cards in your deck Fast for the next 3 battles.", effects: [{ kind: "card_rewrite", keyword: "Fast", duration: BATTLE_WINDOW_DURATION, scope: "all_matching_cards_in_deck", predicate: { cardType: "Event" } }], effect: 165 },
+      ],
+    },
   ];
 
   if (context.state.quest.deck.summary.starterCards > 0) {
@@ -836,10 +1130,11 @@ function buildEscalatingRewardChainTree(context: JourneyContext, drawContext: Dr
   }
 
   const profile = pickSequentialVariant(drawContext, "escalating-chain:profile", profiles);
+  const costShift = pickSequentialVariant(drawContext, "escalating-chain:cost-shift", [0, 5, 10]);
 
   return tree(profile.rewards.map((reward, index) => {
     const level = index + 1;
-    const price = payableSequentialCost(context, profile.costs[index]!);
+    const price = payableSequentialCost(context, profile.costs[index]! + costShift);
     const isFinal = level === profile.rewards.length;
 
     return {
@@ -876,6 +1171,13 @@ function buildPushYourLuckTree(context: JourneyContext, drawContext: DrawContext
     CARD_DRAFT_PROFILES.characters,
   ]);
   const cardDraft = draftCards(cardProfile);
+  const transfiguration = pickSequentialVariant(drawContext, "push-your-luck:transfiguration", [
+    "Bronze",
+    "Scarlet",
+    "Viridian",
+    "Golden",
+    "Prismatic",
+  ]);
   const profiles: { chances: number[]; rewards: SequentialReward[] }[] = [
     {
       chances: [80, 60, 40],
@@ -901,8 +1203,33 @@ function buildPushYourLuckTree(context: JourneyContext, drawContext: DrawContext
         { text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`, effects: [cardDraft, gainOmen(2)], targets: [target("card", cardProfile.targetDescription, cardDraft.predicate)], effect: valueCardDraft(cardDraft) + valueOmenGain(2) },
       ],
     },
+    {
+      chances: [85, 65, 45],
+      rewards: [
+        { text: `apply {${transfiguration} Transfiguration} to a random card.`, effects: [{ kind: "transfiguration", transfigurationName: transfiguration, scope: "random_card" }], targets: [target("card", "a random card in deck", { source: "deck" })], effect: 100 },
+        { text: `apply {${transfiguration} Transfiguration} to a random card and gain 1 omen.`, effects: [{ kind: "transfiguration", transfigurationName: transfiguration, scope: "random_card" }, gainOmen(1)], targets: [target("card", "a random card in deck", { source: "deck" })], effect: 100 + valueOmenGain(1) },
+        { text: `apply {${transfiguration} Transfiguration} to up to 2 chosen cards.`, effects: [{ kind: "transfiguration", transfigurationName: transfiguration, scope: "up_to_2_chosen_cards" }], targets: [target("card", "cards in deck", { source: "deck" })], effect: 200 },
+      ],
+    },
+    {
+      chances: [65, 50, 35],
+      rewards: [
+        { text: "draw 1 extra card in your opening hand for the next 3 battles.", effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "opening_hand_cards", amount: 1 }], effect: 155 },
+        { text: "gain 1 extra energy on turn 1 for the next 3 battles.", effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "turn_1_energy", amount: 1 }], effect: 160 },
+        { text: "give all fast cards in your deck Reclaim 1 for the next 3 battles.", effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1, duration: BATTLE_WINDOW_DURATION, scope: "all_matching_cards_in_deck", predicate: { isFast: true } }], effect: 170 },
+      ],
+    },
   ];
   const profile = pickSequentialVariant(drawContext, "push-your-luck:profile", profiles);
+  const failureBaneName = pickSequentialVariant(drawContext, "push-your-luck:failure-bane", [
+    "Nightmare",
+    "Despair",
+    "Envy",
+    "Silence",
+    "Paranoia",
+  ] as const);
+  const failureBane = { kind: "bane_gain", baneName: failureBaneName, count: 1 };
+  const failureBurden = valueBaneGain(failureBaneName, 1);
 
   return tree([1, 2, 3].map((level) => {
     const reward = profile.rewards[level - 1]!;
@@ -936,11 +1263,11 @@ function buildPushYourLuckTree(context: JourneyContext, drawContext: DrawContext
           id: `level-${level}-failure`,
           label: "Failure",
           kind: "random_chance",
-          text: "Gain 1 Nightmare. End the Journey.",
+          text: `Gain 1 ${failureBaneName}. End the Journey.`,
           odds: odds(100 - successPercent),
-          burdens: [nightmare(1)],
-          burden: -125,
-          terminal: { text: "End the Journey.", outcome: "failure", costs: [], effects: [], burdens: [nightmare(1)], targets: [], routeEffects: [] },
+          burdens: [failureBane],
+          burden: failureBurden,
+          terminal: { text: "End the Journey.", outcome: "failure", costs: [], effects: [], burdens: [failureBane], targets: [], routeEffects: [] },
         }),
       ],
     };
@@ -986,153 +1313,270 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
 
   switch (shapeId) {
     case "random_allocation":
-      return { options: commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`), precommitted: {} };
-    case "same_cost_different_rewards":
       return {
-        options: [
-          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, Math.min(20, context.state.quest.resources.essence), [
-            CARD_DRAFT_PROFILES.warriors,
-            CARD_DRAFT_PROFILES.lowCostCharacters,
-          ]),
-          paidDraft(context, drawContext, `${shapeId}:draft:2`, 2, Math.min(20, context.state.quest.resources.essence), [
-            CARD_DRAFT_PROFILES.dissolveEvents,
-            CARD_DRAFT_PROFILES.reclaimEvents,
-          ]),
-          paidDraft(context, drawContext, `${shapeId}:draft:3`, 3, Math.min(20, context.state.quest.resources.essence), [
-            CARD_DRAFT_PROFILES.materializedCharacters,
-            CARD_DRAFT_PROFILES.spiritAnimals,
-            CARD_DRAFT_PROFILES.fastCharacters,
-          ]),
-        ],
+        options: rewardSlots(context, drawContext, `${shapeId}:rewards`)
+          .slice(0, 3)
+          .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {},
       };
-    case "same_reward_different_costs": {
-      const discountProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:discount-profile`, [
-        CARD_DRAFT_PROFILES.lowCostCharacters,
-        CARD_DRAFT_PROFILES.characters,
-      ]);
-      const discountDraft = draftCards(discountProfile);
-      const omenProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:omen-profile`, [
-        CARD_DRAFT_PROFILES.events,
-        CARD_DRAFT_PROFILES.characters,
-      ]);
-      const omenDraft = draftCards(omenProfile);
-      const premiumProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:premium-profile`, [
-        CARD_DRAFT_PROFILES.reclaimEvents,
-        CARD_DRAFT_PROFILES.dissolveEvents,
-        CARD_DRAFT_PROFILES.events,
-      ]);
-      const premiumDraft = draftCards(premiumProfile);
-      let premiumOmenCount = premiumProfile === omenProfile ? 2 : 1;
+    case "same_cost_different_rewards":
+      {
+        const sharedCost = costSlots(context, drawContext, `${shapeId}:shared-cost`)[0]!;
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:rewards`).filter((reward) =>
+          reward.routeEffects === undefined
+        );
 
-      while (
-        valueCardDraft(premiumDraft) + valueOmenGain(premiumOmenCount) - premiumPrice <=
-          valueCardDraft(omenDraft) + valueOmenGain(1) - payablePrice &&
-        premiumOmenCount < 3
-      ) {
-        premiumOmenCount += 1;
+        return {
+          options: rewards.slice(0, 3).map((reward, index) =>
+            costedRewardOption(index + 1, sharedCost, reward)
+          ),
+          precommitted: {},
+        };
+      }
+    case "same_reward_different_costs": {
+      const family = pickSequentialVariant(drawContext, `${shapeId}:family`, [
+        "card-draft",
+        "dreamsign-draft",
+        "omen-cache",
+        "transfiguration",
+      ] as const);
+
+      if (family === "transfiguration") {
+        const transfiguration = pickSequentialVariant(drawContext, `${shapeId}:same-reward-transfiguration`, [
+          "Bronze",
+          "Scarlet",
+          "Viridian",
+          "Golden",
+          "Prismatic",
+        ]);
+        const targetProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:same-reward-transfiguration-target`, [
+          CARD_DRAFT_PROFILES.characters,
+          CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.fastCharacters,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
+        ]);
+        const targetRecord = target("card", targetProfile.targetDescription, cardDraftPredicate(targetProfile));
+        const costs = [
+          {
+            prefix: `Pay ${Math.min(15, context.state.quest.resources.essence)} essence.`,
+            costs: [cost("essence", Math.min(15, context.state.quest.resources.essence))],
+            cost: Math.min(15, context.state.quest.resources.essence),
+            bonus: gainOmen(3),
+            bonusText: " Gain 3 omens.",
+            bonusValue: valueOmenGain(3),
+          },
+          context.state.quest.resources.omens >= 1
+            ? {
+                prefix: "Lose 1 omen.",
+                costs: [cost("omens", 1)],
+                cost: Math.abs(valueOmenLoss(1)),
+                bonus: gainOmen(4),
+                bonusText: " Gain 4 omens.",
+                bonusValue: valueOmenGain(4),
+              }
+            : {
+                prefix: `Pay ${payablePrice} essence.`,
+                costs: [cost("essence", payablePrice)],
+                cost: payablePrice,
+                bonus: gainOmen(4),
+                bonusText: " Gain 4 omens.",
+                bonusValue: valueOmenGain(4),
+              },
+          {
+            prefix: "Gain 1 Nightmare.",
+            burdens: [nightmare(1)],
+            burden: valueBaneGain("Nightmare", 1),
+            bonus: gainOmen(5),
+            bonusText: " Gain 5 omens.",
+            bonusValue: valueOmenGain(5),
+          },
+        ];
+
+        return {
+          options: costs.map((entry, index) =>
+            option({
+              number: index + 1,
+              text: `${entry.prefix} Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.${entry.bonusText}`,
+              costs: entry.costs ?? [],
+              burdens: entry.burdens ?? [],
+              effects: [{ kind: "transfiguration", transfigurationName: transfiguration }, entry.bonus],
+              targets: [targetRecord],
+              cost: entry.cost,
+              burden: entry.burden,
+              effect: 100 + entry.bonusValue,
+            })
+          ),
+          precommitted: {},
+        };
       }
 
+      if (family === "dreamsign-draft" && context.state.quest.dreamsignPoolIds.length > 0) {
+        const choiceCounts = shuffleDeterministic(drawContext, `${shapeId}:dreamsign-choice-order`, [2, 3, 4]);
+        const dreamsignCosts = [
+          {
+            prefix: `Pay ${Math.min(pickSequentialVariant(drawContext, `${shapeId}:dreamsign-price`, [10, 15, 20]), context.state.quest.resources.essence)} essence.`,
+            costs: [cost("essence", Math.min(pickSequentialVariant(drawContext, `${shapeId}:dreamsign-price`, [10, 15, 20]), context.state.quest.resources.essence))],
+            cost: Math.min(pickSequentialVariant(drawContext, `${shapeId}:dreamsign-price`, [10, 15, 20]), context.state.quest.resources.essence),
+          },
+          context.state.quest.resources.omens >= 1
+            ? {
+                prefix: "Lose 1 omen.",
+                costs: [cost("omens", 1)],
+                cost: Math.abs(valueOmenLoss(1)),
+              }
+            : {
+                prefix: `Pay ${payablePrice} essence.`,
+                costs: [cost("essence", payablePrice)],
+                cost: payablePrice,
+              },
+          {
+            prefix: "Gain 1 Nightmare.",
+            burdens: [nightmare(1)],
+            burden: valueBaneGain("Nightmare", 1),
+          },
+        ];
+
+        return {
+          options: choiceCounts.map((choiceCount, index) => {
+            const reward = dreamsignDraft(choiceCount);
+            const dreamsignCost = dreamsignCosts[index]!;
+
+            return option({
+              number: index + 1,
+              text: `${dreamsignCost.prefix} ${dreamsignDraftText(choiceCount)}`,
+              costs: dreamsignCost.costs ?? [],
+              burdens: dreamsignCost.burdens ?? [],
+              effects: [reward],
+              targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, reward.predicate)],
+              cost: dreamsignCost.cost,
+              burden: dreamsignCost.burden,
+              effect: valueDreamsignDraft(reward, context) + index * 30,
+            });
+          }),
+          precommitted: {},
+        };
+      }
+
+      if (family === "omen-cache") {
+        const amounts = shuffleDeterministic(drawContext, `${shapeId}:omen-amount-order`, [3, 4, 5]);
+        const omenCost = context.state.quest.resources.omens >= 1
+          ? cost("omens", 1)
+          : cost("essence", payablePrice);
+        const options = [
+          {
+            prefix: `Pay ${Math.min(10, context.state.quest.resources.essence)} essence.`,
+            costs: [cost("essence", Math.min(10, context.state.quest.resources.essence))],
+            cost: Math.min(10, context.state.quest.resources.essence),
+            amount: amounts[0]!,
+          },
+          {
+            prefix: context.state.quest.resources.omens >= 1 ? "Lose 1 omen." : `Pay ${payablePrice} essence.`,
+            costs: [omenCost],
+            cost: context.state.quest.resources.omens >= 1 ? Math.abs(valueOmenLoss(1)) : payablePrice,
+            amount: amounts[1]!,
+          },
+          {
+            prefix: "Gain 1 Nightmare.",
+            burdens: [nightmare(1)],
+            burden: valueBaneGain("Nightmare", 1),
+            amount: amounts[2]!,
+          },
+        ];
+
+        return {
+          options: options.map((entry, index) =>
+            option({
+              number: index + 1,
+              text: `${entry.prefix} Gain ${entry.amount} omens.`,
+              costs: entry.costs ?? [],
+              burdens: entry.burdens ?? [],
+              effects: [gainOmen(entry.amount)],
+              cost: entry.cost,
+              burden: entry.burden,
+              effect: valueOmenGain(entry.amount),
+            })
+          ),
+          precommitted: {},
+        };
+      }
+
+      const profiles = shuffleDeterministic(drawContext, `${shapeId}:card-profiles`, [
+        CARD_DRAFT_PROFILES.lowCostCharacters,
+        CARD_DRAFT_PROFILES.characters,
+        CARD_DRAFT_PROFILES.events,
+        CARD_DRAFT_PROFILES.reclaimEvents,
+        CARD_DRAFT_PROFILES.dissolveEvents,
+        CARD_DRAFT_PROFILES.fastCharacters,
+      ]).map((profile, index, shuffled) =>
+        legalCardDraftProfile(context, shuffled.slice(index, index + 1))
+      );
+      const prices = [Math.min(20, context.state.quest.resources.essence), payablePrice, premiumPrice];
+
       return {
-        options: [
-          option({
-            number: 1,
-            text: `Pay ${Math.min(20, context.state.quest.resources.essence)} essence. ${cardDraftText(discountProfile)}`,
-            costs: [cost("essence", Math.min(20, context.state.quest.resources.essence))],
-            effects: [discountDraft],
-            targets: [target("card", discountProfile.targetDescription, discountDraft.predicate)],
-            cost: Math.min(20, context.state.quest.resources.essence),
-            effect: valueCardDraft(discountDraft),
-          }),
-          option({
-            number: 2,
-            text: `Pay ${payablePrice} essence. ${cardDraftText(omenProfile)} Gain 1 omen.`,
-            costs: [cost("essence", payablePrice)],
-            effects: [omenDraft, gainOmen(1)],
-            targets: [target("card", omenProfile.targetDescription, omenDraft.predicate)],
-            cost: payablePrice,
-            effect: valueCardDraft(omenDraft) + valueOmenGain(1),
-          }),
-          option({
-            number: 3,
-            text: `Pay ${premiumPrice} essence. ${cardDraftText(premiumProfile)} Gain ${premiumOmenCount} ${premiumOmenCount === 1 ? "omen" : "omens"}.`,
-            costs: [cost("essence", premiumPrice)],
-            effects: [premiumDraft, gainOmen(premiumOmenCount)],
-            targets: [target("card", premiumProfile.targetDescription, premiumDraft.predicate)],
-            cost: premiumPrice,
-            effect: valueCardDraft(premiumDraft) + valueOmenGain(premiumOmenCount),
-          }),
-        ],
+        options: [0, 1, 2].map((index) => {
+          const profile = profiles[index] ?? GENERIC_CARD_DRAFT_PROFILE;
+          const cardDraft = draftCards(profile);
+
+          return option({
+            number: index + 1,
+            text: `Pay ${prices[index]!} essence. ${cardDraftText(profile)}${index === 0 ? "" : ` Gain ${index} ${index === 1 ? "omen" : "omens"}.`}`,
+            costs: [cost("essence", prices[index]!)],
+            effects: index === 0 ? [cardDraft] : [cardDraft, gainOmen(index)],
+            targets: [target("card", profile.targetDescription, cardDraft.predicate)],
+            cost: prices[index]!,
+            effect: valueCardDraft(cardDraft) + (index === 0 ? 0 : valueOmenGain(index)),
+          });
+        }),
         precommitted: {},
       };
     }
     case "service_menu":
       return {
-        options: [
-          option({
-            number: 1,
-            text: "Purge up to 1 chosen Starter card. Gain 4 omens.",
-            effects: [starterCleanup(1), gainOmen(4)],
-            targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
-            effect: 85 + valueOmenGain(4),
-          }),
-          (() => {
-            const price = Math.min(25, context.state.quest.resources.essence);
-            const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:service-draft-profile`, [
-              CARD_DRAFT_PROFILES.survivors,
-              CARD_DRAFT_PROFILES.materializedCharacters,
-              CARD_DRAFT_PROFILES.dissolveEvents,
-              CARD_DRAFT_PROFILES.reclaimEvents,
-            ]);
-            const cardDraft = draftCards(cardDraftProfile);
-
-            return option({
-              number: 2,
-              text: `Pay ${price} essence. ${cardDraftText(cardDraftProfile)} Gain 4 omens.`,
-              costs: [cost("essence", price)],
-              effects: [cardDraft, gainOmen(4)],
-              targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
-              cost: price,
-              effect: valueCardDraft(cardDraft) + valueOmenGain(4),
-            });
-          })(),
-          option({
-            number: 3,
-            text: dreamsignDraftText(3),
-            effects: [dreamsignDraft(3)],
-            targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, { source: "pool", tideOverlap: "selected" })],
-            effect: valueDreamsignDraft(dreamsignDraft(3), context),
-          }),
-        ],
+        options: rewardSlots(context, drawContext, `${shapeId}:services`)
+          .filter((reward) => reward.effect >= 140)
+          .slice(0, 3)
+          .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {},
       };
     case "shop_row":
       return {
-        options: [
-          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, 15, [
-            CARD_DRAFT_PROFILES.lowCostCharacters,
-            CARD_DRAFT_PROFILES.characters,
-          ]),
-          paidDraft(context, drawContext, `${shapeId}:draft:2`, 2, 20, [
-            CARD_DRAFT_PROFILES.fastCharacters,
-            CARD_DRAFT_PROFILES.events,
-            CARD_DRAFT_PROFILES.dissolveEvents,
-          ]),
-          paidDraft(context, drawContext, `${shapeId}:draft:3`, 3, 25, [
-            CARD_DRAFT_PROFILES.spiritAnimals,
-            CARD_DRAFT_PROFILES.materializedCharacters,
-            CARD_DRAFT_PROFILES.reclaimEvents,
-          ]),
-        ],
+        options: rewardSlots(context, drawContext, `${shapeId}:goods`)
+          .filter((reward) => reward.routeEffects === undefined)
+          .slice(0, 3)
+          .map((reward, index) =>
+            costedRewardOption(index + 1, {
+              key: "shop-price",
+              prefix: `Pay ${[15, 20, 25][index]!} essence.`,
+              costs: [cost("essence", [15, 20, 25][index]!)],
+              cost: [15, 20, 25][index]!,
+            }, reward)
+          ),
         precommitted: {},
       };
     case "curated_reward_trio":
-      return { options: commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`), precommitted: {} };
+      {
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:positive-menu`)
+          .filter((reward) => reward.effect >= 170);
+        const draftReward = rewards.find((reward) => reward.key.startsWith("draft"));
+        const orderedRewards = [
+          ...(draftReward ? [draftReward] : []),
+          ...rewards.filter((reward) => reward.key !== draftReward?.key),
+        ];
+
+        return {
+          options: orderedRewards
+            .slice(0, 3)
+            .map((reward, index) => rewardSlotOption(index + 1, reward)),
+        precommitted: {},
+        };
+      }
     case "heterogeneous_pair": {
       const positiveOptions = shuffleDeterministic(
         drawContext,
         `${shapeId}:positive-pair`,
-        commonPositiveOptions(context, drawContext, `${shapeId}:positive-menu`),
+        rewardSlots(context, drawContext, `${shapeId}:positive-menu`)
+          .filter((reward) => reward.effect >= 150)
+          .map((reward, index) => rewardSlotOption(index + 1, reward)),
       );
       const options = positiveOptions.slice(0, 2);
 
@@ -1142,52 +1586,88 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
       };
     }
     case "one_target_many_operations":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: `Apply Viridian to ${chosenCardText()}.`,
-            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 85,
-          }),
-          option({
-            number: 2,
+      {
+        const targetProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:target-profile`, [
+          CARD_DRAFT_PROFILES.characters,
+          CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
+          CARD_DRAFT_PROFILES.reclaimEvents,
+          CARD_DRAFT_PROFILES.fastCharacters,
+        ]);
+        const sharedTarget = target("card", targetProfile.targetDescription, cardDraftPredicate(targetProfile));
+        const transfiguration = pickSequentialVariant(drawContext, `${shapeId}:transfiguration`, [
+          "Bronze",
+          "Viridian",
+          "Prismatic",
+          "Golden",
+        ]);
+        const operations = shuffleDeterministic(drawContext, `${shapeId}:operations`, [
+          {
+            text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.`,
+            effects: [{ kind: "transfiguration", transfigurationName: transfiguration }],
+            effect: 100,
+          },
+          {
             text: `Add Fast to ${chosenCardText()}.`,
             effects: [{ kind: "card_rewrite", keyword: "Fast" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 70,
-          }),
-          option({
-            number: 3,
+            effect: 95,
+          },
+          {
             text: `Add Reclaim 1 to ${chosenCardText()}.`,
             effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1 }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 75,
-          }),
-        ],
-        precommitted: {},
-      };
+            effect: 95,
+          },
+          {
+            text: `Reduce the cost of ${chosenCardText()} by 1 for the next 3 battles.`,
+            effects: [{ kind: "card_rewrite", field: "energy_cost", amount: -1, duration: BATTLE_WINDOW_DURATION }],
+            effect: 105,
+            uncertainty: -10,
+          },
+        ]).slice(0, 3);
+
+        return {
+          options: operations.map((operation, index) =>
+            option({
+              number: index + 1,
+              text: operation.text,
+              effects: operation.effects,
+              targets: [sharedTarget],
+              effect: operation.effect,
+              uncertainty: operation.uncertainty,
+            })
+          ),
+          precommitted: {},
+        };
+      }
     case "take_any_number": {
-      const price = Math.min(15, context.state.quest.resources.essence);
+      const rewards = rewardSlots(context, drawContext, `${shapeId}:cache-rewards`)
+        .filter((reward) => reward.routeEffects === undefined);
+      const costSlot = costSlots(context, drawContext, `${shapeId}:cache-costs`).find((entry) =>
+        entry.costs && entry.costs.length > 0
+      )!;
+      const burdenSlot = costSlots(context, drawContext, `${shapeId}:cache-burdens`).find((entry) =>
+        entry.burdens && entry.burdens.length > 0
+      )!;
+
       return {
         options: [
           option({
             number: 1,
-            text: "Take up to 2 rewards from this cache. Pay 15 essence to gain 1 omen.",
-            costs: [cost("essence", price)],
-            effects: [gainOmen(1)],
-            cost: price,
-            effect: valueOmenGain(1),
+            text: `Take up to 2 rewards from this cache. ${costSlot.prefix} ${rewards[0]!.text}`,
+            costs: costSlot.costs ?? [],
+            effects: rewards[0]!.effects,
+            targets: rewards[0]!.targets ?? [],
+            cost: costSlot.cost,
+            effect: rewards[0]!.effect,
           }),
           option({
             number: 2,
-            text: "Take up to 2 rewards from this cache. Purge up to 1 chosen Starter card and gain 1 Nightmare.",
-            effects: [starterCleanup(1)],
-            burdens: [nightmare(1)],
-            targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
-            effect: 85,
-            burden: -125,
+            text: `Take up to 2 rewards from this cache. ${burdenSlot.prefix} ${(rewards[1] ?? rewards[0])!.text}`,
+            burdens: burdenSlot.burdens ?? [],
+            effects: (rewards[1] ?? rewards[0])!.effects,
+            targets: (rewards[1] ?? rewards[0])!.targets ?? [],
+            burden: burdenSlot.burden,
+            effect: (rewards[1] ?? rewards[0])!.effect,
           }),
           option({
             number: 3,
@@ -1211,67 +1691,140 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
       };
     }
     case "mirrored_operations":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: `Apply Bronze to ${chosenCardText()}.`,
-            effects: [{ kind: "transfiguration", transfigurationName: "Bronze" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 85,
-          }),
-          option({
-            number: 2,
-            text: `Apply Viridian to ${chosenCardText()}.`,
-            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 85,
-          }),
-          option({
-            number: 3,
-            text: `Apply Golden to ${chosenCardText()}.`,
-            effects: [{ kind: "transfiguration", transfigurationName: "Golden" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 85,
-          }),
-        ],
-        precommitted: {},
-      };
+      {
+        const targetProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:target-profile`, [
+          CARD_DRAFT_PROFILES.characters,
+          CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
+          CARD_DRAFT_PROFILES.dissolveEvents,
+        ]);
+        const mirror = pickSequentialVariant(drawContext, `${shapeId}:mirror`, [
+          "transfiguration",
+          "rewrite",
+          "draft",
+        ] as const);
+
+        if (mirror === "rewrite") {
+          const sharedTarget = target("card", targetProfile.targetDescription, cardDraftPredicate(targetProfile));
+
+          return {
+            options: [
+              option({ number: 1, text: `Add Fast to ${chosenCardText()}.`, effects: [{ kind: "card_rewrite", keyword: "Fast" }], targets: [sharedTarget], effect: 95 }),
+              option({ number: 2, text: `Add Reclaim 1 to ${chosenCardText()}.`, effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1 }], targets: [sharedTarget], effect: 95 }),
+              option({ number: 3, text: `Reduce the cost of ${chosenCardText()} by 1.`, effects: [{ kind: "card_rewrite", field: "energy_cost", amount: -1 }], targets: [sharedTarget], effect: 95 }),
+            ],
+            precommitted: {},
+          };
+        }
+
+        if (mirror === "draft") {
+          const draftRewards = rewardSlots(context, drawContext, `${shapeId}:draft-mirror`)
+            .filter((reward) => reward.key.startsWith("draft"));
+          const fallbackRewards = rewardSlots(context, drawContext, `${shapeId}:draft-mirror:fallback`)
+            .filter((reward) => reward.routeEffects === undefined);
+
+          return {
+            options: [...draftRewards, ...fallbackRewards]
+              .filter((reward, index, rewards) =>
+                rewards.findIndex((candidate) => candidate.key === reward.key) === index
+              )
+              .slice(0, 3)
+              .map((reward, index) => rewardSlotOption(index + 1, reward)),
+            precommitted: {},
+          };
+        }
+
+        return {
+          options: ["Bronze", "Viridian", "Golden"].map((transfiguration, index) =>
+            option({
+              number: index + 1,
+              text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.`,
+              effects: [{ kind: "transfiguration", transfigurationName: transfiguration }],
+              targets: [target("card", targetProfile.targetDescription, cardDraftPredicate(targetProfile))],
+              effect: 100,
+            })
+          ),
+          precommitted: {},
+        };
+      }
     case "one_operation_many_targets":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: `Apply Viridian to ${chosenCardText()}.`,
-            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
-            effect: 85,
-          }),
-          option({
-            number: 2,
-            text: "Apply Viridian to a chosen Starter card.",
-            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
-            effect: 85,
-          }),
-          option({
-            number: 3,
-            text: "Apply Viridian to a chosen card in your deck.",
-            effects: [{ kind: "transfiguration", transfigurationName: "Viridian" }],
-            targets: [target("card", "cards in deck", { source: "deck" })],
-            effect: 85,
-          }),
-        ],
-        precommitted: {},
-      };
+      {
+        const transfiguration = pickSequentialVariant(drawContext, `${shapeId}:transfiguration`, [
+          "Bronze",
+          "Viridian",
+          "Prismatic",
+          "Golden",
+        ]);
+        const operation = pickSequentialVariant(drawContext, `${shapeId}:operation`, [
+          {
+            text: (targetText: string) => `Apply {${transfiguration} Transfiguration} to ${targetText}.`,
+            effect: { kind: "transfiguration", transfigurationName: transfiguration },
+            value: 100,
+          },
+          {
+            text: (targetText: string) => `Add Fast to ${targetText}.`,
+            effect: { kind: "card_rewrite", keyword: "Fast" },
+            value: 95,
+          },
+          {
+            text: (targetText: string) => `Add Reclaim 1 to ${targetText}.`,
+            effect: { kind: "card_rewrite", keyword: "Reclaim", amount: 1 },
+            value: 95,
+          },
+          {
+            text: (targetText: string) => `Duplicate ${targetText}.`,
+            effect: { kind: "card_duplicate" },
+            value: 105,
+          },
+          {
+            text: (targetText: string) => `Reduce the cost of ${targetText} by 1.`,
+            effect: { kind: "card_rewrite", field: "energy_cost", amount: -1 },
+            value: 95,
+          },
+        ]);
+        const targetEntries = shuffleDeterministic(drawContext, `${shapeId}:target-order`, [
+          {
+            text: chosenCardText(),
+            target: target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" }),
+          },
+          {
+            text: "a chosen Starter card",
+            target: target("card", "Starter cards in deck", { source: "deck", starter: true }),
+          },
+          {
+            text: "a chosen card in your deck",
+            target: target("card", "cards in deck", { source: "deck" }),
+          },
+        ]);
+
+        return {
+          options: targetEntries.map((entry, index) =>
+            option({
+              number: index + 1,
+              text: operation.text(entry.text),
+              effects: [operation.effect],
+              targets: [entry.target],
+              effect: operation.value,
+            })
+          ),
+          precommitted: {},
+        };
+      }
     case "choose_your_loss":
       {
+        const baneName = pickSequentialVariant(drawContext, `${shapeId}:bane-name`, [
+          "Nightmare",
+          "Despair",
+          "Envy",
+          "Silence",
+          "Paranoia",
+        ] as const);
         const omenLoss = valueOmenLoss(1);
-        const nightmareLoss = valueBaneGain("Nightmare", 1);
+        const baneLoss = valueBaneGain(baneName, 1);
         const essenceLoss = comparableEssenceLossAmount(
           [
             ...(context.state.quest.resources.omens >= 1 ? [omenLoss] : []),
-            nightmareLoss,
+            baneLoss,
           ],
           context.state.quest.resources.essence,
         );
@@ -1297,13 +1850,13 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
 
         options.push(option({
           number: options.length + 1,
-          text: "Gain 1 Nightmare.",
-          burdens: [nightmare(1)],
-          burden: nightmareLoss,
+          text: `Gain 1 ${baneName}.`,
+          burdens: [{ kind: "bane_gain", baneName, count: 1 }],
+          burden: baneLoss,
         }));
 
         return {
-          options,
+          options: renumberOptions(shuffleDeterministic(drawContext, `${shapeId}:loss-order`, options)),
           precommitted: {},
         };
       }
@@ -1317,32 +1870,56 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         precommitted: {},
       };
     case "single_offer":
-      return {
-        options: [
-          paidDraft(context, drawContext, `${shapeId}:draft:1`, 1, payablePrice, [
-            CARD_DRAFT_PROFILES.materializedCharacters,
-            CARD_DRAFT_PROFILES.characters,
-            CARD_DRAFT_PROFILES.reclaimEvents,
-          ]),
-          option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
-        ],
-        precommitted: {},
-      };
+      {
+        const reward = rewardSlots(context, drawContext, `${shapeId}:offer-reward`)
+          .filter((entry) => entry.routeEffects === undefined)[0]!;
+        const costSlot = costSlots(context, drawContext, `${shapeId}:offer-cost`)[0]!;
+
+        return {
+          options: [
+            costedRewardOption(1, costSlot, reward),
+            option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
+          ],
+          precommitted: {},
+        };
+      }
     case "risk_or_skip":
       {
-        const rewardAmount = 160;
-        const downsideChancePercent = 50;
+        const reward = rewardSlots(context, drawContext, `${shapeId}:risk-reward`)
+          .filter((entry) => entry.routeEffects === undefined)[0]!;
+        const downsideChancePercent = pickSequentialVariant(drawContext, `${shapeId}:downside-chance`, [35, 50, 65]);
+        const downsideKind = pickSequentialVariant(drawContext, `${shapeId}:downside-kind`, [
+          "nightmare",
+          "omen",
+          "essence",
+        ] as const);
         const roll = drawInt(drawContext, "risk-or-skip-downside-roll:1", 1, 100);
-        const downside = nightmare(1);
+        const downside = downsideKind === "omen" && context.state.quest.resources.omens >= 1
+          ? { kind: "omen_loss", amount: 1 }
+          : downsideKind === "essence"
+            ? { kind: "essence_loss", amount: Math.min(60, context.state.quest.resources.essence) }
+            : nightmare(1);
+        const downsideValue = downsideKind === "omen" && context.state.quest.resources.omens >= 1
+          ? valueOmenLoss(1)
+          : downsideKind === "essence"
+            ? -Math.min(60, context.state.quest.resources.essence)
+            : valueBaneGain("Nightmare", 1);
 
         return {
           options: [
             option({
               number: 1,
-              text: `Gain ${rewardAmount} essence. ${downsideChancePercent}% chance to gain 1 Nightmare; otherwise no downside.`,
-              effects: [gainEssence(rewardAmount)],
-              effect: valueEssenceGain(rewardAmount, context),
-              uncertainty: Math.round(valueBaneGain("Nightmare", 1) * (downsideChancePercent / 100)),
+              text: `${reward.text} ${downsideChancePercent}% chance to ${
+                downsideKind === "omen" && context.state.quest.resources.omens >= 1
+                  ? "lose 1 omen"
+                  : downsideKind === "essence"
+                    ? `lose ${Math.min(60, context.state.quest.resources.essence)} essence`
+                    : "gain 1 Nightmare"
+              }; otherwise no downside.`,
+              effects: reward.effects,
+              targets: reward.targets ?? [],
+              effect: reward.effect,
+              uncertainty: Math.round(downsideValue * (downsideChancePercent / 100)),
             }),
             option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
           ],
@@ -1363,13 +1940,17 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
       }
     case "single_wager":
       {
-        const firstSuccessPercent = 50;
-        const firstSuccessReward = gainEssence(160);
+        const wagerRewards = rewardSlots(context, drawContext, `${shapeId}:wager-rewards`)
+          .filter((entry) => entry.routeEffects === undefined);
+        const firstReward = wagerRewards[0]!;
+        const secondReward = wagerRewards[1] ?? wagerRewards[0]!;
+        const firstSuccessPercent = pickSequentialVariant(drawContext, `${shapeId}:first-odds`, [45, 50, 55]);
+        const firstSuccessReward = firstReward.effects;
         const firstRoll = drawInt(drawContext, "single-wager-roll:1", 1, 100);
         const firstCommittedResult = firstRoll <= firstSuccessPercent ? "success" : "failure";
         const secondPrice = Math.min(50, context.state.quest.resources.essence);
-        const secondSuccessPercent = 65;
-        const secondSuccessReward = gainEssence(190);
+        const secondSuccessPercent = pickSequentialVariant(drawContext, `${shapeId}:second-odds`, [60, 65, 70]);
+        const secondSuccessReward = secondReward.effects;
         const secondRoll = drawInt(drawContext, "single-wager-roll:2", 1, 100);
         const secondCommittedResult = secondRoll <= secondSuccessPercent ? "success" : "failure";
 
@@ -1377,20 +1958,20 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
           options: [
             option({
               number: 1,
-              text: "Pay 30 essence. 50% chance to gain 160 essence; otherwise gain nothing.",
+              text: `Pay ${payablePrice} essence. ${firstSuccessPercent}% chance to ${lowerFirst(firstReward.text).replace(/\.$/u, "")}; otherwise gain nothing.`,
               costs: [cost("essence", payablePrice)],
               effects: [{ kind: "random_reward", table: "wager", odds: odds(firstSuccessPercent) }],
               cost: payablePrice,
-              effect: 80,
+              effect: Math.round(firstReward.effect * (firstSuccessPercent / 100)),
               uncertainty: -12,
             }),
             option({
               number: 2,
-              text: `Pay ${secondPrice} essence. 65% chance to gain 190 essence; otherwise gain nothing.`,
+              text: `Pay ${secondPrice} essence. ${secondSuccessPercent}% chance to ${lowerFirst(secondReward.text).replace(/\.$/u, "")}; otherwise gain nothing.`,
               costs: [cost("essence", secondPrice)],
               effects: [{ kind: "random_reward", table: "wager", odds: odds(secondSuccessPercent) }],
               cost: secondPrice,
-              effect: 124,
+              effect: Math.round(secondReward.effect * (secondSuccessPercent / 100)),
               uncertainty: -16,
             }),
           ],
@@ -1422,213 +2003,176 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
       }
     case "now_vs_later":
       {
-        const dreamsignReward = dreamsignDraft(3);
-        const delayedOption = context.state.quest.dreamsignPoolIds.length > 0
-          ? option({
-              number: 2,
-              text: "In 2 dreamscapes, choose 1 of 3 Dreamsigns.",
-              triggers: [{ kind: "in_two_dreamscapes" }],
-              effects: [dreamsignReward],
-              targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-              effect: delayedDreamsignDraftValue(
-                dreamsignReward,
-                context,
-                TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.twoDreamscapesMultiplier,
-              ),
-              uncertainty: -16,
-            })
-          : option({
-              number: 2,
-              text: "In 2 dreamscapes, gain 180 essence.",
-              triggers: [{ kind: "in_two_dreamscapes" }],
-              effects: [gainEssence(180)],
-              effect: 135,
-              uncertainty: -16,
-            });
+        const reward = rewardSlots(context, drawContext, `${shapeId}:reward`)
+          .filter((entry) => entry.routeEffects === undefined)[0]!;
+        const immediateReward = {
+          ...reward,
+          text: reward.key === "essence" ? "Gain 100 essence." : reward.text,
+          effects: reward.key === "essence" ? [gainEssence(100)] : reward.effects,
+          effect: reward.key === "essence" ? 100 : Math.max(120, Math.round(reward.effect * 0.65)),
+        };
+        const timing = timingSlots(drawContext, `${shapeId}:timing`).find((entry) =>
+          entry.key === "two-dreamscapes" || entry.key === "next-dreamscape"
+        )!;
+        const delayedReward = {
+          ...reward,
+          effect: Math.round(reward.effect * (timing.key === "two-dreamscapes" ? 2.6 : 1.45)),
+        };
+        const delayedOption = delayedRewardOption(2, timing, delayedReward);
 
         return {
           options: [
-            option({ number: 1, text: "Gain 100 essence.", effects: [gainEssence(100)], effect: 100 }),
+            rewardSlotOption(1, immediateReward),
             delayedOption,
           ],
           precommitted: {
-            delayed: context.state.quest.dreamsignPoolIds.length > 0
-              ? [{ optionNumber: 2, trigger: "in 2 dreamscapes", reward: dreamsignReward }]
-              : [{ optionNumber: 2, trigger: "in 2 dreamscapes", reward: gainEssence(180) }],
+            delayed: [{ optionNumber: 2, trigger: timing.text.toLowerCase(), reward: delayedReward.effects }],
           },
         };
       }
     case "reward_after_trigger":
       {
-        const dreamsignReward = dreamsignDraft(3);
-        const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:trigger-card-profile`, [
-          CARD_DRAFT_PROFILES.characters,
-          CARD_DRAFT_PROFILES.events,
-          CARD_DRAFT_PROFILES.lowCostCharacters,
-        ]);
-        const cardDraftReward = draftCards(cardDraftProfile);
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:trigger-rewards`)
+          .filter((entry) => entry.routeEffects === undefined);
+        const timings = timingSlots(drawContext, `${shapeId}:timing`)
+          .filter((entry) => entry.key === "next-battle" || entry.key === "next-victory");
+        const firstTiming = timings[0]!;
+        const secondTiming = timings[1] ?? timings[0]!;
 
         return {
           options: [
-            context.state.quest.dreamsignPoolIds.length > 0
-              ? option({
-                  number: 1,
-                  text: `After next battle, ${dreamsignDraftText(3).replace(/^Choose/u, "choose")}`,
-                  triggers: [{ kind: "after_next_battle" }],
-                  effects: [dreamsignReward],
-                  targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-                  effect: delayedDreamsignDraftValue(
-                    dreamsignReward,
-                    context,
-                    TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
-                  ),
-                  uncertainty: -8,
-                })
-              : option({
-                  number: 1,
-                  text: "After next battle, gain 150 essence.",
-                  triggers: [{ kind: "after_next_battle" }],
-                  effects: [gainEssence(150)],
-                  effect: Math.round(
-                    valueEssenceGain(150, context) * TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
-                  ),
-                  uncertainty: -8,
-                }),
-            option({
-              number: 2,
-              text: `After next battle, ${cardDraftText(cardDraftProfile).replace(/^Draft/u, "draft")} Gain 1 omen.`,
-              triggers: [{ kind: "after_next_battle" }],
-              effects: [cardDraftReward, gainOmen(1)],
-              targets: [target("card", cardDraftProfile.targetDescription, cardDraftReward.predicate)],
-              effect: Math.round(
-                (valueCardDraft(cardDraftReward) + valueOmenGain(1)) *
-                  TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.nextBattleMultiplier,
-              ),
-              uncertainty: -8,
-            }),
+            delayedRewardOption(1, firstTiming, rewards[0]!),
+            delayedRewardOption(2, secondTiming, rewards[1] ?? rewards[0]!),
           ],
           precommitted: {
-            delayed: context.state.quest.dreamsignPoolIds.length > 0
-              ? [
-                  { optionNumber: 1, trigger: "after next battle", reward: dreamsignReward },
-                  { optionNumber: 2, trigger: "after next battle", reward: [cardDraftReward, gainOmen(1)] },
-                ]
-              : [
-                  { optionNumber: 1, trigger: "after next battle", reward: gainEssence(150) },
-                  { optionNumber: 2, trigger: "after next battle", reward: [cardDraftReward, gainOmen(1)] },
-                ],
+            delayed: [
+              { optionNumber: 1, trigger: firstTiming.text.toLowerCase(), reward: rewards[0]!.effects },
+              { optionNumber: 2, trigger: secondTiming.text.toLowerCase(), reward: (rewards[1] ?? rewards[0]!).effects },
+            ],
           },
         };
       }
     case "paired_return":
       {
-        const cardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:return-card-profile`, [
-          CARD_DRAFT_PROFILES.characters,
-          CARD_DRAFT_PROFILES.events,
-          CARD_DRAFT_PROFILES.lowCostCharacters,
-        ]);
-        const cardDraftReward = draftCards(cardDraftProfile);
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:return-rewards`)
+          .filter((entry) => entry.routeEffects === undefined);
+        const timing = timingSlots(drawContext, `${shapeId}:timing`).find((entry) =>
+          entry.key === "next-victory" || entry.key === "next-dreamscape"
+        )!;
 
         return {
           options: [
-            option({
-              number: 1,
-              text: "Commit a return hook. After next victory, gain 70 essence.",
-              triggers: [{ kind: "after_next_victory" }],
-              effects: [gainEssence(70)],
-              effect: 52,
-              uncertainty: -8,
-            }),
-            option({
-              number: 2,
-              text: `Commit a return hook. After next victory, ${cardDraftText(cardDraftProfile).replace(/^Draft/u, "draft")}`,
-              triggers: [{ kind: "after_next_victory" }],
-              effects: [cardDraftReward],
-              targets: [target("card", cardDraftProfile.targetDescription, cardDraftReward.predicate)],
-              effect: Math.round(valueCardDraft(cardDraftReward) * 0.75),
-              uncertainty: -8,
-            }),
+            {
+              ...delayedRewardOption(1, timing, rewards[0]!),
+              text: `Commit a return hook. ${timing.text}, ${lowerFirst(rewards[0]!.text)}`,
+            },
+            {
+              ...delayedRewardOption(2, timing, rewards[1] ?? rewards[0]!),
+              text: `Commit a return hook. ${timing.text}, ${lowerFirst((rewards[1] ?? rewards[0]!).text)}`,
+            },
           ],
           precommitted: {
             delayed: [
-              { optionNumber: 1, trigger: "after next victory", reward: gainEssence(70) },
-              { optionNumber: 2, trigger: "after next victory", reward: cardDraftReward },
+              { optionNumber: 1, trigger: timing.text.toLowerCase(), reward: rewards[0]!.effects },
+              { optionNumber: 2, trigger: timing.text.toLowerCase(), reward: (rewards[1] ?? rewards[0]!).effects },
             ],
             pairedReturn: [
-              { optionNumber: 1, anchor: "root choice 1", reward: gainEssence(70) },
-              { optionNumber: 2, anchor: "root choice 2", reward: cardDraftReward },
+              { optionNumber: 1, anchor: `${rewards[0]!.key} return`, reward: rewards[0]!.effects },
+              { optionNumber: 2, anchor: `${(rewards[1] ?? rewards[0]!).key} return`, reward: (rewards[1] ?? rewards[0]!).effects },
             ],
           },
         };
       }
     case "timed_window_menu":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: "For the next 3 battles, all event cards in your deck have Fast.",
-            effects: [
-              {
-                kind: "card_rewrite",
-                keyword: "Fast",
-                duration: BATTLE_WINDOW_DURATION,
-                scope: "all_matching_cards_in_deck",
-                predicate: { cardType: "Event" },
-              },
-            ],
-            effect: 175,
-            uncertainty: -10,
-          }),
-          option({
-            number: 2,
-            text: "For the next 3 battles, draw 1 extra card in your opening hand.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "opening_hand_cards",
-                amount: 1,
-              },
-            ],
-            effect: 165,
-            uncertainty: -10,
-          }),
-          option({
-            number: 3,
-            text: "For the next 3 battles, gain 1 extra energy on turn 1.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "turn_1_energy",
-                amount: 1,
-              },
-            ],
-            effect: 170,
-            uncertainty: -10,
-          }),
-        ],
-        precommitted: {},
-      };
+      {
+        const profile: { text: string; effects: unknown[]; effect: number }[] = pickSequentialVariant(drawContext, `${shapeId}:window-profile`, [
+          [
+            {
+              text: "For the next 3 battles, all event cards in your deck have Fast.",
+              effects: [{ kind: "card_rewrite", keyword: "Fast", duration: BATTLE_WINDOW_DURATION, scope: "all_matching_cards_in_deck", predicate: { cardType: "Event" } }],
+              effect: 175,
+            },
+            {
+              text: "For the next 3 battles, draw 1 extra card in your opening hand.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "opening_hand_cards", amount: 1 }],
+              effect: 165,
+            },
+            {
+              text: "For the next 3 battles, gain 1 extra energy on turn 1.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "turn_1_energy", amount: 1 }],
+              effect: 170,
+            },
+          ],
+          [
+            {
+              text: "For the next 3 battles, all character cards in your deck cost 1 less on turn 1.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "turn_1_character_discount", amount: 1 }],
+              effect: 170,
+            },
+            {
+              text: "For the next 3 battles, start each battle with 1 omen.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "starting_omens", amount: 1 }],
+              effect: 165,
+            },
+            {
+              text: "For the next 3 battles, the first event you play each battle has Reclaim 1.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "first_event_reclaim", amount: 1 }],
+              effect: 175,
+            },
+          ],
+          [
+            {
+              text: "For the next 3 battles, draw 1 extra card on turn 2.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "turn_2_cards", amount: 1 }],
+              effect: 160,
+            },
+            {
+              text: "For the next 3 battles, all fast cards in your deck have Reclaim 1.",
+              effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1, duration: BATTLE_WINDOW_DURATION, scope: "all_matching_cards_in_deck", predicate: { isFast: true } }],
+              effect: 170,
+            },
+            {
+              text: "For the next 3 battles, gain 1 extra energy the first time you Dissolve each battle.",
+              effects: [{ kind: "battle_window_modifier", duration: BATTLE_WINDOW_DURATION, modifier: "first_dissolve_energy", amount: 1 }],
+              effect: 175,
+            },
+          ],
+        ]);
+
+        return {
+          options: shuffleDeterministic(drawContext, `${shapeId}:window-order`, profile).map((entry, index) =>
+            option({
+              number: index + 1,
+              text: entry.text,
+              effects: entry.effects,
+              effect: entry.effect,
+              uncertainty: -10,
+            })
+          ),
+          precommitted: {},
+        };
+      }
     case "resolved_random_series":
       {
-        const firstSeries = [gainEssence(25), gainOmen(1), draftCards(CARD_DRAFT_PROFILES.characters)];
-        const secondSeries = [gainEssence(50), draftCards(CARD_DRAFT_PROFILES.events), gainOmen(1)];
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:series-rewards`)
+          .filter((entry) => entry.routeEffects === undefined);
+        const firstSeries = rewards.slice(0, 3).flatMap((reward) => reward.effects);
+        const secondSeries = rewards.slice(2, 5).flatMap((reward) => reward.effects);
 
         return {
           options: [
             option({
               number: 1,
-              text: "Resolve the precommitted rewards: gain 25 essence, gain 1 omen, then draft 1 of 4 characters.",
+              text: `Resolve the precommitted rewards: ${rewards.slice(0, 3).map((reward) => lowerFirst(reward.text).replace(/\.$/u, "")).join(", then ")}.`,
               effects: [{ kind: "random_series", count: 3 }],
-              effect: 105,
+              effect: Math.round(rewards.slice(0, 3).reduce((total, reward) => total + reward.effect, 0) / 3),
               uncertainty: -12,
             }),
             option({
               number: 2,
-              text: "Resolve the precommitted rewards: gain 50 essence, draft 1 of 4 events, then gain 1 omen.",
+              text: `Resolve the precommitted rewards: ${rewards.slice(2, 5).map((reward) => lowerFirst(reward.text).replace(/\.$/u, "")).join(", then ")}.`,
               effects: [{ kind: "random_series", count: 3 }],
-              effect: 130,
+              effect: Math.round(rewards.slice(2, 5).reduce((total, reward) => total + reward.effect, 0) / 3),
               uncertainty: -12,
             }),
           ],
@@ -1636,131 +2180,118 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         };
       }
     case "single_random_outcome":
-      return {
-        options: [
-          option({
-            number: 1,
-            text: "Gain the precommitted reward: 70 essence.",
-            effects: [{ kind: "random_reward", table: "precommitted" }],
-            effect: 70,
-            uncertainty: -12,
-          }),
-          option({
-            number: 2,
-            text: "Gain the precommitted reward: 1 omen.",
-            effects: [{ kind: "random_reward", table: "precommitted" }],
-            effect: valueOmenGain(1),
-            uncertainty: -12,
-          }),
-        ],
-        precommitted: { random: [gainEssence(70), gainOmen(1)] },
-      };
-    case "commit_now_future_payoff":
       {
-        const dreamsignReward = dreamsignDraft(3);
-        const firstCardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:first-card-profile`, [
-          CARD_DRAFT_PROFILES.characters,
-          CARD_DRAFT_PROFILES.events,
-          CARD_DRAFT_PROFILES.lowCostCharacters,
-        ]);
-        const secondCardDraftProfile = pickLegalCardDraftProfile(context, drawContext, `${shapeId}:second-card-profile`, [
-          CARD_DRAFT_PROFILES.reclaimEvents,
-          CARD_DRAFT_PROFILES.lowCostCharacters,
-          CARD_DRAFT_PROFILES.events,
-          CARD_DRAFT_PROFILES.characters,
-        ]);
-        const firstCardDraftReward = draftCards(firstCardDraftProfile);
-        const secondCardDraftReward = draftCards(secondCardDraftProfile);
-        const secondRewardOption = context.state.quest.dreamsignPoolIds.length > 0
-          ? option({
-              number: 2,
-              text: "Gain 1 Nightmare now. At the next dreamscape, choose 1 of 3 Dreamsigns.",
-              triggers: [{ kind: "next_dreamscape" }],
-              effects: [dreamsignReward],
-              burdens: [nightmare(1)],
-              targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-              effect: delayedDreamsignDraftValue(
-                dreamsignReward,
-                context,
-                TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.burdenedFuturePayoffMultiplier,
-              ),
-              burden: valueBaneGain("Nightmare", 1),
-              uncertainty: -8,
-            })
-          : option({
-              number: 2,
-              text: `Gain 1 Nightmare now. At the next dreamscape, ${cardDraftText(firstCardDraftProfile).replace(/^Draft/u, "draft")} Gain 3 omens.`,
-              triggers: [{ kind: "next_dreamscape" }],
-              effects: [firstCardDraftReward, gainOmen(3)],
-              burdens: [nightmare(1)],
-              targets: [target("card", firstCardDraftProfile.targetDescription, firstCardDraftReward.predicate)],
-              effect: Math.round((valueCardDraft(firstCardDraftReward) + valueOmenGain(3)) * 0.85),
-              burden: valueBaneGain("Nightmare", 1),
-              uncertainty: -8,
-            });
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:random-rewards`)
+          .filter((entry) => entry.routeEffects === undefined)
+          .slice(0, 2);
 
         return {
-          options: [
+          options: rewards.map((reward, index) =>
             option({
-              number: 1,
-              text: "Pay 30 essence now. At the next dreamscape, gain 160 essence.",
-              costs: [cost("essence", 30)],
-              triggers: [{ kind: "next_dreamscape" }],
-              effects: [gainEssence(160)],
-              cost: 30,
-              effect: 128,
-              uncertainty: -8,
-            }),
-            secondRewardOption,
+              number: index + 1,
+              text: `Gain the precommitted reward: ${lowerFirst(reward.text)}`,
+              effects: [{ kind: "random_reward", table: "precommitted" }],
+              effect: reward.effect,
+              uncertainty: -12,
+            })
+          ),
+          precommitted: { random: rewards.map((reward) => reward.effects) },
+        };
+      }
+    case "commit_now_future_payoff":
+      {
+        const rewards = rewardSlots(context, drawContext, `${shapeId}:future-rewards`)
+          .filter((entry) => entry.routeEffects === undefined);
+        const timing = timingSlots(drawContext, `${shapeId}:timing`).find((entry) =>
+          entry.key === "next-dreamscape"
+        )!;
+        const commitments = [
+          costSlots(context, drawContext, `${shapeId}:commitment:1`).find((entry) => entry.key === "low-essence")!,
+          costSlots(context, drawContext, `${shapeId}:commitment:2`).find((entry) => entry.key === "nightmare")!,
+          costSlots(context, drawContext, `${shapeId}:commitment:3`).find((entry) => entry.key === "high-essence")!,
+        ];
+        const futureRewards = rewards.slice(0, 3).map((reward, index) => {
+          const commitment = commitments[index]!;
+
+          return {
+            ...reward,
+            effect: Math.round(
+              175 +
+                (commitment.cost ?? 0) -
+                (commitment.burden ?? 0) -
+                timing.uncertainty +
+                index * 10,
+            ),
+          };
+        });
+
+        return {
+          options: futureRewards.map((reward, index) =>
             option({
-              number: 3,
-              text: `Pay 55 essence now. At the next dreamscape, ${cardDraftText(secondCardDraftProfile).replace(/^Draft/u, "draft")} Gain 2 omens.`,
-              costs: [cost("essence", 55)],
-              triggers: [{ kind: "next_dreamscape" }],
-              effects: [secondCardDraftReward, gainOmen(2)],
-              targets: [target("card", secondCardDraftProfile.targetDescription, secondCardDraftReward.predicate)],
-              cost: 55,
-              effect: Math.round((valueCardDraft(secondCardDraftReward) + valueOmenGain(2)) * 0.75),
-              uncertainty: -8,
-            }),
-          ],
+              number: index + 1,
+              text: `${commitments[index]!.prefix.replace(/\.$/u, "")} now. ${timing.text}, ${lowerFirst(reward.text)}`,
+              costs: commitments[index]!.costs ?? [],
+              burdens: commitments[index]!.burdens ?? [],
+              triggers: [{ kind: timing.kind }],
+              effects: reward.effects,
+              targets: reward.targets ?? [],
+              cost: commitments[index]!.cost,
+              burden: commitments[index]!.burden,
+              effect: reward.effect,
+              uncertainty: timing.uncertainty,
+            })
+          ),
           precommitted: {
-            delayed: context.state.quest.dreamsignPoolIds.length > 0
-              ? [
-                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(160) },
-                  { optionNumber: 2, trigger: "next dreamscape", reward: dreamsignReward },
-                  { optionNumber: 3, trigger: "next dreamscape", reward: [secondCardDraftReward, gainOmen(2)] },
-                ]
-              : [
-                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(160) },
-                  { optionNumber: 2, trigger: "next dreamscape", reward: [firstCardDraftReward, gainOmen(3)] },
-                  { optionNumber: 3, trigger: "next dreamscape", reward: [secondCardDraftReward, gainOmen(2)] },
-                ],
+            delayed: futureRewards.map((reward, index) => ({
+              optionNumber: index + 1,
+              trigger: timing.text.toLowerCase(),
+              reward: reward.effects,
+            })),
           },
         };
       }
     case "alter_dreamscapes":
-      return {
-        options: [routeEdit(1, false), routeEdit(2, true)],
-        precommitted: {
-          routeEdits: [
-            {
+      {
+        const routeRewards = shuffleDeterministic(drawContext, `${shapeId}:routes`, [
+          routeReplacementReward(false),
+          routeReplacementReward(true),
+          {
+            ...routeReplacementReward(false),
+            key: "current-transfiguration-route",
+            text: "Replace a Draft site in the current dreamscape with a Transfiguration site.",
+            routeEffects: [{
               kind: "current_route_replacement",
-              fromSite: "Shop",
-              toSite: "Purge",
+              fromSite: "Draft",
+              toSite: "Transfiguration",
               timing: "current dreamscape",
               source: "simulated_manifest_only",
-            },
-            {
+            }],
+            effect: 300,
+          },
+          {
+            ...routeReplacementReward(true),
+            key: "future-transfiguration-route",
+            text: "Replace a Draft site in the next dreamscape with a Transfiguration site.",
+            routeEffects: [{
               kind: "future_route_replacement",
-              fromSite: "Shop",
-              toSite: "Purge",
+              fromSite: "Draft",
+              toSite: "Transfiguration",
               timing: "next dreamscape",
               source: "simulated_manifest_only",
-            },
-          ],
-        },
-      };
+            }],
+            effect: 305,
+          },
+        ]);
+
+        return {
+          options: routeRewards.slice(0, 2).map((reward, index) =>
+            rewardSlotOption(index + 1, reward)
+          ),
+          precommitted: {
+            routeEdits: routeRewards.slice(0, 2).flatMap((reward) => reward.routeEffects ?? []),
+          },
+        };
+      }
   }
 }
 
@@ -1770,6 +2301,13 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const shape = getShapeDefinition(args.shapeId);
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
   const options = filled.options.slice(0, shape.rootOptionCount.max);
+  const optionRouteEffects = options.flatMap((journeyOption) => journeyOption.routeEffects);
+  const precommitted = optionRouteEffects.length > 0 && filled.precommitted.routeEdits === undefined
+    ? {
+        ...filled.precommitted,
+        routeEdits: optionRouteEffects,
+      }
+    : filled.precommitted;
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),
   );
@@ -1786,7 +2324,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     options,
     ...(filled.tree ? { tree: filled.tree } : {}),
     ...(filled.rewardPool ? { rewardPool: filled.rewardPool } : {}),
-    precommitted: filled.precommitted,
+    precommitted,
     debug: {
       shapeScores: args.shapeScores,
       selectedShapeId: args.shapeId,
