@@ -2936,6 +2936,7 @@ function shopPayload(args: {
     ...(args.count !== undefined ? { count: args.count } : {}),
     ...(args.siteType ? { siteType: args.siteType } : {}),
     ...(args.hook ? { hook: args.hook } : {}),
+    ...(args.hook ? { hookBudgetCost: 1 } : {}),
   };
 }
 
@@ -3059,8 +3060,15 @@ function statusPayload(args: {
   duration: "one_time" | "next_battle" | "next_3_battles" | "persistent";
   ruleMutationKind: string;
   polarity?: "positive" | "negative" | "neutral";
+  amount?: number;
   replacement?: string;
   exactDeckSize?: number;
+  rerollOmenCap?: number;
+  cappedAction?: "reroll";
+  dreamwellRuleKind?: "first_draw_energy";
+  prohibitionKind?: "deck_cut_floor";
+  prohibitedAction?: "voluntary_deck_cut";
+  deckCutFloor?: number;
   affectedPlayer?: "you" | "opponent" | "both_players";
 }): Record<string, unknown> {
   return {
@@ -3071,8 +3079,15 @@ function statusPayload(args: {
     ruleMutationKind: args.ruleMutationKind,
     polarity: args.polarity ?? "positive",
     timing: args.duration === "one_time" || args.duration === "persistent" ? "immediate" : args.duration,
+    ...(args.amount !== undefined ? { amount: args.amount } : {}),
     ...(args.replacement ? { replacement: args.replacement } : {}),
     ...(args.exactDeckSize !== undefined ? { exactDeckSize: args.exactDeckSize } : {}),
+    ...(args.rerollOmenCap !== undefined ? { rerollOmenCap: args.rerollOmenCap } : {}),
+    ...(args.cappedAction ? { cappedAction: args.cappedAction } : {}),
+    ...(args.dreamwellRuleKind ? { dreamwellRuleKind: args.dreamwellRuleKind } : {}),
+    ...(args.prohibitionKind ? { prohibitionKind: args.prohibitionKind } : {}),
+    ...(args.prohibitedAction ? { prohibitedAction: args.prohibitedAction } : {}),
+    ...(args.deckCutFloor !== undefined ? { deckCutFloor: args.deckCutFloor } : {}),
     ...(args.affectedPlayer ? { affectedPlayer: args.affectedPlayer } : {}),
   };
 }
@@ -3094,15 +3109,27 @@ function statusRewardReplacementOptions(): JourneyOption[] {
     }),
     option({
       number: 2,
-      text: "For the next 3 battles, both players draw 1 additional card in their opening hand.",
-      effects: [statusPayload({
-        kind: "status_battle_rule",
-        statusName: "Shared Opening",
-        statusScope: "battle",
-        duration: "next_3_battles",
-        ruleMutationKind: "both_player_battle_rule",
-        affectedPlayer: "both_players",
-      })],
+      text: "For the next 3 battles, both players draw 1 additional card in their opening hand and your first Dreamwell draw produces 1 additional energy.",
+      effects: [
+        statusPayload({
+          kind: "status_battle_rule",
+          statusName: "Shared Opening",
+          statusScope: "battle",
+          duration: "next_3_battles",
+          ruleMutationKind: "both_player_battle_rule",
+          affectedPlayer: "both_players",
+        }),
+        statusPayload({
+          kind: "status_dreamwell_rule",
+          statusName: "Brighter First Draw",
+          statusScope: "dreamwell",
+          duration: "next_3_battles",
+          ruleMutationKind: "dreamwell_rule",
+          dreamwellRuleKind: "first_draw_energy",
+          amount: 1,
+          affectedPlayer: "you",
+        }),
+      ],
       effect: 125,
     }),
     option({
@@ -3114,6 +3141,8 @@ function statusRewardReplacementOptions(): JourneyOption[] {
         statusScope: "shop",
         duration: "persistent",
         ruleMutationKind: "shop_rule",
+        cappedAction: "reroll",
+        rerollOmenCap: 1,
       })],
       effect: 145,
     }),
@@ -3127,6 +3156,9 @@ function statusRewardReplacementOptions(): JourneyOption[] {
         duration: "persistent",
         ruleMutationKind: "deck_size_constraint",
         exactDeckSize: 30,
+        prohibitionKind: "deck_cut_floor",
+        prohibitedAction: "voluntary_deck_cut",
+        deckCutFloor: 30,
       })],
       effect: 130,
     }),

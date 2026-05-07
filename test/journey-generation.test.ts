@@ -820,9 +820,23 @@ describe("generateNextJourney", () => {
     expect(shopManifest!.options.flatMap((option) => option.operations.map((operation) => operation.payload))).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ economyOperationKind: "reroll_discount", shopScope: "current_shop", duration: "current shop" }),
-        expect.objectContaining({ economyOperationKind: "future_shop_trade_hook", shopScope: "future_shops", duration: "next 2 future shops" }),
+        expect.objectContaining({
+          economyOperationKind: "future_shop_trade_hook",
+          shopScope: "future_shops",
+          duration: "next 2 future shops",
+          hookBudgetCost: 1,
+        }),
       ]),
     );
+    const shopEconomyOperations = shopManifest!.options.flatMap((option) =>
+      option.operations.filter((operation) =>
+        operation.operationKind === "reward" && operation.rewardKind === "shop_economy_modifier"
+      )
+    );
+    expect(shopEconomyOperations.length).toBeGreaterThan(0);
+    for (const operation of shopEconomyOperations) {
+      expect(operation.resourceSemantics, operation.operationId).toBeUndefined();
+    }
 
     expect(dreamwellManifest!.debug.validation.ok).toBe(true);
     expect(dreamwellManifest!.options.flatMap((option) => option.operations.map((operation) => operation.payload))).toEqual(
@@ -831,6 +845,24 @@ describe("generateNextJourney", () => {
         expect.objectContaining({ dreamwellOperationKind: "penalty_card", cardRole: "penalty", duration: "next 3 battles" }),
       ]),
     );
+    expect(dreamwellManifest!.options.flatMap((option) => option.operations)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "reward",
+        rewardKind: "dreamwell_modifier",
+      }),
+      expect.objectContaining({
+        operationKind: "burden",
+        burdenKind: "dreamwell_modifier",
+      }),
+    ]));
+    for (const operation of dreamwellManifest!.options.flatMap((option) => option.operations)) {
+      if (
+        (operation.operationKind === "reward" && operation.rewardKind === "dreamwell_modifier") ||
+        (operation.operationKind === "burden" && operation.burdenKind === "dreamwell_modifier")
+      ) {
+        expect(operation.resourceSemantics, operation.operationId).toBeUndefined();
+      }
+    }
 
     expect(statusManifest!.debug.validation.ok).toBe(true);
     expect(statusManifest!.options.flatMap((option) => option.operations)).toEqual(
@@ -846,13 +878,45 @@ describe("generateNextJourney", () => {
         expect.objectContaining({
           operationKind: "status",
           payload: expect.objectContaining({
+            ruleMutationKind: "dreamwell_rule",
+            statusScope: "dreamwell",
+            dreamwellRuleKind: "first_draw_energy",
+          }),
+        }),
+        expect.objectContaining({
+          operationKind: "status",
+          payload: expect.objectContaining({
+            ruleMutationKind: "shop_rule",
+            statusScope: "shop",
+            cappedAction: "reroll",
+            rerollOmenCap: 1,
+          }),
+        }),
+        expect.objectContaining({
+          operationKind: "status",
+          payload: expect.objectContaining({
             ruleMutationKind: "deck_size_constraint",
             statusScope: "quest",
             exactDeckSize: 30,
+            prohibitionKind: "deck_cut_floor",
+            prohibitedAction: "voluntary_deck_cut",
+            deckCutFloor: 30,
           }),
         }),
       ]),
     );
+    expect(statusManifest!.precommitted.operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "delayed_hook",
+        rewardOperations: expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "status",
+            visibility: "precommitted",
+            payload: expect.objectContaining({ ruleMutationKind: "dreamwell_rule" }),
+          }),
+        ]),
+      }),
+    ]));
   });
 
   it("rejects incoherent route and status payload contracts with stable rule IDs", async () => {
@@ -926,6 +990,67 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(invalidStatusManifest, journeyContext)).toMatchObject({
       ok: false,
       rule: "unsupported_status_scope",
+    });
+
+    const invalidShopRule = {
+      ...(statusManifest.options[2]!.effects[0] as Record<string, unknown>),
+    };
+    delete invalidShopRule.rerollOmenCap;
+    const invalidShopRuleManifest: JourneyManifest = {
+      ...statusManifest,
+      options: [
+        ...statusManifest.options.slice(0, 2),
+        refreshOptionOperations({
+          ...statusManifest.options[2]!,
+          effects: [invalidShopRule],
+        }),
+        statusManifest.options[3]!,
+      ],
+    };
+
+    expect(validateJourneyManifest(invalidShopRuleManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "incoherent_rule_mutation",
+    });
+
+    const invalidProhibition = {
+      ...(statusManifest.options[3]!.effects[0] as Record<string, unknown>),
+      deckCutFloor: 29,
+    };
+    const invalidProhibitionManifest: JourneyManifest = {
+      ...statusManifest,
+      options: [
+        ...statusManifest.options.slice(0, 3),
+        refreshOptionOperations({
+          ...statusManifest.options[3]!,
+          effects: [invalidProhibition],
+        }),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalidProhibitionManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "incoherent_rule_mutation",
+    });
+
+    const saturatedHookContext = await context("shop-hook-budget");
+    saturatedHookContext.state.quest.route.unresolvedHooks = ["a", "b", "c"];
+    const shopManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: {
+        familyId: "shop",
+        variantId: "shop-economy",
+        qaId: "shop/shop-economy",
+        description: "Shop economy QA.",
+        supportedShapes: ["shop_row"],
+        supportedStages: ["mid", "late"],
+      },
+    });
+
+    expect(validateJourneyManifest(shopManifest, saturatedHookContext)).toMatchObject({
+      ok: false,
+      rule: "delayed_hook_over_persistence_budget",
     });
   });
 

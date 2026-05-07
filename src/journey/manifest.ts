@@ -269,6 +269,7 @@ export type BurdenOperation = OperationBase & {
     | "bane_gain"
     | "bane_temporary"
     | "bane_delayed"
+    | "dreamwell_modifier"
     | "resource_loss"
     | "reward_reduction"
     | "unknown";
@@ -292,7 +293,7 @@ export type DelayedHookOperation = OperationBase & {
   operationKind: "delayed_hook";
   role: "trigger" | "delayed_hook";
   hookKind: string;
-  rewardOperations?: RewardOperation[];
+  rewardOperations?: JourneyOperation[];
 };
 
 export type PairedReturnOperation = OperationBase & {

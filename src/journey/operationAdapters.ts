@@ -436,7 +436,23 @@ function resourceSemanticsFromPayload(value: unknown): ResourceAmountSemantics |
     ? "omens"
     : value.resource === "maxEssence" || value.resource === "max_essence"
       ? "maxEssence"
-      : "essence";
+      : value.resource === "essence" ||
+          kind === "gain_essence" ||
+          kind === "essence" ||
+          kind === "essence_loss" ||
+          kind === "essence_all_remaining" ||
+          kind === "resource_restore_to_maximum" ||
+          kind === "resource_percentage" ||
+          kind === "resource_random_range" ||
+          kind === "resource_cap_change" ||
+          kind === "resource_reward_reduction"
+        ? "essence"
+        : undefined;
+
+  if (!resource) {
+    return undefined;
+  }
+
   const amountKind = typeof value.resourceAmountKind === "string"
     ? value.resourceAmountKind
     : kind === "resource_restore_to_maximum"
@@ -603,6 +619,15 @@ function adaptReward(
 }
 
 function adaptStatus(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+  return adaptStatusWithVisibility(value, operationId, convertedEssence, "visible");
+}
+
+function adaptStatusWithVisibility(
+  value: unknown,
+  operationId: string,
+  convertedEssence: number | undefined,
+  visibility: "visible" | "precommitted",
+): JourneyOperation {
   const kind = legacyKind(value);
   const payload = clonePayload(value);
   const targetSelector = targetSelectorFromPayload(value);
@@ -612,7 +637,7 @@ function adaptStatus(value: unknown, operationId: string, convertedEssence?: num
     operationKind: "status",
     role: payload.polarity === "negative" ? "burden" : "reward",
     statusKind: statusKind(kind),
-    visibility: "visible",
+    visibility,
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
     ...(targetSelector ? { targetSelector } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
@@ -621,13 +646,23 @@ function adaptStatus(value: unknown, operationId: string, convertedEssence?: num
   };
 }
 
-function adaptEffect(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+function adaptEffect(
+  value: unknown,
+  operationId: string,
+  convertedEssence?: number,
+  visibility: "visible" | "precommitted" = "visible",
+): JourneyOperation {
   return isStatusPayload(value)
-    ? adaptStatus(value, operationId, convertedEssence)
-    : adaptReward(value, operationId, convertedEssence);
+    ? adaptStatusWithVisibility(value, operationId, convertedEssence, visibility)
+    : adaptReward(value, operationId, convertedEssence, visibility);
 }
 
-function adaptBurden(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+function adaptBurden(
+  value: unknown,
+  operationId: string,
+  convertedEssence?: number,
+  visibility: "visible" | "precommitted" = "visible",
+): JourneyOperation {
   const kind = legacyKind(value);
   const burdenKind = kind === "bane_gain"
     ? isRecord(value) && value.temporary === true
@@ -635,6 +670,8 @@ function adaptBurden(value: unknown, operationId: string, convertedEssence?: num
       : isRecord(value) && typeof value.timing === "string" && value.timing !== "immediate"
         ? "bane_delayed"
         : "bane_gain"
+    : kind === "dreamwell_modifier"
+      ? "dreamwell_modifier"
     : kind === "resource_reward_reduction"
       ? "reward_reduction"
       : kind === "omen_loss" || kind === "essence_loss"
@@ -656,7 +693,7 @@ function adaptBurden(value: unknown, operationId: string, convertedEssence?: num
     role: "burden",
     burdenKind,
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
-    visibility: "visible",
+    visibility,
     ...(targetSelector ? { targetSelector } : {}),
     ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
@@ -767,9 +804,13 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     ? value.trigger
     : "committed trigger";
   const rewardOperations = rewardPayloadsFromDelayedPrecommit(value)
-    .map((reward, index) =>
-      adaptReward(reward, `${operationId}:reward:${index + 1}`, undefined, "precommitted")
-    );
+    .map((reward, index) => {
+      const nestedOperationId = `${operationId}:reward:${index + 1}`;
+
+      return isRecord(reward) && reward.kind === "dreamwell_modifier" && reward.cardRole === "penalty"
+        ? adaptBurden(reward, nestedOperationId, undefined, "precommitted")
+        : adaptEffect(reward, nestedOperationId, undefined, "precommitted");
+    });
   const payload = clonePayload(value);
   delete payload.reward;
   if (rewardOperations.length > 0) {

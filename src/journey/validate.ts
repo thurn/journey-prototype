@@ -426,6 +426,25 @@ function validateStatusPayloadContract(payload: Record<string, unknown>): Valida
   }
 
   if (
+    payload.ruleMutationKind === "shop_rule" &&
+    (payload.statusScope !== "shop" ||
+      payload.cappedAction !== "reroll" ||
+      typeof payload.rerollOmenCap !== "number" ||
+      payload.rerollOmenCap < 0)
+  ) {
+    return fail("incoherent_rule_mutation", "Shop rule statuses require a structured reroll omen cap");
+  }
+
+  if (
+    payload.ruleMutationKind === "dreamwell_rule" &&
+    (payload.statusScope !== "dreamwell" ||
+      typeof payload.dreamwellRuleKind !== "string" ||
+      payload.dreamwellRuleKind.length === 0)
+  ) {
+    return fail("incoherent_rule_mutation", "Dreamwell rule statuses require Dreamwell scope and a rule kind");
+  }
+
+  if (
     payload.ruleMutationKind === "both_player_battle_rule" &&
     (payload.statusScope !== "battle" || payload.affectedPlayer !== "both_players")
   ) {
@@ -439,7 +458,36 @@ function validateStatusPayloadContract(payload: Record<string, unknown>): Valida
     return fail("incoherent_rule_mutation", "Deck-size constraints require a positive exact deck size");
   }
 
+  if (
+    payload.prohibitionKind !== undefined &&
+    (typeof payload.prohibitionKind !== "string" ||
+      typeof payload.prohibitedAction !== "string" ||
+      payload.prohibitedAction.length === 0)
+  ) {
+    return fail("incoherent_rule_mutation", "Prohibition statuses require a prohibited action");
+  }
+
+  if (
+    payload.prohibitionKind === "deck_cut_floor" &&
+    (payload.ruleMutationKind !== "deck_size_constraint" ||
+      payload.prohibitedAction !== "voluntary_deck_cut" ||
+      typeof payload.deckCutFloor !== "number" ||
+      payload.deckCutFloor < 1 ||
+      payload.deckCutFloor !== payload.exactDeckSize)
+  ) {
+    return fail("incoherent_rule_mutation", "Deck-cut prohibitions require a floor matching the exact deck size");
+  }
+
   return { ok: true };
+}
+
+function flattenOperationContracts(operations: readonly JourneyOperation[]): JourneyOperation[] {
+  return operations.flatMap((operation) => [
+    operation,
+    ...(operation.operationKind === "delayed_hook" && Array.isArray(operation.rewardOperations)
+      ? flattenOperationContracts(operation.rewardOperations)
+      : []),
+  ]);
 }
 
 function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationResult {
@@ -465,7 +513,7 @@ function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationRes
     }
   }
 
-  const operations = [
+  const operations = flattenOperationContracts([
     ...manifest.options.flatMap((option) =>
       isRecord(option) && Array.isArray(option.operations) ? option.operations : []
     ),
@@ -477,7 +525,7 @@ function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationRes
         ...(branch.terminal?.operations ?? []),
       ])
     ) ?? []),
-  ];
+  ]);
 
   for (const operation of operations) {
     if (
@@ -1743,6 +1791,40 @@ function optionImpliesDelayedOutcome(option: JourneyOption): boolean {
     });
 }
 
+function hookBudgetCostFromPayload(value: unknown): number {
+  if (!isRecord(value)) {
+    return 0;
+  }
+
+  if (typeof value.hookBudgetCost === "number" && value.hookBudgetCost > 0) {
+    return value.hookBudgetCost;
+  }
+
+  return typeof value.hook === "string" && value.hook.length > 0 ? 1 : 0;
+}
+
+function manifestHookBudgetCost(manifest: JourneyManifest): number {
+  const rootPayloads: unknown[] = manifest.options.flatMap((option) => [
+    ...option.effects,
+    ...option.burdens,
+    ...option.triggers,
+  ]);
+  const treePayloads: unknown[] = manifest.tree?.nodes.flatMap((node) =>
+    node.branches.flatMap((branch) => [
+      ...branch.effects,
+      ...branch.burdens,
+      ...branch.triggers,
+      ...(branch.terminal?.effects ?? []),
+      ...(branch.terminal?.burdens ?? []),
+    ])
+  ) ?? [];
+
+  return [...rootPayloads, ...treePayloads].reduce<number>(
+    (sum, payload) => sum + hookBudgetCostFromPayload(payload),
+    0,
+  );
+}
+
 function routeEffectNeedsTiming(routeEffect: unknown): boolean {
   if (!isRecord(routeEffect) || typeof routeEffect.kind !== "string") {
     return false;
@@ -2272,7 +2354,7 @@ function delayedPrecommittedResult(
     return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
   }
 
-  if (context.state.quest.route.unresolvedHooks.length > 3) {
+  if (context.state.quest.route.unresolvedHooks.length + manifestHookBudgetCost(manifest) > 3) {
     return fail("delayed_hook_over_persistence_budget", "Delayed hooks exceed persistence budget");
   }
 
