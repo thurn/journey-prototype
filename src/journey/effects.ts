@@ -30,12 +30,14 @@ export type CardTargetPredicate = {
   ids?: readonly string[];
   names?: readonly string[];
   cardType?: string;
+  subtype?: string;
   energyCost?: number | "*";
   minEnergyCost?: number;
   maxEnergyCost?: number;
   rarity?: string;
   isFast?: boolean;
   spark?: number;
+  renderedTextIncludes?: readonly string[] | string;
   tideOverlap?: readonly TideId[] | "selected";
   starter?: boolean;
 };
@@ -486,6 +488,30 @@ function isFast(card: CardContent): boolean {
   return card.raw["is-fast"] === true || card.raw.isFast === true;
 }
 
+function subtypeMatches(card: CardContent, subtype: string | undefined): boolean {
+  if (subtype === undefined) {
+    return true;
+  }
+
+  return String(card.raw.subtype ?? "").toLowerCase() === subtype.toLowerCase();
+}
+
+function renderedTextMatches(
+  card: CardContent,
+  renderedTextIncludes: readonly string[] | string | undefined,
+): boolean {
+  if (renderedTextIncludes === undefined) {
+    return true;
+  }
+
+  const requiredText = Array.isArray(renderedTextIncludes)
+    ? renderedTextIncludes
+    : [renderedTextIncludes];
+  const renderedText = String(card.raw["rendered-text"] ?? card.raw.renderedText ?? "").toLowerCase();
+
+  return requiredText.every((text) => renderedText.includes(text.toLowerCase()));
+}
+
 function numericCostMatches(card: CardContent, predicate: CardTargetPredicate): boolean {
   if (predicate.energyCost !== undefined && card.energyCost !== predicate.energyCost) {
     return false;
@@ -547,10 +573,12 @@ export function resolveCardTargets(
     .filter((card) => idOrNameMatches(card, predicate.ids))
     .filter((card) => idOrNameMatches(card, predicate.names))
     .filter((card) => predicate.cardType === undefined || card.cardType === predicate.cardType)
+    .filter((card) => subtypeMatches(card, predicate.subtype))
     .filter((card) => numericCostMatches(card, predicate))
     .filter((card) => predicate.rarity === undefined || card.rarity === predicate.rarity)
     .filter((card) => predicate.isFast === undefined || isFast(card) === predicate.isFast)
     .filter((card) => predicate.spark === undefined || card.spark === predicate.spark)
+    .filter((card) => renderedTextMatches(card, predicate.renderedTextIncludes))
     .filter((card) => !predicate.starter || card.rarity === "Starter")
     .filter((card) => tideOverlap === null || hasTideOverlap(card.tides, tideOverlap))
     .sort((left, right) => {

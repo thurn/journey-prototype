@@ -17,11 +17,11 @@ import {
 } from "../src/util/rng.js";
 import { stableStringify } from "../src/util/stableJson.js";
 
-async function context() {
+async function context(seed = "default") {
   const content = await loadContent(process.cwd());
   const contentVersion = "test-content-version";
   const state = createInitialJourneyState({
-    seed: "default",
+    seed,
     content,
     contentVersion,
   });
@@ -252,18 +252,80 @@ describe("generateNextJourney", () => {
     }
   });
 
-  it("balances the common positive reward menu with stronger Dreamsigns and weaker bare drafts", async () => {
+  it("balances the common positive reward menu with stronger Dreamsigns and typed four-card drafts", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("curated_reward_trio", journeyContext);
 
     expect(manifest.options.map((option) => option.text)).toEqual([
       "Gain 150 essence.",
-      "Draft 1 of 6 cards.",
+      "Draft 1 of 4 characters.",
       "Choose 1 of 3 Dreamsigns.",
     ]);
     expect(manifest.options[0]?.effectConvertedEssence).toBe(150);
     expect(manifest.options[1]?.effectConvertedEssence).toBeLessThan(75);
     expect(manifest.options[2]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
+  });
+
+  it("keeps generated card drafts at four choices with visible card predicates", async () => {
+    const journeyContext = await context();
+
+    for (const shape of JOURNEY_SHAPES) {
+      const manifest = fillForShape(shape.id, journeyContext);
+      const allEffects = [
+        ...manifest.options.flatMap((option) => option.effects),
+        ...Object.values(manifest.precommitted.sequenceMenus ?? {}).flatMap((options) =>
+          options.flatMap((option) => option.effects)
+        ),
+        ...(manifest.tree?.nodes.flatMap((node) =>
+          node.branches.flatMap((branch) => [
+            ...branch.effects,
+            ...(branch.terminal?.effects ?? []),
+          ])
+        ) ?? []),
+        ...(manifest.precommitted.random ?? []),
+        ...(manifest.rewardPool?.rewards ?? []),
+      ];
+      const cardDrafts = allEffects.filter((effect): effect is {
+        kind: "card_draft";
+        takeCount: number;
+        choiceCount: number;
+        predicate?: Record<string, unknown>;
+      } =>
+        typeof effect === "object" &&
+        effect !== null &&
+        "kind" in effect &&
+        effect.kind === "card_draft"
+      );
+
+      for (const draft of cardDrafts) {
+        expect(draft.takeCount, shape.id).toBe(1);
+        expect(draft.choiceCount, shape.id).toBe(4);
+        expect(draft.predicate, shape.id).toEqual(
+          expect.objectContaining({ source: "draftPool" }),
+        );
+        expect(
+          Boolean(draft.predicate?.cardType) ||
+            Boolean(draft.predicate?.subtype) ||
+            Boolean(draft.predicate?.isFast) ||
+            Boolean(draft.predicate?.renderedTextIncludes),
+          shape.id,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("does not emit a higher-cost duplicate card draft reward when typed draft predicates fall back", async () => {
+    const journeyContext = await context("random:f3c7440a-d810-4c24-a0da-3fa0a45a0882");
+    const manifest = fillForShape("same_reward_different_costs", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Pay 20 essence. Draft 1 of 4 low-cost characters.",
+      "Pay 30 essence. Draft 1 of 4 events. Gain 1 omen.",
+      "Pay 45 essence. Draft 1 of 4 events. Gain 2 omens.",
+    ]);
+    expect(manifest.options[2]!.netConvertedEssence).toBeGreaterThan(
+      manifest.options[1]!.netConvertedEssence,
+    );
   });
 
   it("keeps choose-your-loss essence payments comparable to non-essence losses", async () => {

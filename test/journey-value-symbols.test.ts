@@ -108,12 +108,20 @@ describe("evaluateOptionValue", () => {
     });
   });
 
-  it("keeps literal essence, unqualified card drafts, and Dreamsign choices in distinct value bands", () => {
+  it("keeps literal essence, typed card drafts, and Dreamsign choices in distinct value bands", () => {
     expect(valueEssenceGain(150)).toBe(150);
-    expect(valueCardDraft({ takeCount: 1, choiceCount: 6 })).toBeLessThan(75);
+    expect(valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: { cardType: "Character" },
+    })).toBeLessThan(75);
     expect(valueDreamsignDraft({ choiceCount: 3 })).toBeGreaterThanOrEqual(300);
     expect(valueDreamsignDraft({ choiceCount: 3 })).toBeGreaterThan(
-      valueCardDraft({ takeCount: 1, choiceCount: 6 }),
+      valueCardDraft({
+        takeCount: 1,
+        choiceCount: 4,
+        predicate: { cardType: "Character" },
+      }),
     );
   });
 });

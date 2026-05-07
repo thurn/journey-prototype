@@ -2,6 +2,7 @@ import type { ContentBundle } from "../content/model.js";
 import type { JourneyContext } from "../quest/context.js";
 import {
   BANE_NAMES,
+  type CardTargetPredicate,
   resolveCardTargets,
   resolveDreamsignTargets,
   STANDARD_TRANSFIGURATIONS,
@@ -125,6 +126,92 @@ function selectedDreamsignTargets(context: JourneyContext, drawContext: DrawCont
 
 const CARD_POOL_TARGET_DESCRIPTION = "eligible draft cards";
 const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
+const CARD_DRAFT_CHOICE_COUNT = 4;
+
+type CardDraftProfile = {
+  label: string;
+  targetDescription: string;
+  predicate: Omit<CardTargetPredicate, "source">;
+};
+
+const CARD_DRAFT_PROFILES = {
+  warriors: {
+    label: "warriors",
+    targetDescription: "Warrior draft cards",
+    predicate: { cardType: "Character", subtype: "Warrior" },
+  },
+  survivors: {
+    label: "survivors",
+    targetDescription: "Survivor draft cards",
+    predicate: { cardType: "Character", subtype: "Survivor" },
+  },
+  spiritAnimals: {
+    label: "spirit animals",
+    targetDescription: "Spirit Animal draft cards",
+    predicate: { cardType: "Character", subtype: "Spirit Animal" },
+  },
+  characters: {
+    label: "characters",
+    targetDescription: "Character draft cards",
+    predicate: { cardType: "Character" },
+  },
+  events: {
+    label: "events",
+    targetDescription: "Event draft cards",
+    predicate: { cardType: "Event" },
+  },
+  dissolveEvents: {
+    label: "Dissolve events",
+    targetDescription: "Dissolve event draft cards",
+    predicate: { cardType: "Event", renderedTextIncludes: "Dissolve" },
+  },
+  fastCharacters: {
+    label: "fast characters",
+    targetDescription: "Fast character draft cards",
+    predicate: { cardType: "Character", isFast: true },
+  },
+  materializedCharacters: {
+    label: "characters with a Materialized ability",
+    targetDescription: "Character draft cards with a Materialized ability",
+    predicate: { cardType: "Character", renderedTextIncludes: "Materialized" },
+  },
+  lowCostCharacters: {
+    label: "low-cost characters",
+    targetDescription: "Low-cost character draft cards",
+    predicate: { cardType: "Character", maxEnergyCost: 2 },
+  },
+  reclaimEvents: {
+    label: "Reclaim events",
+    targetDescription: "Reclaim event draft cards",
+    predicate: { cardType: "Event", renderedTextIncludes: "Reclaim" },
+  },
+} as const satisfies Record<string, CardDraftProfile>;
+
+const GENERIC_CARD_DRAFT_PROFILE = {
+  label: "cards",
+  targetDescription: CARD_POOL_TARGET_DESCRIPTION,
+  predicate: {},
+} as const satisfies CardDraftProfile;
+
+function cardDraftPredicate(profile: CardDraftProfile): CardTargetPredicate {
+  return {
+    source: "draftPool",
+    ...profile.predicate,
+  };
+}
+
+function legalCardDraftProfile(
+  context: JourneyContext,
+  profiles: readonly CardDraftProfile[],
+): CardDraftProfile {
+  return profiles.find((profile) =>
+    resolveCardTargets(
+      context.content,
+      context.state.quest,
+      cardDraftPredicate(profile),
+    ).length >= CARD_DRAFT_CHOICE_COUNT
+  ) ?? GENERIC_CARD_DRAFT_PROFILE;
+}
 
 function target(kind: "card" | "dreamsign", description: string, predicate: unknown) {
   return {
@@ -157,8 +244,8 @@ function gainOmen(amount: number) {
   };
 }
 
-function cardDraftText(choiceCount: number, takeCount = 1): string {
-  return `Draft ${takeCount} of ${choiceCount} cards.`;
+function cardDraftText(profile: CardDraftProfile, takeCount = 1): string {
+  return `Draft ${takeCount} of ${CARD_DRAFT_CHOICE_COUNT} ${profile.label}.`;
 }
 
 function dreamsignDraftText(choiceCount: number): string {
@@ -169,12 +256,12 @@ function chosenCardText(): string {
   return "a chosen card";
 }
 
-function draftCards(choiceCount: number) {
+function draftCards(profile: CardDraftProfile) {
   return {
     kind: "card_draft",
     takeCount: 1,
-    choiceCount,
-    predicate: { source: "draftPool", tideOverlap: "selected" },
+    choiceCount: CARD_DRAFT_CHOICE_COUNT,
+    predicate: cardDraftPredicate(profile),
   };
 }
 
@@ -233,7 +320,11 @@ function referencesFor(content: ContentBundle, cardIds: readonly string[], dream
 
 function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
   const essenceAmount = commonEssenceRewardAmount(context);
-  const cardDraft = draftCards(6);
+  const cardDraftProfile = legalCardDraftProfile(context, [
+    CARD_DRAFT_PROFILES.characters,
+    CARD_DRAFT_PROFILES.events,
+  ]);
+  const cardDraft = draftCards(cardDraftProfile);
   const dreamsignChoice = dreamsignDraft(3);
 
   return [
@@ -245,9 +336,9 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
     }),
     option({
       number: 2,
-      text: cardDraftText(6),
+      text: cardDraftText(cardDraftProfile),
       effects: [cardDraft],
-      targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+      targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
       effect: valueCardDraft(cardDraft),
     }),
     option({
@@ -260,15 +351,21 @@ function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
   ].slice(0, context.state.quest.dreamsignPoolIds.length > 0 ? 3 : 2);
 }
 
-function paidDraft(number: number, price: number, choices: number): JourneyOption {
-  const cardDraft = draftCards(choices);
+function paidDraft(
+  context: JourneyContext,
+  number: number,
+  price: number,
+  profiles: readonly CardDraftProfile[],
+): JourneyOption {
+  const cardDraftProfile = legalCardDraftProfile(context, profiles);
+  const cardDraft = draftCards(cardDraftProfile);
 
   return option({
     number,
-    text: `Pay ${price} essence. ${cardDraftText(choices)}`,
+    text: `Pay ${price} essence. ${cardDraftText(cardDraftProfile)}`,
     costs: [cost("essence", price)],
     effects: [cardDraft],
-    targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+    targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
     cost: price,
     effect: valueCardDraft(cardDraft),
   });
@@ -477,12 +574,14 @@ function buildProbabilityLadderTree(): JourneyTree {
 }
 
 function randomPool(): JourneyRewardPool {
+  const eventDraft = draftCards(CARD_DRAFT_PROFILES.events);
+
   return {
-    summary: "Randomly gain one: a Dreamsign, an event card, {Scarlet Transfiguration}, 2 omens, 75 essence, or purge a starter card. Outcomes draw with replacement.",
+    summary: "Randomly gain one: a Dreamsign, draft 1 of 4 events, {Scarlet Transfiguration}, 2 omens, 75 essence, or purge a starter card. Outcomes draw with replacement.",
     replacement: "with_replacement",
     rewards: [
       dreamsignDraft(1),
-      draftCards(1),
+      eventDraft,
       { kind: "transfiguration", transfigurationName: "Scarlet" },
       gainOmen(2),
       gainEssence(75),
@@ -638,34 +737,74 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
       return { options: commonPositiveOptions(context), precommitted: {} };
     case "same_cost_different_rewards":
       return {
-        options: [paidDraft(1, payablePrice, 4), paidDraft(2, payablePrice, 6), paidDraft(3, payablePrice, 8)],
+        options: [
+          paidDraft(context, 1, payablePrice, [
+            CARD_DRAFT_PROFILES.warriors,
+            CARD_DRAFT_PROFILES.characters,
+          ]),
+          paidDraft(context, 2, payablePrice, [
+            CARD_DRAFT_PROFILES.dissolveEvents,
+            CARD_DRAFT_PROFILES.events,
+          ]),
+          paidDraft(context, 3, payablePrice, [
+            CARD_DRAFT_PROFILES.materializedCharacters,
+            CARD_DRAFT_PROFILES.spiritAnimals,
+          ]),
+        ],
         precommitted: {},
       };
-    case "same_reward_different_costs":
+    case "same_reward_different_costs": {
+      const discountProfile = legalCardDraftProfile(context, [
+        CARD_DRAFT_PROFILES.lowCostCharacters,
+        CARD_DRAFT_PROFILES.characters,
+      ]);
+      const discountDraft = draftCards(discountProfile);
+      const omenProfile = legalCardDraftProfile(context, [
+        CARD_DRAFT_PROFILES.events,
+        CARD_DRAFT_PROFILES.characters,
+      ]);
+      const omenDraft = draftCards(omenProfile);
+      const premiumProfile = legalCardDraftProfile(context, [
+        CARD_DRAFT_PROFILES.reclaimEvents,
+        CARD_DRAFT_PROFILES.dissolveEvents,
+        CARD_DRAFT_PROFILES.events,
+      ]);
+      const premiumDraft = draftCards(premiumProfile);
+      const premiumOmenCount = premiumProfile === omenProfile ? 2 : 1;
+
       return {
         options: [
-          paidDraft(1, Math.min(20, context.state.quest.resources.essence), 4),
+          option({
+            number: 1,
+            text: `Pay ${Math.min(20, context.state.quest.resources.essence)} essence. ${cardDraftText(discountProfile)}`,
+            costs: [cost("essence", Math.min(20, context.state.quest.resources.essence))],
+            effects: [discountDraft],
+            targets: [target("card", discountProfile.targetDescription, discountDraft.predicate)],
+            cost: Math.min(20, context.state.quest.resources.essence),
+            effect: valueCardDraft(discountDraft),
+          }),
           option({
             number: 2,
-            text: `Pay ${payablePrice} essence. Draft 1 of 4 cards. Gain 1 omen.`,
+            text: `Pay ${payablePrice} essence. ${cardDraftText(omenProfile)} Gain 1 omen.`,
             costs: [cost("essence", payablePrice)],
-            effects: [draftCards(4), gainOmen(1)],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+            effects: [omenDraft, gainOmen(1)],
+            targets: [target("card", omenProfile.targetDescription, omenDraft.predicate)],
             cost: payablePrice,
-            effect: valueCardDraft(draftCards(4)) + valueOmenGain(1),
+            effect: valueCardDraft(omenDraft) + valueOmenGain(1),
           }),
           option({
             number: 3,
-            text: `Pay ${premiumPrice} essence. Draft 1 of 6 cards. Gain 1 omen.`,
+            text: `Pay ${premiumPrice} essence. ${cardDraftText(premiumProfile)} Gain ${premiumOmenCount} ${premiumOmenCount === 1 ? "omen" : "omens"}.`,
             costs: [cost("essence", premiumPrice)],
-            effects: [draftCards(6), gainOmen(1)],
-            targets: [target("card", CARD_POOL_TARGET_DESCRIPTION, { source: "draftPool", tideOverlap: "selected" })],
+            effects: [premiumDraft, gainOmen(premiumOmenCount)],
+            targets: [target("card", premiumProfile.targetDescription, premiumDraft.predicate)],
             cost: premiumPrice,
-            effect: valueCardDraft(draftCards(6)) + valueOmenGain(1),
+            effect: valueCardDraft(premiumDraft) + valueOmenGain(premiumOmenCount),
           }),
         ],
         precommitted: {},
       };
+    }
     case "service_menu":
       return {
         options: [
@@ -676,7 +815,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
             effect: 85,
           }),
-          paidDraft(2, Math.min(25, context.state.quest.resources.essence), 6),
+          paidDraft(context, 2, Math.min(25, context.state.quest.resources.essence), [
+            CARD_DRAFT_PROFILES.survivors,
+            CARD_DRAFT_PROFILES.characters,
+          ]),
           option({
             number: 3,
             text: dreamsignDraftText(3),
@@ -689,7 +831,20 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
       };
     case "shop_row":
       return {
-        options: [paidDraft(1, 45, 6), paidDraft(2, 65, 8), paidDraft(3, 85, 10)],
+        options: [
+          paidDraft(context, 1, 45, [
+            CARD_DRAFT_PROFILES.lowCostCharacters,
+            CARD_DRAFT_PROFILES.characters,
+          ]),
+          paidDraft(context, 2, 65, [
+            CARD_DRAFT_PROFILES.fastCharacters,
+            CARD_DRAFT_PROFILES.events,
+          ]),
+          paidDraft(context, 3, 85, [
+            CARD_DRAFT_PROFILES.spiritAnimals,
+            CARD_DRAFT_PROFILES.materializedCharacters,
+          ]),
+        ],
         precommitted: {},
       };
     case "curated_reward_trio":
@@ -879,7 +1034,10 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
     case "single_offer":
       return {
         options: [
-          paidDraft(1, payablePrice, 8),
+          paidDraft(context, 1, payablePrice, [
+            CARD_DRAFT_PROFILES.materializedCharacters,
+            CARD_DRAFT_PROFILES.characters,
+          ]),
           option({ number: 2, text: "Leave with no effect.", pickBehavior: "leave" }),
         ],
         precommitted: {},
@@ -994,7 +1152,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext): {
             uncertainty: -12,
           }),
         ],
-        precommitted: { random: [gainEssence(25), gainOmen(1), draftCards(4)] },
+        precommitted: { random: [gainEssence(25), gainOmen(1), draftCards(CARD_DRAFT_PROFILES.characters)] },
       };
     case "single_random_outcome":
       return {

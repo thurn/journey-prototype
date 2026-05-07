@@ -320,10 +320,13 @@ function hasVisibleDraftQualifier(predicate: unknown): boolean {
   const record = predicate as Record<string, unknown>;
 
   return typeof record.cardType === "string" ||
+    typeof record.subtype === "string" ||
     typeof record.rarity === "string" ||
     typeof record.minEnergyCost === "number" ||
     typeof record.maxEnergyCost === "number" ||
     record.isFast === true ||
+    typeof record.renderedTextIncludes === "string" ||
+    Array.isArray(record.renderedTextIncludes) ||
     Array.isArray(record.names) ||
     Array.isArray(record.ids);
 }
