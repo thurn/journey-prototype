@@ -160,6 +160,42 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   }
 
   if (
+    typeof value.siteType === "string" ||
+    typeof value.fromSite === "string" ||
+    typeof value.toSite === "string"
+  ) {
+    const siteTypes = stringArray(value.siteTypes) ??
+      [value.fromSite, value.toSite, value.siteType, value.affectedSite]
+        .filter((entry): entry is string => typeof entry === "string");
+
+    return {
+      selectorKind: "route_site",
+      selection: "exact",
+      referenceKind: "controlled_vocabulary",
+      scope: routeScopeFromPayload(value),
+      ...(siteTypes.length === 1 ? { siteType: siteTypes[0] } : {}),
+      ...(siteTypes.length > 1 ? { siteTypes } : {}),
+      required: true,
+    };
+  }
+
+  if (
+    typeof value.statusScope === "string" ||
+    typeof value.statusName === "string" ||
+    typeof value.statusId === "string"
+  ) {
+    return {
+      selectorKind: "status",
+      selection: "exact",
+      referenceKind: "controlled_vocabulary",
+      scope: typeof value.statusScope === "string" ? value.statusScope : "quest",
+      ...(typeof value.statusId === "string" ? { statusId: value.statusId } : {}),
+      ...(typeof value.statusName === "string" ? { statusName: value.statusName } : {}),
+      required: true,
+    };
+  }
+
+  if (
     typeof value.targetCardName === "string" ||
     typeof value.targetCardId === "string" ||
     typeof value.oldCardName === "string" ||
@@ -314,9 +350,47 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   return undefined;
 }
 
+function routeScopeFromPayload(value: PayloadRecord): "current_dreamscape" | "next_dreamscape" | "future_dreamscapes" | "full_atlas" {
+  if (value.routeScope === "current_dreamscape" || value.routeScope === "current") {
+    return "current_dreamscape";
+  }
+
+  if (value.routeScope === "next_dreamscape" || value.routeScope === "next") {
+    return "next_dreamscape";
+  }
+
+  if (value.routeScope === "future_dreamscapes" || value.routeScope === "future") {
+    return "future_dreamscapes";
+  }
+
+  if (value.routeScope === "full_atlas" || value.routeScope === "atlas") {
+    return "full_atlas";
+  }
+
+  const timing = typeof value.timing === "string" ? value.timing : "";
+
+  if (timing.includes("full atlas") || timing.includes("atlas")) {
+    return "full_atlas";
+  }
+
+  if (timing.includes("future")) {
+    return "future_dreamscapes";
+  }
+
+  return timing.includes("next") ? "next_dreamscape" : "current_dreamscape";
+}
+
 function timingFromPayload(value: unknown): OperationTiming | undefined {
   if (!isRecord(value) || typeof value.timing !== "string") {
     return undefined;
+  }
+
+  if (typeof value.routeScope === "string") {
+    return {
+      timingKind: "route",
+      scope: routeScopeFromPayload(value),
+      label: value.timing,
+    };
   }
 
   if (value.timing === "immediate") {
@@ -461,6 +535,8 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
     case "dreamsign_trigger_counter":
     case "dreamsign_random_reward":
     case "dreamsign_trade_hook":
+    case "shop_economy_modifier":
+    case "dreamwell_modifier":
     case "starter_cleanup":
     case "starter_replacement":
     case "card_gain":
@@ -489,6 +565,19 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
   }
 }
 
+function statusKind(kind: string | undefined): string {
+  return kind ?? "status_rule_mutation";
+}
+
+function isStatusPayload(value: unknown): boolean {
+  const kind = legacyKind(value) ?? "";
+
+  return kind.startsWith("status_") ||
+    kind.includes("_rule") ||
+    kind === "reward_replacement" ||
+    (isRecord(value) && typeof value.statusScope === "string");
+}
+
 function adaptReward(
   value: unknown,
   operationId: string,
@@ -511,6 +600,31 @@ function adaptReward(
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
   };
+}
+
+function adaptStatus(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+  const kind = legacyKind(value);
+  const payload = clonePayload(value);
+  const targetSelector = targetSelectorFromPayload(value);
+
+  return {
+    operationId,
+    operationKind: "status",
+    role: payload.polarity === "negative" ? "burden" : "reward",
+    statusKind: statusKind(kind),
+    visibility: "visible",
+    ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
+    ...(targetSelector ? { targetSelector } : {}),
+    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(kind ? { legacyKind: kind } : {}),
+    payload,
+  };
+}
+
+function adaptEffect(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+  return isStatusPayload(value)
+    ? adaptStatus(value, operationId, convertedEssence)
+    : adaptReward(value, operationId, convertedEssence);
 }
 
 function adaptBurden(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
@@ -583,36 +697,44 @@ function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
 
 function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
   const kind = legacyKind(value);
-  const timing = isRecord(value) && typeof value.timing === "string"
-    ? value.timing
-    : "";
-  const targetSelector = isRecord(value) && (typeof value.fromSite === "string" || typeof value.toSite === "string")
-    ? {
-        selectorKind: "route_site" as const,
-        selection: "exact" as const,
-        referenceKind: "controlled_vocabulary" as const,
-        scope: timing.includes("next") ? "next_dreamscape" as const : "current_dreamscape" as const,
-        siteTypes: [value.fromSite, value.toSite].filter((entry): entry is string => typeof entry === "string"),
-      }
-    : undefined;
+  const payload = clonePayload(value);
+  const timing = isRecord(value) && typeof value.timing === "string" ? value.timing : "";
+  const targetSelector = targetSelectorFromPayload(value);
+  const editKind =
+    payload.routeOperationKind === "add_site" || kind === "route_add_site"
+      ? "add_site"
+      : payload.routeOperationKind === "remove_site" || kind === "route_remove_site"
+        ? "remove_site"
+        : payload.routeOperationKind === "purge_site" || kind === "route_purge_site"
+          ? "purge_site"
+          : payload.routeOperationKind === "probability_adjustment" || kind === "route_probability_adjustment"
+            ? "probability_adjustment"
+            : kind?.includes("replacement") || payload.routeOperationKind === "replace_site"
+              ? "replace_site"
+              : "unknown";
+  const payloadValue = typeof payload.siteDeltaValue === "number"
+    ? payload.siteDeltaValue
+    : typeof payload.value === "number"
+      ? payload.value
+      : undefined;
 
   return {
     operationId,
     operationKind: "route_edit",
     role: "route_edit",
-    editKind: kind?.includes("replacement") ? "replace_site" : "unknown",
+    editKind,
     visibility: "visible",
     timing: {
       timingKind: "route",
-      scope: timing.includes("next") ? "next_dreamscape" : "current_dreamscape",
+      scope: isRecord(value) ? routeScopeFromPayload(value) : "current_dreamscape",
       ...(timing ? { label: timing } : {}),
     },
     ...(targetSelector ? { targetSelector } : {}),
     ...(isRecord(value) && typeof value.fromSite === "string" ? { fromSite: value.fromSite } : {}),
     ...(isRecord(value) && typeof value.toSite === "string" ? { toSite: value.toSite } : {}),
-    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(valueMetadata(convertedEssence ?? payloadValue) ? { value: valueMetadata(convertedEssence ?? payloadValue) } : {}),
     ...(kind ? { legacyKind: kind } : {}),
-    payload: clonePayload(value),
+    payload,
   };
 }
 
@@ -696,7 +818,7 @@ export function adaptJourneyOptionOperations(option: Omit<JourneyOption, "operat
 
   return [
     ...adaptRecordArray(option.costs, `option:${option.number}:cost`, adaptCost, costValue),
-    ...adaptRecordArray(option.effects, `option:${option.number}:effect`, adaptReward, effectValue),
+    ...adaptRecordArray(option.effects, `option:${option.number}:effect`, adaptEffect, effectValue),
     ...adaptRecordArray(option.burdens, `option:${option.number}:burden`, adaptBurden, burdenValue),
     ...adaptRecordArray(option.targets, `option:${option.number}:target`, adaptTarget),
     ...adaptRecordArray(option.triggers, `option:${option.number}:trigger`, adaptTrigger),
@@ -710,7 +832,7 @@ export function adaptTreeTerminalOperations(
 ): JourneyOperation[] {
   return [
     ...adaptRecordArray(terminal.costs, `${prefix}:cost`, adaptCost),
-    ...adaptRecordArray(terminal.effects, `${prefix}:effect`, adaptReward),
+    ...adaptRecordArray(terminal.effects, `${prefix}:effect`, adaptEffect),
     ...adaptRecordArray(terminal.burdens, `${prefix}:burden`, adaptBurden),
     ...adaptRecordArray(terminal.targets, `${prefix}:target`, adaptTarget),
     ...adaptRecordArray(terminal.routeEffects, `${prefix}:route`, adaptRouteEdit),
@@ -720,7 +842,7 @@ export function adaptTreeTerminalOperations(
 export function adaptTreeBranchOperations(branch: Omit<JourneyTreeBranch, "operations">): JourneyOperation[] {
   return [
     ...adaptRecordArray(branch.costs, `tree:${branch.id}:cost`, adaptCost, branch.costConvertedEssence),
-    ...adaptRecordArray(branch.effects, `tree:${branch.id}:effect`, adaptReward, branch.effectConvertedEssence),
+    ...adaptRecordArray(branch.effects, `tree:${branch.id}:effect`, adaptEffect, branch.effectConvertedEssence),
     ...adaptRecordArray(branch.burdens, `tree:${branch.id}:burden`, adaptBurden, branch.burdenConvertedEssence),
     ...adaptRecordArray(branch.targets, `tree:${branch.id}:target`, adaptTarget),
     ...adaptRecordArray(branch.triggers, `tree:${branch.id}:trigger`, adaptTrigger),

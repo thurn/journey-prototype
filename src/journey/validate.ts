@@ -2,6 +2,8 @@ import type { JourneyContext } from "../quest/context.js";
 import { RENDERER_VERSION } from "../render/theme.js";
 import {
   EFFECT_CATALOG_VERSION,
+  SITE_TYPES,
+  STATUS_SCOPES,
   isBaneName,
   isImmediateCostPayable,
   resolveCardTargets,
@@ -336,6 +338,169 @@ function validateSemanticOperations(manifest: JourneyManifest): ValidationResult
 
   if (!precommittedResult.ok) {
     return precommittedResult;
+  }
+
+  return { ok: true };
+}
+
+const ROUTE_OPERATION_KINDS = new Set([
+  "add_site",
+  "remove_site",
+  "replace_site",
+  "purge_site",
+  "probability_adjustment",
+]);
+
+const ROUTE_SCOPES = new Set([
+  "current_dreamscape",
+  "next_dreamscape",
+  "future_dreamscapes",
+  "full_atlas",
+]);
+
+const ROUTE_POLARITIES = new Set(["positive", "negative", "neutral"]);
+
+const SITE_TYPE_SET = new Set<string>(SITE_TYPES);
+const STATUS_SCOPE_SET = new Set<string>(STATUS_SCOPES);
+
+function validateRoutePayloadContract(payload: Record<string, unknown>): ValidationResult {
+  const operationKind = payload.routeOperationKind;
+
+  if (typeof operationKind !== "string" || !ROUTE_OPERATION_KINDS.has(operationKind)) {
+    return fail("unsupported_route_operation", "Route edits require a supported route operation kind");
+  }
+
+  if (typeof payload.routeScope !== "string" || !ROUTE_SCOPES.has(payload.routeScope)) {
+    return fail("unsupported_route_scope", "Route edits require current, next, future, or full-atlas scope");
+  }
+
+  if (typeof payload.routePolarity !== "string" || !ROUTE_POLARITIES.has(payload.routePolarity)) {
+    return fail("invalid_route_polarity", "Route edits require positive, negative, or neutral polarity");
+  }
+
+  const siteNames = [
+    payload.siteType,
+    payload.fromSite,
+    payload.toSite,
+    payload.affectedSite,
+  ].filter((entry): entry is string => typeof entry === "string");
+
+  if (siteNames.length === 0) {
+    return fail("invalid_route_site_type", "Route edits require at least one controlled site type");
+  }
+
+  const invalidSite = siteNames.find((siteName) => !SITE_TYPE_SET.has(siteName));
+  if (invalidSite) {
+    return fail("invalid_route_site_type", `Unknown route site type: ${invalidSite}`);
+  }
+
+  if (operationKind === "replace_site" && (typeof payload.fromSite !== "string" || typeof payload.toSite !== "string")) {
+    return fail("incoherent_route_mutation", "Route replacement requires fromSite and toSite");
+  }
+
+  if (
+    operationKind === "probability_adjustment" &&
+    (typeof payload.probabilityDeltaPercent !== "number" || payload.probabilityDeltaPercent === 0)
+  ) {
+    return fail("incoherent_route_mutation", "Route probability adjustments require a nonzero probability delta");
+  }
+
+  return { ok: true };
+}
+
+function validateStatusPayloadContract(payload: Record<string, unknown>): ValidationResult {
+  if (typeof payload.statusScope !== "string" || !STATUS_SCOPE_SET.has(payload.statusScope)) {
+    return fail("unsupported_status_scope", "Status and rule mutations require a supported status scope");
+  }
+
+  if (typeof payload.duration !== "string" || payload.duration.length === 0) {
+    return fail("invalid_status_duration", "Status and rule mutations require a structured duration");
+  }
+
+  if (typeof payload.ruleMutationKind !== "string" || payload.ruleMutationKind.length === 0) {
+    return fail("incoherent_rule_mutation", "Status and rule mutations require a rule mutation kind");
+  }
+
+  if (payload.ruleMutationKind === "reward_replacement" && typeof payload.replacement !== "string") {
+    return fail("incoherent_rule_mutation", "Reward replacement statuses require a replacement");
+  }
+
+  if (
+    payload.ruleMutationKind === "both_player_battle_rule" &&
+    (payload.statusScope !== "battle" || payload.affectedPlayer !== "both_players")
+  ) {
+    return fail("incoherent_rule_mutation", "Both-player battle rules require battle scope and both-player targeting");
+  }
+
+  if (
+    payload.ruleMutationKind === "deck_size_constraint" &&
+    (typeof payload.exactDeckSize !== "number" || payload.exactDeckSize < 1)
+  ) {
+    return fail("incoherent_rule_mutation", "Deck-size constraints require a positive exact deck size");
+  }
+
+  return { ok: true };
+}
+
+function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationResult {
+  const optionRouteEffects = manifest.options.flatMap((option) =>
+    isRecord(option) && Array.isArray(option.routeEffects) ? option.routeEffects : []
+  );
+  const routePayloads = [
+    ...optionRouteEffects,
+    ...(manifest.precommitted.routeEdits ?? []),
+  ];
+
+  for (const payload of routePayloads) {
+    if (!isRecord(payload)) {
+      continue;
+    }
+
+    if (typeof payload.routeOperationKind === "string" || typeof payload.kind === "string" && payload.kind.startsWith("route_")) {
+      const result = validateRoutePayloadContract(payload);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+  }
+
+  const operations = [
+    ...manifest.options.flatMap((option) =>
+      isRecord(option) && Array.isArray(option.operations) ? option.operations : []
+    ),
+    ...(manifest.precommitted.operations ?? []),
+    ...(manifest.rewardPool?.operations ?? []),
+    ...(manifest.tree?.nodes.flatMap((node) =>
+      node.branches.flatMap((branch) => [
+        ...branch.operations,
+        ...(branch.terminal?.operations ?? []),
+      ])
+    ) ?? []),
+  ];
+
+  for (const operation of operations) {
+    if (
+      operation.operationKind === "route_edit" &&
+      (
+        typeof operation.payload.routeOperationKind === "string" ||
+        (typeof operation.payload.kind === "string" && operation.payload.kind.startsWith("route_"))
+      )
+    ) {
+      const result = validateRoutePayloadContract(operation.payload);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+
+    if (operation.operationKind === "status") {
+      const result = validateStatusPayloadContract(operation.payload);
+
+      if (!result.ok) {
+        return result;
+      }
+    }
   }
 
   return { ok: true };
@@ -1135,7 +1300,8 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
         return false;
       }
 
-      return routeEffect.kind.includes("addition") || routeEffect.kind.includes("add");
+      return !("routeOperationKind" in routeEffect) &&
+        (routeEffect.kind.includes("addition") || routeEffect.kind.includes("add"));
     })
   ) {
     return fail("route_addition_standalone_positive_reward", "Route addition cannot be a standalone positive reward");
@@ -1592,8 +1758,8 @@ function validateRouteEffects(routeEffects: readonly unknown[]): ValidationResul
     }
 
     if (
-      routeEffect.kind.includes("addition") ||
-      routeEffect.kind.includes("add")
+      !("routeOperationKind" in routeEffect) &&
+      (routeEffect.kind.includes("addition") || routeEffect.kind.includes("add"))
     ) {
       return fail("route_addition_standalone_positive_reward", "Route addition cannot be a standalone route edit");
     }
@@ -2203,6 +2369,17 @@ function validationRuleOutcomes(
     optionCountResult,
     optionChecked.length > 0 ? optionChecked : manifestChecked,
     "Root option count is legal for the selected shape.",
+    { fatal: true },
+  )) {
+    return rules;
+  }
+
+  const typedPayloadContractResult = validateTypedPayloadContracts(manifest);
+  if (!pushRule(
+    typedPayloadContractResult.ok ? "typed_payload_contracts" : typedPayloadContractResult.rule,
+    typedPayloadContractResult,
+    checked,
+    "Typed route, status, and rule-mutation payload contracts are coherent.",
     { fatal: true },
   )) {
     return rules;

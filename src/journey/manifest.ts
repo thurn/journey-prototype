@@ -53,7 +53,11 @@ export type TargetResolutionMetadata = {
 export type OperationTiming =
   | { timingKind: "immediate"; label?: string }
   | { timingKind: "delayed"; trigger: string; label?: string }
-  | { timingKind: "route"; scope: "current_dreamscape" | "next_dreamscape"; label?: string }
+  | {
+    timingKind: "route";
+    scope: "current_dreamscape" | "next_dreamscape" | "future_dreamscapes" | "full_atlas";
+    label?: string;
+  }
   | { timingKind: "random"; label?: string };
 
 export type OperationValueMetadata = {
@@ -124,7 +128,7 @@ export type TargetSelector =
   })
   | (TargetSelectorBase & {
     selectorKind: "route_site";
-    scope?: "current_dreamscape" | "next_dreamscape" | "route";
+    scope?: "current_dreamscape" | "next_dreamscape" | "future_dreamscapes" | "full_atlas" | "route";
     siteType?: string;
     siteTypes?: string[];
   })
@@ -250,6 +254,8 @@ export type RewardOperation = OperationBase & {
     | "bane_chosen_purge"
     | "bane_replace"
     | "bane_transform_to_card"
+    | "shop_economy_modifier"
+    | "dreamwell_modifier"
     | "battle_window_modifier"
     | "random_reward"
     | "random_series"
@@ -277,7 +283,7 @@ export type StatusOperation = OperationBase & {
 export type RouteEditOperation = OperationBase & {
   operationKind: "route_edit";
   role: "route_edit";
-  editKind: "replace_site" | "unknown";
+  editKind: "add_site" | "remove_site" | "replace_site" | "purge_site" | "probability_adjustment" | "unknown";
   fromSite?: string;
   toSite?: string;
 };

@@ -179,6 +179,16 @@ function committedOutcomeText(value: unknown): string {
       return `Gain ${value.amount} essence.`;
     case "gain_omens":
       return `Gain ${countText(value.amount, "omen", "omens")}.`;
+    case "route_add_site":
+      return `Add a ${value.siteType ?? "site"} site to ${value.routeScope ?? "the route"}.`;
+    case "route_remove_site":
+      return `Remove a ${value.siteType ?? "site"} site from ${value.routeScope ?? "the route"}.`;
+    case "route_purge_site":
+      return `Purge ${value.siteType ?? "site"} sites from ${value.routeScope ?? "the atlas"}.`;
+    case "route_replace_site":
+      return `Replace a ${value.fromSite ?? "site"} site with a ${value.toSite ?? "site"} site in ${value.routeScope ?? "the route"}.`;
+    case "route_probability_adjustment":
+      return `Adjust ${value.siteType ?? "site"} odds by ${value.probabilityDeltaPercent ?? "?"}% for ${value.routeScope ?? "future routes"}.`;
     case "card_draft":
       return `Draft ${value.takeCount ?? 1} of ${value.choiceCount ?? "?"} cards${predicateSummary(value.predicate)}.`;
     case "dreamsign_draft":

@@ -112,8 +112,10 @@ export const STANDARD_TRANSFIGURATIONS = Object.freeze([
 ] as const);
 
 export const SITE_TYPES = Object.freeze([
+  "Battle",
   "Draft",
   "Shop",
+  "Specialty Shop",
   "Purge",
   "Transfiguration",
   "Dreamsign Offering",
@@ -397,6 +399,48 @@ const EFFECT_DEFINITIONS = [
     family: "route",
     textTemplate: "Replace a {fromSite} site in the next dreamscape with a {toSite} site.",
     tags: ["reward", "route", "future"],
+  },
+  {
+    id: "route-add-site",
+    family: "route",
+    textTemplate: "Add a {siteType} site to {routeScope}.",
+    tags: ["reward", "route", "add"],
+  },
+  {
+    id: "route-remove-site",
+    family: "route",
+    textTemplate: "Remove a {siteType} site from {routeScope}.",
+    tags: ["reward", "route", "remove"],
+  },
+  {
+    id: "route-purge-site",
+    family: "route",
+    textTemplate: "Purge {siteType} sites from {routeScope}.",
+    tags: ["reward", "route", "purge"],
+  },
+  {
+    id: "route-probability-adjust",
+    family: "route",
+    textTemplate: "Adjust future {siteType} site probability by {probabilityDeltaPercent}%.",
+    tags: ["reward", "route", "probability"],
+  },
+  {
+    id: "shop-economy-modifier",
+    family: "shop",
+    textTemplate: "Apply {economyOperationKind} to {shopScope}.",
+    tags: ["reward", "shop", "economy"],
+  },
+  {
+    id: "dreamwell-modifier",
+    family: "dreamwell",
+    textTemplate: "Apply {dreamwellOperationKind} to the Dreamwell.",
+    tags: ["reward", "dreamwell", "battle"],
+  },
+  {
+    id: "status-rule-mutation",
+    family: "status",
+    textTemplate: "Create {statusName} with {statusScope} scope.",
+    tags: ["reward", "status", "rule"],
   },
   {
     id: "triggered-reward",

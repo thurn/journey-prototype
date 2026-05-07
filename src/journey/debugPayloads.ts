@@ -96,28 +96,28 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "route",
     description: "Route edit payloads.",
     variants: [
-      variant("route", "route-edits", "unimplemented", "Reserved for add, remove, replace, purge, and probability route edits.", ["alter_dreamscapes"], ["mid", "late"]),
+      variant("route", "route-edits", "available", "Deterministic add, remove, replace, purge, and probability route edits.", ["service_menu"], ["mid", "late"]),
     ],
   },
   {
     id: "shop",
     description: "Shop economy payloads.",
     variants: [
-      variant("shop", "shop-economy", "unimplemented", "Reserved for shop price, inventory, and timing modifiers.", ["shop_row"], ["mid", "late"]),
+      variant("shop", "shop-economy", "available", "Deterministic shop price, inventory, purchase counter, and future-shop modifiers.", ["shop_row"], ["mid", "late"]),
     ],
   },
   {
     id: "dreamwell",
     description: "Dreamwell window payloads.",
     variants: [
-      variant("dreamwell", "dreamwell-window", "unimplemented", "Reserved for Dreamwell timing and battle-window modifiers.", "all", ["mid", "late"]),
+      variant("dreamwell", "dreamwell-window", "available", "Deterministic Dreamwell first-draw, card, upgrade, delayed, and battle-window modifiers.", ["service_menu"], ["mid", "late"]),
     ],
   },
   {
     id: "status",
     description: "Quest status reward and replacement payloads.",
     variants: [
-      variant("status", "status-reward-replacement", "unimplemented", "Reserved for persistent and one-time quest status rewards."),
+      variant("status", "status-reward-replacement", "available", "Deterministic one-time, temporary, persistent, prohibition, and replacement status rules.", ["service_menu"], ["late"]),
     ],
   },
   {

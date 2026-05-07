@@ -752,6 +752,183 @@ describe("generateNextJourney", () => {
     });
   });
 
+  it("forces route, shop, Dreamwell, and status payload families with structured scope and duration", async () => {
+    const journeyContext = await context("route-shop-dreamwell-status");
+    const variants = [
+      {
+        familyId: "route",
+        variantId: "route-edits",
+        qaId: "route/route-edits",
+        description: "Route operation QA.",
+        supportedShapes: ["service_menu"],
+        supportedStages: ["mid", "late"],
+      },
+      {
+        familyId: "shop",
+        variantId: "shop-economy",
+        qaId: "shop/shop-economy",
+        description: "Shop economy QA.",
+        supportedShapes: ["shop_row"],
+        supportedStages: ["mid", "late"],
+      },
+      {
+        familyId: "dreamwell",
+        variantId: "dreamwell-window",
+        qaId: "dreamwell/dreamwell-window",
+        description: "Dreamwell window QA.",
+        supportedShapes: ["service_menu"],
+        supportedStages: ["mid", "late"],
+      },
+      {
+        familyId: "status",
+        variantId: "status-reward-replacement",
+        qaId: "status/status-reward-replacement",
+        description: "Status reward replacement QA.",
+        supportedShapes: ["service_menu"],
+        supportedStages: ["late"],
+      },
+    ] satisfies DebugPayloadSelection[];
+
+    const [routeManifest, shopManifest, dreamwellManifest, statusManifest] = variants.map((forcedDebugPayload) =>
+      generateNextJourney({
+        context: journeyContext,
+        forcedStage: forcedDebugPayload.familyId === "status" ? "late" : "mid",
+        forcedDebugPayload,
+      })
+    );
+
+    expect(routeManifest!.debug.validation.ok).toBe(true);
+    expect(routeManifest!.options.flatMap((option) => option.operations.map((operation) =>
+      operation.operationKind === "route_edit" ? operation.editKind : undefined
+    ))).toEqual(expect.arrayContaining([
+      "add_site",
+      "remove_site",
+      "replace_site",
+      "purge_site",
+      "probability_adjustment",
+    ]));
+    expect(routeManifest!.precommitted.routeEdits).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        routeOperationKind: "probability_adjustment",
+        routeScope: "future_dreamscapes",
+        routePolarity: "positive",
+        siteDeltaValue: expect.any(Number),
+      }),
+    ]));
+
+    expect(shopManifest!.debug.validation.ok).toBe(true);
+    expect(shopManifest!.options.flatMap((option) => option.operations.map((operation) => operation.payload))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ economyOperationKind: "reroll_discount", shopScope: "current_shop", duration: "current shop" }),
+        expect.objectContaining({ economyOperationKind: "future_shop_trade_hook", shopScope: "future_shops", duration: "next 2 future shops" }),
+      ]),
+    );
+
+    expect(dreamwellManifest!.debug.validation.ok).toBe(true);
+    expect(dreamwellManifest!.options.flatMap((option) => option.operations.map((operation) => operation.payload))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dreamwellOperationKind: "first_draw_energy", dreamwellScope: "next_battle", duration: "next battle" }),
+        expect.objectContaining({ dreamwellOperationKind: "penalty_card", cardRole: "penalty", duration: "next 3 battles" }),
+      ]),
+    );
+
+    expect(statusManifest!.debug.validation.ok).toBe(true);
+    expect(statusManifest!.options.flatMap((option) => option.operations)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "status",
+          payload: expect.objectContaining({
+            ruleMutationKind: "reward_replacement",
+            statusScope: "reward",
+            duration: "one_time",
+          }),
+        }),
+        expect.objectContaining({
+          operationKind: "status",
+          payload: expect.objectContaining({
+            ruleMutationKind: "deck_size_constraint",
+            statusScope: "quest",
+            exactDeckSize: 30,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("rejects incoherent route and status payload contracts with stable rule IDs", async () => {
+    const journeyContext = await context("route-status-validation");
+    const routePayload = {
+      familyId: "route",
+      variantId: "route-edits",
+      qaId: "route/route-edits",
+      description: "Route operation QA.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const statusPayload = {
+      familyId: "status",
+      variantId: "status-reward-replacement",
+      qaId: "status/status-reward-replacement",
+      description: "Status reward replacement QA.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["late"],
+    } satisfies DebugPayloadSelection;
+    const routeManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: routePayload,
+    });
+    const invalidRouteEffect = {
+      ...(routeManifest.options[1]!.routeEffects[0] as Record<string, unknown>),
+      siteType: "Unknown Site",
+    };
+    const invalidRouteManifest: JourneyManifest = {
+      ...routeManifest,
+      options: [
+        routeManifest.options[0]!,
+        refreshOptionOperations({
+          ...routeManifest.options[1]!,
+          routeEffects: [invalidRouteEffect],
+        }),
+        ...routeManifest.options.slice(2),
+      ],
+      precommitted: refreshPrecommittedOperations({
+        ...routeManifest.precommitted,
+        routeEdits: [invalidRouteEffect],
+      }),
+    };
+
+    expect(validateJourneyManifest(invalidRouteManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_route_site_type",
+    });
+
+    const statusManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: statusPayload,
+    });
+    const invalidStatusEffect = {
+      ...(statusManifest.options[0]!.effects[0] as Record<string, unknown>),
+      statusScope: "unsupported_scope",
+    };
+    const invalidStatusManifest: JourneyManifest = {
+      ...statusManifest,
+      options: [
+        refreshOptionOperations({
+          ...statusManifest.options[0]!,
+          effects: [invalidStatusEffect],
+        }),
+        ...statusManifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalidStatusManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "unsupported_status_scope",
+    });
+  });
+
   it("forces named card operation menus with typed real-card operation payloads", async () => {
     const requiredRewardKinds = new Set([
       "card_gain",
