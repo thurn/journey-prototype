@@ -7,6 +7,7 @@ import type {
   OperationValueMetadata,
   PrecommittedOutcomes,
   RandomEnvelopeOperation,
+  RewardOperation,
   TargetSelector,
 } from "./manifest.js";
 
@@ -186,7 +187,7 @@ function adaptReward(
   operationId: string,
   convertedEssence?: number,
   visibility: "visible" | "precommitted" = "visible",
-): JourneyOperation {
+): RewardOperation {
   const kind = legacyKind(value);
   const targetSelector = targetSelectorFromPayload(value);
 
@@ -295,10 +296,26 @@ function adaptRandomEnvelope(value: unknown, operationId: string): JourneyOperat
   };
 }
 
+function rewardPayloadsFromDelayedPrecommit(value: unknown): unknown[] {
+  if (!isRecord(value) || value.reward === undefined) {
+    return [];
+  }
+
+  return Array.isArray(value.reward) ? value.reward : [value.reward];
+}
+
 function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOperation {
   const trigger = isRecord(value) && typeof value.trigger === "string"
     ? value.trigger
     : "committed trigger";
+  const rewardOperations = rewardPayloadsFromDelayedPrecommit(value)
+    .map((reward, index) =>
+      adaptReward(reward, `${operationId}:reward:${index + 1}`, undefined, "precommitted")
+    );
+  const payload = {
+    ...clonePayload(value),
+    ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
+  };
 
   return {
     operationId,
@@ -307,7 +324,8 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     hookKind: trigger,
     timing: { timingKind: "delayed", trigger },
     visibility: "precommitted",
-    payload: clonePayload(value),
+    ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
+    payload,
   };
 }
 
@@ -370,9 +388,6 @@ export function adaptTreeBranchOperations(branch: Omit<JourneyTreeBranch, "opera
     ...adaptRecordArray(branch.targets, `tree:${branch.id}:target`, adaptTarget),
     ...adaptRecordArray(branch.triggers, `tree:${branch.id}:trigger`, adaptTrigger),
     ...adaptRecordArray(branch.routeEffects, `tree:${branch.id}:route`, adaptRouteEdit, branch.effectConvertedEssence),
-    ...(branch.terminal
-      ? adaptTreeTerminalOperations(branch.terminal, `tree:${branch.id}:terminal`)
-      : []),
   ];
 }
 

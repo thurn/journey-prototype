@@ -573,6 +573,52 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("keeps tree branch operations separate from terminal operations", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("random_pool_draws", journeyContext);
+
+    for (const node of manifest.tree?.nodes ?? []) {
+      for (const branch of node.branches) {
+        const branchOperationIds = new Set(
+          branch.operations.map((operation) => operation.operationId),
+        );
+
+        expect(
+          branch.operations.some((operation) => operation.operationId.includes(":terminal:")),
+          branch.id,
+        ).toBe(false);
+
+        for (const terminalOperation of branch.terminal?.operations ?? []) {
+          expect(branchOperationIds.has(terminalOperation.operationId), branch.id).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("exposes typed reward operations for delayed precommitted hooks", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const delayedOperations = manifest.precommitted.operations?.filter((operation) =>
+      operation.operationKind === "delayed_hook" && operation.role === "delayed_hook"
+    ) ?? [];
+
+    expect(delayedOperations.length).toBeGreaterThan(0);
+
+    for (const operation of delayedOperations) {
+      expect(operation.rewardOperations?.length, operation.operationId).toBeGreaterThan(0);
+      expect(operation.payload.rewardOperations, operation.operationId).toEqual(operation.rewardOperations);
+      expect(operation.rewardOperations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "reward",
+            role: "reward",
+            visibility: "precommitted",
+          }),
+        ]),
+      );
+    }
+  });
+
   diversityAuditIt("varies every forced shape across deterministic seed batches", async () => {
     const content = await loadContent(process.cwd());
     const treeShapeIds = new Set(

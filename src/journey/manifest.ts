@@ -164,6 +164,7 @@ export type DelayedHookOperation = OperationBase & {
   operationKind: "delayed_hook";
   role: "trigger" | "delayed_hook";
   hookKind: string;
+  rewardOperations?: RewardOperation[];
 };
 
 export type PairedReturnOperation = OperationBase & {
