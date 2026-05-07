@@ -5,11 +5,11 @@
 Run from the repository root:
 
 ```bash
-npm run journey -- run
-npm run journey -- pick 1
-npm run journey -- state
-npm run journey -- new --force --seed qa
-npm run journey -- run --json
+npm run journey -- --seed qa --no-color
+npm run journey -- run --seed qa --no-color
+npm run journey -- --seed qa --json
+npm run journey -- --seed qa --debug --no-color
+npm run journey -- --seed qa --shape prize_ladder --no-color
 npm run typecheck
 npm test
 npm run build
@@ -20,7 +20,7 @@ The package is private, ESM TypeScript, and requires Node >=20. The CLI bin is `
 ## Source Map
 
 - `src/cli.ts`: Commander setup, common flags, default no-argument behavior.
-- `src/commands/`: command handlers for `run`, `pick`, `state`, `new`, and no-argument journey start.
+- `src/commands/`: command handlers and shared command options. The current CLI registers no-argument stateless Journey generation and `run`.
 - `src/state/`: `.journey/state.json` schema, reading, validation, and atomic writes.
 - `src/content/`: TOML loading, content model, validation, and content-version hash.
 - `src/quest/`: deterministic simulated quest context and package tide resolution.
@@ -44,21 +44,23 @@ Read the design docs before changing behavior:
 
 ## QA Checklist
 
-Use a fixed seed and reset local simulator state before behavior QA:
+Use fixed seeds and explicit flags before behavior QA. The current CLI is stateless for registered commands, so no local reset command is required unless the task explicitly changes stateful command wiring.
 
 ```bash
-npm run journey -- new --force --seed qa
-npm run journey -- run --no-color
-npm run journey -- pick 1 --no-color
-npm run journey -- state --no-color
+npm run journey -- --seed qa --no-color
+npm run journey -- run --seed qa --no-color
+npm run journey -- --seed qa --json
+npm run journey -- --seed qa --debug --no-color
+npm run journey -- --seed qa --shape prize_ladder --no-color
 ```
 
 Add focused variants for the changed surface:
 
-- `--json` for manifest/state payload changes.
-- `--no-debug` for debug visibility changes.
-- invalid picks such as `npm run journey -- pick 999 --no-color` for command errors.
-- repeated `npm run journey -- run --no-color` for frozen pending Journey behavior.
-- `npm run build && npm run start -- run --no-color` when packaging or bin behavior changes.
+- `--json` for manifest payload changes.
+- `--debug` and `--debug-context` for debug visibility changes.
+- `--shape <shape>` for affected shape families.
+- invalid flags or shapes such as `npm run journey -- --shape nope --no-color` for command errors.
+- repeated fixed-seed commands for deterministic replay.
+- `npm run build && npm run start -- --seed qa --no-color` when packaging or bin behavior changes.
 
 Capture enough of the observed output to prove the requested behavior works. If a scenario cannot be reached naturally, add a deterministic debug/test surface first, then validate through that surface.

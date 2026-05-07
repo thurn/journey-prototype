@@ -25,21 +25,21 @@ Start by reading [Project Context](references/project-context.md). Then open onl
 
 Manual QA is required for every behavior change, even when automated tests pass. "This is hard to reproduce" is not a valid reason to skip QA.
 
-Use deterministic seeds and local state setup so QA can be repeated. Typical commands:
+Use deterministic seeds and explicit flags so QA can be repeated. The current CLI registers stateless default generation plus the `run` subcommand; do not use legacy `new`, `pick`, or `state` commands unless the task explicitly restores or wires those commands.
 
 ```bash
-npm run journey -- new --force --seed qa
-npm run journey -- run --no-color
-npm run journey -- pick 1 --no-color
-npm run journey -- state --no-color
-npm run journey -- run --json
+npm run journey -- --seed qa --no-color
+npm run journey -- run --seed qa --no-color
+npm run journey -- --seed qa --json
+npm run journey -- --seed qa --debug --no-color
+npm run journey -- --seed qa --shape prize_ladder --no-color
 ```
 
 Match QA to the changed surface:
 
-- Rendering changes: inspect normal output, `--no-debug`, `--no-color`, and JSON if affected.
-- Command/state changes: verify exit status, stdout/stderr behavior, state persistence, malformed or missing state, and content-version mismatch if relevant.
-- Generator changes: validate at least one fixed seed, one pick transition, JSON manifest fields, debug explanations, and any affected shape family.
+- Rendering changes: inspect normal output, `--no-color`, and JSON if affected.
+- Command/state changes: verify exit status and stdout/stderr behavior; verify state persistence, malformed or missing state, and content-version mismatch only when the stateful command path is actually registered or under active change.
+- Generator changes: validate at least one fixed seed, deterministic replay for the same seed, JSON manifest fields, debug explanations, and any affected shape family with `--shape`.
 - Content loading changes: run a CLI command against real `data/*.toml` and verify failures are readable when content is invalid.
 
 Automated tests are useful but are not a substitute for manual CLI QA. Do not mark the work complete until the CLI has been exercised in the terminal and the observed behavior matches the request.
