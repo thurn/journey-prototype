@@ -607,6 +607,7 @@ describe("generateNextJourney", () => {
     for (const operation of delayedOperations) {
       expect(operation.rewardOperations?.length, operation.operationId).toBeGreaterThan(0);
       expect(operation.payload.rewardOperations, operation.operationId).toEqual(operation.rewardOperations);
+      expect(operation.payload.reward, operation.operationId).toBeUndefined();
       expect(operation.rewardOperations).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

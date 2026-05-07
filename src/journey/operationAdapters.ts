@@ -312,10 +312,11 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     .map((reward, index) =>
       adaptReward(reward, `${operationId}:reward:${index + 1}`, undefined, "precommitted")
     );
-  const payload = {
-    ...clonePayload(value),
-    ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
-  };
+  const payload = clonePayload(value);
+  delete payload.reward;
+  if (rewardOperations.length > 0) {
+    payload.rewardOperations = rewardOperations;
+  }
 
   return {
     operationId,
