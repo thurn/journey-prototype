@@ -408,26 +408,35 @@ function referencesFor(content: ContentBundle, cardIds: readonly string[], dream
 
 function commonPositiveOptions(context: JourneyContext): JourneyOption[] {
   const essenceAmount = commonEssenceRewardAmount(context);
+  const essenceValue = valueEssenceGain(essenceAmount, context);
   const cardDraftProfile = legalCardDraftProfile(context, [
     CARD_DRAFT_PROFILES.characters,
     CARD_DRAFT_PROFILES.events,
   ]);
   const cardDraft = draftCards(cardDraftProfile);
   const dreamsignChoice = dreamsignDraft(3);
+  const resourceOption = essenceValue >= 300
+    ? option({
+        number: 1,
+        text: `Gain ${essenceAmount} essence.`,
+        effects: [gainEssence(essenceAmount)],
+        effect: essenceValue,
+      })
+    : option({
+        number: 1,
+        text: "Gain 6 omens.",
+        effects: [gainOmen(6)],
+        effect: valueOmenGain(6),
+      });
 
   return [
-    option({
-      number: 1,
-      text: `Gain ${essenceAmount} essence.`,
-      effects: [gainEssence(essenceAmount)],
-      effect: valueEssenceGain(essenceAmount, context),
-    }),
+    resourceOption,
     option({
       number: 2,
-      text: cardDraftText(cardDraftProfile),
-      effects: [cardDraft],
+      text: `${cardDraftText(cardDraftProfile)} Gain 4 omens.`,
+      effects: [cardDraft, gainOmen(4)],
       targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
-      effect: valueCardDraft(cardDraft),
+      effect: valueCardDraft(cardDraft) + valueOmenGain(4),
     }),
     option({
       number: 3,
@@ -1002,15 +1011,29 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         options: [
           option({
             number: 1,
-            text: "Purge up to 1 chosen Starter card.",
-            effects: [starterCleanup(1)],
+            text: "Purge up to 1 chosen Starter card. Gain 4 omens.",
+            effects: [starterCleanup(1), gainOmen(4)],
             targets: [target("card", "Starter cards in deck", { source: "deck", starter: true })],
-            effect: 85,
+            effect: 85 + valueOmenGain(4),
           }),
-          paidDraft(context, 2, Math.min(25, context.state.quest.resources.essence), [
-            CARD_DRAFT_PROFILES.survivors,
-            CARD_DRAFT_PROFILES.characters,
-          ]),
+          (() => {
+            const price = Math.min(25, context.state.quest.resources.essence);
+            const cardDraftProfile = legalCardDraftProfile(context, [
+              CARD_DRAFT_PROFILES.survivors,
+              CARD_DRAFT_PROFILES.characters,
+            ]);
+            const cardDraft = draftCards(cardDraftProfile);
+
+            return option({
+              number: 2,
+              text: `Pay ${price} essence. ${cardDraftText(cardDraftProfile)} Gain 4 omens.`,
+              costs: [cost("essence", price)],
+              effects: [cardDraft, gainOmen(4)],
+              targets: [target("card", cardDraftProfile.targetDescription, cardDraft.predicate)],
+              cost: price,
+              effect: valueCardDraft(cardDraft) + valueOmenGain(4),
+            });
+          })(),
           option({
             number: 3,
             text: dreamsignDraftText(3),

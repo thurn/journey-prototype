@@ -3,7 +3,7 @@ import type { JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v3" = "value:v3";
+export const VALUE_MODEL_VERSION: "value:v4" = "value:v4";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -152,6 +152,11 @@ export const LOSS_CHOICE_VALUE_CONSTANTS = {
   maximumComparableRatio: 2,
 } as const;
 
+export const POSITIVE_MENU_VALUE_CONSTANTS = {
+  maximumComparableSpread: 100,
+  minimumComparableRatio: 0.7,
+} as const;
+
 export const STAGE_PRIORITY_TAGS = {
   early: ["build", "cleanup", "reward", "immediate", "broad"],
   mid: ["refine", "precise", "risk", "delayed", "persistent", "economy"],
@@ -235,6 +240,7 @@ export const VALUE_MODEL_VALUES = {
   banes: BANE_VALUE_CONSTANTS,
   payments: PAYMENT_VALUE_CONSTANTS,
   lossChoices: LOSS_CHOICE_VALUE_CONSTANTS,
+  positiveMenus: POSITIVE_MENU_VALUE_CONSTANTS,
   stagePriorityTags: STAGE_PRIORITY_TAGS,
   runStateModifiers: RUN_STATE_VALUE_MODIFIERS,
   essenceConvertedEssenceValue: ESSENCE_CONVERTED_ESSENCE_VALUE,
@@ -377,16 +383,13 @@ export function valueDreamsignDraft(input: {
 }
 
 export function commonEssenceRewardAmount(context?: JourneyContext): number {
-  const baseAmount = 150;
+  const baseAmount = 400;
 
   if (!context) {
     return baseAmount;
   }
 
-  const availableCapacity = context.state.quest.resources.maxEssence -
-    context.state.quest.resources.essence;
-
-  return Math.max(0, Math.min(baseAmount, availableCapacity));
+  return baseAmount;
 }
 
 function signedValue(value: number): string {

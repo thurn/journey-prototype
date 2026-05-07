@@ -13,7 +13,10 @@ import {
 import type { JourneyManifest, JourneyOption } from "./manifest.js";
 import { MANIFEST_SCHEMA_VERSION } from "./manifest.js";
 import { getShapeDefinition } from "./shapes.js";
-import { LOSS_CHOICE_VALUE_CONSTANTS } from "./value.js";
+import {
+  LOSS_CHOICE_VALUE_CONSTANTS,
+  POSITIVE_MENU_VALUE_CONSTANTS,
+} from "./value.js";
 
 export type ValidationResult =
   | { ok: true }
@@ -537,6 +540,51 @@ function validateCommitNowFuturePayoffValues(nets: readonly number[]): Validatio
   return { ok: true };
 }
 
+const POSITIVE_MENU_COMPARABLE_SHAPES = new Set<JourneyManifest["shapeId"]>([
+  "random_allocation",
+  "same_cost_different_rewards",
+  "service_menu",
+  "curated_reward_trio",
+  "heterogeneous_pair",
+  "one_target_many_operations",
+  "mirrored_operations",
+  "one_operation_many_targets",
+  "single_reward",
+  "timed_window_menu",
+  "single_random_outcome",
+]);
+
+function validatePositiveMenuValues(
+  shapeId: JourneyManifest["shapeId"],
+  nets: readonly number[],
+): ValidationResult {
+  if (!POSITIVE_MENU_COMPARABLE_SHAPES.has(shapeId)) {
+    return { ok: true };
+  }
+
+  const positiveNets = nets.filter((net) => net > 0);
+
+  if (positiveNets.length < 2) {
+    return { ok: true };
+  }
+
+  const lowest = Math.min(...positiveNets);
+  const highest = Math.max(...positiveNets);
+  const minimumComparableValue = Math.max(
+    highest - POSITIVE_MENU_VALUE_CONSTANTS.maximumComparableSpread,
+    highest * POSITIVE_MENU_VALUE_CONSTANTS.minimumComparableRatio,
+  );
+
+  if (lowest < minimumComparableValue) {
+    return fail(
+      "option_values_are_comparable_for_shape",
+      `${shapeId} positive options must stay in comparable value bands`,
+    );
+  }
+
+  return { ok: true };
+}
+
 function looksLikeInventedTitle(prefix: string): boolean {
   const words = prefix.trim().split(/\s+/u);
 
@@ -909,6 +957,12 @@ export function validateJourneyManifest(
     }
   } else if (nets.length > 0 && nets.every((net) => net < 0)) {
     return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
+  } else {
+    const comparableResult = validatePositiveMenuValues(manifest.shapeId, nets);
+
+    if (!comparableResult.ok) {
+      return comparableResult;
+    }
   }
 
   if (

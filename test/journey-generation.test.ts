@@ -336,13 +336,17 @@ describe("generateNextJourney", () => {
     const manifest = fillForShape("curated_reward_trio", journeyContext);
 
     expect(manifest.options.map((option) => option.text)).toEqual([
-      "Gain 150 essence.",
-      "Draft 1 of 4 characters.",
+      "Gain 400 essence.",
+      "Draft 1 of 4 characters. Gain 4 omens.",
       "Choose 1 of 3 Dreamsigns.",
     ]);
-    expect(manifest.options[0]?.effectConvertedEssence).toBe(150);
-    expect(manifest.options[1]?.effectConvertedEssence).toBeLessThan(75);
+    expect(manifest.options[0]?.effectConvertedEssence).toBe(380);
+    expect(manifest.options[1]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
     expect(manifest.options[2]?.effectConvertedEssence).toBeGreaterThanOrEqual(300);
+    expect(
+      Math.max(...manifest.options.map((option) => option.netConvertedEssence)) -
+        Math.min(...manifest.options.map((option) => option.netConvertedEssence)),
+    ).toBeLessThanOrEqual(100);
   });
 
   it("keeps generated card drafts at four choices with visible card predicates", async () => {
@@ -609,6 +613,34 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "loss_not_comparable",
+    });
+  });
+
+  it("rejects positive menus with disparate root option values", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        {
+          ...manifest.options[0]!,
+          text: "Gain 150 essence.",
+          effects: [{ kind: "gain_essence", amount: 150 }],
+          effectConvertedEssence: 150,
+          netConvertedEssence: 150,
+        },
+        {
+          ...manifest.options[1]!,
+          text: "Choose 1 of 3 Dreamsigns.",
+          effectConvertedEssence: 375,
+          netConvertedEssence: 375,
+        },
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "option_values_are_comparable_for_shape",
     });
   });
 

@@ -62,9 +62,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v3");
+    expect(VALUE_MODEL_VERSION).toBe("value:v4");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v3",
+      version: "value:v4",
       values: {
         essence: {
           gainUnit: 1,
@@ -103,6 +103,10 @@ describe("evaluateOptionValue", () => {
         lossChoices: {
           minimumComparableMagnitude: 65,
           maximumComparableRatio: 2,
+        },
+        positiveMenus: {
+          maximumComparableSpread: 100,
+          minimumComparableRatio: 0.7,
         },
       },
     });
