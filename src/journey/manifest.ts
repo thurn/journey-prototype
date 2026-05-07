@@ -260,6 +260,59 @@ export type JourneyOperation =
   | GeneratedObjectOperation
   | ValidationRequirementOperation;
 
+export type ValidationSeverity = "error" | "warning";
+
+export type ValidationCheckedPayload = {
+  path: string;
+  scope:
+    | "manifest"
+    | "option"
+    | "tree_branch"
+    | "tree_terminal"
+    | "reward_pool"
+    | "precommitted";
+  optionNumber?: number;
+  shapeId?: JourneyShapeId;
+  payloadFamily?: string;
+  targetResolution?: TargetResolutionMetadata;
+};
+
+export type ValidationRuleOutcome = {
+  ruleId: string;
+  severity: ValidationSeverity;
+  status: "pass" | "fail";
+  message: string;
+  checked: ValidationCheckedPayload[];
+  debug?: Record<string, unknown>;
+};
+
+export type ValidationReport = {
+  ok: boolean;
+  passed: number;
+  failed: number;
+  firstFailure?: Pick<ValidationRuleOutcome, "ruleId" | "message" | "severity" | "checked">;
+  rules: ValidationRuleOutcome[];
+};
+
+export type RepairOutcomeStatus =
+  | "accepted_immediately"
+  | "adjusted"
+  | "narrowed"
+  | "replaced"
+  | "fallback"
+  | "forced_shape_failed"
+  | "unrepaired";
+
+export type RepairOutcomeMetadata = {
+  status: RepairOutcomeStatus;
+  forcedShape: boolean;
+  finalShapeId: JourneyShapeId;
+  failedRule?: string;
+  message?: string;
+  payloadFamily?: string;
+  targetResolution?: TargetResolutionMetadata;
+};
+
 export type PrecommittedOutcomes = {
   random?: unknown[];
   delayed?: unknown[];
@@ -277,9 +330,13 @@ export type JourneyDebug = {
   repairs: {
     attempt: number;
     failedRule: string;
+    actionCategory: Exclude<RepairOutcomeStatus, "accepted_immediately" | "forced_shape_failed" | "unrepaired">;
     action: string;
     result: "repaired" | "fallback" | "failed";
+    validation?: Pick<ValidationRuleOutcome, "ruleId" | "message" | "severity" | "checked">;
   }[];
+  validation: ValidationReport;
+  repair: RepairOutcomeMetadata;
   previousPick?: {
     journeyId: string;
     shapeId: JourneyShapeId;

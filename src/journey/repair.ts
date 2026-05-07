@@ -3,10 +3,19 @@ import {
   buildConservativeJourneyForShape,
   fallbackShapeIds,
 } from "./fillers.js";
-import type { JourneyManifest } from "./manifest.js";
+import type {
+  JourneyManifest,
+  RepairOutcomeMetadata,
+  RepairOutcomeStatus,
+} from "./manifest.js";
 import { adaptJourneyOptionOperations } from "./operationAdapters.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "./shapes.js";
-import { validateJourneyManifest, type ValidationResult } from "./validate.js";
+import {
+  buildValidationReport,
+  validateJourneyManifest,
+  type ValidationResult,
+} from "./validate.js";
+import { evaluateOptionValue } from "./value.js";
 
 const REPAIR_ACTIONS = [
   "swap_effect",
@@ -59,24 +68,105 @@ function nextShape(manifest: JourneyManifest): JourneyShapeId {
   return orderedIds.find((shapeId) => shapeId !== manifest.shapeId) ?? "single_reward";
 }
 
-function recordAttempt(
-  manifest: JourneyManifest,
-  failed: ValidationResult,
-  attempt: number,
+function repairStatusForAction(
   action: string,
   result: "repaired" | "fallback" | "failed",
+): Exclude<RepairOutcomeStatus, "accepted_immediately" | "forced_shape_failed" | "unrepaired"> {
+  if (result === "fallback" || action === "fallback") {
+    return "fallback";
+  }
+
+  if (action === "adjust_cost_or_burden" || action === "adjust_quantity") {
+    return "adjusted";
+  }
+
+  if (action === "reveal_hidden_target_or_outcome" || action === "choose_another_target") {
+    return "narrowed";
+  }
+
+  return "replaced";
+}
+
+function repairMetadata(
+  manifest: JourneyManifest,
+  status: RepairOutcomeStatus,
+  forcedShape: boolean,
+  failed?: ValidationResult,
+): RepairOutcomeMetadata {
+  const firstFailure = manifest.debug.validation.firstFailure;
+  const checkedWithTarget = firstFailure?.checked.find((entry) => entry.targetResolution);
+
+  return {
+    status,
+    forcedShape,
+    finalShapeId: manifest.shapeId,
+    ...(!failed?.ok && failed ? { failedRule: failed.rule, message: failed.message } : {}),
+    ...(manifest.debug.debugPayload ? { payloadFamily: manifest.debug.debugPayload.familyId } : { payloadFamily: "adapter" }),
+    ...(checkedWithTarget?.targetResolution ? { targetResolution: checkedWithTarget.targetResolution } : {}),
+  };
+}
+
+export function markJourneyAcceptedImmediately(
+  manifest: JourneyManifest,
+  forcedShape = false,
 ): JourneyManifest {
   return {
     ...manifest,
     debug: {
       ...manifest.debug,
+      repair: repairMetadata(manifest, "accepted_immediately", forcedShape),
+    },
+  };
+}
+
+export function markJourneyForcedShapeFailure(
+  manifest: JourneyManifest,
+  failed: ValidationResult,
+): JourneyManifest {
+  return {
+    ...manifest,
+    debug: {
+      ...manifest.debug,
+      repair: repairMetadata(manifest, "forced_shape_failed", true, failed),
+    },
+  };
+}
+
+function recordAttempt(
+  previous: JourneyManifest,
+  manifest: JourneyManifest,
+  failed: ValidationResult,
+  validation: ValidationResult,
+  validationReport: JourneyManifest["debug"]["validation"],
+  attempt: number,
+  action: string,
+  result: "repaired" | "fallback" | "failed",
+): JourneyManifest {
+  const actionCategory = repairStatusForAction(action, result);
+
+  return {
+    ...manifest,
+    debug: {
+      ...manifest.debug,
+      validation: validationReport,
       repairs: [
-        ...manifest.debug.repairs,
+        ...previous.debug.repairs,
         {
           attempt,
           failedRule: failed.ok ? "unknown" : failed.rule,
+          actionCategory,
           action,
           result,
+          ...(!validation.ok
+            ? {
+                validation: validationReport.firstFailure ?? {
+                  ruleId: validation.rule,
+                  message: validation.message,
+                  severity: "error" as const,
+                  checked: validationReport.rules[0]?.checked ?? [],
+                },
+              }
+            : {}),
         },
       ],
     },
@@ -84,53 +174,59 @@ function recordAttempt(
 }
 
 function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): JourneyManifest {
+  const options = manifest.options.map((option) => {
+    const adjustedCosts = option.costs.map((cost) => {
+      if (typeof cost !== "object" || cost === null || Array.isArray(cost)) {
+        return cost;
+      }
+
+      if ((cost as { kind?: unknown }).kind === "essence") {
+        return {
+          ...cost,
+          amount: Math.min(
+            Number((cost as { amount?: unknown }).amount ?? 0),
+            context.state.quest.resources.essence,
+          ),
+        };
+      }
+
+      if ((cost as { kind?: unknown }).kind === "omens") {
+        return {
+          ...cost,
+          amount: Math.min(
+            Number((cost as { amount?: unknown }).amount ?? 0),
+            context.state.quest.resources.omens,
+          ),
+        };
+      }
+
+      return cost;
+    });
+
+    const adjustedOption = {
+      ...option,
+      costs: adjustedCosts,
+      costConvertedEssence: Math.min(option.costConvertedEssence, context.state.quest.resources.essence),
+      netConvertedEssence:
+        option.effectConvertedEssence -
+        Math.min(option.costConvertedEssence, context.state.quest.resources.essence) +
+        option.burdenConvertedEssence +
+        option.uncertaintyConvertedEssence,
+    };
+
+    return {
+      ...adjustedOption,
+      operations: adaptJourneyOptionOperations(adjustedOption),
+    };
+  });
+
   return {
     ...manifest,
-    options: manifest.options.map((option) => {
-      const adjustedCosts = option.costs.map((cost) => {
-        if (typeof cost !== "object" || cost === null || Array.isArray(cost)) {
-          return cost;
-        }
-
-        if ((cost as { kind?: unknown }).kind === "essence") {
-          return {
-            ...cost,
-            amount: Math.min(
-              Number((cost as { amount?: unknown }).amount ?? 0),
-              context.state.quest.resources.essence,
-            ),
-          };
-        }
-
-        if ((cost as { kind?: unknown }).kind === "omens") {
-          return {
-            ...cost,
-            amount: Math.min(
-              Number((cost as { amount?: unknown }).amount ?? 0),
-              context.state.quest.resources.omens,
-            ),
-          };
-        }
-
-        return cost;
-      });
-
-      const adjustedOption = {
-        ...option,
-        costs: adjustedCosts,
-        costConvertedEssence: Math.min(option.costConvertedEssence, context.state.quest.resources.essence),
-        netConvertedEssence:
-          option.effectConvertedEssence -
-          Math.min(option.costConvertedEssence, context.state.quest.resources.essence) +
-          option.burdenConvertedEssence +
-          option.uncertaintyConvertedEssence,
-      };
-
-      return {
-        ...adjustedOption,
-        operations: adaptJourneyOptionOperations(adjustedOption),
-      };
-    }),
+    options,
+    debug: {
+      ...manifest.debug,
+      optionValues: options.map((option) => evaluateOptionValue(option, context)),
+    },
   };
 }
 
@@ -201,15 +297,47 @@ export function repairOrFallbackJourney(
     }
 
     const result = validateJourneyManifest(candidate, context);
+    const validationReport = buildValidationReport(candidate, context);
     const repairResult = action === "fallback" ? "fallback" : "repaired";
-    const recorded = recordAttempt(candidate, failed, attempt, action, result.ok ? repairResult : "failed");
+    const recorded = recordAttempt(
+      current,
+      candidate,
+      failed,
+      result,
+      validationReport,
+      attempt,
+      action,
+      result.ok ? repairResult : "failed",
+    );
 
     if (result.ok) {
-      return recorded;
+      return {
+        ...recorded,
+        debug: {
+          ...recorded.debug,
+          repair: repairMetadata(
+            recorded,
+            repairStatusForAction(action, repairResult),
+            options.forcedShape === true,
+            failed,
+          ),
+        },
+      };
     }
 
     current = recorded;
   }
 
-  return current;
+  return {
+    ...current,
+    debug: {
+      ...current.debug,
+      repair: repairMetadata(
+        current,
+        options.forcedShape ? "forced_shape_failed" : "unrepaired",
+        options.forcedShape === true,
+        failed,
+      ),
+    },
+  };
 }

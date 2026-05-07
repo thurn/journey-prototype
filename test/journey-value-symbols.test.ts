@@ -50,20 +50,33 @@ describe("evaluateOptionValue", () => {
           netConvertedEssence: 14,
         }),
       ),
-    ).toEqual({
+    ).toMatchObject({
       optionNumber: 2,
       cost: 15,
       effect: 40,
       burden: -8,
       uncertainty: -3,
       net: 14,
-      detail: [
+      components: [
+        {
+          kind: "effect",
+          operationId: "option:2:effect:1",
+          value: 40,
+        },
+        {
+          kind: "uncertainty",
+          value: -3,
+        },
+      ],
+      detail: expect.arrayContaining([
         "Cost: 15 converted essence.",
         "Effect: +40 converted essence.",
         "Burden: -8 converted essence.",
         "Uncertainty: -3 converted essence.",
         "Net: +14 converted essence.",
-      ],
+        "Component effect: reward reward (+40).",
+        "Component uncertainty: option uncertainty (-3).",
+      ]),
     });
   });
 

@@ -5,8 +5,12 @@ import { buildConservativeJourneyForShape } from "./fillers.js";
 import { attachTargetResolutionMetadata } from "./effects.js";
 import type { JourneyManifest, JourneyOption, JourneyStage, SequenceState } from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
-import { repairOrFallbackJourney } from "./repair.js";
-import { validateJourneyManifest } from "./validate.js";
+import {
+  markJourneyAcceptedImmediately,
+  markJourneyForcedShapeFailure,
+  repairOrFallbackJourney,
+} from "./repair.js";
+import { buildValidationReport, validateJourneyManifest, type ValidationResult } from "./validate.js";
 import { evaluateOptionValue } from "./value.js";
 import {
   validateDebugPayloadCompatibility,
@@ -270,6 +274,37 @@ function isJourneyShapeId(value: string): value is JourneyShapeDefinition["id"] 
   return JOURNEY_SHAPES.some((shape) => shape.id === value);
 }
 
+function withValidationReport(manifest: JourneyManifest, context: JourneyContext): JourneyManifest {
+  return {
+    ...manifest,
+    debug: {
+      ...manifest.debug,
+      validation: buildValidationReport(manifest, context),
+    },
+  };
+}
+
+function forcedFailureMessage(
+  forcedShapeId: JourneyShapeDefinition["id"] | string,
+  manifest: JourneyManifest,
+  validation: ValidationResult,
+): string {
+  if (validation.ok) {
+    return `Forced shape ${forcedShapeId} could not be generated legally`;
+  }
+
+  const payload = manifest.debug.debugPayload?.qaId ?? "adapter/current";
+  const targetResolution = manifest.debug.validation.firstFailure?.checked.find((entry) => entry.targetResolution)?.targetResolution;
+  const targetContext = targetResolution
+    ? `${targetResolution.selectorKind} ${targetResolution.sourcePool} candidates=${targetResolution.candidateCount}`
+    : "none";
+
+  return [
+    `Forced shape ${forcedShapeId} failed validation: ${validation.message}`,
+    `(shape: ${manifest.shapeId}; payload: ${payload}; target: ${targetContext}; rule: ${validation.rule})`,
+  ].join(" ");
+}
+
 export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const { context, previousPick } = input;
   const drawContext: DrawContext = {
@@ -307,25 +342,25 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     previousPick: previousPickDebug(previousPick),
     debugPayload: input.forcedDebugPayload,
   });
-  const resolvedManifest = attachTargetResolutionMetadata(
+  const resolvedManifest = withValidationReport(attachTargetResolutionMetadata(
     manifest,
     context.content,
     context.state.quest,
-  );
+  ), context);
   const validation = validateJourneyManifest(resolvedManifest, context);
   const finalManifest = validation.ok
-    ? resolvedManifest
-    : repairOrFallbackJourney(manifest, context, validation, {
+    ? markJourneyAcceptedImmediately(resolvedManifest, input.forcedShapeId !== undefined)
+    : repairOrFallbackJourney(resolvedManifest, context, validation, {
         forcedShape: input.forcedShapeId !== undefined,
       });
-  const resolvedFinalManifest = attachTargetResolutionMetadata(
+  const resolvedFinalManifest = withValidationReport(attachTargetResolutionMetadata(
     finalManifest,
     context.content,
     context.state.quest,
-  );
+  ), context);
 
   if (input.forcedShapeId && resolvedFinalManifest.shapeId !== input.forcedShapeId) {
-    throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally`);
+    throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`);
   }
 
   if (input.forcedDebugPayload) {
@@ -339,9 +374,9 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const finalValidation = validateJourneyManifest(resolvedFinalManifest, context);
 
   if (!finalValidation.ok && input.forcedShapeId) {
-    throw new Error(
-      `Forced shape ${input.forcedShapeId} failed validation: ${finalValidation.message}`,
-    );
+    const failedManifest = markJourneyForcedShapeFailure(resolvedFinalManifest, finalValidation);
+
+    throw new Error(forcedFailureMessage(input.forcedShapeId, failedManifest, finalValidation));
   }
 
   return freezeSerializable(resolvedFinalManifest);
@@ -433,7 +468,8 @@ export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdv
       ),
     },
   };
-  const validation = validateJourneyManifest(advanced, context);
+  const reportedAdvanced = withValidationReport(advanced, context);
+  const validation = validateJourneyManifest(reportedAdvanced, context);
 
   if (!validation.ok) {
     throw new Error(`Advanced sequence manifest failed validation: ${validation.rule}`);
@@ -441,6 +477,6 @@ export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdv
 
   return {
     kind: "advanced",
-    manifest: freezeSerializable(advanced),
+    manifest: freezeSerializable(reportedAdvanced),
   };
 }

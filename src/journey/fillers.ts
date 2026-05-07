@@ -1893,6 +1893,18 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
       selectedTags: args.selectedTags,
       optionValues,
       repairs: [],
+      validation: {
+        ok: true,
+        passed: 0,
+        failed: 0,
+        rules: [],
+      },
+      repair: {
+        status: "accepted_immediately",
+        forcedShape: false,
+        finalShapeId: args.shapeId,
+        ...(args.debugPayload ? { payloadFamily: args.debugPayload.familyId } : { payloadFamily: "adapter" }),
+      },
       ...(args.previousPick ? { previousPick: args.previousPick } : {}),
       ...(args.debugPayload ? { debugPayload: { ...args.debugPayload, source: "forced" } } : {}),
     },

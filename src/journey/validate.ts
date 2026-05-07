@@ -13,7 +13,16 @@ import {
   type DreamsignTargetPredicate,
   type ImmediateCost,
 } from "./effects.js";
-import type { JourneyManifest, JourneyOperation, JourneyOption, TargetSelector } from "./manifest.js";
+import type {
+  JourneyManifest,
+  JourneyOperation,
+  JourneyOption,
+  TargetResolutionMetadata,
+  TargetSelector,
+  ValidationCheckedPayload,
+  ValidationReport,
+  ValidationRuleOutcome,
+} from "./manifest.js";
 import {
   MANIFEST_CONTRACT_VERSION,
   MANIFEST_SCHEMA_VERSION,
@@ -40,6 +49,131 @@ function fail(rule: string, message: string, debug?: Record<string, unknown>): V
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function targetResolutionFromDebug(debug: Record<string, unknown> | undefined): TargetResolutionMetadata | undefined {
+  const targetResolution = debug?.targetResolution;
+
+  return isRecord(targetResolution) &&
+    typeof targetResolution.selectorKind === "string" &&
+    typeof targetResolution.sourcePool === "string" &&
+    typeof targetResolution.candidateCount === "number" &&
+    Array.isArray(targetResolution.selected)
+    ? targetResolution as TargetResolutionMetadata
+    : undefined;
+}
+
+function payloadFamilyFor(manifest: JourneyManifest): string {
+  return manifest.debug.debugPayload?.familyId ?? "adapter";
+}
+
+function manifestCheckedPayloads(manifest: JourneyManifest): ValidationCheckedPayload[] {
+  const payloadFamily = payloadFamilyFor(manifest);
+  const checked: ValidationCheckedPayload[] = [
+    {
+      path: "$",
+      scope: "manifest",
+      shapeId: manifest.shapeId,
+      payloadFamily,
+    },
+    ...manifest.options.map((option) => ({
+      path: `$.options[${option.number - 1}]`,
+      scope: "option" as const,
+      optionNumber: option.number,
+      shapeId: manifest.shapeId,
+      payloadFamily,
+    })),
+  ];
+
+  if (manifest.tree) {
+    for (const node of manifest.tree.nodes) {
+      for (const branch of node.branches) {
+        checked.push({
+          path: `$.tree.nodes.${node.id}.branches.${branch.id}`,
+          scope: "tree_branch",
+          shapeId: manifest.shapeId,
+          payloadFamily,
+        });
+
+        if (branch.terminal) {
+          checked.push({
+            path: `$.tree.nodes.${node.id}.branches.${branch.id}.terminal`,
+            scope: "tree_terminal",
+            shapeId: manifest.shapeId,
+            payloadFamily,
+          });
+        }
+      }
+    }
+  }
+
+  if (manifest.rewardPool) {
+    checked.push({
+      path: "$.rewardPool",
+      scope: "reward_pool",
+      shapeId: manifest.shapeId,
+      payloadFamily,
+    });
+  }
+
+  checked.push({
+    path: "$.precommitted",
+    scope: "precommitted",
+    shapeId: manifest.shapeId,
+    payloadFamily,
+  });
+
+  return checked;
+}
+
+function resultToOutcome(
+  ruleId: string,
+  result: ValidationResult,
+  checked: ValidationCheckedPayload[],
+  passMessage: string,
+): ValidationRuleOutcome {
+  const targetResolution = !result.ok ? targetResolutionFromDebug(result.debug) : undefined;
+  const checkedWithTarget = targetResolution
+    ? checked.map((entry) => ({ ...entry, targetResolution }))
+    : checked;
+
+  return result.ok
+    ? {
+        ruleId,
+        severity: "error",
+        status: "pass",
+        message: passMessage,
+        checked,
+      }
+    : {
+        ruleId: result.rule,
+        severity: "error",
+        status: "fail",
+        message: result.message,
+        checked: checkedWithTarget,
+        ...(result.debug ? { debug: result.debug } : {}),
+      };
+}
+
+function buildReport(rules: ValidationRuleOutcome[]): ValidationReport {
+  const firstFailure = rules.find((rule) => rule.status === "fail");
+
+  return {
+    ok: firstFailure === undefined,
+    passed: rules.filter((rule) => rule.status === "pass").length,
+    failed: rules.filter((rule) => rule.status === "fail").length,
+    ...(firstFailure
+      ? {
+          firstFailure: {
+            ruleId: firstFailure.ruleId,
+            message: firstFailure.message,
+            severity: firstFailure.severity,
+            checked: firstFailure.checked,
+          },
+        }
+      : {}),
+    rules,
+  };
 }
 
 function asImmediateCost(value: unknown): ImmediateCost | null {
@@ -1657,4 +1791,215 @@ export function validateJourneyManifest(
   }
 
   return { ok: true };
+}
+
+export function buildValidationReport(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationReport {
+  const checked = manifestCheckedPayloads(manifest);
+  const manifestChecked = checked.filter((entry) => entry.scope === "manifest");
+  const optionChecked = checked.filter((entry) => entry.scope === "option");
+  const precommittedChecked = checked.filter((entry) => entry.scope === "precommitted");
+  const rules: ValidationRuleOutcome[] = [];
+
+  rules.push(resultToOutcome(
+    "manifest_schema_version",
+    manifest.schemaVersion === MANIFEST_SCHEMA_VERSION
+      ? { ok: true }
+      : fail("manifest_schema_version", `Manifest schema version must be ${MANIFEST_SCHEMA_VERSION}`),
+    manifestChecked,
+    "Manifest schema version matches the active contract.",
+  ));
+
+  rules.push(resultToOutcome(
+    "manifest_version_metadata",
+    validateVersionMetadata(manifest, context),
+    manifestChecked,
+    "Manifest version metadata matches the content, catalog, renderer, value, and validation contracts.",
+  ));
+
+  rules.push(resultToOutcome(
+    "journey_id_format",
+    /^J-\d{6}$/u.test(manifest.journeyId)
+      ? { ok: true }
+      : fail("journey_id_format", "Root Journey IDs must use J-000001 formatting"),
+    manifestChecked,
+    "Journey ID uses the stable root Journey format.",
+  ));
+
+  const definition = getShapeDefinition(manifest.shapeId);
+  const optionCountResult =
+    manifest.options.length === 0 && definition.topology !== "decision_tree"
+      ? fail("missing_options", "Non-tree Journey manifests require at least one option")
+      : manifest.options.length < definition.rootOptionCount.min ||
+          manifest.options.length > definition.rootOptionCount.max
+        ? fail("root_option_count_within_bounds", `${manifest.shapeId} has an invalid root option count`)
+        : { ok: true } as const;
+
+  rules.push(resultToOutcome(
+    "root_option_count_within_bounds",
+    optionCountResult,
+    optionChecked.length > 0 ? optionChecked : manifestChecked,
+    "Root option count is legal for the selected shape.",
+  ));
+
+  rules.push(resultToOutcome(
+    "unresolved_reference",
+    validateReferences(manifest, context),
+    checked,
+    "All manifest references resolve to known content or controlled vocabulary.",
+  ));
+
+  let optionResult: ValidationResult = { ok: true };
+  for (const [index, option] of manifest.options.entries()) {
+    const optionShapeResult = validateOptionShape(option, index);
+
+    if (!optionShapeResult.ok) {
+      optionResult = optionShapeResult;
+      break;
+    }
+
+    const result = validateOption(option, context);
+
+    if (!result.ok) {
+      optionResult = result;
+      break;
+    }
+  }
+
+  rules.push(resultToOutcome(
+    optionResult.ok ? "root_option_payloads" : optionResult.rule,
+    optionResult,
+    optionChecked,
+    "Root option text, costs, targets, and structured payloads are legal.",
+  ));
+
+  rules.push(resultToOutcome(
+    "duplicate_root_option_mechanics",
+    validateRootMechanicalDistinction(manifest),
+    optionChecked,
+    "Root options are mechanically distinct where the shape requires it.",
+  ));
+
+  const treeBranches = manifest.tree?.nodes.flatMap((node) => node.branches) ?? [];
+  rules.push(resultToOutcome(
+    "route_effects",
+    validateRouteEffects([
+      ...manifest.options.flatMap((option) => option.routeEffects),
+      ...treeBranches.flatMap((branch) => branch.routeEffects),
+    ]),
+    checked.filter((entry) => entry.scope === "option" || entry.scope === "tree_branch"),
+    "Route effects use legal route edit structures.",
+  ));
+
+  const nets = manifest.options
+    .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
+    .map((journeyOption) => journeyOption.netConvertedEssence);
+  const valueResult =
+    manifest.shapeId === "choose_your_loss"
+      ? validateChooseYourLossValues(nets)
+      : manifest.shapeId === "commit_now_future_payoff"
+        ? validateCommitNowFuturePayoffValues(nets)
+        : nets.length > 0 && nets.every((net) => net < 0)
+          ? fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options")
+          : validatePositiveMenuValues(manifest.shapeId, nets);
+
+  rules.push(resultToOutcome(
+    valueResult.ok ? "shape_value_comparability" : valueResult.rule,
+    valueResult,
+    optionChecked,
+    "Root option values are coherent for the selected shape.",
+  ));
+
+  let topologyResult: ValidationResult = { ok: true };
+  if (manifest.shapeId === "risk_or_skip") {
+    topologyResult = validateRiskOrSkip(manifest);
+  } else if (manifest.shapeId === "timed_window_menu") {
+    topologyResult = validateTimedWindowMenu(manifest);
+  } else if (definition.topology === "decision_tree") {
+    topologyResult = validateDecisionTree(manifest, context);
+  } else if (
+    definition.topology === "single_offer_refusal" &&
+    !manifest.options.some((journeyOption) => journeyOption.pickBehavior === "leave")
+  ) {
+    topologyResult = fail("fake_strategic_refusal", "Offer shapes require a real leave option");
+  } else if (
+    definition.topology === "repeatable_menu" &&
+    !manifest.options.some((option) => option.pickBehavior === "leave")
+  ) {
+    topologyResult = fail("missing_leave_option", "Repeatable menus require a leave option");
+  }
+
+  rules.push(resultToOutcome(
+    topologyResult.ok ? "shape_topology_invariants" : topologyResult.rule,
+    topologyResult,
+    checked,
+    "Shape topology invariants pass.",
+  ));
+
+  let precommittedResult: ValidationResult = { ok: true };
+  if (
+    (definition.topology === "random_commit" ||
+      manifest.shapeId === "risk_or_skip" ||
+      manifest.options.some(optionImpliesRandomOrHiddenOutcome)) &&
+    !hasPrecommitted(manifest.precommitted.random)
+  ) {
+    precommittedResult = fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
+  } else if (
+    definition.topology === "delayed_hook" ||
+    manifest.options.some(optionImpliesDelayedOutcome)
+  ) {
+    if (!hasPrecommitted(manifest.precommitted.delayed)) {
+      precommittedResult = fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
+    } else if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
+      precommittedResult = fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
+    }
+  } else if (
+    (definition.topology === "route_edit" ||
+      manifest.options.some((option) => option.routeEffects.length > 0)) &&
+    !hasPrecommitted(manifest.precommitted.routeEdits)
+  ) {
+    precommittedResult = fail("missing_precommitted_outcomes", "Route shapes require committed route edits");
+  }
+
+  if (precommittedResult.ok && manifest.precommitted.routeEdits !== undefined) {
+    precommittedResult = validateRouteEffects(manifest.precommitted.routeEdits);
+  }
+
+  rules.push(resultToOutcome(
+    precommittedResult.ok ? "precommitted_outcomes" : precommittedResult.rule,
+    precommittedResult,
+    precommittedChecked,
+    "Precommitted outcomes are present and legal where required.",
+  ));
+
+  const targetResult =
+    validateOperationTargetSelectors(manifest.precommitted.operations, context, "Precommitted outcomes");
+
+  rules.push(resultToOutcome(
+    targetResult.ok ? "operation_target_selectors" : targetResult.rule,
+    targetResult,
+    checked,
+    "Typed operation target selectors resolve where required.",
+  ));
+
+  rules.push(resultToOutcome(
+    "semantic_operations",
+    validateSemanticOperations(manifest),
+    checked,
+    "Legacy payload records have typed semantic operation counterparts.",
+  ));
+
+  const fullResult = validateJourneyManifest(manifest, context);
+  if (!fullResult.ok && !rules.some((rule) => rule.status === "fail" && rule.ruleId === fullResult.rule)) {
+    rules.push(resultToOutcome(
+      fullResult.rule,
+      fullResult,
+      checked,
+      "Full manifest validation passed.",
+    ));
+  }
+
+  return buildReport(rules);
 }

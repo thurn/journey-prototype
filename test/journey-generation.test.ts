@@ -423,6 +423,29 @@ describe("generateNextJourney", () => {
     });
     expect(stableStringify(first)).toBe(stableStringify(second));
     expect(first.debug.optionValues).toHaveLength(first.options.length);
+    expect(first.debug.validation).toMatchObject({
+      ok: true,
+      failed: 0,
+      rules: expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: "semantic_operations",
+          severity: "error",
+          status: "pass",
+          checked: expect.arrayContaining([
+            expect.objectContaining({
+              scope: "option",
+              payloadFamily: "adapter",
+              shapeId: first.shapeId,
+            }),
+          ]),
+        }),
+      ]),
+    });
+    expect(first.debug.repair).toMatchObject({
+      status: "accepted_immediately",
+      forcedShape: false,
+      finalShapeId: first.shapeId,
+    });
     expect(validateJourneyManifest(first, journeyContext)).toEqual({ ok: true });
   });
 
@@ -1790,7 +1813,13 @@ describe("repairOrFallbackJourney", () => {
     expect(repaired.debug.repairs.length).toBeGreaterThan(0);
     expect(repaired.debug.repairs.at(-1)).toMatchObject({
       failedRule: "unpayable_immediate_cost",
+      actionCategory: "adjusted",
       result: "repaired",
+    });
+    expect(repaired.debug.validation.ok).toBe(true);
+    expect(repaired.debug.repair).toMatchObject({
+      status: "adjusted",
+      finalShapeId: repaired.shapeId,
     });
   });
 });

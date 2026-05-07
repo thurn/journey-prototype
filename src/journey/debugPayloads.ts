@@ -66,7 +66,7 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "card",
     description: "Named card operations and starter-card cleanup payloads.",
     variants: [
-      variant("card", "named-card-operation-menu", "unimplemented", "Reserved for named gain, purge, duplicate, transform, and rewrite card menus."),
+      variant("card", "named-card-operation-menu", "available", "Task 05 value/validation fixture using current adapted card-bearing operation payloads."),
       variant("card", "starter-cleanup-replacement", "unimplemented", "Reserved for Starter-card cleanup and replacement scenes.", "all", ["early"]),
     ],
   },
@@ -89,7 +89,7 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "resource",
     description: "Resource edge cases for essence, omens, percentages, and caps.",
     variants: [
-      variant("resource", "resource-edge-cases", "unimplemented", "Reserved for maximum, percentage, all-remaining, random-range, and cap-change resource payloads."),
+      variant("resource", "resource-edge-cases", "available", "Task 05 value/validation fixture using current adapted resource operation payloads."),
     ],
   },
   {

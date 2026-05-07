@@ -1,5 +1,5 @@
 import type { JourneyContext } from "../quest/context.js";
-import type { JourneyOption } from "./manifest.js";
+import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
@@ -264,6 +264,19 @@ export const VALUE_MODEL_VALUES = {
   routeSiteDelta: ROUTE_SITE_DELTA_VALUES,
   burdens: BURDEN_VALUES,
   uncertainty: UNCERTAINTY_ADJUSTMENTS,
+  components: {
+    risk: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.randomDownsideFlatRiskPremium,
+    visibility: UNCERTAINTY_ADJUSTMENTS.hiddenTarget,
+    duration: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.delayedRewardMultiplier,
+    targetQuality: CARD_VALUE_CONSTANTS.tideOrPredicateMatchBonus,
+    objectQuality: CARD_VALUE_CONSTANTS.namedVisibleByRarity,
+    routeScope: ROUTE_VALUE_CONSTANTS,
+    statusScope: {
+      persistent: 45,
+      nextBattle: 25,
+      oneTime: 20,
+    },
+  },
 } as const;
 
 export const VALUE_MODEL_CONTRIBUTION = {
@@ -278,6 +291,23 @@ export type ValueBreakdown = {
   burden: number;
   uncertainty: number;
   net: number;
+  components: {
+    kind:
+      | "cost"
+      | "effect"
+      | "burden"
+      | "uncertainty"
+      | "risk"
+      | "visibility"
+      | "duration"
+      | "target-quality"
+      | "object-quality"
+      | "route-scope"
+      | "status-scope";
+    operationId?: string;
+    label: string;
+    value: number;
+  }[];
   detail: string[];
 };
 
@@ -428,13 +458,149 @@ function signedValue(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
+function operationHasConvertedValue(operation: JourneyOperation): boolean {
+  return typeof operation.value?.convertedEssence === "number";
+}
+
 function operationValueTotal(
   option: JourneyOption,
-  role: "cost" | "reward" | "burden",
+  role: "cost" | "reward" | "burden" | "route_edit",
 ): number {
   return option.operations
     .filter((operation) => operation.role === role)
     .reduce((total, operation) => total + (operation.value?.convertedEssence ?? 0), 0);
+}
+
+function operationEffectValueTotal(option: JourneyOption): number {
+  return operationValueTotal(option, "reward") + operationValueTotal(option, "route_edit");
+}
+
+function valueForRole(
+  option: JourneyOption,
+  role: "cost" | "reward" | "burden",
+  fallback: number,
+): number {
+  const relevantOperations = option.operations.filter((operation) =>
+    role === "reward"
+      ? operation.role === "reward" || operation.role === "route_edit"
+      : operation.role === role
+  );
+
+  return relevantOperations.some(operationHasConvertedValue)
+    ? role === "reward"
+      ? operationEffectValueTotal(option)
+      : operationValueTotal(option, role)
+    : fallback;
+}
+
+function operationValueComponents(option: JourneyOption): ValueBreakdown["components"] {
+  const components: ValueBreakdown["components"] = [];
+
+  for (const operation of option.operations) {
+    const converted = operation.value?.convertedEssence;
+
+    if (typeof converted === "number") {
+      const kind = operation.role === "cost"
+        ? "cost"
+        : operation.role === "burden"
+          ? "burden"
+          : "effect";
+
+      components.push({
+        kind,
+        operationId: operation.operationId,
+        label: `${operation.operationKind} ${operation.role}`,
+        value: converted,
+      });
+    }
+
+    if (typeof operation.value?.uncertaintyConvertedEssence === "number") {
+      components.push({
+        kind: "uncertainty",
+        operationId: operation.operationId,
+        label: `${operation.operationKind} uncertainty`,
+        value: operation.value.uncertaintyConvertedEssence,
+      });
+    }
+
+    const operationKind = operation.operationKind as string;
+    if (operation.role === "random" || operationKind === "random_envelope" || operationKind === "reveal_envelope") {
+      components.push({
+        kind: "risk",
+        operationId: operation.operationId,
+        label: `${operation.operationKind} risk premium`,
+        value: 0,
+      });
+    }
+
+    const selectorSelection = operation.targetSelector && "selection" in operation.targetSelector
+      ? operation.targetSelector.selection
+      : undefined;
+
+    if (operation.visibility !== "visible" || selectorSelection === "hidden_random") {
+      components.push({
+        kind: "visibility",
+        operationId: operation.operationId,
+        label: `${operation.visibility} visibility`,
+        value: 0,
+      });
+    }
+
+    if (operation.timing?.timingKind === "delayed" || operation.timing?.timingKind === "route") {
+      components.push({
+        kind: "duration",
+        operationId: operation.operationId,
+        label: operation.timing.label ?? operation.timing.timingKind,
+        value: 0,
+      });
+    }
+
+    if (operation.targetResolution) {
+      components.push({
+        kind: "target-quality",
+        operationId: operation.operationId,
+        label: `${operation.targetResolution.selectorKind} target candidates: ${operation.targetResolution.candidateCount}`,
+        value: 0,
+      });
+
+      if (operation.targetResolution.selected.length > 0) {
+        components.push({
+          kind: "object-quality",
+          operationId: operation.operationId,
+          label: operation.targetResolution.selected.map((target) => target.name).join(", "),
+          value: 0,
+        });
+      }
+    }
+
+    if (operation.operationKind === "route_edit") {
+      components.push({
+        kind: "route-scope",
+        operationId: operation.operationId,
+        label: operation.timing?.timingKind === "route" ? operation.timing.scope : "route",
+        value: 0,
+      });
+    }
+
+    if (operation.operationKind === "status") {
+      components.push({
+        kind: "status-scope",
+        operationId: operation.operationId,
+        label: operation.statusKind,
+        value: 0,
+      });
+    }
+  }
+
+  if (option.uncertaintyConvertedEssence !== 0 && !components.some((component) => component.kind === "uncertainty")) {
+    components.push({
+      kind: "uncertainty",
+      label: "option uncertainty",
+      value: option.uncertaintyConvertedEssence,
+    });
+  }
+
+  return components;
 }
 
 export function evaluateOptionValue(
@@ -443,11 +609,18 @@ export function evaluateOptionValue(
 ): ValueBreakdown {
   void context;
 
-  const cost = option.costConvertedEssence || operationValueTotal(option, "cost");
-  const effect = option.effectConvertedEssence || operationValueTotal(option, "reward");
-  const burden = option.burdenConvertedEssence || operationValueTotal(option, "burden");
-  const uncertainty = option.uncertaintyConvertedEssence;
-  const net = option.netConvertedEssence || effect - cost + burden + uncertainty;
+  const cost = valueForRole(option, "cost", option.costConvertedEssence);
+  const effect = valueForRole(option, "reward", option.effectConvertedEssence);
+  const burden = valueForRole(option, "burden", option.burdenConvertedEssence);
+  const operationUncertainty = option.operations.reduce(
+    (total, operation) => total + (operation.value?.uncertaintyConvertedEssence ?? 0),
+    0,
+  );
+  const uncertainty = operationUncertainty !== 0 ? operationUncertainty : option.uncertaintyConvertedEssence;
+  const net = option.operations.some((operation) => operation.value)
+    ? effect - cost + burden + uncertainty
+    : option.netConvertedEssence;
+  const components = operationValueComponents(option);
 
   return {
     optionNumber: option.number,
@@ -456,12 +629,16 @@ export function evaluateOptionValue(
     burden,
     uncertainty,
     net,
+    components,
     detail: [
       `Cost: ${cost} converted essence.`,
       `Effect: ${signedValue(effect)} converted essence.`,
       `Burden: ${signedValue(burden)} converted essence.`,
       `Uncertainty: ${signedValue(uncertainty)} converted essence.`,
       `Net: ${signedValue(net)} converted essence.`,
+      ...components.map((component) =>
+        `Component ${component.kind}: ${component.label} (${signedValue(component.value)}).`
+      ),
     ],
   };
 }

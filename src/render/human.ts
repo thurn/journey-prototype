@@ -283,6 +283,31 @@ function optionValueDebugLines(
   ];
 }
 
+function validationDebugLines(manifest: JourneyManifest): string[] {
+  const validation = manifest.debug.validation;
+  if (!validation) {
+    return [];
+  }
+
+  const lines = [
+    "",
+    "Validation:",
+    `Summary: ${validation.ok ? "pass" : "fail"} (${validation.passed} passed, ${validation.failed} failed).`,
+  ];
+
+  for (const rule of validation.rules) {
+    const checked = rule.checked[0];
+    const payload = checked?.payloadFamily ? ` payload ${checked.payloadFamily}` : "";
+    const target = checked?.targetResolution
+      ? ` target ${checked.targetResolution.selectorKind}/${checked.targetResolution.sourcePool} candidates=${checked.targetResolution.candidateCount}`
+      : "";
+
+    lines.push(`${rule.ruleId}: ${rule.status} (${rule.severity}); ${rule.message}${payload}${target}.`);
+  }
+
+  return lines;
+}
+
 function previousPickFor(state: JourneyState, manifest: JourneyManifest): PickHistoryEntry | JourneyManifest["debug"]["previousPick"] | undefined {
   if (manifest.debug.previousPick) {
     return manifest.debug.previousPick;
@@ -351,6 +376,8 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     lines.push("", "Precommitted outcomes:", ...outcomes);
   }
 
+  lines.push(...validationDebugLines(manifest));
+
   for (const optionValue of manifest.debug.optionValues) {
     lines.push(
       "",
@@ -362,9 +389,26 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     lines.push("", "Repairs:");
     for (const repair of manifest.debug.repairs) {
       lines.push(
-        `Attempt ${repair.attempt}: ${repair.failedRule}; ${repair.action}; ${repair.result}.`,
+        `Attempt ${repair.attempt}: ${repair.failedRule}; ${repair.actionCategory}; ${repair.action}; ${repair.result}.`,
       );
+
+      if (repair.validation) {
+        const checked = repair.validation.checked[0];
+        const payload = checked?.payloadFamily ? ` payload ${checked.payloadFamily}` : "";
+        const target = checked?.targetResolution
+          ? ` target ${checked.targetResolution.selectorKind}/${checked.targetResolution.sourcePool} candidates=${checked.targetResolution.candidateCount}`
+          : "";
+
+        lines.push(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}${payload}${target}.`);
+      }
     }
+  }
+
+  if (manifest.debug.repair) {
+    lines.push(
+      "",
+      `Repair status: ${manifest.debug.repair.status}; forced shape: ${manifest.debug.repair.forcedShape ? "yes" : "no"}.`,
+    );
   }
 
   return lines.map((line) => {
