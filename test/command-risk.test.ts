@@ -430,6 +430,43 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("changes semantic fingerprints when forced Dreamsign selections differ", async () => {
+    await withTempState(async ({ options }) => {
+      const overrides = {
+        stage: "mid" as const,
+        shape: "shop_row",
+        debugPayloadFamily: "dreamsign",
+        debugPayloadVariant: "named-dreamsign-shop-row",
+        json: true,
+      };
+      const first = await handleJourney(options({ ...overrides, seed: "parity-dreamsign" }));
+      const second = await handleJourney(options({ ...overrides, seed: "another-dreamsign" }));
+
+      expect(first.exitCode).toBe(ExitCode.Success);
+      expect(second.exitCode).toBe(ExitCode.Success);
+
+      const firstPayload = JSON.parse(first.stdout);
+      const secondPayload = JSON.parse(second.stdout);
+      const dreamsignNames = (payload: {
+        manifest: {
+          options: {
+            operations: { rewardKind?: string; payload?: { dreamsignName?: string } }[];
+          }[];
+        };
+      }) =>
+        payload.manifest.options.map((entry) =>
+          entry.operations.find((operation) => operation.rewardKind === "dreamsign_gain")
+            ?.payload?.dreamsignName
+        );
+
+      expect(dreamsignNames(firstPayload)).toEqual(["Crystal Wand", "Theater Mask", "Gold Key"]);
+      expect(dreamsignNames(secondPayload)).toEqual(["Glow Pouch", "Amber Eye", "Skull Drum"]);
+      expect(firstPayload.manifest.debug.semanticFingerprint.value).not.toBe(
+        secondPayload.manifest.debug.semanticFingerprint.value,
+      );
+    });
+  });
+
   it("rejects unknown, reserved, and constrained debug payload selections clearly", async () => {
     await withTempState(async ({ options }) => {
       const unknownFamily = await handleJourney(options({

@@ -11,6 +11,7 @@ import {
 } from "./effects.js";
 import type {
   JourneyManifest,
+  JourneyOperation,
   JourneyOption,
   JourneyRewardPool,
   JourneyStage,
@@ -1946,38 +1947,96 @@ function semanticFingerprintFor(args: {
   shapeId: JourneyShapeId;
   stage: JourneyStage;
   options: readonly JourneyOption[];
+  tree?: JourneyTree;
+  rewardPool?: JourneyRewardPool;
   precommitted: PrecommittedOutcomes;
 }): JourneyManifest["debug"]["semanticFingerprint"] {
+  const operationContract = (operation: JourneyOperation): Record<string, unknown> => {
+    const contract: Record<string, unknown> = { ...operation };
+    delete contract.operationId;
+
+    if (Array.isArray(contract.rewardOperations)) {
+      contract.rewardOperations = contract.rewardOperations.map(operationContract);
+    }
+
+    return contract;
+  };
+  const optionContract = (journeyOption: JourneyOption): Record<string, unknown> => ({
+    number: journeyOption.number,
+    pickBehavior: journeyOption.pickBehavior,
+    value: {
+      cost: journeyOption.costConvertedEssence,
+      effect: journeyOption.effectConvertedEssence,
+      burden: journeyOption.burdenConvertedEssence,
+      uncertainty: journeyOption.uncertaintyConvertedEssence,
+      net: journeyOption.netConvertedEssence,
+    },
+    operations: journeyOption.operations.map(operationContract),
+  });
+  const contract = {
+    algorithm: "semantic-fingerprint:v1",
+    shapeId: args.shapeId,
+    stage: args.stage,
+    options: args.options.map(optionContract),
+    tree: args.tree
+      ? {
+          rootNodeId: args.tree.rootNodeId,
+          nodes: args.tree.nodes.map((node) => ({
+            id: node.id,
+            levelLabel: node.levelLabel,
+            branches: node.branches.map((branch) => ({
+              id: branch.id,
+              label: branch.label,
+              kind: branch.kind,
+              odds: branch.odds,
+              nextNodeId: branch.nextNodeId,
+              value: {
+                cost: branch.costConvertedEssence,
+                effect: branch.effectConvertedEssence,
+                burden: branch.burdenConvertedEssence,
+                uncertainty: branch.uncertaintyConvertedEssence,
+                net: branch.netConvertedEssence,
+              },
+              operations: branch.operations.map(operationContract),
+              terminal: branch.terminal
+                ? {
+                    outcome: branch.terminal.outcome,
+                    operations: branch.terminal.operations.map(operationContract),
+                  }
+                : undefined,
+            })),
+          })),
+        }
+      : undefined,
+    rewardPool: args.rewardPool
+      ? {
+          replacement: args.rewardPool.replacement,
+          operations: args.rewardPool.operations.map(operationContract),
+        }
+      : undefined,
+    precommitted: {
+      operations: (args.precommitted.operations ?? []).map(operationContract),
+    },
+  };
   const components = [
     `shape:${args.shapeId}`,
     `stage:${args.stage}`,
-    ...args.options.flatMap((journeyOption) =>
-      journeyOption.operations.map((operation) => {
-        const target = operation.targetSelector && operation.targetSelector.selectorKind !== "none"
-          ? `${operation.targetSelector.selectorKind}:${"selection" in operation.targetSelector ? operation.targetSelector.selection : "none"}`
-          : "target:none";
-        const timing = operation.timing?.timingKind ?? "timing:unspecified";
-        const legacy = operation.legacyKind ?? "legacy:none";
-
-        return [
-          `option:${journeyOption.number}`,
-          operation.operationKind,
-          operation.role,
-          operation.visibility,
-          target,
-          timing,
-          legacy,
-        ].join(":");
-      })
+    ...contract.options.map((journeyOption) =>
+      `option:${journeyOption.number}:${sha256Hex(stableStringify(journeyOption)).slice(0, 16)}`
     ),
-    ...(args.precommitted.operations ?? []).map((operation) =>
-      `precommitted:${operation.operationKind}:${operation.role}:${operation.visibility}:${operation.legacyKind ?? "legacy:none"}`
-    ),
+    ...(contract.tree?.nodes.flatMap((node) =>
+      node.branches.map((branch) =>
+        `tree:${node.id}:${branch.id}:${sha256Hex(stableStringify(branch)).slice(0, 16)}`
+      )
+    ) ?? []),
+    ...(contract.rewardPool
+      ? [`reward-pool:${sha256Hex(stableStringify(contract.rewardPool)).slice(0, 16)}`]
+      : []),
+    ...(contract.precommitted.operations.length > 0
+      ? [`precommitted:${sha256Hex(stableStringify(contract.precommitted)).slice(0, 16)}`]
+      : []),
   ];
-  const value = sha256Hex(stableStringify({
-    algorithm: "semantic-fingerprint:v1",
-    components,
-  })).slice(0, 16);
+  const value = sha256Hex(stableStringify(contract)).slice(0, 16);
 
   return {
     algorithm: "semantic-fingerprint:v1",
@@ -2077,6 +2136,8 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     shapeId: args.shapeId,
     stage: args.stage,
     options,
+    tree: filled.tree,
+    rewardPool: filled.rewardPool,
     precommitted,
   });
 
@@ -2131,7 +2192,26 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     ),
   };
 
-  return attachTargetResolutionMetadata(manifest, args.context.content, args.context.state.quest);
+  const manifestWithTargetResolution = attachTargetResolutionMetadata(
+    manifest,
+    args.context.content,
+    args.context.state.quest,
+  );
+
+  return {
+    ...manifestWithTargetResolution,
+    debug: {
+      ...manifestWithTargetResolution.debug,
+      semanticFingerprint: semanticFingerprintFor({
+        shapeId: manifestWithTargetResolution.shapeId,
+        stage: manifestWithTargetResolution.stage,
+        options: manifestWithTargetResolution.options,
+        tree: manifestWithTargetResolution.tree,
+        rewardPool: manifestWithTargetResolution.rewardPool,
+        precommitted: manifestWithTargetResolution.precommitted,
+      }),
+    },
+  };
 }
 
 export const FALLBACK_SHAPE_IDS = Object.freeze([
