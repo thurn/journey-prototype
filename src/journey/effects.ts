@@ -15,7 +15,7 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v2" = "effects:v2";
+export const EFFECT_CATALOG_VERSION: "effects:v3" = "effects:v3";
 
 export type EffectEntry = {
   readonly id: string;
@@ -271,6 +271,24 @@ const EFFECT_DEFINITIONS = [
     family: "bane",
     textTemplate: "Purge up to {count} chosen Banes.",
     tags: ["reward", "bane", "purge"],
+  },
+  {
+    id: "bane-replace",
+    family: "bane",
+    textTemplate: "Replace {baneName} with {newBaneName}.",
+    tags: ["reward", "bane", "replacement"],
+  },
+  {
+    id: "bane-transform-to-card",
+    family: "bane",
+    textTemplate: "Transform {baneName} into {cardName}.",
+    tags: ["reward", "bane", "card", "transform"],
+  },
+  {
+    id: "resource-edge",
+    family: "resource",
+    textTemplate: "Resolve a typed resource edge case.",
+    tags: ["reward", "cost", "resource", "typed"],
   },
   {
     id: "dreamsign-gain",

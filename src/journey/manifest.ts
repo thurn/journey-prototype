@@ -76,6 +76,25 @@ export type OperationValueMetadata = {
   }[];
 };
 
+export type ResourceAmountSemantics = {
+  resource: "essence" | "omens" | "maxEssence";
+  amountKind:
+    | "fixed"
+    | "maximum"
+    | "restore_to_maximum"
+    | "percentage_of_maximum"
+    | "all_remaining"
+    | "random_range"
+    | "cap_change"
+    | "reward_reduction";
+  amount?: number;
+  percentage?: number;
+  minimum?: number;
+  maximum?: number;
+  capDelta?: number;
+  basis?: "current" | "maximum" | "remaining" | "reward";
+};
+
 export type TargetSelector =
   | (TargetSelectorBase & {
     selectorKind: "card";
@@ -168,6 +187,7 @@ type OperationBase = {
   visibility: OperationVisibility;
   timing?: OperationTiming;
   value?: OperationValueMetadata;
+  resourceSemantics?: ResourceAmountSemantics;
   targetSelector?: TargetSelector;
   targetResolution?: TargetResolutionMetadata;
   legacyKind?: string;
@@ -187,6 +207,10 @@ export type RewardOperation = OperationBase & {
   role: "reward";
   rewardKind:
     | "resource"
+    | "resource_cap_change"
+    | "resource_restore_to_maximum"
+    | "resource_percentage"
+    | "resource_random_range"
     | "card_draft"
     | "dreamsign_draft"
     | "dreamsign_gain"
@@ -220,6 +244,11 @@ export type RewardOperation = OperationBase & {
     | "transfiguration"
     | "card_rewrite"
     | "card_duplicate"
+    | "bane_purge"
+    | "bane_random_purge"
+    | "bane_chosen_purge"
+    | "bane_replace"
+    | "bane_transform_to_card"
     | "battle_window_modifier"
     | "random_reward"
     | "random_series"
@@ -229,7 +258,13 @@ export type RewardOperation = OperationBase & {
 export type BurdenOperation = OperationBase & {
   operationKind: "burden";
   role: "burden";
-  burdenKind: "bane_gain" | "resource_loss" | "unknown";
+  burdenKind:
+    | "bane_gain"
+    | "bane_temporary"
+    | "bane_delayed"
+    | "resource_loss"
+    | "reward_reduction"
+    | "unknown";
 };
 
 export type StatusOperation = OperationBase & {

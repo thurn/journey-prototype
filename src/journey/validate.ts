@@ -214,6 +214,30 @@ function immediateCostFromOperation(operation: JourneyOperation): ImmediateCost 
     : { omens: operation.amount };
 }
 
+function baneTargetContext(value: Record<string, unknown>): "current_state" | "future_burden" | "manifest_obligation" {
+  return value.baneTargetContext === "current_state"
+    ? "current_state"
+    : value.baneTargetContext === "manifest_obligation"
+      ? "manifest_obligation"
+      : "future_burden";
+}
+
+function isBaneCurrentStateRequirement(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const kind = typeof value.kind === "string" ? value.kind : "";
+
+  return (
+    kind === "bane_purge" ||
+    kind === "bane_random_purge" ||
+    kind === "bane_chosen_purge" ||
+    kind === "bane_replace" ||
+    kind === "bane_transform_to_card"
+  ) && baneTargetContext(value) === "current_state";
+}
+
 function operationPayloadCount(value: {
   costs?: readonly unknown[];
   effects?: readonly unknown[];
@@ -456,7 +480,7 @@ function collectStructuredReferences(value: unknown): {
           references.dreamsigns.push(entry);
         } else if (key === "dreamcallerName" || key === "dreamcallerId") {
           references.dreamcallers.push(entry);
-        } else if (key === "baneName") {
+        } else if (key === "baneName" || key === "newBaneName") {
           references.banes.push(entry);
         } else if (
           key === "transfigurationName" ||
@@ -603,6 +627,21 @@ function validateOperationTargetSelectors(
       return fail(namedCardResult.rule, `${location} operation ${index + 1}: ${namedCardResult.message}`, namedCardResult.debug);
     }
 
+    if (
+      operation.targetSelector.selectorKind === "bane" &&
+      operation.targetSelector.source === "state"
+    ) {
+      const resolution = resolveTargetSelector(context.content, context.state.quest, operation.targetSelector);
+
+      if (resolution.candidateCount === 0) {
+        return fail(
+          "bane_current_state_target_unavailable",
+          `${location} operation ${index + 1}: Current-state Bane operations require tracked Banes in state`,
+          { targetResolution: resolution },
+        );
+      }
+    }
+
     const result = validateTargetSelector(operation.targetSelector, context, index + 1);
 
     if (!result.ok) {
@@ -727,6 +766,25 @@ function scanIllegalStructuredValue(value: unknown): ValidationResult {
 
   if (typeof value.baneName === "string" && !isBaneName(value.baneName)) {
     return fail("invalid_bane_name", `Invalid Bane name: ${value.baneName}`);
+  }
+
+  if (typeof value.newBaneName === "string" && !isBaneName(value.newBaneName)) {
+    return fail("invalid_bane_name", `Invalid Bane name: ${value.newBaneName}`);
+  }
+
+  if (
+    typeof value.minimum === "number" &&
+    typeof value.maximum === "number" &&
+    value.minimum > value.maximum
+  ) {
+    return fail("invalid_resource_random_range", "Resource random range minimum cannot exceed maximum");
+  }
+
+  if (
+    typeof value.percentage === "number" &&
+    (value.percentage < 0 || value.percentage > 100)
+  ) {
+    return fail("invalid_resource_percentage", "Resource percentage must be between 0 and 100");
   }
 
   if (value.hidden === true && (value.important === true || value.importance === "important")) {
@@ -982,6 +1040,21 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
       return namedCardResult;
     }
 
+    if (
+      operation.targetSelector.selectorKind === "bane" &&
+      operation.targetSelector.source === "state"
+    ) {
+      const resolution = resolveTargetSelector(context.content, context.state.quest, operation.targetSelector);
+
+      if (resolution.candidateCount === 0) {
+        return fail(
+          "bane_current_state_target_unavailable",
+          `Option ${option.number} has no tracked current-state Bane targets`,
+          { targetResolution: resolution },
+        );
+      }
+    }
+
     const result = validateTargetSelector(operation.targetSelector, context, option.number);
 
     if (!result.ok) {
@@ -1043,8 +1116,16 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
     return fail("starter_cleanup_without_starters", "Starter cleanup requires Starter cards");
   }
 
-  if (option.effects.some((effect) => isRecord(effect) && effect.kind === "bane_purge")) {
-    return fail("bane_purge_without_banes", "Bane purge requires tracked Banes in state");
+  if (option.effects.some(isBaneCurrentStateRequirement)) {
+    return fail("bane_current_state_target_unavailable", "Current-state Bane operations require tracked Banes in state");
+  }
+
+  if (option.operations.some((operation) =>
+    operation.targetSelector?.selectorKind === "bane" &&
+    operation.targetSelector.source === "state" &&
+    operation.targetResolution?.candidateCount === 0
+  )) {
+    return fail("bane_current_state_target_unavailable", "Current-state Bane operations require tracked Banes in state");
   }
 
   if (

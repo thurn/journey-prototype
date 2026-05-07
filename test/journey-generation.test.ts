@@ -460,8 +460,8 @@ describe("generateNextJourney", () => {
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v9",
-      effectCatalogVersion: "effects:v2",
-      valueModelVersion: "value:v5",
+      effectCatalogVersion: "effects:v3",
+      valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
       validationContractVersion: "validation:v1",
@@ -581,13 +581,12 @@ describe("generateNextJourney", () => {
       variantId: "resource-edge-cases",
       qaId: "resource/resource-edge-cases",
       description: "Resource edge cases for value-band coverage.",
-      supportedShapes: "all",
-      supportedStages: "all",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
     } satisfies DebugPayloadSelection;
     const manifest = generateNextJourney({
       context: journeyContext,
       forcedStage: "late",
-      forcedShapeId: "resolved_random_series",
       forcedDebugPayload: resourcePayload,
     });
     const operationBands = manifest.options.flatMap((journeyOption) =>
@@ -619,6 +618,106 @@ describe("generateNextJourney", () => {
       expect.stringContaining("cap_change"),
       expect.stringContaining("multi_omen"),
     ]));
+    expect(manifest.shapeId).toBe("service_menu");
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+    expect(manifest.options.flatMap((option) => option.operations)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "reward",
+        resourceSemantics: expect.objectContaining({ amountKind: "restore_to_maximum" }),
+      }),
+      expect.objectContaining({
+        operationKind: "cost",
+        resourceSemantics: expect.objectContaining({ amountKind: "all_remaining" }),
+      }),
+      expect.objectContaining({
+        operationKind: "burden",
+        burdenKind: "reward_reduction",
+      }),
+    ]));
+  });
+
+  it("forces Bane gain, purge, replacement, and transform payloads without requiring persistent Bane state", async () => {
+    const journeyContext = await context("bane-resource");
+    const banePayload = {
+      familyId: "bane",
+      variantId: "bane-gain-purge-transform",
+      qaId: "bane/bane-gain-purge-transform",
+      description: "Bane gain, purge, and transform coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: banePayload,
+    });
+    const operations = manifest.options.flatMap((option) => option.operations);
+
+    expect(manifest.shapeId).toBe("service_menu");
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+    expect(operations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operationKind: "burden",
+        burdenKind: "bane_gain",
+        targetSelector: expect.objectContaining({ selectorKind: "bane", source: "vocabulary" }),
+      }),
+      expect.objectContaining({
+        operationKind: "burden",
+        burdenKind: "bane_delayed",
+      }),
+      expect.objectContaining({
+        operationKind: "burden",
+        burdenKind: "bane_temporary",
+      }),
+      expect.objectContaining({
+        operationKind: "reward",
+        rewardKind: "bane_chosen_purge",
+        payload: expect.objectContaining({ baneTargetContext: "manifest_obligation" }),
+      }),
+      expect.objectContaining({
+        operationKind: "reward",
+        rewardKind: "bane_transform_to_card",
+      }),
+    ]));
+  });
+
+  it("rejects current-state Bane purge when no tracked Bane context exists", async () => {
+    const journeyContext = await context("bane-invalid");
+    const banePayload = {
+      familyId: "bane",
+      variantId: "bane-gain-purge-transform",
+      qaId: "bane/bane-gain-purge-transform",
+      description: "Bane gain, purge, and transform coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = JSON.parse(JSON.stringify(generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: banePayload,
+    }))) as JourneyManifest;
+    const purgeOption = manifest.options.find((option) =>
+      option.operations.some((operation) =>
+        operation.operationKind === "reward" && operation.rewardKind === "bane_chosen_purge"
+      )
+    )!;
+
+    purgeOption.effects = [{
+      kind: "bane_chosen_purge",
+      baneName: "Nightmare",
+      count: 1,
+      baneTargetContext: "current_state",
+      selection: "chosen_after_commitment",
+      timing: "immediate",
+    }];
+    purgeOption.operations = adaptJourneyOptionOperations(purgeOption);
+
+    const resolved = attachTargetResolutionMetadata(manifest, journeyContext.content, journeyContext.state.quest);
+
+    expect(validateJourneyManifest(resolved, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "bane_current_state_target_unavailable",
+    });
   });
 
   it("forces named card operation menus with typed real-card operation payloads", async () => {

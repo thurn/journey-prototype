@@ -82,14 +82,14 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "bane",
     description: "Bane gain, purge, and transform payloads.",
     variants: [
-      variant("bane", "bane-gain-purge-transform", "unimplemented", "Reserved for Bane gain, purge, and transform scenes.", "all", ["mid", "late"]),
+      variant("bane", "bane-gain-purge-transform", "available", "Deterministic Bane gain, purge, replacement, and Bane-to-card transform scenes.", ["service_menu"], ["mid", "late"]),
     ],
   },
   {
     id: "resource",
     description: "Resource edge cases for essence, omens, percentages, and caps.",
     variants: [
-      variant("resource", "resource-edge-cases", "available", "Task 05 value/validation fixture using current adapted resource operation payloads."),
+      variant("resource", "resource-edge-cases", "available", "Deterministic maximum, percentage, range, all-remaining, multi-omen, and cap resource scenes.", ["service_menu"], ["mid", "late"]),
     ],
   },
   {

@@ -81,9 +81,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v5");
+    expect(VALUE_MODEL_VERSION).toBe("value:v6");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v5",
+      version: "value:v6",
       values: {
         essence: {
           gainUnit: 1,

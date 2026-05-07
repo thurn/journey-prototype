@@ -3,7 +3,7 @@ import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v5" = "value:v5";
+export const VALUE_MODEL_VERSION: "value:v6" = "value:v6";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -152,6 +152,19 @@ export const BANE_VALUE_CONSTANTS = {
   },
   purgeInverseMultiplier: 0.9,
   chosenPurgeBonus: 25,
+  temporaryMultiplier: 0.45,
+  delayedMultiplier: 0.65,
+  replacementRelief: 35,
+  transformToCardBase: 120,
+} as const;
+
+export const RESOURCE_EDGE_VALUE_CONSTANTS = {
+  capGainMultiplier: 2,
+  capLossMultiplier: -2,
+  percentageOfMaximumMultiplier: 1,
+  allRemainingCostMultiplier: -1,
+  randomRangeExpectedMultiplier: 1,
+  rewardReductionMultiplier: -1,
 } as const;
 
 export const PAYMENT_VALUE_CONSTANTS = {
@@ -250,6 +263,7 @@ export const VALUE_MODEL_VALUES = {
   route: ROUTE_VALUE_CONSTANTS,
   timingAndRandomness: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   banes: BANE_VALUE_CONSTANTS,
+  resourceEdges: RESOURCE_EDGE_VALUE_CONSTANTS,
   payments: PAYMENT_VALUE_CONSTANTS,
   lossChoices: LOSS_CHOICE_VALUE_CONSTANTS,
   positiveMenus: POSITIVE_MENU_VALUE_CONSTANTS,

@@ -6,6 +6,7 @@ import type {
   JourneyTreeTerminal,
   OperationTiming,
   OperationValueMetadata,
+  ResourceAmountSemantics,
   PrecommittedOutcomes,
   RandomEnvelopeOperation,
   RewardOperation,
@@ -247,6 +248,35 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     };
   }
 
+  if (
+    typeof value.baneName === "string" ||
+    Array.isArray(value.baneNames) ||
+    value.kind === "bane_purge" ||
+    value.kind === "bane_random_purge" ||
+    value.kind === "bane_chosen_purge" ||
+    value.kind === "bane_replace" ||
+    value.kind === "bane_transform_to_card"
+  ) {
+    const baneNames = typeof value.baneName === "string"
+      ? [value.baneName]
+      : stringArray(value.baneNames);
+    const targetContext = value.baneTargetContext === "current_state" ? "state" : "vocabulary";
+    const selection = value.selection === "visible_random" || value.kind === "bane_random_purge"
+      ? "visible_random"
+      : value.selection === "chosen_after_commitment" || value.kind === "bane_chosen_purge"
+        ? "chosen_after_commitment"
+        : "exact";
+
+    return {
+      selectorKind: "bane",
+      selection,
+      referenceKind: "controlled_vocabulary",
+      source: targetContext,
+      ...(baneNames ? { names: baneNames } : {}),
+      required: targetContext === "state",
+    };
+  }
+
   if (isRecord(value.predicate)) {
     const source = sourceFromPredicate(value.predicate);
 
@@ -322,6 +352,60 @@ function resourceAmount(value: unknown): number {
   return isRecord(value) && typeof value.amount === "number" ? value.amount : 0;
 }
 
+function resourceSemanticsFromPayload(value: unknown): ResourceAmountSemantics | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const kind = legacyKind(value);
+  const resource = value.resource === "omens" || kind === "gain_omens" || kind === "omens" || kind === "omen_loss"
+    ? "omens"
+    : value.resource === "maxEssence" || value.resource === "max_essence"
+      ? "maxEssence"
+      : "essence";
+  const amountKind = typeof value.resourceAmountKind === "string"
+    ? value.resourceAmountKind
+    : kind === "resource_restore_to_maximum"
+      ? "restore_to_maximum"
+      : kind === "resource_percentage"
+        ? "percentage_of_maximum"
+        : kind === "resource_random_range"
+          ? "random_range"
+          : kind === "resource_cap_change"
+            ? "cap_change"
+            : kind === "resource_reward_reduction"
+              ? "reward_reduction"
+              : kind === "essence_all_remaining" || value.allRemaining === true
+                ? "all_remaining"
+                : "fixed";
+
+  if (
+    amountKind !== "fixed" &&
+    amountKind !== "maximum" &&
+    amountKind !== "restore_to_maximum" &&
+    amountKind !== "percentage_of_maximum" &&
+    amountKind !== "all_remaining" &&
+    amountKind !== "random_range" &&
+    amountKind !== "cap_change" &&
+    amountKind !== "reward_reduction"
+  ) {
+    return undefined;
+  }
+
+  return {
+    resource,
+    amountKind,
+    ...(typeof value.amount === "number" ? { amount: value.amount } : {}),
+    ...(typeof value.percentage === "number" ? { percentage: value.percentage } : {}),
+    ...(typeof value.minimum === "number" ? { minimum: value.minimum } : {}),
+    ...(typeof value.maximum === "number" ? { maximum: value.maximum } : {}),
+    ...(typeof value.capDelta === "number" ? { capDelta: value.capDelta } : {}),
+    ...(value.basis === "current" || value.basis === "maximum" || value.basis === "remaining" || value.basis === "reward"
+      ? { basis: value.basis }
+      : {}),
+  };
+}
+
 function valueMetadata(convertedEssence?: number): OperationValueMetadata | undefined {
   return convertedEssence === undefined ? undefined : { convertedEssence };
 }
@@ -339,6 +423,7 @@ function adaptCost(value: unknown, operationId: string, convertedEssence?: numbe
     amount: resourceAmount(value),
     timing: { timingKind: "immediate" },
     visibility: "visible",
+    ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
@@ -349,7 +434,18 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
   switch (kind) {
     case "gain_essence":
     case "gain_omens":
+    case "resource_restore_to_maximum":
+    case "resource_percentage":
+    case "resource_random_range":
       return "resource";
+    case "resource_cap_change":
+      return "resource_cap_change";
+    case "bane_purge":
+    case "bane_random_purge":
+    case "bane_chosen_purge":
+    case "bane_replace":
+    case "bane_transform_to_card":
+      return kind;
     case "card_draft":
     case "dreamsign_draft":
     case "dreamsign_gain":
@@ -409,6 +505,7 @@ function adaptReward(
     visibility,
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : {}),
     ...(targetSelector ? { targetSelector } : {}),
+    ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
@@ -418,16 +515,22 @@ function adaptReward(
 function adaptBurden(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
   const kind = legacyKind(value);
   const burdenKind = kind === "bane_gain"
-    ? "bane_gain"
-    : kind === "omen_loss" || kind === "essence_loss"
-      ? "resource_loss"
-      : "unknown";
-  const targetSelector = burdenKind === "bane_gain"
+    ? isRecord(value) && value.temporary === true
+      ? "bane_temporary"
+      : isRecord(value) && typeof value.timing === "string" && value.timing !== "immediate"
+        ? "bane_delayed"
+        : "bane_gain"
+    : kind === "resource_reward_reduction"
+      ? "reward_reduction"
+      : kind === "omen_loss" || kind === "essence_loss"
+        ? "resource_loss"
+        : "unknown";
+  const targetSelector = burdenKind === "bane_gain" || burdenKind === "bane_temporary" || burdenKind === "bane_delayed"
     ? {
         selectorKind: "bane" as const,
-        selection: "exact" as const,
+        selection: isRecord(value) && value.selection === "visible_random" ? "visible_random" as const : "exact" as const,
         referenceKind: "controlled_vocabulary" as const,
-        source: "vocabulary" as const,
+        source: isRecord(value) && value.baneTargetContext === "current_state" ? "state" as const : "vocabulary" as const,
         names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : "Nightmare"],
       }
     : undefined;
@@ -437,9 +540,10 @@ function adaptBurden(value: unknown, operationId: string, convertedEssence?: num
     operationKind: "burden",
     role: "burden",
     burdenKind,
-    timing: { timingKind: "immediate" },
+    ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
     visibility: "visible",
     ...(targetSelector ? { targetSelector } : {}),
+    ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),

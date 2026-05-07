@@ -41,6 +41,7 @@ import {
   valueEssenceGain,
   valueOmenGain,
   valueOmenLoss,
+  BANE_VALUE_CONSTANTS,
   CARD_MODIFICATION_VALUE_CONSTANTS,
   CARD_VALUE_CONSTANTS,
   DREAMSIGN_VALUE_CONSTANTS,
@@ -326,6 +327,26 @@ function target(kind: "card" | "dreamsign", description: string, predicate: unkn
     description,
     predicate,
     required: true,
+  };
+}
+
+function baneTarget(
+  description: string,
+  names: string[],
+  source: "vocabulary" | "state" = "vocabulary",
+  selection: "exact" | "chosen_after_commitment" | "visible_random" = "exact",
+) {
+  return {
+    kind: "bane",
+    description,
+    predicate: {
+      source,
+      names,
+    },
+    source,
+    names,
+    selection,
+    required: source === "state",
   };
 }
 
@@ -1909,6 +1930,10 @@ function isDreamsignTransformDuplicatePoolPayload(debugPayload: DebugPayloadSele
   return debugPayload?.qaId === "dreamsign/dreamsign-transform-duplicate-pool";
 }
 
+function isBaneGainPurgeTransformPayload(debugPayload: DebugPayloadSelection | undefined): boolean {
+  return debugPayload?.qaId === "bane/bane-gain-purge-transform";
+}
+
 function cardQualityValue(card: CardContent): number {
   const rarityValue =
     card.rarity === "Rare"
@@ -2506,6 +2531,271 @@ function dreamsignTransformDuplicatePoolOptions(
   ];
 }
 
+function banePayload(args: {
+  kind: string;
+  baneName: string;
+  count?: number;
+  targetContext?: "current_state" | "future_burden" | "manifest_obligation";
+  selection?: "exact" | "chosen_after_commitment" | "visible_random";
+  timing?: string;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    kind: args.kind,
+    baneOperationKind: args.kind.replace(/^bane_/u, ""),
+    baneName: args.baneName,
+    count: args.count ?? 1,
+    baneTargetContext: args.targetContext ?? "future_burden",
+    selection: args.selection ?? "exact",
+    timing: args.timing ?? "immediate",
+    ...(args.extra ?? {}),
+  };
+}
+
+function baneGainPurgeTransformOptions(
+  context: JourneyContext,
+  drawContext: DrawContext,
+): JourneyOption[] {
+  const rewardCards = catalogRewardCards(context, drawContext);
+  const transformCard = rewardCards[0] ?? context.content.cards.find((card) => card.rarity !== "Starter") ?? context.content.cards[0]!;
+  const replacement = pickSequentialVariant(drawContext, "bane-gain-purge-transform:replacement", [
+    "Doubt",
+    "Silence",
+    "Paranoia",
+  ]);
+  const gained = banePayload({
+    kind: "bane_gain",
+    baneName: "Nightmare",
+    count: 2,
+    targetContext: "future_burden",
+  });
+  const delayed = banePayload({
+    kind: "bane_gain",
+    baneName: "Doubt",
+    targetContext: "future_burden",
+    timing: "after next battle",
+    extra: { delayed: true },
+  });
+  const temporary = banePayload({
+    kind: "bane_gain",
+    baneName: "Paranoia",
+    targetContext: "future_burden",
+    timing: BATTLE_WINDOW_DURATION,
+    extra: { temporary: true, duration: BATTLE_WINDOW_DURATION },
+  });
+  const chosenPurge = banePayload({
+    kind: "bane_chosen_purge",
+    baneName: "Nightmare",
+    targetContext: "manifest_obligation",
+    selection: "chosen_after_commitment",
+  });
+  const randomPurge = banePayload({
+    kind: "bane_random_purge",
+    baneName: "Despair",
+    targetContext: "manifest_obligation",
+    selection: "visible_random",
+  });
+  const replace = banePayload({
+    kind: "bane_replace",
+    baneName: "Oblivion",
+    targetContext: "manifest_obligation",
+    extra: { newBaneName: replacement },
+  });
+  const transform = banePayload({
+    kind: "bane_transform_to_card",
+    baneName: "Despair",
+    targetContext: "manifest_obligation",
+    extra: {
+      cardId: transformCard.id,
+      cardName: transformCard.name,
+      source: "catalog",
+    },
+  });
+
+  return [
+    option({
+      number: 1,
+      text: "Gain 180 essence. Gain 2 Nightmares now and gain 1 Doubt after next battle.",
+      effects: [gainEssence(180)],
+      burdens: [gained, delayed],
+      targets: [baneTarget("future Bane burden", ["Nightmare", "Doubt"])],
+      effect: 330,
+      burden: valueBaneGain("Nightmare", 2) + Math.round(valueBaneGain("Doubt", 1) * BANE_VALUE_CONSTANTS.delayedMultiplier),
+    }),
+    option({
+      number: 2,
+      text: `Choose a manifest Nightmare obligation to purge, purge one random visible Despair obligation, then replace Oblivion with ${replacement}.`,
+      effects: [chosenPurge, randomPurge, replace],
+      targets: [
+        baneTarget("manifest-local Bane obligations", ["Nightmare", "Despair", "Oblivion"], "vocabulary", "chosen_after_commitment"),
+      ],
+      effect: 150,
+    }),
+    option({
+      number: 3,
+      text: `Transform a manifest Despair obligation into {${transformCard.name}}.`,
+      effects: [transform],
+      targets: [
+        baneTarget("manifest-local Bane obligation", ["Despair"]),
+        target("card", `${transformCard.name} in catalog`, {
+          source: "catalog",
+          ids: [transformCard.id],
+          names: [transformCard.name],
+        }),
+      ],
+      effect: BANE_VALUE_CONSTANTS.transformToCardBase + Math.min(35, cardQualityValue(transformCard) - 75),
+    }),
+    option({
+      number: 4,
+      text: "Gain 220 essence. Carry 1 temporary Paranoia for the next 3 battles.",
+      effects: [gainEssence(220)],
+      burdens: [temporary],
+      targets: [baneTarget("temporary future Bane burden", ["Paranoia"])],
+      effect: 195,
+      burden: Math.round(valueBaneGain("Paranoia", 1) * BANE_VALUE_CONSTANTS.temporaryMultiplier),
+    }),
+  ];
+}
+
+function resourcePayload(args: {
+  kind: string;
+  resource: "essence" | "omens" | "maxEssence";
+  amount?: number;
+  percentage?: number;
+  minimum?: number;
+  maximum?: number;
+  capDelta?: number;
+  basis?: "current" | "maximum" | "remaining" | "reward";
+  timing?: string;
+  extra?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    kind: args.kind,
+    resource: args.resource,
+    timing: args.timing ?? "immediate",
+    ...(args.amount !== undefined ? { amount: args.amount } : {}),
+    ...(args.percentage !== undefined ? { percentage: args.percentage } : {}),
+    ...(args.minimum !== undefined ? { minimum: args.minimum } : {}),
+    ...(args.maximum !== undefined ? { maximum: args.maximum } : {}),
+    ...(args.capDelta !== undefined ? { capDelta: args.capDelta } : {}),
+    ...(args.basis ? { basis: args.basis } : {}),
+    ...(args.extra ?? {}),
+  };
+}
+
+function resourceEdgeCaseOptions(context: JourneyContext): JourneyOption[] {
+  const resources = context.state.quest.resources;
+  const restoreAmount = Math.max(0, resources.maxEssence - resources.essence);
+  const percentageGain = Math.round(resources.maxEssence * 0.25);
+  const percentageCost = Math.min(resources.essence, Math.ceil(resources.essence * 0.1));
+  const allRemaining = resources.essence;
+
+  return [
+    option({
+      number: 1,
+      text: "Restore essence to maximum. Gain 25 maximum essence.",
+      effects: [
+        resourcePayload({
+          kind: "resource_restore_to_maximum",
+          resource: "essence",
+          amount: restoreAmount,
+          basis: "maximum",
+          extra: { resourceAmountKind: "restore_to_maximum" },
+        }),
+        resourcePayload({
+          kind: "resource_cap_change",
+          resource: "maxEssence",
+          amount: 25,
+          capDelta: 25,
+          extra: { resourceAmountKind: "cap_change" },
+        }),
+      ],
+      effect: 150,
+    }),
+    option({
+      number: 2,
+      text: `Pay ${percentageCost} essence (10% of current essence). Gain ${percentageGain} essence (25% of maximum).`,
+      costs: [
+        {
+          kind: "essence",
+          amount: percentageCost,
+          resource: "essence",
+          resourceAmountKind: "percentage_of_maximum",
+          percentage: 10,
+          basis: "current",
+          timing: "immediate",
+        },
+      ],
+      effects: [
+        resourcePayload({
+          kind: "resource_percentage",
+          resource: "essence",
+          amount: percentageGain,
+          percentage: 25,
+          basis: "maximum",
+          extra: { resourceAmountKind: "percentage_of_maximum" },
+        }),
+      ],
+      cost: 40,
+      effect: 190,
+    }),
+    option({
+      number: 3,
+      text: `Pay all remaining essence (${allRemaining}). Gain a random 80-120 essence and 2 omens.`,
+      costs: [
+        {
+          kind: "essence",
+          amount: allRemaining,
+          resource: "essence",
+          resourceAmountKind: "all_remaining",
+          basis: "remaining",
+          allRemaining: true,
+          timing: "immediate",
+        },
+      ],
+      effects: [
+        resourcePayload({
+          kind: "resource_random_range",
+          resource: "essence",
+          amount: 100,
+          minimum: 80,
+          maximum: 120,
+          extra: { resourceAmountKind: "random_range" },
+        }),
+        gainOmen(2),
+      ],
+      cost: 120,
+      effect: 270,
+      uncertainty: -10,
+    }),
+    option({
+      number: 4,
+      text: "Gain 260 essence. After next victory, pay 2 omens and reduce the next Journey reward by 25%.",
+      effects: [gainEssence(260)],
+      burdens: [
+        resourcePayload({
+          kind: "omen_loss",
+          resource: "omens",
+          amount: 2,
+          timing: "after next victory",
+          extra: { resourceAmountKind: "fixed", multiOmenCost: true },
+        }),
+        resourcePayload({
+          kind: "resource_reward_reduction",
+          resource: "essence",
+          amount: 25,
+          percentage: 25,
+          basis: "reward",
+          timing: "after next victory",
+          extra: { resourceAmountKind: "reward_reduction" },
+        }),
+      ],
+      effect: 290,
+      burden: -140,
+    }),
+  ];
+}
+
 function semanticFingerprintFor(args: {
   shapeId: JourneyShapeId;
   stage: JourneyStage;
@@ -2683,7 +2973,11 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
         ? namedDreamsignShopRowOptions(args.context, args.drawContext)
         : isDreamsignTransformDuplicatePoolPayload(args.debugPayload)
           ? dreamsignTransformDuplicatePoolOptions(args.context, args.drawContext)
-          : filled.options.slice(0, shape.rootOptionCount.max);
+          : isBaneGainPurgeTransformPayload(args.debugPayload)
+            ? baneGainPurgeTransformOptions(args.context, args.drawContext)
+            : isResourceEdgeCasePayload(args.debugPayload)
+              ? resourceEdgeCaseOptions(args.context)
+              : filled.options.slice(0, shape.rootOptionCount.max);
   const options = isResourceEdgeCasePayload(args.debugPayload)
     ? withResourceEdgeCaseValueBands(filledOptions)
     : filledOptions;
@@ -2742,6 +3036,45 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
           }))
       )
     : [];
+  const baneRandomPrecommits = isBaneGainPurgeTransformPayload(args.debugPayload)
+    ? options.flatMap((journeyOption) =>
+        journeyOption.effects
+          .filter((effect): effect is Record<string, unknown> =>
+            typeof effect === "object" &&
+            effect !== null &&
+            !Array.isArray(effect) &&
+            "kind" in effect &&
+            effect.kind === "bane_random_purge"
+          )
+          .map((effect) => ({
+            optionNumber: journeyOption.number,
+            kind: "bane_random_purge",
+            baneName: effect.baneName,
+            baneTargetContext: effect.baneTargetContext,
+            committedResult: "purged",
+          }))
+      )
+    : [];
+  const resourceRandomPrecommits = isResourceEdgeCasePayload(args.debugPayload)
+    ? options.flatMap((journeyOption) =>
+        journeyOption.effects
+          .filter((effect): effect is Record<string, unknown> =>
+            typeof effect === "object" &&
+            effect !== null &&
+            !Array.isArray(effect) &&
+            "kind" in effect &&
+            effect.kind === "resource_random_range"
+          )
+          .map((effect) => ({
+            optionNumber: journeyOption.number,
+            kind: "resource_random_range",
+            resource: effect.resource,
+            minimum: effect.minimum,
+            maximum: effect.maximum,
+            committedAmount: effect.amount,
+          }))
+      )
+    : [];
   const delayedPrecommits = [
     ...cardDelayedPrecommits,
     ...dreamsignDelayedPrecommits,
@@ -2755,12 +3088,17 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
         ],
       }
     : filled.precommitted;
-  const precommittedWithRandom = dreamsignRandomPrecommits.length > 0
+  const randomPrecommits = [
+    ...dreamsignRandomPrecommits,
+    ...baneRandomPrecommits,
+    ...resourceRandomPrecommits,
+  ];
+  const precommittedWithRandom = randomPrecommits.length > 0
     ? {
         ...precommittedWithCardDelays,
         random: [
           ...(precommittedWithCardDelays.random ?? []),
-          ...dreamsignRandomPrecommits,
+          ...randomPrecommits,
         ],
       }
     : precommittedWithCardDelays;
