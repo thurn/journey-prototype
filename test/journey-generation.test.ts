@@ -226,12 +226,54 @@ describe("generateNextJourney", () => {
 
     for (const shapeId of delayedChoiceShapeIds) {
       const manifest = fillForShape(shapeId, journeyContext);
+      const expectedOptionCount = shapeId === "commit_now_future_payoff" ? 3 : 2;
 
-      expect(manifest.options, shapeId).toHaveLength(2);
-      expect(manifest.options.map((option) => option.number), shapeId).toEqual([1, 2]);
+      expect(manifest.options, shapeId).toHaveLength(expectedOptionCount);
+      expect(manifest.options.map((option) => option.number), shapeId).toEqual(
+        Array.from({ length: expectedOptionCount }, (_, index) => index + 1),
+      );
       expect(manifest.precommitted.delayed, shapeId).toBeDefined();
       expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
     }
+  });
+
+  it("fills commit-now future payoffs as three comparable visible commitments", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("commit_now_future_payoff", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Pay 30 essence now. At the next dreamscape, gain 160 essence.",
+      "Gain 1 Nightmare now. At the next dreamscape, choose 1 of 3 Dreamsigns.",
+      "Pay 55 essence now. At the next dreamscape, draft 1 of 4 Reclaim events. Gain 2 omens.",
+    ]);
+    expect(manifest.precommitted.delayed?.map((entry) =>
+      typeof entry === "object" && entry !== null && "optionNumber" in entry
+        ? entry.optionNumber
+        : null,
+    )).toEqual([1, 2, 3]);
+
+    const nets = manifest.options.map((option) => option.netConvertedEssence);
+
+    expect(Math.max(...nets) - Math.min(...nets)).toBeLessThanOrEqual(75);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("keeps now-versus-later rewards comparable while making the delayed choice distinct", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("now_vs_later", journeyContext);
+
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Gain 100 essence.",
+      "In 2 dreamscapes, choose 1 of 3 Dreamsigns.",
+    ]);
+    expect(manifest.options[1]?.netConvertedEssence).toBeGreaterThan(
+      manifest.options[0]?.netConvertedEssence ?? 0,
+    );
+    expect(
+      (manifest.options[1]?.netConvertedEssence ?? 0) -
+        (manifest.options[0]?.netConvertedEssence ?? 0),
+    ).toBeLessThanOrEqual(40);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
   });
 
   it("rejects a non-tree delayed hook that collapses to one root option", async () => {

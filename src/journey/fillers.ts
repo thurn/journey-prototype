@@ -127,6 +127,8 @@ function selectedDreamsignTargets(context: JourneyContext, drawContext: DrawCont
 const CARD_POOL_TARGET_DESCRIPTION = "eligible draft cards";
 const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
 const CARD_DRAFT_CHOICE_COUNT = 4;
+const ORDINARY_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.35;
+const COMMITTED_DELAYED_DREAMSIGN_VALUE_MULTIPLIER = 0.6;
 
 type CardDraftProfile = {
   label: string;
@@ -271,6 +273,14 @@ function dreamsignDraft(choiceCount: number) {
     choiceCount,
     predicate: { source: "pool", tideOverlap: "selected" },
   };
+}
+
+function delayedDreamsignDraftValue(
+  reward: ReturnType<typeof dreamsignDraft>,
+  context: JourneyContext,
+  multiplier = ORDINARY_DELAYED_DREAMSIGN_VALUE_MULTIPLIER,
+): number {
+  return Math.round(valueDreamsignDraft(reward, context) * multiplier);
 }
 
 function starterCleanup(count: number) {
@@ -1118,20 +1128,39 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
         };
       }
     case "now_vs_later":
-      return {
-        options: [
-          option({ number: 1, text: "Gain 45 essence.", effects: [gainEssence(45)], effect: 45 }),
-          option({
-            number: 2,
-            text: "After next victory, gain 90 essence.",
-            triggers: [{ kind: "after_next_victory" }],
-            effects: [gainEssence(90)],
-            effect: 67,
-            uncertainty: -8,
-          }),
-        ],
-        precommitted: { delayed: [{ trigger: "after next victory", reward: gainEssence(90) }] },
-      };
+      {
+        const dreamsignReward = dreamsignDraft(3);
+        const delayedOption = context.state.quest.dreamsignPoolIds.length > 0
+          ? option({
+              number: 2,
+              text: "In 2 dreamscapes, choose 1 of 3 Dreamsigns.",
+              triggers: [{ kind: "in_two_dreamscapes" }],
+              effects: [dreamsignReward],
+              targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
+              effect: delayedDreamsignDraftValue(dreamsignReward, context),
+              uncertainty: -16,
+            })
+          : option({
+              number: 2,
+              text: "In 2 dreamscapes, gain 180 essence.",
+              triggers: [{ kind: "in_two_dreamscapes" }],
+              effects: [gainEssence(180)],
+              effect: 135,
+              uncertainty: -16,
+            });
+
+        return {
+          options: [
+            option({ number: 1, text: "Gain 100 essence.", effects: [gainEssence(100)], effect: 100 }),
+            delayedOption,
+          ],
+          precommitted: {
+            delayed: context.state.quest.dreamsignPoolIds.length > 0
+              ? [{ optionNumber: 2, trigger: "in 2 dreamscapes", reward: dreamsignReward }]
+              : [{ optionNumber: 2, trigger: "in 2 dreamscapes", reward: gainEssence(180) }],
+          },
+        };
+      }
     case "reward_after_trigger":
       {
         const dreamsignReward = dreamsignDraft(3);
@@ -1150,7 +1179,7 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
                   triggers: [{ kind: "after_next_battle" }],
                   effects: [dreamsignReward],
                   targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-                  effect: Math.round(valueDreamsignDraft(dreamsignReward, context) * 0.75),
+                  effect: delayedDreamsignDraftValue(dreamsignReward, context),
                   uncertainty: -8,
                 })
               : option({
@@ -1293,28 +1322,43 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
     case "commit_now_future_payoff":
       {
         const dreamsignReward = dreamsignDraft(3);
-        const cardDraftProfile = legalCardDraftProfile(context, [
+        const firstCardDraftProfile = legalCardDraftProfile(context, [
           CARD_DRAFT_PROFILES.characters,
           CARD_DRAFT_PROFILES.events,
         ]);
-        const cardDraftReward = draftCards(cardDraftProfile);
+        const secondCardDraftProfile = legalCardDraftProfile(context, [
+          CARD_DRAFT_PROFILES.reclaimEvents,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
+          CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.characters,
+        ]);
+        const firstCardDraftReward = draftCards(firstCardDraftProfile);
+        const secondCardDraftReward = draftCards(secondCardDraftProfile);
         const secondRewardOption = context.state.quest.dreamsignPoolIds.length > 0
           ? option({
               number: 2,
-              text: "Commit now. At the next dreamscape, choose 1 of 3 Dreamsigns.",
+              text: "Gain 1 Nightmare now. At the next dreamscape, choose 1 of 3 Dreamsigns.",
               triggers: [{ kind: "next_dreamscape" }],
               effects: [dreamsignReward],
+              burdens: [nightmare(1)],
               targets: [target("dreamsign", DREAMSIGN_POOL_TARGET_DESCRIPTION, dreamsignReward.predicate)],
-              effect: Math.round(valueDreamsignDraft(dreamsignReward, context) * 0.8),
+              effect: delayedDreamsignDraftValue(
+                dreamsignReward,
+                context,
+                COMMITTED_DELAYED_DREAMSIGN_VALUE_MULTIPLIER,
+              ),
+              burden: valueBaneGain("Nightmare", 1),
               uncertainty: -8,
             })
           : option({
               number: 2,
-              text: `Commit now. At the next dreamscape, ${cardDraftText(cardDraftProfile).replace(/^Draft/u, "draft")} Gain 1 omen.`,
+              text: `Gain 1 Nightmare now. At the next dreamscape, ${cardDraftText(firstCardDraftProfile).replace(/^Draft/u, "draft")} Gain 3 omens.`,
               triggers: [{ kind: "next_dreamscape" }],
-              effects: [cardDraftReward, gainOmen(1)],
-              targets: [target("card", cardDraftProfile.targetDescription, cardDraftReward.predicate)],
-              effect: Math.round((valueCardDraft(cardDraftReward) + valueOmenGain(1)) * 0.8),
+              effects: [firstCardDraftReward, gainOmen(3)],
+              burdens: [nightmare(1)],
+              targets: [target("card", firstCardDraftProfile.targetDescription, firstCardDraftReward.predicate)],
+              effect: Math.round((valueCardDraft(firstCardDraftReward) + valueOmenGain(3)) * 0.85),
+              burden: valueBaneGain("Nightmare", 1),
               uncertainty: -8,
             });
 
@@ -1322,23 +1366,38 @@ function fillOptions(shapeId: JourneyShapeId, context: JourneyContext, drawConte
           options: [
             option({
               number: 1,
-              text: "Commit now. At the next dreamscape, gain 130 essence.",
+              text: "Pay 30 essence now. At the next dreamscape, gain 160 essence.",
+              costs: [cost("essence", 30)],
               triggers: [{ kind: "next_dreamscape" }],
-              effects: [gainEssence(130)],
-              effect: 104,
+              effects: [gainEssence(160)],
+              cost: 30,
+              effect: 128,
               uncertainty: -8,
             }),
             secondRewardOption,
+            option({
+              number: 3,
+              text: `Pay 55 essence now. At the next dreamscape, ${cardDraftText(secondCardDraftProfile).replace(/^Draft/u, "draft")} Gain 2 omens.`,
+              costs: [cost("essence", 55)],
+              triggers: [{ kind: "next_dreamscape" }],
+              effects: [secondCardDraftReward, gainOmen(2)],
+              targets: [target("card", secondCardDraftProfile.targetDescription, secondCardDraftReward.predicate)],
+              cost: 55,
+              effect: Math.round((valueCardDraft(secondCardDraftReward) + valueOmenGain(2)) * 0.75),
+              uncertainty: -8,
+            }),
           ],
           precommitted: {
             delayed: context.state.quest.dreamsignPoolIds.length > 0
               ? [
-                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(130) },
+                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(160) },
                   { optionNumber: 2, trigger: "next dreamscape", reward: dreamsignReward },
+                  { optionNumber: 3, trigger: "next dreamscape", reward: [secondCardDraftReward, gainOmen(2)] },
                 ]
               : [
-                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(130) },
-                  { optionNumber: 2, trigger: "next dreamscape", reward: [cardDraftReward, gainOmen(1)] },
+                  { optionNumber: 1, trigger: "next dreamscape", reward: gainEssence(160) },
+                  { optionNumber: 2, trigger: "next dreamscape", reward: [firstCardDraftReward, gainOmen(3)] },
+                  { optionNumber: 3, trigger: "next dreamscape", reward: [secondCardDraftReward, gainOmen(2)] },
                 ],
           },
         };

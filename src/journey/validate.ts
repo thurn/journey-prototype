@@ -516,6 +516,27 @@ function validateChooseYourLossValues(nets: readonly number[]): ValidationResult
   return { ok: true };
 }
 
+function validateCommitNowFuturePayoffValues(nets: readonly number[]): ValidationResult {
+  if (nets.length !== 3 || nets.some((net) => net <= 0)) {
+    return fail(
+      "option_values_are_comparable_for_shape",
+      "commit_now_future_payoff options must all be positive commitments",
+    );
+  }
+
+  const lowest = Math.min(...nets);
+  const highest = Math.max(...nets);
+
+  if (highest - lowest > 75) {
+    return fail(
+      "option_values_are_comparable_for_shape",
+      "commit_now_future_payoff options must be comparable future-payoff choices",
+    );
+  }
+
+  return { ok: true };
+}
+
 function looksLikeInventedTitle(prefix: string): boolean {
   const words = prefix.trim().split(/\s+/u);
 
@@ -879,6 +900,12 @@ export function validateJourneyManifest(
 
     if (!lossResult.ok) {
       return lossResult;
+    }
+  } else if (manifest.shapeId === "commit_now_future_payoff") {
+    const payoffResult = validateCommitNowFuturePayoffValues(nets);
+
+    if (!payoffResult.ok) {
+      return payoffResult;
     }
   } else if (nets.length > 0 && nets.every((net) => net < 0)) {
     return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");

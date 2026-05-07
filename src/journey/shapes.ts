@@ -50,7 +50,7 @@ export type JourneyShapeDefinition = {
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v6";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v7";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -646,7 +646,7 @@ const shapeDefinitions: readonly JourneyShapeDefinition[] = [
   {
     id: "commit_now_future_payoff",
     topology: "delayed_hook",
-    rootOptionCount: { min: 2, max: 2 },
+    rootOptionCount: { min: 3, max: 3 },
     supportedTags: ["commitment", "delayed", "reward", "future"],
     validationRules: [
       ...commonValidationRules,
