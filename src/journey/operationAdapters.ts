@@ -383,6 +383,7 @@ function resourceSemanticsFromPayload(value: unknown): ResourceAmountSemantics |
     amountKind !== "fixed" &&
     amountKind !== "maximum" &&
     amountKind !== "restore_to_maximum" &&
+    amountKind !== "percentage_of_current" &&
     amountKind !== "percentage_of_maximum" &&
     amountKind !== "all_remaining" &&
     amountKind !== "random_range" &&

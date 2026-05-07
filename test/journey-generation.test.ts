@@ -636,6 +636,38 @@ describe("generateNextJourney", () => {
     ]));
   });
 
+  it("serializes percentage-of-current essence costs with current-resource amount semantics", async () => {
+    const journeyContext = await context("bane-resource");
+    const resourcePayload = {
+      familyId: "resource",
+      variantId: "resource-edge-cases",
+      qaId: "resource/resource-edge-cases",
+      description: "Resource edge cases for value-band coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: resourcePayload,
+    });
+    const percentageOfCurrentCost = manifest.options[1]?.operations[0];
+
+    expect(percentageOfCurrentCost).toEqual(expect.objectContaining({
+      operationKind: "cost",
+      payload: expect.objectContaining({
+        basis: "current",
+        percentage: 10,
+        resourceAmountKind: "percentage_of_current",
+      }),
+      resourceSemantics: expect.objectContaining({
+        basis: "current",
+        percentage: 10,
+        amountKind: "percentage_of_current",
+      }),
+    }));
+  });
+
   it("forces Bane gain, purge, replacement, and transform payloads without requiring persistent Bane state", async () => {
     const journeyContext = await context("bane-resource");
     const banePayload = {

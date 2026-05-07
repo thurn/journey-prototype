@@ -82,6 +82,7 @@ export type ResourceAmountSemantics = {
     | "fixed"
     | "maximum"
     | "restore_to_maximum"
+    | "percentage_of_current"
     | "percentage_of_maximum"
     | "all_remaining"
     | "random_range"

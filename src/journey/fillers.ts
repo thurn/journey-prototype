@@ -2720,7 +2720,7 @@ function resourceEdgeCaseOptions(context: JourneyContext): JourneyOption[] {
           kind: "essence",
           amount: percentageCost,
           resource: "essence",
-          resourceAmountKind: "percentage_of_maximum",
+          resourceAmountKind: "percentage_of_current",
           percentage: 10,
           basis: "current",
           timing: "immediate",
