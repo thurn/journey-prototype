@@ -1,5 +1,6 @@
 import type { JourneyContext } from "../quest/context.js";
 import { RENDERER_VERSION } from "../render/theme.js";
+import { stableStringify } from "../util/stableJson.js";
 import {
   EFFECT_CATALOG_VERSION,
   SITE_TYPES,
@@ -703,6 +704,18 @@ function validatePairedReturnContractPayload(payload: Record<string, unknown>): 
   const durationResult = validateHookDuration(payload.returnScene.duration);
   if (!durationResult.ok) {
     return durationResult;
+  }
+
+  const mirroredReturnSceneFields: [string, unknown, unknown][] = [
+    ["triggerSelector", payload.triggerSelector, payload.returnScene.triggerSelector],
+    ["resolution", payload.resolution, payload.returnScene.resolution],
+    ["expiration", payload.expiration, payload.returnScene.expiration],
+    ["duration", payload.duration, payload.returnScene.duration],
+  ];
+  for (const [field, mirroredValue, returnSceneValue] of mirroredReturnSceneFields) {
+    if (mirroredValue !== undefined && stableStringify(mirroredValue) !== stableStringify(returnSceneValue)) {
+      return fail("invalid_paired_return_contract", "Paired return delayed fields must match returnScene", { field });
+    }
   }
 
   const visibilityResult = validateHookVisibility(payload.visibilityPolicy);

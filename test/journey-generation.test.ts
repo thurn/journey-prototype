@@ -1240,6 +1240,47 @@ describe("generateNextJourney", () => {
     });
   });
 
+  it("rejects paired-return delayed mirrors that diverge from returnScene", async () => {
+    const journeyContext = await context("invalid-return-mirror");
+    const returnPayload = {
+      familyId: "return",
+      variantId: "paired-return-seal-borrow-trade",
+      qaId: "return/paired-return-seal-borrow-trade",
+      description: "Paired return QA.",
+      supportedShapes: ["paired_return"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const returnManifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "late",
+      forcedDebugPayload: returnPayload,
+    });
+    const invalidReturn = {
+      ...(returnManifest.precommitted.pairedReturn?.[0] as Record<string, unknown>),
+      duration: {
+        durationKind: "battle_count",
+        label: "next 1 battle",
+        count: 1,
+      },
+    };
+    const invalidReturnManifest: JourneyManifest = {
+      ...returnManifest,
+      precommitted: refreshPrecommittedOperations({
+        ...returnManifest.precommitted,
+        pairedReturn: [
+          invalidReturn,
+          ...(returnManifest.precommitted.pairedReturn ?? []).slice(1),
+        ],
+      }),
+    };
+
+    expect(validateJourneyManifest(invalidReturnManifest, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_paired_return_contract",
+      debug: { field: "duration" },
+    });
+  });
+
   it("forces named card operation menus with typed real-card operation payloads", async () => {
     const requiredRewardKinds = new Set([
       "card_gain",
