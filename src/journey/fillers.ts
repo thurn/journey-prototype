@@ -1,4 +1,4 @@
-import type { ContentBundle } from "../content/model.js";
+import type { ContentBundle, DreamsignContent } from "../content/model.js";
 import type { JourneyContext } from "../quest/context.js";
 import {
   BANE_NAMES,
@@ -40,10 +40,13 @@ import {
   valueEssenceGain,
   valueOmenGain,
   valueOmenLoss,
+  DREAMSIGN_VALUE_CONSTANTS,
   VALUE_MODEL_VERSION,
   type ValueBreakdown,
 } from "./value.js";
 import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
+import { sha256Hex } from "../util/hash.js";
+import { stableStringify } from "../util/stableJson.js";
 import { decisionTreeForShape, odds, type TreeBuilderTools } from "./filler/treeBuilders.js";
 import type { DebugPayloadSelection } from "./debugPayloads.js";
 import {
@@ -1885,6 +1888,104 @@ function isResourceEdgeCasePayload(debugPayload: DebugPayloadSelection | undefin
   return debugPayload?.qaId === "resource/resource-edge-cases";
 }
 
+function isNamedDreamsignShopRowPayload(debugPayload: DebugPayloadSelection | undefined): boolean {
+  return debugPayload?.qaId === "dreamsign/named-dreamsign-shop-row";
+}
+
+function namedDreamsignShopRowOptions(
+  context: JourneyContext,
+  drawContext: DrawContext,
+): JourneyOption[] {
+  const poolIds = new Set(context.state.quest.dreamsignPoolIds);
+  const primary = selectedDreamsignTargets(context, drawContext);
+  const fallback = shuffleDeterministic(
+    drawContext,
+    "named-dreamsign-shop-row:fallback",
+    context.content.dreamsigns,
+  );
+  const candidates = [...primary, ...fallback].filter((dreamsign, index, entries) =>
+    entries.findIndex((entry) => entry.id === dreamsign.id) === index
+  ).slice(0, 3);
+  const prices = [20, 30, 45].map((price) =>
+    Math.min(price, context.state.quest.resources.essence)
+  );
+
+  return candidates.map((dreamsign: DreamsignContent, index) => {
+    const source = poolIds.has(dreamsign.id) ? "pool" : "catalog";
+    const sourcePoolSize = source === "pool"
+      ? context.state.quest.dreamsignPoolIds.length
+      : context.content.dreamsigns.length;
+    const effect = {
+      kind: "dreamsign_gain",
+      dreamsignId: dreamsign.id,
+      dreamsignName: dreamsign.name,
+      source,
+      sourcePoolSize,
+      timing: "immediate",
+    };
+
+    return option({
+      number: index + 1,
+      text: `Pay ${prices[index]!} essence. Gain {${dreamsign.name}} immediately.`,
+      costs: [cost("essence", prices[index]!)],
+      effects: [effect],
+      targets: [
+        target("dreamsign", `${dreamsign.name} in Dreamsign ${source}`, {
+          source,
+          ids: [dreamsign.id],
+          names: [dreamsign.name],
+        }),
+      ],
+      cost: prices[index]!,
+      effect: DREAMSIGN_VALUE_CONSTANTS.namedGain + (source === "pool" ? 20 : 0),
+    });
+  });
+}
+
+function semanticFingerprintFor(args: {
+  shapeId: JourneyShapeId;
+  stage: JourneyStage;
+  options: readonly JourneyOption[];
+  precommitted: PrecommittedOutcomes;
+}): JourneyManifest["debug"]["semanticFingerprint"] {
+  const components = [
+    `shape:${args.shapeId}`,
+    `stage:${args.stage}`,
+    ...args.options.flatMap((journeyOption) =>
+      journeyOption.operations.map((operation) => {
+        const target = operation.targetSelector && operation.targetSelector.selectorKind !== "none"
+          ? `${operation.targetSelector.selectorKind}:${"selection" in operation.targetSelector ? operation.targetSelector.selection : "none"}`
+          : "target:none";
+        const timing = operation.timing?.timingKind ?? "timing:unspecified";
+        const legacy = operation.legacyKind ?? "legacy:none";
+
+        return [
+          `option:${journeyOption.number}`,
+          operation.operationKind,
+          operation.role,
+          operation.visibility,
+          target,
+          timing,
+          legacy,
+        ].join(":");
+      })
+    ),
+    ...(args.precommitted.operations ?? []).map((operation) =>
+      `precommitted:${operation.operationKind}:${operation.role}:${operation.visibility}:${operation.legacyKind ?? "legacy:none"}`
+    ),
+  ];
+  const value = sha256Hex(stableStringify({
+    algorithm: "semantic-fingerprint:v1",
+    components,
+  })).slice(0, 16);
+
+  return {
+    algorithm: "semantic-fingerprint:v1",
+    value,
+    components,
+  };
+}
+
 function recordKind(value: unknown): string | undefined {
   return typeof value === "object" &&
     value !== null &&
@@ -1952,7 +2053,9 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const selectedDreamsigns = selectedDreamsignTargets(args.context, args.drawContext).slice(0, 3);
   const shape = getShapeDefinition(args.shapeId);
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
-  const filledOptions = filled.options.slice(0, shape.rootOptionCount.max);
+  const filledOptions = isNamedDreamsignShopRowPayload(args.debugPayload)
+    ? namedDreamsignShopRowOptions(args.context, args.drawContext)
+    : filled.options.slice(0, shape.rootOptionCount.max);
   const options = isResourceEdgeCasePayload(args.debugPayload)
     ? withResourceEdgeCaseValueBands(filledOptions)
     : filledOptions;
@@ -1970,6 +2073,12 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),
   );
+  const semanticFingerprint = semanticFingerprintFor({
+    shapeId: args.shapeId,
+    stage: args.stage,
+    options,
+    precommitted,
+  });
 
   const manifest: JourneyManifest = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
@@ -1999,6 +2108,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
       selectedTags: args.selectedTags,
       optionValues,
       repairs: [],
+      semanticFingerprint,
       validation: {
         ok: true,
         passed: 0,

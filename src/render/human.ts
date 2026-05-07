@@ -308,6 +308,131 @@ function validationDebugLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
+function timingDebugText(operation: JourneyOption["operations"][number]): string {
+  if (!operation.timing) {
+    return "timing=unspecified";
+  }
+
+  if (operation.timing.timingKind === "delayed") {
+    return `timing=delayed:${operation.timing.trigger}`;
+  }
+
+  if (operation.timing.timingKind === "route") {
+    return `timing=route:${operation.timing.scope}`;
+  }
+
+  return operation.timing.label
+    ? `timing=${operation.timing.timingKind}:${operation.timing.label}`
+    : `timing=${operation.timing.timingKind}`;
+}
+
+function operationValueDebugText(operation: JourneyOption["operations"][number]): string | undefined {
+  if (!operation.value) {
+    return undefined;
+  }
+
+  const parts = [
+    typeof operation.value.convertedEssence === "number"
+      ? `converted=${operation.value.convertedEssence}`
+      : undefined,
+    typeof operation.value.expectedConvertedEssence === "number"
+      ? `expected=${operation.value.expectedConvertedEssence}`
+      : undefined,
+    typeof operation.value.uncertaintyConvertedEssence === "number"
+      ? `uncertainty=${operation.value.uncertaintyConvertedEssence}`
+      : undefined,
+    operation.value.bands && operation.value.bands.length > 0
+      ? `bands=${operation.value.bands.map((band) => band.id).join(",")}`
+      : undefined,
+  ].filter((part): part is string => part !== undefined);
+
+  return parts.length > 0 ? `Value: ${parts.join("; ")}.` : undefined;
+}
+
+function operationTargetDebugText(operation: JourneyOption["operations"][number]): string | undefined {
+  const resolution = operation.targetResolution;
+
+  if (!resolution) {
+    return undefined;
+  }
+
+  const selected = resolution.selected.length === 0
+    ? "none"
+    : [
+        ...resolution.selected.slice(0, 5).map((entry) => entry.name),
+        ...(resolution.selected.length > 5 ? [`+${resolution.selected.length - 5} more`] : []),
+      ].join(", ");
+
+  return `Target: ${resolution.selectorKind}/${resolution.sourcePool} candidates=${resolution.candidateCount} selected=${selected}.`;
+}
+
+function operationPoolDebugText(operation: JourneyOption["operations"][number]): string | undefined {
+  const sourcePoolSize = operation.payload.sourcePoolSize;
+
+  return typeof sourcePoolSize === "number"
+    ? `Source pool size: ${sourcePoolSize}.`
+    : undefined;
+}
+
+function operationDebugLines(manifest: JourneyManifest): string[] {
+  const lines: string[] = [];
+  const optionOperations = manifest.options.flatMap((option) =>
+    option.operations.map((operation) => ({ location: `Option ${option.number}`, operation }))
+  );
+  const treeOperations = manifest.tree?.nodes.flatMap((node) =>
+    node.branches.flatMap((branch) => [
+      ...branch.operations.map((operation) => ({ location: `Tree ${branch.id}`, operation })),
+      ...(branch.terminal?.operations.map((operation) => ({
+        location: `Tree ${branch.id} terminal`,
+        operation,
+      })) ?? []),
+    ])
+  ) ?? [];
+  const rewardPoolOperations = manifest.rewardPool?.operations.map((operation) => ({
+    location: "Reward pool",
+    operation,
+  })) ?? [];
+  const precommittedOperations = manifest.precommitted.operations?.map((operation) => ({
+    location: "Precommitted",
+    operation,
+  })) ?? [];
+  const operations = [
+    ...optionOperations,
+    ...treeOperations,
+    ...rewardPoolOperations,
+    ...precommittedOperations,
+  ];
+
+  if (operations.length === 0) {
+    return [];
+  }
+
+  lines.push("", "Operations:");
+
+  for (const { location, operation } of operations) {
+    lines.push(
+      `${location} ${operation.operationId}: ${operation.operationKind} role=${operation.role} visibility=${operation.visibility}; ${timingDebugText(operation)}.`,
+    );
+
+    const target = operationTargetDebugText(operation);
+    if (target) {
+      lines.push(`  ${target}`);
+    }
+
+    const pool = operationPoolDebugText(operation);
+    if (pool) {
+      lines.push(`  ${pool}`);
+    }
+
+    const value = operationValueDebugText(operation);
+    if (value) {
+      lines.push(`  ${value}`);
+    }
+  }
+
+  return lines;
+}
+
 function previousPickFor(state: JourneyState, manifest: JourneyManifest): PickHistoryEntry | JourneyManifest["debug"]["previousPick"] | undefined {
   if (manifest.debug.previousPick) {
     return manifest.debug.previousPick;
@@ -352,12 +477,14 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     `Stage: ${manifest.stage}`,
     `Selected shape: ${manifest.debug.selectedShapeId}`,
     `Selected tags: ${manifest.selectedTags.join(", ")}`,
+    `Selected payload family: ${manifest.debug.debugPayload?.familyId ?? "adapter"}`,
   );
 
   if (manifest.debug.debugPayload) {
     lines.push(
       `Debug payload: ${manifest.debug.debugPayload.qaId}`,
       `Payload source: ${manifest.debug.debugPayload.source}`,
+      `Forced QA controls: family=${manifest.debug.debugPayload.familyId}; variant=${manifest.debug.debugPayload.variantId}; shapes=${manifest.debug.debugPayload.supportedShapes === "all" ? "all" : manifest.debug.debugPayload.supportedShapes.join(",")}; stages=${manifest.debug.debugPayload.supportedStages === "all" ? "all" : manifest.debug.debugPayload.supportedStages.join(",")}`,
     );
   }
 
@@ -376,6 +503,11 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     lines.push("", "Precommitted outcomes:", ...outcomes);
   }
 
+  lines.push(
+    `Semantic fingerprint: ${manifest.debug.semanticFingerprint.value} (${manifest.debug.semanticFingerprint.algorithm}).`,
+  );
+
+  lines.push(...operationDebugLines(manifest));
   lines.push(...validationDebugLines(manifest));
 
   for (const optionValue of manifest.debug.optionValues) {

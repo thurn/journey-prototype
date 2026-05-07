@@ -320,6 +320,116 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("keeps named Dreamsign human, JSON, and debug output in parity", async () => {
+    await withTempState(async ({ options }) => {
+      const overrides = {
+        seed: "parity-dreamsign",
+        stage: "mid" as const,
+        shape: "shop_row",
+        debugPayloadFamily: "dreamsign",
+        debugPayloadVariant: "named-dreamsign-shop-row",
+      };
+      const human = await handleJourney(options(overrides));
+      const json = await handleJourney(options({ ...overrides, json: true }));
+      const debug = await handleJourney(options({ ...overrides, debug: true }));
+      const debugContext = await handleJourney(options({ ...overrides, debugContext: true }));
+
+      expect(human.exitCode).toBe(ExitCode.Success);
+      expect(json.exitCode).toBe(ExitCode.Success);
+      expect(debug.exitCode).toBe(ExitCode.Success);
+      expect(debugContext.exitCode).toBe(ExitCode.Success);
+      expect(human.stdout).not.toMatch(ANSI_PATTERN);
+      expect(json.stdout).not.toMatch(ANSI_PATTERN);
+
+      const payload = JSON.parse(json.stdout);
+      const optionsJson = payload.manifest.options as {
+        text: string;
+        operations: {
+          operationKind: string;
+          resource?: string;
+          amount?: number;
+          rewardKind?: string;
+          visibility: string;
+          timing?: { timingKind: string; label?: string };
+          payload?: { dreamsignName?: string; sourcePoolSize?: number };
+          targetResolution?: {
+            selectorKind: string;
+            sourcePool: string;
+            candidateCount: number;
+            selected: { name: string }[];
+          };
+          value?: { convertedEssence?: number };
+        }[];
+      }[];
+      const dreamsignRewards = optionsJson.map((entry) =>
+        entry.operations.find((operation) => operation.rewardKind === "dreamsign_gain")
+      );
+      const prices = optionsJson.map((entry) =>
+        entry.operations.find((operation) =>
+          operation.operationKind === "cost" && operation.resource === "essence"
+        )?.amount
+      );
+
+      expect(payload.manifest.debug.debugPayload).toMatchObject({
+        familyId: "dreamsign",
+        variantId: "named-dreamsign-shop-row",
+        qaId: "dreamsign/named-dreamsign-shop-row",
+        source: "forced",
+      });
+      expect(payload.manifest.debug.semanticFingerprint).toMatchObject({
+        algorithm: "semantic-fingerprint:v1",
+        value: expect.any(String),
+        components: expect.arrayContaining(["shape:shop_row", "stage:mid"]),
+      });
+      expect(prices).toEqual([20, 30, 45]);
+
+      for (const reward of dreamsignRewards) {
+        expect(reward).toMatchObject({
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_gain",
+          visibility: "visible",
+          timing: {
+            timingKind: "immediate",
+            label: "immediate",
+          },
+          targetResolution: {
+            selectorKind: "dreamsign",
+            sourcePool: "pool",
+            candidateCount: 1,
+          },
+          value: {
+            convertedEssence: expect.any(Number),
+          },
+        });
+        const name = reward?.payload?.dreamsignName;
+
+        expect(name).toEqual(expect.any(String));
+        expect(reward?.payload?.sourcePoolSize).toBeGreaterThan(1);
+        expect(human.stdout).toContain(`{${name}}`);
+        expect(human.stdout).toContain("immediately");
+        expect(debug.stdout).toContain(`selected=${name}`);
+      }
+
+      expect(human.stdout).toContain("Pay 20 essence.");
+      expect(human.stdout).not.toContain("shop_row");
+      expect(human.stdout).not.toContain("dreamsign/named-dreamsign-shop-row");
+      expect(human.stdout).not.toContain("selectorKind");
+      expect(human.stdout).not.toContain("Semantic fingerprint");
+      expect(debug.stdout).toContain("Debug payload: dreamsign/named-dreamsign-shop-row");
+      expect(debug.stdout).toContain("Forced QA controls: family=dreamsign; variant=named-dreamsign-shop-row");
+      expect(debug.stdout).toContain("Target: dreamsign/pool candidates=1");
+      expect(debug.stdout).toContain("Source pool size:");
+      expect(debug.stdout).toContain("Validation:");
+      expect(debug.stdout).toContain("Repair status: accepted_immediately");
+      expect(debug.stdout).toContain("Semantic fingerprint:");
+      expect(debugContext.stdout).toContain("Debug Context");
+      expect(debugContext.stdout).not.toContain("Selected payload family:");
+      expect(debugContext.stdout).not.toContain("Operations:");
+      expect(debugContext.stdout).not.toContain("Semantic fingerprint:");
+    });
+  });
+
   it("rejects unknown, reserved, and constrained debug payload selections clearly", async () => {
     await withTempState(async ({ options }) => {
       const unknownFamily = await handleJourney(options({
@@ -339,7 +449,7 @@ describe("stateless command risk transitions", () => {
         stage: "early",
         shape: "single_reward",
         debugPayloadFamily: "dreamsign",
-        debugPayloadVariant: "named-dreamsign-shop-row",
+        debugPayloadVariant: "dreamsign-transform-duplicate-pool",
       }));
 
       expect(unknownFamily.exitCode).toBe(ExitCode.SetupOrSchema);
@@ -349,8 +459,8 @@ describe("stateless command risk transitions", () => {
       expect(unknownVariant.stderr).toContain("Unknown debug payload variant 'nope' for family 'card'");
       expect(unknownVariant.stderr).not.toContain(" at ");
       expect(reserved.exitCode).toBe(ExitCode.SetupOrSchema);
-      expect(reserved.stderr).toContain("Debug payload 'dreamsign/named-dreamsign-shop-row' is reserved but unimplemented");
-      expect(reserved.stderr).toContain("Supported shapes: shop_row");
+      expect(reserved.stderr).toContain("Debug payload 'dreamsign/dreamsign-transform-duplicate-pool' is reserved but unimplemented");
+      expect(reserved.stderr).toContain("Supported shapes: all canonical shapes");
       expect(reserved.stderr).toContain("Supported stages: mid, late");
       expect(reserved.stderr).not.toContain(" at ");
     });

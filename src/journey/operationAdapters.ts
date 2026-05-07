@@ -4,6 +4,7 @@ import type {
   JourneyRewardPool,
   JourneyTreeBranch,
   JourneyTreeTerminal,
+  OperationTiming,
   OperationValueMetadata,
   PrecommittedOutcomes,
   RandomEnvelopeOperation,
@@ -158,24 +159,34 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   }
 
   if (typeof value.cardName === "string" || typeof value.cardId === "string") {
+    const source = value.source === "catalog" || value.source === "deck" || value.source === "draftPool"
+      ? value.source
+      : "catalog";
+
     return {
       selectorKind: "card",
       selection: "exact",
       referenceKind: "content",
-      source: "catalog",
+      source,
       ...(typeof value.cardId === "string" ? { ids: [value.cardId] } : {}),
       ...(typeof value.cardName === "string" ? { names: [value.cardName] } : {}),
+      required: true,
     };
   }
 
   if (typeof value.dreamsignName === "string" || typeof value.dreamsignId === "string") {
+    const source = value.source === "catalog" || value.source === "active" || value.source === "pool"
+      ? value.source
+      : "catalog";
+
     return {
       selectorKind: "dreamsign",
       selection: "exact",
       referenceKind: "content",
-      source: "catalog",
+      source,
       ...(typeof value.dreamsignId === "string" ? { ids: [value.dreamsignId] } : {}),
       ...(typeof value.dreamsignName === "string" ? { names: [value.dreamsignName] } : {}),
+      required: true,
     };
   }
 
@@ -187,6 +198,7 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
       source: "catalog",
       ...(typeof value.dreamcallerId === "string" ? { ids: [value.dreamcallerId] } : {}),
       ...(typeof value.dreamcallerName === "string" ? { names: [value.dreamcallerName] } : {}),
+      required: true,
     };
   }
 
@@ -225,6 +237,22 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   }
 
   return undefined;
+}
+
+function timingFromPayload(value: unknown): OperationTiming | undefined {
+  if (!isRecord(value) || typeof value.timing !== "string") {
+    return undefined;
+  }
+
+  if (value.timing === "immediate") {
+    return { timingKind: "immediate", label: "immediate" };
+  }
+
+  if (value.timing.includes("next") || value.timing.includes("after")) {
+    return { timingKind: "delayed", trigger: value.timing, label: value.timing };
+  }
+
+  return { timingKind: "immediate", label: value.timing };
 }
 
 function oddsFromPayload(value: unknown): RandomEnvelopeOperation["odds"] | undefined {
@@ -279,6 +307,7 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
       return "resource";
     case "card_draft":
     case "dreamsign_draft":
+    case "dreamsign_gain":
     case "starter_cleanup":
     case "transfiguration":
     case "card_rewrite":
@@ -307,6 +336,7 @@ function adaptReward(
     role: "reward",
     rewardKind: rewardKind(kind),
     visibility,
+    ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : {}),
     ...(targetSelector ? { targetSelector } : {}),
     ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
     ...(kind ? { legacyKind: kind } : {}),

@@ -176,6 +176,11 @@ function fixtureManifest(): JourneyManifest {
         },
       ],
       repairs: [],
+      semanticFingerprint: {
+        algorithm: "semantic-fingerprint:v1",
+        value: "fixture",
+        components: ["shape:single_offer"],
+      },
     },
     references: {
       cardIds: [],

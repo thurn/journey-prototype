@@ -189,6 +189,7 @@ export type RewardOperation = OperationBase & {
     | "resource"
     | "card_draft"
     | "dreamsign_draft"
+    | "dreamsign_gain"
     | "starter_cleanup"
     | "transfiguration"
     | "card_rewrite"
@@ -351,6 +352,11 @@ export type JourneyDebug = {
   }[];
   validation: ValidationReport;
   repair: RepairOutcomeMetadata;
+  semanticFingerprint: {
+    algorithm: "semantic-fingerprint:v1";
+    value: string;
+    components: string[];
+  };
   previousPick?: {
     journeyId: string;
     shapeId: JourneyShapeId;
