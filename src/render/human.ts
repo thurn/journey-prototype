@@ -329,6 +329,13 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     `Selected tags: ${manifest.selectedTags.join(", ")}`,
   );
 
+  if (manifest.debug.debugPayload) {
+    lines.push(
+      `Debug payload: ${manifest.debug.debugPayload.qaId}`,
+      `Payload source: ${manifest.debug.debugPayload.source}`,
+    );
+  }
+
   if (manifest.sequence) {
     const max = manifest.sequence.maxSteps ? ` of ${manifest.sequence.maxSteps}` : "";
     lines.push(`Sequence: step ${manifest.sequence.step}${max}, ${manifest.sequence.status}`);

@@ -45,6 +45,7 @@ import {
 } from "./value.js";
 import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
 import { decisionTreeForShape, odds, type TreeBuilderTools } from "./filler/treeBuilders.js";
+import type { DebugPayloadSelection } from "./debugPayloads.js";
 import {
   adaptJourneyOptionOperations,
   adaptPrecommittedOperations,
@@ -61,6 +62,7 @@ type BuildArgs = {
   selectedTags: string[];
   shapeScores: { shapeId: JourneyShapeId; score: number }[];
   previousPick?: JourneyManifest["debug"]["previousPick"];
+  debugPayload?: DebugPayloadSelection;
 };
 
 type OptionArgs = {
@@ -1892,6 +1894,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
       optionValues,
       repairs: [],
       ...(args.previousPick ? { previousPick: args.previousPick } : {}),
+      ...(args.debugPayload ? { debugPayload: { ...args.debugPayload, source: "forced" } } : {}),
     },
     references: referencesFor(
       args.context.content,

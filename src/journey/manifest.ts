@@ -1,5 +1,6 @@
 import type { JourneyShapeId } from "./shapes.js";
 import type { ValueBreakdown } from "./value.js";
+import type { DebugPayloadSelection } from "./debugPayloads.js";
 
 export const MANIFEST_SCHEMA_VERSION: 2 = 2;
 export const MANIFEST_CONTRACT_VERSION = "manifest:v2";
@@ -286,6 +287,9 @@ export type JourneyDebug = {
     effectSimulation: "not_applied";
     sequenceStep?: number;
     sequenceStatus?: SequenceState["status"];
+  };
+  debugPayload?: DebugPayloadSelection & {
+    source: "forced";
   };
 };
 

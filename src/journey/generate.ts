@@ -8,12 +8,14 @@ import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
 import { repairOrFallbackJourney } from "./repair.js";
 import { validateJourneyManifest } from "./validate.js";
 import { evaluateOptionValue } from "./value.js";
+import type { DebugPayloadSelection } from "./debugPayloads.js";
 
 export type GenerationInput = {
   context: JourneyContext;
   previousPick?: PickHistoryEntry;
   forcedShapeId?: JourneyShapeDefinition["id"] | string;
   forcedStage?: JourneyStage;
+  forcedDebugPayload?: DebugPayloadSelection;
 };
 
 export type SequenceAdvanceInput = {
@@ -291,6 +293,7 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     selectedTags,
     shapeScores,
     previousPick: previousPickDebug(previousPick),
+    debugPayload: input.forcedDebugPayload,
   });
   const resolvedManifest = attachTargetResolutionMetadata(
     manifest,

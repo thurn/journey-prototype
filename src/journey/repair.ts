@@ -46,6 +46,7 @@ function buildReplacement(
     selectedTags: manifest.selectedTags,
     shapeScores: manifest.debug.shapeScores,
     previousPick: manifest.debug.previousPick,
+    debugPayload: manifest.debug.debugPayload,
   });
 }
 

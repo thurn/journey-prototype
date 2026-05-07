@@ -3,6 +3,7 @@ import { JOURNEY_SHAPE_CATALOG_VERSION } from "../journey/shapes.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import { stableStringify } from "../util/stableJson.js";
 import type { CommonCommandOptions } from "../commands/options.js";
+import type { debugPayloadListJson } from "../journey/debugPayloads.js";
 
 function optionJson(option: JourneyOption) {
   return {
@@ -96,6 +97,12 @@ export function journeyCommandPayload(
           count: commandOptions.count ?? 1,
           debug: commandOptions.debug,
           debugContext: commandOptions.debugContext,
+          ...(commandOptions.debugPayloadFamily !== undefined
+            ? { debugPayloadFamily: commandOptions.debugPayloadFamily }
+            : {}),
+          ...(commandOptions.debugPayloadVariant !== undefined
+            ? { debugPayloadVariant: commandOptions.debugPayloadVariant }
+            : {}),
         }
       : undefined,
     context: {
@@ -146,6 +153,12 @@ export function journeyBatchCommandPayload(
       count: options.count ?? entries.length,
       debug: options.debug,
       debugContext: options.debugContext,
+      ...(options.debugPayloadFamily !== undefined
+        ? { debugPayloadFamily: options.debugPayloadFamily }
+        : {}),
+      ...(options.debugPayloadVariant !== undefined
+        ? { debugPayloadVariant: options.debugPayloadVariant }
+        : {}),
     },
     journeys: entries.map(({ state, manifest }, index) => ({
       index: index + 1,
@@ -172,6 +185,16 @@ export function journeyBatchCommandPayload(
       manifest: manifestJson(manifest),
       debug: manifest.debug,
     })),
+  };
+}
+
+export function payloadListCommandPayload(
+  payloads: ReturnType<typeof debugPayloadListJson>,
+) {
+  return {
+    status: "ok",
+    command: "debug-list-payloads",
+    payloads,
   };
 }
 

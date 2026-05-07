@@ -32,6 +32,7 @@ async function withTempState<T>(
         stderrColor: false,
         projectRoot: process.cwd(),
         statePath,
+        debugListPayloads: false,
         ...overrides,
       }),
     });
@@ -205,6 +206,153 @@ describe("stateless command risk transitions", () => {
       expect(result.stdout).toContain("Precommitted outcomes:");
       expect(result.stdout).toMatch(/1\. \d+% wager:/u);
       expect(result.stdout).toContain("committed roll:");
+    });
+  });
+
+  it("lists deterministic debug payload families without generating a Journey", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const result = await handleJourney(options({
+        json: true,
+        debugListPayloads: true,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).not.toMatch(ANSI_PATTERN);
+
+      const payload = JSON.parse(result.stdout);
+      const qaIds = payload.payloads.families.flatMap((family: { variants: { qaId: string }[] }) =>
+        family.variants.map((variant) => variant.qaId)
+      );
+
+      expect(payload).toMatchObject({
+        status: "ok",
+        command: "debug-list-payloads",
+      });
+      expect(payload).not.toHaveProperty("manifest");
+      expect(qaIds).toEqual(expect.arrayContaining([
+        "adapter/current",
+        "card/named-card-operation-menu",
+        "card/starter-cleanup-replacement",
+        "dreamsign/named-dreamsign-shop-row",
+        "dreamsign/dreamsign-transform-duplicate-pool",
+        "bane/bane-gain-purge-transform",
+        "resource/resource-edge-cases",
+        "route/route-edits",
+        "shop/shop-economy",
+        "dreamwell/dreamwell-window",
+        "status/status-reward-replacement",
+        "hook/delayed-trigger-matrix",
+        "return/paired-return-seal-borrow-trade",
+        "random/reveal-roll-wager",
+        "generated_object/generated-card",
+        "generated_object/generated-dreamsign",
+        "generated_object/generated-status",
+        "generated_object/generated-transfiguration",
+        "decision_tree/complete-decision-tree",
+      ]));
+      await expectMissingState(statePath);
+    });
+  });
+
+  it("forces the current adapter payload with shape, stage, count, and JSON", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const result = await handleJourney(options({
+        json: true,
+        seed: "qa",
+        stage: "mid",
+        shape: "shop_row",
+        count: 3,
+        debugPayloadFamily: "adapter",
+        debugPayloadVariant: "current",
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+
+      const payload = JSON.parse(result.stdout);
+
+      expect(payload).toMatchObject({
+        status: "ok",
+        command: "journey",
+        count: 3,
+        parameters: {
+          debugPayloadFamily: "adapter",
+          debugPayloadVariant: "current",
+          shape: "shop_row",
+          stage: "mid",
+        },
+      });
+      expect(payload.journeys).toHaveLength(3);
+      for (const entry of payload.journeys) {
+        expect(entry.stage).toBe("mid");
+        expect(entry.shapeId).toBe("shop_row");
+        expect(entry.manifest.debug.debugPayload).toMatchObject({
+          familyId: "adapter",
+          variantId: "current",
+          qaId: "adapter/current",
+          source: "forced",
+        });
+        expect(entry.manifest.options.every((option: { operations: unknown[] }) =>
+          option.operations.length > 0
+        )).toBe(true);
+      }
+      await expectMissingState(statePath);
+    });
+  });
+
+  it("prints forced adapter payload metadata in debug human output", async () => {
+    await withTempState(async ({ options }) => {
+      const result = await handleJourney(options({
+        seed: "qa",
+        stage: "late",
+        shape: "single_reward",
+        debug: true,
+        debugPayloadFamily: "adapter",
+        debugPayloadVariant: "current",
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain("Debug payload: adapter/current");
+      expect(result.stdout).toContain("Payload source: forced");
+      expect(result.stdout).not.toMatch(ANSI_PATTERN);
+    });
+  });
+
+  it("rejects unknown, reserved, and constrained debug payload selections clearly", async () => {
+    await withTempState(async ({ options }) => {
+      const unknownFamily = await handleJourney(options({
+        json: true,
+        seed: "qa",
+        debugPayloadFamily: "nope",
+      }));
+      const unknownVariant = await handleJourney(options({
+        json: true,
+        seed: "qa",
+        debugPayloadFamily: "card",
+        debugPayloadVariant: "nope",
+      }));
+      const reserved = await handleJourney(options({
+        json: true,
+        seed: "qa",
+        stage: "early",
+        shape: "single_reward",
+        debugPayloadFamily: "dreamsign",
+        debugPayloadVariant: "named-dreamsign-shop-row",
+      }));
+
+      expect(unknownFamily.exitCode).toBe(ExitCode.SetupOrSchema);
+      expect(unknownFamily.stderr).toContain("Unknown debug payload family 'nope'");
+      expect(unknownFamily.stderr).not.toContain(" at ");
+      expect(unknownVariant.exitCode).toBe(ExitCode.SetupOrSchema);
+      expect(unknownVariant.stderr).toContain("Unknown debug payload variant 'nope' for family 'card'");
+      expect(unknownVariant.stderr).not.toContain(" at ");
+      expect(reserved.exitCode).toBe(ExitCode.SetupOrSchema);
+      expect(reserved.stderr).toContain("Debug payload 'dreamsign/named-dreamsign-shop-row' is reserved but unimplemented");
+      expect(reserved.stderr).toContain("Supported shapes: shop_row");
+      expect(reserved.stderr).toContain("Supported stages: mid, late");
+      expect(reserved.stderr).not.toContain(" at ");
     });
   });
 });
