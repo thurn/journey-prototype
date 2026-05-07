@@ -354,12 +354,20 @@ describe("generateNextJourney", () => {
     expect([...seenShapeIds].sort()).toEqual([...expectedShapeIds].sort());
   });
 
-  it("uses only a slight first-run probability skew between shapes", async () => {
+  it("weights high-variety shapes above low-template shapes", async () => {
     const journeyContext = await context();
-    const manifest = generateNextJourney({ context: journeyContext });
-    const scores = manifest.debug.shapeScores.map((entry) => entry.score);
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "early",
+    });
+    const scores = Object.fromEntries(
+      manifest.debug.shapeScores.map((entry) => [entry.shapeId, entry.score]),
+    );
 
-    expect(Math.max(...scores) - Math.min(...scores)).toBeLessThanOrEqual(0.2);
+    expect(scores.one_operation_many_targets).toBeGreaterThan(scores.escalating_reward_chain);
+    expect(scores.curated_reward_trio).toBeGreaterThan(scores.single_offer);
+    expect(scores.same_cost_different_rewards).toBeGreaterThan(scores.probability_ladder);
+    expect(Math.min(...manifest.debug.shapeScores.map((entry) => entry.score))).toBeGreaterThan(0);
   });
 
   it("has a legal conservative filler path for every canonical shape", async () => {

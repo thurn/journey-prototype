@@ -146,6 +146,38 @@ function tagRepetitionPenalty(shape: JourneyShapeDefinition, context: JourneyCon
     : 0;
 }
 
+const SHAPE_VARIETY_WEIGHTS = {
+  random_allocation: 1.35,
+  same_cost_different_rewards: 1.3,
+  same_reward_different_costs: 1.25,
+  service_menu: 1.3,
+  shop_row: 1.25,
+  curated_reward_trio: 1.35,
+  heterogeneous_pair: 1.25,
+  one_target_many_operations: 1.4,
+  mirrored_operations: 0.75,
+  one_operation_many_targets: 1.4,
+  choose_your_loss: 0.85,
+  single_reward: 0.65,
+  single_offer: 0.65,
+  risk_or_skip: 0.75,
+  single_wager: 0.75,
+  now_vs_later: 0.85,
+  reward_after_trigger: 1,
+  paired_return: 1,
+  timed_window_menu: 0.85,
+  take_any_number: 1.25,
+  push_your_luck: 0.65,
+  prize_ladder: 0.65,
+  probability_ladder: 0.6,
+  random_pool_draws: 0.6,
+  escalating_reward_chain: 0.5,
+  resolved_random_series: 1.2,
+  single_random_outcome: 0.95,
+  commit_now_future_payoff: 1.2,
+  alter_dreamscapes: 0.6,
+} as const satisfies Record<JourneyShapeDefinition["id"], number>;
+
 function scoreShapes(
   context: JourneyContext,
   drawContext: DrawContext,
@@ -153,13 +185,15 @@ function scoreShapes(
   previousPick?: PickHistoryEntry,
 ): { shapeId: JourneyShapeDefinition["id"]; score: number }[] {
   return JOURNEY_SHAPES.map((shape) => {
-    const score =
+    const contextualScore =
       1 +
       0.08 * overlapFraction(shape.supportedTags, desiredTags) +
       0.06 * broadRunNeedFit(shape, context) +
       0.04 * targetAvailability(shape, context) -
       0.1 * exactShapeRepetitionPenalty(shape, context, previousPick) -
-      0.05 * tagRepetitionPenalty(shape, context) +
+      0.05 * tagRepetitionPenalty(shape, context);
+    const score =
+      contextualScore * SHAPE_VARIETY_WEIGHTS[shape.id] +
       deterministicTieJitter(drawContext, `shape:${shape.id}:tie`, 0.02);
 
     return {
