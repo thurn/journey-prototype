@@ -12,7 +12,7 @@ import {
   type DreamsignTargetPredicate,
   type ImmediateCost,
 } from "./effects.js";
-import type { JourneyManifest, JourneyOption } from "./manifest.js";
+import type { JourneyManifest, JourneyOperation, JourneyOption, TargetSelector } from "./manifest.js";
 import {
   MANIFEST_CONTRACT_VERSION,
   MANIFEST_SCHEMA_VERSION,
@@ -57,6 +57,119 @@ function asImmediateCost(value: unknown): ImmediateCost | null {
   }
 
   return null;
+}
+
+function immediateCostFromOperation(operation: JourneyOperation): ImmediateCost | null {
+  if (operation.operationKind !== "cost") {
+    return null;
+  }
+
+  return operation.resource === "essence"
+    ? { essence: operation.amount }
+    : { omens: operation.amount };
+}
+
+function operationPayloadCount(value: {
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  burdens?: readonly unknown[];
+  targets?: readonly unknown[];
+  triggers?: readonly unknown[];
+  routeEffects?: readonly unknown[];
+}): number {
+  return (value.costs?.length ?? 0) +
+    (value.effects?.length ?? 0) +
+    (value.burdens?.length ?? 0) +
+    (value.targets?.length ?? 0) +
+    (value.triggers?.length ?? 0) +
+    (value.routeEffects?.length ?? 0);
+}
+
+function validateOperationsShape(
+  operations: readonly JourneyOperation[] | undefined,
+  path: string,
+  legacyPayloadCount: number,
+): ValidationResult {
+  if (legacyPayloadCount > 0 && (!Array.isArray(operations) || operations.length === 0)) {
+    return fail("missing_semantic_operations", `${path} has legacy payload records without typed semantic operations`);
+  }
+
+  for (const [index, operation] of (operations ?? []).entries()) {
+    if (!isRecord(operation) || typeof operation.operationKind !== "string" || typeof operation.role !== "string") {
+      return fail("invalid_semantic_operation", `${path} operation ${index + 1} must be a typed semantic operation`);
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateSemanticOperations(manifest: JourneyManifest): ValidationResult {
+  for (const option of manifest.options) {
+    const result = validateOperationsShape(
+      option.operations,
+      `Option ${option.number}`,
+      operationPayloadCount(option),
+    );
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  for (const node of manifest.tree?.nodes ?? []) {
+    for (const branch of node.branches) {
+      const branchResult = validateOperationsShape(
+        branch.operations,
+        `Tree branch ${branch.id}`,
+        operationPayloadCount(branch),
+      );
+
+      if (!branchResult.ok) {
+        return branchResult;
+      }
+
+      if (branch.terminal) {
+        const terminalResult = validateOperationsShape(
+          branch.terminal.operations,
+          `Tree branch ${branch.id} terminal`,
+          operationPayloadCount(branch.terminal),
+        );
+
+        if (!terminalResult.ok) {
+          return terminalResult;
+        }
+      }
+    }
+  }
+
+  if (manifest.rewardPool) {
+    const result = validateOperationsShape(
+      manifest.rewardPool.operations,
+      "Reward pool",
+      manifest.rewardPool.rewards.length,
+    );
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
+  const precommittedLegacyCount =
+    (manifest.precommitted.random?.length ?? 0) +
+    (manifest.precommitted.delayed?.length ?? 0) +
+    (manifest.precommitted.pairedReturn?.length ?? 0) +
+    (manifest.precommitted.routeEdits?.length ?? 0);
+  const precommittedResult = validateOperationsShape(
+    manifest.precommitted.operations,
+    "Precommitted outcomes",
+    precommittedLegacyCount,
+  );
+
+  if (!precommittedResult.ok) {
+    return precommittedResult;
+  }
+
+  return { ok: true };
 }
 
 function validateVersionMetadata(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
@@ -159,11 +272,57 @@ function collectStructuredReferences(value: unknown): {
 }
 
 function validateCosts(option: JourneyOption, context: JourneyContext): ValidationResult {
+  const costOperations = option.operations
+    .map(immediateCostFromOperation)
+    .filter((entry): entry is ImmediateCost => entry !== null);
+
+  for (const immediateCost of costOperations) {
+    if (!isImmediateCostPayable(context.state.quest, immediateCost)) {
+      return fail("unpayable_immediate_cost", `Option ${option.number} has an unpayable immediate cost`);
+    }
+  }
+
   for (const entry of option.costs) {
     const immediateCost = asImmediateCost(entry);
 
     if (immediateCost && !isImmediateCostPayable(context.state.quest, immediateCost)) {
       return fail("unpayable_immediate_cost", `Option ${option.number} has an unpayable immediate cost`);
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateTargetSelector(
+  selector: TargetSelector,
+  context: JourneyContext,
+  optionNumber: number,
+): ValidationResult {
+  if (!("required" in selector) || selector.required !== true) {
+    return { ok: true };
+  }
+
+  if (selector.selectorKind === "card") {
+    const matches = resolveCardTargets(
+      context.content,
+      context.state.quest,
+      (selector.predicate ?? {}) as CardTargetPredicate,
+    );
+
+    if (matches.length === 0) {
+      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal card targets`);
+    }
+  }
+
+  if (selector.selectorKind === "dreamsign") {
+    const matches = resolveDreamsignTargets(
+      context.content,
+      context.state.quest,
+      (selector.predicate ?? {}) as DreamsignTargetPredicate,
+    );
+
+    if (matches.length === 0) {
+      return fail("zero_legal_required_targets", `Option ${optionNumber} has no legal Dreamsign targets`);
     }
   }
 
@@ -312,6 +471,18 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
     }
   }
 
+  for (const operation of option.operations) {
+    if (!("targetSelector" in operation) || !operation.targetSelector) {
+      continue;
+    }
+
+    const result = validateTargetSelector(operation.targetSelector, context, option.number);
+
+    if (!result.ok) {
+      return result;
+    }
+  }
+
   const structuredResult = scanIllegalStructuredValue([
     option.costs,
     option.effects,
@@ -374,6 +545,7 @@ function validateTreeBranch(
       number: 0,
       symbols: [],
       text: branch.text,
+      operations: branch.operations,
       costs: branch.costs,
       effects: branch.effects,
       burdens: branch.burdens,
@@ -622,7 +794,10 @@ function validatePositiveMenuValues(
 
 function validateTimedWindowMenu(manifest: JourneyManifest): ValidationResult {
   for (const option of manifest.options.filter((entry) => entry.pickBehavior !== "leave")) {
-    const records = option.effects.filter(isRecord);
+    const records = [
+      ...option.effects.filter(isRecord),
+      ...option.operations.map((operation) => operation.payload),
+    ];
     const hasBattleWindow = records.some((record) =>
       typeof record.duration === "string" &&
       /^next [2-9]\d* battles$/u.test(record.duration)
@@ -725,6 +900,15 @@ function containsRecordWhere(value: unknown, predicate: (record: Record<string, 
 }
 
 function optionImpliesRandomOrHiddenOutcome(option: JourneyOption): boolean {
+  if (option.operations.some((operation) =>
+    operation.operationKind === "random_envelope" ||
+    operation.operationKind === "reveal_envelope" ||
+    operation.role === "random" ||
+    operation.visibility === "precommitted"
+  )) {
+    return true;
+  }
+
   return containsRecordWhere([
     option.costs,
     option.effects,
@@ -740,6 +924,14 @@ function optionImpliesRandomOrHiddenOutcome(option: JourneyOption): boolean {
 }
 
 function optionImpliesDelayedOutcome(option: JourneyOption): boolean {
+  if (option.operations.some((operation) =>
+    operation.role === "delayed_hook" ||
+    operation.role === "trigger" ||
+    operation.operationKind === "delayed_hook"
+  )) {
+    return true;
+  }
+
   return option.triggers.length > 0 ||
     containsRecordWhere([option.effects, option.triggers], (record) => {
       const timing = typeof record.timing === "string" ? record.timing : "";
@@ -1321,6 +1513,12 @@ export function validateJourneyManifest(
     if (!routePrecommitResult.ok) {
       return routePrecommitResult;
     }
+  }
+
+  const semanticOperationsResult = validateSemanticOperations(manifest);
+
+  if (!semanticOperationsResult.ok) {
+    return semanticOperationsResult;
   }
 
   const precommittedResult = scanIllegalStructuredValue(manifest.precommitted);

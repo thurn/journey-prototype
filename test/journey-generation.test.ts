@@ -3,6 +3,10 @@ import { loadContent } from "../src/content/loadToml.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
+import {
+  adaptJourneyOptionOperations,
+  adaptPrecommittedOperations,
+} from "../src/journey/operationAdapters.js";
 import { repairOrFallbackJourney } from "../src/journey/repair.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
 import { validateJourneyManifest } from "../src/journey/validate.js";
@@ -258,6 +262,105 @@ function structuralSignature(manifest: JourneyManifest): string {
   }));
 }
 
+function payloadCount(value: {
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  burdens?: readonly unknown[];
+  targets?: readonly unknown[];
+  triggers?: readonly unknown[];
+  routeEffects?: readonly unknown[];
+}): number {
+  return (value.costs?.length ?? 0) +
+    (value.effects?.length ?? 0) +
+    (value.burdens?.length ?? 0) +
+    (value.targets?.length ?? 0) +
+    (value.triggers?.length ?? 0) +
+    (value.routeEffects?.length ?? 0);
+}
+
+function expectTypedOperations(
+  operations: readonly unknown[] | undefined,
+  label: string,
+  legacyPayloadCount: number,
+) {
+  if (legacyPayloadCount === 0) {
+    return;
+  }
+
+  expect(operations?.length, label).toBeGreaterThan(0);
+  for (const operation of operations ?? []) {
+    expect(operation, label).toEqual(
+      expect.objectContaining({
+        operationKind: expect.any(String),
+        role: expect.any(String),
+        visibility: expect.any(String),
+        payload: expect.any(Object),
+      }),
+    );
+  }
+}
+
+function expectManifestPayloadsHaveTypedOperations(manifest: JourneyManifest) {
+  for (const option of manifest.options) {
+    expectTypedOperations(
+      option.operations,
+      `option ${option.number}`,
+      payloadCount(option),
+    );
+  }
+
+  for (const node of manifest.tree?.nodes ?? []) {
+    for (const branch of node.branches) {
+      expectTypedOperations(
+        branch.operations,
+        `branch ${branch.id}`,
+        payloadCount(branch),
+      );
+
+      if (branch.terminal) {
+        expectTypedOperations(
+          branch.terminal.operations,
+          `branch ${branch.id} terminal`,
+          payloadCount(branch.terminal),
+        );
+      }
+    }
+  }
+
+  if (manifest.rewardPool) {
+    expectTypedOperations(
+      manifest.rewardPool.operations,
+      "reward pool",
+      manifest.rewardPool.rewards.length,
+    );
+  }
+
+  expectTypedOperations(
+    manifest.precommitted.operations,
+    "precommitted outcomes",
+    (manifest.precommitted.random?.length ?? 0) +
+      (manifest.precommitted.delayed?.length ?? 0) +
+      (manifest.precommitted.pairedReturn?.length ?? 0) +
+      (manifest.precommitted.routeEdits?.length ?? 0),
+  );
+}
+
+function refreshOptionOperations(option: JourneyManifest["options"][number]): JourneyManifest["options"][number] {
+  return {
+    ...option,
+    operations: adaptJourneyOptionOperations(option),
+  };
+}
+
+function refreshPrecommittedOperations(
+  precommitted: Omit<JourneyManifest["precommitted"], "operations">,
+): JourneyManifest["precommitted"] {
+  return {
+    ...precommitted,
+    operations: adaptPrecommittedOperations(precommitted),
+  };
+}
+
 function largestGroupSize(signatures: readonly string[]): number {
   const counts = new Map<string, number>();
 
@@ -390,6 +493,84 @@ describe("generateNextJourney", () => {
         ok: true,
       });
     }
+  });
+
+  it("adapts current root option payloads into typed semantic operations", async () => {
+    const journeyContext = await context();
+    const manifest = generateNextJourney({ context: journeyContext });
+
+    expectManifestPayloadsHaveTypedOperations(manifest);
+    expect(manifest.options.flatMap((option) => option.operations)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          role: "reward",
+          visibility: "visible",
+        }),
+      ]),
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+  });
+
+  it("adapts tree, random, route, delayed, wager, and repeatable payload surfaces", async () => {
+    const journeyContext = await context();
+    const shapeIds: JourneyShapeId[] = [
+      "prize_ladder",
+      "random_pool_draws",
+      "alter_dreamscapes",
+      "reward_after_trigger",
+      "single_wager",
+      "take_any_number",
+    ];
+
+    for (const shapeId of shapeIds) {
+      const manifest = fillForShape(shapeId, journeyContext);
+
+      expectManifestPayloadsHaveTypedOperations(manifest);
+      expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({ ok: true });
+    }
+  });
+
+  it("keeps semantic operation roles specific for route, delayed, random, and reward-pool payloads", async () => {
+    const journeyContext = await context();
+    const routeManifest = fillForShape("alter_dreamscapes", journeyContext);
+    const delayedManifest = fillForShape("reward_after_trigger", journeyContext);
+    const randomManifest = fillForShape("random_pool_draws", journeyContext);
+
+    expect(routeManifest.options.flatMap((option) => option.operations)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "route_edit",
+          role: "route_edit",
+        }),
+      ]),
+    );
+    expect(delayedManifest.options.flatMap((option) => option.operations)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "delayed_hook",
+          role: "trigger",
+        }),
+      ]),
+    );
+    expect(randomManifest.precommitted.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "random_envelope",
+          role: "random",
+          visibility: "precommitted",
+        }),
+      ]),
+    );
+    expect(randomManifest.rewardPool?.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          role: "reward",
+          visibility: "precommitted",
+        }),
+      ]),
+    );
   });
 
   diversityAuditIt("varies every forced shape across deterministic seed batches", async () => {
@@ -769,10 +950,10 @@ describe("generateNextJourney", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       options: [
-        {
+        refreshOptionOperations({
           ...manifest.options[0]!,
           ...patch,
-        },
+        }),
         ...manifest.options.slice(1),
       ],
     };
@@ -831,7 +1012,7 @@ describe("generateNextJourney", () => {
     const manifest = fillForShape("take_any_number", journeyContext);
     const unlimitedOptions = manifest.options.map((journeyOption) =>
       journeyOption.number === 1
-        ? {
+        ? refreshOptionOperations({
             ...journeyOption,
             text: "Take cache reward 1: gain 1 omen, then choose whether to take the final reward.",
             costs: [],
@@ -840,7 +1021,7 @@ describe("generateNextJourney", () => {
               journeyOption.effectConvertedEssence +
               journeyOption.burdenConvertedEssence +
               journeyOption.uncertaintyConvertedEssence,
-          }
+          })
         : journeyOption,
     );
     const invalid: JourneyManifest = {
@@ -992,13 +1173,13 @@ describe("validateJourneyManifest", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       options: [
-        {
+        refreshOptionOperations({
           ...manifest.options[0]!,
           text: "Pay 25 essence.",
           costs: [{ kind: "essence", amount: 25, timing: "immediate" }],
           costConvertedEssence: 25,
           netConvertedEssence: -25,
-        },
+        }),
         ...manifest.options.slice(1),
       ],
     };
@@ -1015,13 +1196,13 @@ describe("validateJourneyManifest", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       options: [
-        {
+        refreshOptionOperations({
           ...manifest.options[0]!,
           text: "Gain 150 essence.",
           effects: [{ kind: "gain_essence", amount: 150 }],
           effectConvertedEssence: 150,
           netConvertedEssence: 150,
-        },
+        }),
         {
           ...manifest.options[1]!,
           text: "Choose 1 of 3 Dreamsigns.",
@@ -1044,7 +1225,7 @@ describe("validateJourneyManifest", () => {
       ...manifest,
       options: [
         manifest.options[0]!,
-        {
+        refreshOptionOperations({
           ...manifest.options[1]!,
           text: "Mechanically duplicated offer.",
           costs: manifest.options[0]!.costs,
@@ -1053,7 +1234,7 @@ describe("validateJourneyManifest", () => {
           targets: manifest.options[0]!.targets,
           triggers: manifest.options[0]!.triggers,
           routeEffects: manifest.options[0]!.routeEffects,
-        },
+        }),
         ...manifest.options.slice(2),
       ],
     };
@@ -1070,7 +1251,9 @@ describe("validateJourneyManifest", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       precommitted: {
-        delayed: manifest.precommitted.delayed,
+        ...refreshPrecommittedOperations({
+          delayed: manifest.precommitted.delayed,
+        }),
       },
     };
 
@@ -1147,7 +1330,7 @@ describe("validateJourneyManifest", () => {
     const invalid: JourneyManifest = {
       ...manifest,
       options: [
-        {
+        refreshOptionOperations({
           ...manifest.options[0]!,
           text: "Gain 160 essence. Gain 1 Nightmare.",
           burdens: [{ kind: "bane_gain", baneName: "Nightmare", count: 1 }],
@@ -1157,10 +1340,12 @@ describe("validateJourneyManifest", () => {
             manifest.options[0]!.costConvertedEssence -
             125 +
             manifest.options[0]!.uncertaintyConvertedEssence,
-        },
+        }),
         manifest.options[1]!,
       ],
-      precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
+      precommitted: refreshPrecommittedOperations({
+        random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }],
+      }),
     };
 
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
@@ -1174,7 +1359,9 @@ describe("validateJourneyManifest", () => {
     const manifest = fillForShape("risk_or_skip", journeyContext);
     const invalid: JourneyManifest = {
       ...manifest,
-      precommitted: { random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }] },
+      precommitted: refreshPrecommittedOperations({
+        random: [{ kind: "visible_downside", baneName: "Nightmare", count: 1 }],
+      }),
     };
 
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
@@ -1208,7 +1395,9 @@ describe("validateJourneyManifest", () => {
         },
         manifest.options[1]!,
       ],
-      precommitted: { random: [{ kind: "gain_essence", amount: 110 }] },
+      precommitted: refreshPrecommittedOperations({
+        random: [{ kind: "gain_essence", amount: 110 }],
+      }),
     };
 
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({

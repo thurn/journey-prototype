@@ -428,17 +428,26 @@ function signedValue(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
+function operationValueTotal(
+  option: JourneyOption,
+  role: "cost" | "reward" | "burden",
+): number {
+  return option.operations
+    .filter((operation) => operation.role === role)
+    .reduce((total, operation) => total + (operation.value?.convertedEssence ?? 0), 0);
+}
+
 export function evaluateOptionValue(
   option: JourneyOption,
   context?: JourneyContext,
 ): ValueBreakdown {
   void context;
 
-  const cost = option.costConvertedEssence;
-  const effect = option.effectConvertedEssence;
-  const burden = option.burdenConvertedEssence;
+  const cost = option.costConvertedEssence || operationValueTotal(option, "cost");
+  const effect = option.effectConvertedEssence || operationValueTotal(option, "reward");
+  const burden = option.burdenConvertedEssence || operationValueTotal(option, "burden");
   const uncertainty = option.uncertaintyConvertedEssence;
-  const net = option.netConvertedEssence;
+  const net = option.netConvertedEssence || effect - cost + burden + uncertainty;
 
   return {
     optionNumber: option.number,

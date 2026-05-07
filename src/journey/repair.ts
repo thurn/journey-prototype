@@ -4,6 +4,7 @@ import {
   fallbackShapeIds,
 } from "./fillers.js";
 import type { JourneyManifest } from "./manifest.js";
+import { adaptJourneyOptionOperations } from "./operationAdapters.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "./shapes.js";
 import { validateJourneyManifest, type ValidationResult } from "./validate.js";
 
@@ -113,7 +114,7 @@ function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): J
         return cost;
       });
 
-      return {
+      const adjustedOption = {
         ...option,
         costs: adjustedCosts,
         costConvertedEssence: Math.min(option.costConvertedEssence, context.state.quest.resources.essence),
@@ -122,6 +123,11 @@ function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): J
           Math.min(option.costConvertedEssence, context.state.quest.resources.essence) +
           option.burdenConvertedEssence +
           option.uncertaintyConvertedEssence,
+      };
+
+      return {
+        ...adjustedOption,
+        operations: adaptJourneyOptionOperations(adjustedOption),
       };
     }),
   };

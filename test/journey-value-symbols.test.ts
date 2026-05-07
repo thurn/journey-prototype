@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { JourneyOption } from "../src/journey/manifest.js";
+import { adaptJourneyOptionOperations } from "../src/journey/operationAdapters.js";
 import { symbolsForOption } from "../src/journey/symbols.js";
 import {
   evaluateOptionValue,
@@ -11,7 +12,7 @@ import {
 } from "../src/journey/value.js";
 
 function option(overrides: Partial<JourneyOption> = {}): JourneyOption {
-  return {
+  const built = {
     number: 1,
     symbols: [],
     text: "Gain 20 essence.",
@@ -28,6 +29,11 @@ function option(overrides: Partial<JourneyOption> = {}): JourneyOption {
     netConvertedEssence: 20,
     pickBehavior: "record_and_generate_next",
     ...overrides,
+  };
+
+  return {
+    ...built,
+    operations: overrides.operations ?? adaptJourneyOptionOperations(built),
   };
 }
 

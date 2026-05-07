@@ -317,6 +317,7 @@ function cloneOptions(options: readonly JourneyOption[]): JourneyOption[] {
   return options.map((journeyOption) => ({
     ...journeyOption,
     symbols: [...journeyOption.symbols],
+    operations: [...journeyOption.operations],
     costs: [...journeyOption.costs],
     effects: [...journeyOption.effects],
     burdens: [...journeyOption.burdens],

@@ -6,6 +6,11 @@ import type {
   JourneyTreeBranch,
   PrecommittedOutcomes,
 } from "../manifest.js";
+import {
+  adaptRewardPoolOperations,
+  adaptTreeBranchOperations,
+  adaptTreeTerminalOperations,
+} from "../operationAdapters.js";
 import type { JourneyShapeId } from "../shapes.js";
 import {
   valueBaneGain,
@@ -92,7 +97,7 @@ type TreeBranchArgs = {
   burden?: number;
   uncertainty?: number;
   nextNodeId?: string;
-  terminal?: JourneyTreeBranch["terminal"];
+  terminal?: Omit<NonNullable<JourneyTreeBranch["terminal"]>, "operations">;
 };
 
 function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
@@ -105,6 +110,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
     ? {
         text: args.terminal.text,
         outcome: args.terminal.outcome,
+        operations: [],
         costs,
         effects,
         burdens,
@@ -113,11 +119,12 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
       }
     : undefined;
 
-  return {
+  const branch = {
     id: args.id,
     label: args.label,
     kind: args.kind ?? "player_choice",
     text: args.text,
+    operations: [],
     ...(args.odds ? { odds: args.odds } : {}),
     costs,
     effects,
@@ -133,6 +140,19 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
       (args.effect ?? 0) - (args.cost ?? 0) + (args.burden ?? 0) + (args.uncertainty ?? 0),
     ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
     ...(terminal ? { terminal } : {}),
+  };
+
+  return {
+    ...branch,
+    operations: adaptTreeBranchOperations(branch),
+    ...(branch.terminal
+      ? {
+          terminal: {
+            ...branch.terminal,
+            operations: adaptTreeTerminalOperations(branch.terminal, `tree:${branch.id}:terminal`),
+          },
+        }
+      : {}),
   };
 }
 
@@ -308,10 +328,16 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     }
     const selected = pickSequentialVariant(drawContext, "random-pool:profile", variants);
   
-    return {
+    const pool = {
       summary: selected.summary,
-      replacement: "with_replacement",
+      replacement: "with_replacement" as const,
+      operations: [],
       rewards: selected.rewards,
+    };
+
+    return {
+      ...pool,
+      operations: adaptRewardPoolOperations(pool),
     };
   }
   

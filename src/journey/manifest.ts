@@ -18,12 +18,209 @@ export type SequenceState = {
   maxSteps?: number;
 };
 
+export type OperationVisibility = "visible" | "debug" | "precommitted";
+
+export type OperationTiming =
+  | { timingKind: "immediate"; label?: string }
+  | { timingKind: "delayed"; trigger: string; label?: string }
+  | { timingKind: "route"; scope: "current_dreamscape" | "next_dreamscape"; label?: string }
+  | { timingKind: "random"; label?: string };
+
+export type OperationValueMetadata = {
+  convertedEssence?: number;
+  expectedConvertedEssence?: number;
+  uncertaintyConvertedEssence?: number;
+};
+
+export type TargetSelector =
+  | {
+    selectorKind: "card";
+    source?: "catalog" | "deck" | "draftPool";
+    description?: string;
+    predicate?: unknown;
+    required?: boolean;
+  }
+  | {
+    selectorKind: "dreamsign";
+    source?: "catalog" | "active" | "pool";
+    description?: string;
+    predicate?: unknown;
+    required?: boolean;
+  }
+  | {
+    selectorKind: "bane";
+    source?: "vocabulary" | "state";
+    names?: string[];
+    required?: boolean;
+  }
+  | {
+    selectorKind: "route_site";
+    site?: string;
+    required?: boolean;
+  }
+  | {
+    selectorKind: "generated_object";
+    generatedObjectId: string;
+    required?: boolean;
+  }
+  | {
+    selectorKind: "none";
+  };
+
+export type GeneratedObjectDefinition =
+  | {
+    generatedObjectKind: "card";
+    generatedObjectId: string;
+    name: string;
+    payload: Record<string, unknown>;
+  }
+  | {
+    generatedObjectKind: "dreamsign";
+    generatedObjectId: string;
+    name: string;
+    payload: Record<string, unknown>;
+  }
+  | {
+    generatedObjectKind: "status";
+    generatedObjectId: string;
+    name: string;
+    payload: Record<string, unknown>;
+  }
+  | {
+    generatedObjectKind: "transfiguration";
+    generatedObjectId: string;
+    name: string;
+    payload: Record<string, unknown>;
+  };
+
+type OperationBase = {
+  operationId: string;
+  role:
+    | "cost"
+    | "reward"
+    | "burden"
+    | "target"
+    | "trigger"
+    | "route_edit"
+    | "random"
+    | "delayed_hook"
+    | "paired_return"
+    | "validation_requirement"
+    | "generated_object";
+  visibility: OperationVisibility;
+  timing?: OperationTiming;
+  value?: OperationValueMetadata;
+  targetSelector?: TargetSelector;
+  legacyKind?: string;
+  payload: Record<string, unknown>;
+};
+
+export type CostOperation = OperationBase & {
+  operationKind: "cost";
+  role: "cost";
+  costKind: "resource";
+  resource: "essence" | "omens";
+  amount: number;
+};
+
+export type RewardOperation = OperationBase & {
+  operationKind: "reward";
+  role: "reward";
+  rewardKind:
+    | "resource"
+    | "card_draft"
+    | "dreamsign_draft"
+    | "starter_cleanup"
+    | "transfiguration"
+    | "card_rewrite"
+    | "card_duplicate"
+    | "battle_window_modifier"
+    | "random_reward"
+    | "random_series"
+    | "unknown";
+};
+
+export type BurdenOperation = OperationBase & {
+  operationKind: "burden";
+  role: "burden";
+  burdenKind: "bane_gain" | "resource_loss" | "unknown";
+};
+
+export type StatusOperation = OperationBase & {
+  operationKind: "status";
+  role: "reward" | "burden";
+  statusKind: string;
+};
+
+export type RouteEditOperation = OperationBase & {
+  operationKind: "route_edit";
+  role: "route_edit";
+  editKind: "replace_site" | "unknown";
+  fromSite?: string;
+  toSite?: string;
+};
+
+export type DelayedHookOperation = OperationBase & {
+  operationKind: "delayed_hook";
+  role: "trigger" | "delayed_hook";
+  hookKind: string;
+};
+
+export type PairedReturnOperation = OperationBase & {
+  operationKind: "paired_return";
+  role: "paired_return";
+  anchor?: string;
+};
+
+export type RandomEnvelopeOperation = OperationBase & {
+  operationKind: "random_envelope" | "reveal_envelope";
+  role: "random";
+  envelopeKind: string;
+  odds?: {
+    numerator: number;
+    denominator: number;
+    percent: number;
+  };
+};
+
+export type TargetOperation = OperationBase & {
+  operationKind: "target";
+  role: "target";
+  targetSelector: TargetSelector;
+};
+
+export type GeneratedObjectOperation = OperationBase & {
+  operationKind: "generated_object";
+  role: "generated_object";
+  generatedObject: GeneratedObjectDefinition;
+};
+
+export type ValidationRequirementOperation = OperationBase & {
+  operationKind: "validation_requirement";
+  role: "validation_requirement";
+  requirementKind: string;
+};
+
+export type JourneyOperation =
+  | CostOperation
+  | RewardOperation
+  | BurdenOperation
+  | StatusOperation
+  | RouteEditOperation
+  | DelayedHookOperation
+  | PairedReturnOperation
+  | RandomEnvelopeOperation
+  | TargetOperation
+  | GeneratedObjectOperation
+  | ValidationRequirementOperation;
+
 export type PrecommittedOutcomes = {
   random?: unknown[];
   delayed?: unknown[];
   pairedReturn?: unknown[];
   routeEdits?: unknown[];
   sequenceMenus?: Record<string, JourneyOption[]>;
+  operations?: JourneyOperation[];
 };
 
 export type JourneyDebug = {
@@ -68,6 +265,7 @@ export type JourneyOption = {
   number: number;
   symbols: string[];
   text: string;
+  operations: JourneyOperation[];
   costs: unknown[];
   effects: unknown[];
   burdens: unknown[];
@@ -90,6 +288,7 @@ export type JourneyTreeBranchKind =
 export type JourneyTreeTerminal = {
   text: string;
   outcome: "end" | "claim" | "failure" | "leave";
+  operations: JourneyOperation[];
   costs: unknown[];
   effects: unknown[];
   burdens: unknown[];
@@ -102,6 +301,7 @@ export type JourneyTreeBranch = {
   label: string;
   kind: JourneyTreeBranchKind;
   text: string;
+  operations: JourneyOperation[];
   odds?: {
     numerator: number;
     denominator: number;
@@ -132,6 +332,7 @@ export type JourneyTreeNode = {
 export type JourneyRewardPool = {
   summary: string;
   replacement: "with_replacement" | "without_replacement";
+  operations: JourneyOperation[];
   rewards: unknown[];
 };
 

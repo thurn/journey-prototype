@@ -5,6 +5,10 @@ import {
   MANIFEST_SCHEMA_VERSION,
   type JourneyManifest,
 } from "../src/journey/manifest.js";
+import {
+  adaptJourneyOptionOperations,
+  adaptPrecommittedOperations,
+} from "../src/journey/operationAdapters.js";
 import { createJourneyError, renderError } from "../src/render/errors.js";
 import { renderJourneyHuman, renderStateHuman } from "../src/render/human.js";
 import type { JourneyState } from "../src/state/schema.js";
@@ -107,6 +111,24 @@ function fixtureState(): JourneyState {
 }
 
 function fixtureManifest(): JourneyManifest {
+  const option = {
+    number: 1,
+    symbols: ["cost"],
+    text: "Spend a spark.",
+    costs: [{ kind: "essence", amount: 1 }],
+    effects: [{ kind: "gain_essence", amount: 2 }],
+    burdens: [{ kind: "bane_gain", count: 1, baneName: "Fatigue" }],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 999,
+    effectConvertedEssence: 999,
+    burdenConvertedEssence: 999,
+    uncertaintyConvertedEssence: 999,
+    netConvertedEssence: 999,
+    pickBehavior: "record_and_generate_next" as const,
+  };
+
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     versions: {
@@ -127,21 +149,8 @@ function fixtureManifest(): JourneyManifest {
     selectedTags: ["ember"],
     options: [
       {
-        number: 1,
-        symbols: ["cost"],
-        text: "Spend a spark.",
-        costs: [{ kind: "essence", amount: 1 }],
-        effects: [{ kind: "gain_essence", amount: 2 }],
-        burdens: [{ kind: "bane_gain", count: 1, baneName: "Fatigue" }],
-        targets: [],
-        triggers: [],
-        routeEffects: [],
-        costConvertedEssence: 999,
-        effectConvertedEssence: 999,
-        burdenConvertedEssence: 999,
-        uncertaintyConvertedEssence: 999,
-        netConvertedEssence: 999,
-        pickBehavior: "record_and_generate_next",
+        ...option,
+        operations: adaptJourneyOptionOperations(option),
       },
     ],
     precommitted: {},
@@ -212,45 +221,49 @@ describe("review feedback regressions", () => {
   });
 
   it("renders precommitted outcomes in human debug output", () => {
+    const precommitted = {
+      random: [
+        { kind: "gain_essence", amount: 110 },
+        {
+          kind: "wager_roll",
+          odds: { numerator: 50, denominator: 100, percent: 50 },
+          success: { kind: "gain_essence", amount: 160 },
+          failure: { kind: "no_reward" },
+          roll: 73,
+          committedResult: "failure",
+          presentation: "visible_odds_debug_roll",
+        },
+        {
+          kind: "card_draft",
+          takeCount: 1,
+          choiceCount: 4,
+          predicate: { source: "draftPool", subtype: "Character" },
+        },
+      ],
+      delayed: [
+        {
+          trigger: "after next victory",
+          reward: { kind: "gain_omens", amount: 1 },
+        },
+        {
+          trigger: "after next battle",
+          reward: [
+            {
+              kind: "card_draft",
+              takeCount: 1,
+              choiceCount: 4,
+              predicate: { source: "draftPool", cardType: "Character" },
+            },
+            { kind: "gain_omens", amount: 1 },
+          ],
+        },
+      ],
+    };
     const manifest: JourneyManifest = {
       ...fixtureManifest(),
       precommitted: {
-        random: [
-          { kind: "gain_essence", amount: 110 },
-          {
-            kind: "wager_roll",
-            odds: { numerator: 50, denominator: 100, percent: 50 },
-            success: { kind: "gain_essence", amount: 160 },
-            failure: { kind: "no_reward" },
-            roll: 73,
-            committedResult: "failure",
-            presentation: "visible_odds_debug_roll",
-          },
-          {
-            kind: "card_draft",
-            takeCount: 1,
-            choiceCount: 4,
-            predicate: { source: "draftPool", subtype: "Character" },
-          },
-        ],
-        delayed: [
-          {
-            trigger: "after next victory",
-            reward: { kind: "gain_omens", amount: 1 },
-          },
-          {
-            trigger: "after next battle",
-            reward: [
-              {
-                kind: "card_draft",
-                takeCount: 1,
-                choiceCount: 4,
-                predicate: { source: "draftPool", cardType: "Character" },
-              },
-              { kind: "gain_omens", amount: 1 },
-            ],
-          },
-        ],
+        ...precommitted,
+        operations: adaptPrecommittedOperations(precommitted),
       },
     };
 
@@ -269,10 +282,14 @@ describe("review feedback regressions", () => {
   });
 
   it("keeps precommitted outcomes out of normal human output unless option copy reveals them", () => {
+    const precommitted = {
+      random: [{ kind: "gain_essence", amount: 110 }],
+    };
     const manifest: JourneyManifest = {
       ...fixtureManifest(),
       precommitted: {
-        random: [{ kind: "gain_essence", amount: 110 }],
+        ...precommitted,
+        operations: adaptPrecommittedOperations(precommitted),
       },
     };
 

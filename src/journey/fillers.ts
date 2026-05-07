@@ -44,6 +44,10 @@ import {
 } from "./value.js";
 import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
 import { decisionTreeForShape, odds, type TreeBuilderTools } from "./filler/treeBuilders.js";
+import {
+  adaptJourneyOptionOperations,
+  adaptPrecommittedOperations,
+} from "./operationAdapters.js";
 import { RENDERER_VERSION } from "../render/theme.js";
 import { VALIDATION_CONTRACT_VERSION } from "./validate.js";
 
@@ -110,6 +114,7 @@ function option(args: OptionArgs): JourneyOption {
     number: args.number,
     symbols: [],
     text: args.text,
+    operations: [],
     costs: args.costs ?? [],
     effects: args.effects ?? [],
     burdens: args.burdens ?? [],
@@ -125,9 +130,14 @@ function option(args: OptionArgs): JourneyOption {
     pickBehavior: args.pickBehavior ?? "record_and_generate_next",
   };
 
-  return {
+  const withOperations = {
     ...built,
-    symbols: symbolsForOption(built),
+    operations: adaptJourneyOptionOperations(built),
+  };
+
+  return {
+    ...withOperations,
+    symbols: symbolsForOption(withOperations),
   };
 }
 
@@ -1838,12 +1848,16 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
   const options = filled.options.slice(0, shape.rootOptionCount.max);
   const optionRouteEffects = options.flatMap((journeyOption) => journeyOption.routeEffects);
-  const precommitted = optionRouteEffects.length > 0 && filled.precommitted.routeEdits === undefined
+  const legacyPrecommitted = optionRouteEffects.length > 0 && filled.precommitted.routeEdits === undefined
     ? {
         ...filled.precommitted,
         routeEdits: optionRouteEffects,
       }
     : filled.precommitted;
+  const precommitted = {
+    ...legacyPrecommitted,
+    operations: adaptPrecommittedOperations(legacyPrecommitted),
+  };
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),
   );
