@@ -424,7 +424,20 @@ function collectStructuredReferences(value: unknown): {
 
     for (const [key, entry] of Object.entries(nested)) {
       if (typeof entry === "string") {
-        if (key === "cardName" || key === "cardId" || key === "oldCardName" || key === "newCardName") {
+        if (
+          key === "cardName" ||
+          key === "cardId" ||
+          key === "oldCardName" ||
+          key === "oldCardId" ||
+          key === "newCardName" ||
+          key === "newCardId" ||
+          key === "targetCardName" ||
+          key === "targetCardId" ||
+          key === "resultCardName" ||
+          key === "resultCardId" ||
+          key === "secondTargetCardName" ||
+          key === "secondTargetCardId"
+        ) {
           references.cards.push(entry);
         } else if (
           key === "dreamsignName" ||
@@ -502,6 +515,61 @@ function validateTargetSelector(
   return { ok: true };
 }
 
+const DECK_REQUIRED_CARD_OPERATION_KINDS = new Set([
+  "card_purge",
+  "card_duplicate",
+  "card_transform",
+  "card_replace",
+  "card_transfigure",
+  "card_text_modification",
+  "card_type_change",
+  "card_keyword_add",
+  "card_keyword_remove",
+  "card_opening_hand",
+  "card_merge",
+  "card_split",
+  "card_temporary_copy",
+  "card_delayed_transformation",
+  "starter_cleanup",
+  "starter_replacement",
+]);
+
+function isDeckRequiredNamedCardOperation(operation: JourneyOperation): boolean {
+  if (operation.operationKind !== "reward") {
+    return false;
+  }
+
+  return DECK_REQUIRED_CARD_OPERATION_KINDS.has(operation.rewardKind);
+}
+
+function validateNamedCardOperationTarget(
+  operation: JourneyOperation,
+  context: JourneyContext,
+  optionNumber: number,
+): ValidationResult {
+  if (operation.operationKind !== "reward" || !isDeckRequiredNamedCardOperation(operation) || !operation.targetSelector) {
+    return { ok: true };
+  }
+
+  const selector = operation.targetSelector;
+
+  if (selector.selectorKind !== "card" || (selector.source ?? "deck") !== "deck") {
+    return { ok: true };
+  }
+
+  const resolution = resolveTargetSelector(context.content, context.state.quest, selector);
+
+  if (resolution.candidateCount === 0) {
+    return fail(
+      "named_card_target_unavailable",
+      `Option ${optionNumber} ${operation.rewardKind} requires a named card in the simulated deck`,
+      { targetResolution: resolution },
+    );
+  }
+
+  return { ok: true };
+}
+
 function validateOperationTargetSelectors(
   operations: readonly JourneyOperation[] | undefined,
   context: JourneyContext,
@@ -510,6 +578,12 @@ function validateOperationTargetSelectors(
   for (const [index, operation] of (operations ?? []).entries()) {
     if (!("targetSelector" in operation) || !operation.targetSelector) {
       continue;
+    }
+
+    const namedCardResult = validateNamedCardOperationTarget(operation, context, index + 1);
+
+    if (!namedCardResult.ok) {
+      return fail(namedCardResult.rule, `${location} operation ${index + 1}: ${namedCardResult.message}`, namedCardResult.debug);
     }
 
     const result = validateTargetSelector(operation.targetSelector, context, index + 1);
@@ -697,6 +771,12 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
   for (const operation of option.operations) {
     if (!("targetSelector" in operation) || !operation.targetSelector) {
       continue;
+    }
+
+    const namedCardResult = validateNamedCardOperationTarget(operation, context, option.number);
+
+    if (!namedCardResult.ok) {
+      return namedCardResult;
     }
 
     const result = validateTargetSelector(operation.targetSelector, context, option.number);

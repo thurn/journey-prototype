@@ -315,13 +315,18 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const stage = input.forcedStage ?? stageForDreamscape(context.state.quest.resources.dreamscape);
   const selectedTags = desiredTagsFor(context, stage);
   const shapeScores = scoreShapes(context, drawContext, selectedTags, previousPick);
-  const selectedShapeId = input.forcedShapeId
-    ? isJourneyShapeId(input.forcedShapeId)
-      ? input.forcedShapeId
-      : (() => {
-          throw new Error(`Unknown Journey shape: ${input.forcedShapeId}`);
-        })()
-    : selectShape(drawContext, shapeScores);
+  let selectedShapeId: JourneyShapeDefinition["id"];
+  if (input.forcedShapeId) {
+    if (!isJourneyShapeId(input.forcedShapeId)) {
+      throw new Error(`Unknown Journey shape: ${input.forcedShapeId}`);
+    }
+
+    selectedShapeId = input.forcedShapeId;
+  } else if (input.forcedDebugPayload && input.forcedDebugPayload.supportedShapes !== "all") {
+    selectedShapeId = input.forcedDebugPayload.supportedShapes[0]!;
+  } else {
+    selectedShapeId = selectShape(drawContext, shapeScores);
+  }
 
   if (input.forcedDebugPayload) {
     validateDebugPayloadCompatibility({

@@ -66,8 +66,8 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "card",
     description: "Named card operations and starter-card cleanup payloads.",
     variants: [
-      variant("card", "named-card-operation-menu", "available", "Task 05 value/validation fixture using current adapted card-bearing operation payloads."),
-      variant("card", "starter-cleanup-replacement", "unimplemented", "Reserved for Starter-card cleanup and replacement scenes.", "all", ["early"]),
+      variant("card", "named-card-operation-menu", "available", "Deterministic named card operation menus backed by real card content.", ["service_menu"], ["mid", "late"]),
+      variant("card", "starter-cleanup-replacement", "available", "Deterministic Starter-card cleanup and replacement scenes backed by the simulated starter deck.", ["curated_reward_trio"], ["early"]),
     ],
   },
   {

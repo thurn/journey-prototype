@@ -604,6 +604,183 @@ describe("generateNextJourney", () => {
     ]));
   });
 
+  it("forces named card operation menus with typed real-card operation payloads", async () => {
+    const requiredRewardKinds = new Set([
+      "card_gain",
+      "card_purge",
+      "card_duplicate",
+      "card_transform",
+      "card_replace",
+      "card_transfigure",
+      "card_text_modification",
+      "card_type_change",
+      "card_keyword_add",
+      "card_keyword_remove",
+      "card_opening_hand",
+      "card_merge",
+      "card_split",
+      "card_temporary_copy",
+      "card_delayed_transformation",
+    ]);
+    const seen = new Set<string>();
+    const cardPayload = {
+      familyId: "card",
+      variantId: "named-card-operation-menu",
+      qaId: "card/named-card-operation-menu",
+      description: "Named card operation menu coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+
+    for (let index = 0; index < 24 && seen.size < requiredRewardKinds.size; index += 1) {
+      const journeyContext = await context(`named-card:${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "mid",
+        forcedDebugPayload: cardPayload,
+      });
+      const rewardOperations = manifest.options.flatMap((option) =>
+        option.operations.filter((operation) => operation.operationKind === "reward")
+      );
+
+      expect(manifest.shapeId).toBe("service_menu");
+      expect(manifest.debug.debugPayload).toMatchObject({
+        familyId: "card",
+        variantId: "named-card-operation-menu",
+        qaId: "card/named-card-operation-menu",
+        source: "forced",
+      });
+      expect(validateJourneyManifest(manifest, journeyContext), `named-card:${index}`).toEqual({ ok: true });
+
+      for (const operation of rewardOperations) {
+        expect(operation.targetResolution, operation.rewardKind).toMatchObject({
+          selectorKind: "card",
+          candidateCount: expect.any(Number),
+        });
+        expect(operation.targetResolution?.candidateCount, operation.rewardKind).toBeGreaterThan(0);
+        expect(operation.targetResolution?.selected[0]?.name, operation.rewardKind).toEqual(expect.any(String));
+        expect(operation.value?.convertedEssence, operation.rewardKind).toEqual(expect.any(Number));
+        seen.add(operation.rewardKind);
+      }
+    }
+
+    expect(seen).toEqual(requiredRewardKinds);
+  });
+
+  it("forces starter cleanup and replacement against real starter deck cards", async () => {
+    const journeyContext = await context("starter-cleanup");
+    const cardPayload = {
+      familyId: "card",
+      variantId: "starter-cleanup-replacement",
+      qaId: "card/starter-cleanup-replacement",
+      description: "Starter cleanup and replacement coverage.",
+      supportedShapes: ["curated_reward_trio"],
+      supportedStages: ["early"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "early",
+      forcedDebugPayload: cardPayload,
+    });
+    const rewardOperations = manifest.options.flatMap((option) =>
+      option.operations.filter((operation) => operation.operationKind === "reward")
+    );
+    const starterIds = new Set(journeyContext.state.quest.deck.entries.map((entry) => entry.cardId));
+    const draftReplacement = rewardOperations.find((operation) =>
+      operation.rewardKind === "starter_replacement" &&
+        operation.payload.replacementMode === "draft"
+    );
+
+    expect(manifest.shapeId).toBe("curated_reward_trio");
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+    expect(rewardOperations.map((operation) => operation.rewardKind)).toEqual(expect.arrayContaining([
+      "starter_cleanup",
+      "starter_replacement",
+    ]));
+    expect(draftReplacement?.payload).toMatchObject({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: expect.objectContaining({ source: "draftPool" }),
+    });
+
+    for (const operation of rewardOperations) {
+      expect(operation.targetResolution).toMatchObject({
+        selectorKind: "card",
+        sourcePool: "deck",
+        candidateCount: 1,
+      });
+      expect(starterIds.has(String(operation.payload.targetCardId))).toBe(true);
+      expect(operation.value?.convertedEssence).toEqual(expect.any(Number));
+    }
+  });
+
+  it("rejects unavailable deck-affecting named card operations with a stable rule", async () => {
+    const journeyContext = await context("named-card-invalid");
+    const unavailable = journeyContext.content.cards.find((card) => card.rarity !== "Starter")!;
+    const cardPayload = {
+      familyId: "card",
+      variantId: "named-card-operation-menu",
+      qaId: "card/named-card-operation-menu",
+      description: "Named card operation menu coverage.",
+      supportedShapes: ["service_menu"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedDebugPayload: cardPayload,
+    });
+    const targetOptionIndex = manifest.options.findIndex((option) =>
+      option.operations.some((operation) =>
+        operation.operationKind === "reward" &&
+          operation.rewardKind !== "card_gain"
+      )
+    );
+    const targetOption = manifest.options[targetOptionIndex]!;
+    const invalidOperationIndex = targetOption.operations.findIndex((operation) =>
+      operation.operationKind === "reward" &&
+        operation.rewardKind !== "card_gain"
+    );
+    const invalidOperation = targetOption.operations[invalidOperationIndex]!;
+    const invalid: JourneyManifest = attachTargetResolutionMetadata({
+      ...manifest,
+      options: manifest.options.map((option, optionIndex) =>
+        optionIndex === targetOptionIndex
+          ? {
+              ...option,
+              operations: option.operations.map((operation, operationIndex) =>
+                operationIndex === invalidOperationIndex
+                  ? {
+                      ...invalidOperation,
+                      payload: {
+                        ...invalidOperation.payload,
+                        source: "deck",
+                        targetCardId: unavailable.id,
+                        targetCardName: unavailable.name,
+                      },
+                      targetSelector: {
+                        selectorKind: "card",
+                        selection: "exact",
+                        referenceKind: "content",
+                        source: "deck",
+                        ids: [unavailable.id],
+                        names: [unavailable.name],
+                        required: true,
+                      },
+                    }
+                  : operation
+              ),
+            }
+          : option
+      ),
+    }, journeyContext.content, journeyContext.state.quest);
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "named_card_target_unavailable",
+    });
+  });
+
   it("has a legal conservative filler path for every canonical shape", async () => {
     const journeyContext = await context();
 

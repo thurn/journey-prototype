@@ -158,6 +158,35 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     return undefined;
   }
 
+  if (
+    typeof value.targetCardName === "string" ||
+    typeof value.targetCardId === "string" ||
+    typeof value.oldCardName === "string" ||
+    typeof value.oldCardId === "string"
+  ) {
+    const source = value.source === "catalog" || value.source === "deck" || value.source === "draftPool"
+      ? value.source
+      : "deck";
+
+    return {
+      selectorKind: "card",
+      selection: "exact",
+      referenceKind: "content",
+      source,
+      ...(typeof value.targetCardId === "string"
+        ? { ids: [value.targetCardId] }
+        : typeof value.oldCardId === "string"
+          ? { ids: [value.oldCardId] }
+          : {}),
+      ...(typeof value.targetCardName === "string"
+        ? { names: [value.targetCardName] }
+        : typeof value.oldCardName === "string"
+          ? { names: [value.oldCardName] }
+          : {}),
+      required: true,
+    };
+  }
+
   if (typeof value.cardName === "string" || typeof value.cardId === "string") {
     const source = value.source === "catalog" || value.source === "deck" || value.source === "draftPool"
       ? value.source
@@ -309,6 +338,21 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
     case "dreamsign_draft":
     case "dreamsign_gain":
     case "starter_cleanup":
+    case "starter_replacement":
+    case "card_gain":
+    case "card_purge":
+    case "card_transform":
+    case "card_replace":
+    case "card_transfigure":
+    case "card_text_modification":
+    case "card_type_change":
+    case "card_keyword_add":
+    case "card_keyword_remove":
+    case "card_opening_hand":
+    case "card_merge":
+    case "card_split":
+    case "card_temporary_copy":
+    case "card_delayed_transformation":
     case "transfiguration":
     case "card_rewrite":
     case "card_duplicate":
