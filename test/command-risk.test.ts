@@ -137,7 +137,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v9",
+        catalogVersion: "journey-shapes:v10",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -146,7 +146,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v9",
+            shapeCatalogVersion: "journey-shapes:v10",
             effectCatalogVersion: "effects:v3",
             valueModelVersion: "value:v6",
             rendererVersion: "renderer:v1",
@@ -346,6 +346,52 @@ describe("stateless command risk transitions", () => {
     expect(after).toEqual(before);
   });
 
+  it("forces complete decision-tree payloads with visible typed tree metadata", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const result = await handleJourney(options({
+        json: true,
+        seed: "tree-complete",
+        stage: "late",
+        debugPayloadFamily: "decision_tree",
+        debugPayloadVariant: "complete-decision-tree",
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.stderr).toBe("");
+
+      const payload = JSON.parse(result.stdout);
+      const manifest = payload.manifest;
+      const branches = manifest.tree.nodes.flatMap((node: { branches: unknown[] }) => node.branches);
+      const completeTreePrecommit = manifest.precommitted.random.find((entry: { kind: string }) =>
+        entry.kind === "complete_decision_tree"
+      );
+
+      expect(manifest.shapeId).toBe("push_your_luck");
+      expect(manifest.rewardPool.operations.length).toBeGreaterThan(0);
+      expect(branches.some((branch: { odds?: unknown }) => branch.odds)).toBe(true);
+      expect(branches.some((branch: { terminal?: { outcome?: string } }) =>
+        branch.terminal?.outcome === "failure"
+      )).toBe(true);
+      expect(branches.some((branch: { label?: string }) => branch.label === "Stop")).toBe(true);
+      expect(completeTreePrecommit).toMatchObject({
+        kind: "complete_decision_tree",
+        motif: "push_your_luck",
+        visibilityPolicy: {
+          outcomeVisibility: "visible",
+          playerVisible: true,
+        },
+      });
+      expect(manifest.precommitted.operations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "random_envelope",
+          envelopeKind: "complete_decision_tree",
+          visibility: "precommitted",
+        }),
+      ]));
+      await expectMissingState(statePath);
+    });
+  });
+
   it("prints forced adapter payload metadata in debug human output", async () => {
     await withTempState(async ({ options }) => {
       const result = await handleJourney(options({
@@ -509,8 +555,8 @@ describe("stateless command risk transitions", () => {
             ?.payload?.dreamsignName
         );
 
-      expect(dreamsignNames(firstPayload)).toEqual(["Philosopher's Stone", "Black Horn", "Dragon Egg"]);
-      expect(dreamsignNames(secondPayload)).toEqual(["Honeycombs", "Clam Shell", "Leather Satchel"]);
+      expect(dreamsignNames(firstPayload)).toEqual(["Philosopher's Stone", "Gold Key", "Rainbow Horn"]);
+      expect(dreamsignNames(secondPayload)).toEqual(["Wolf Sigil", "Shadow Droplet", "Flower Petals"]);
       expect(firstPayload.manifest.debug.semanticFingerprint.value).not.toBe(
         secondPayload.manifest.debug.semanticFingerprint.value,
       );

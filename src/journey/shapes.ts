@@ -44,13 +44,42 @@ export type JourneyShapeDefinition = {
   readonly topology: JourneyTopology;
   readonly rootOptionCount: Readonly<{ min: number; max: number }>;
   readonly supportedTags: readonly string[];
+  readonly payloadCompatibility: readonly JourneyPayloadCompatibility[];
   readonly validationRules: readonly string[];
   readonly repairPreferences: readonly string[];
   readonly debugLabel: string;
   readonly versionContribution: unknown;
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v9";
+export type JourneyPayloadCompatibility = {
+  readonly familyId:
+    | "adapter"
+    | "card"
+    | "dreamsign"
+    | "bane"
+    | "resource"
+    | "route"
+    | "shop"
+    | "dreamwell"
+    | "status"
+    | "hook"
+    | "return"
+    | "random"
+    | "generated_object"
+    | "decision_tree";
+  readonly variants: readonly string[];
+  readonly legality: "legal" | "unsupported";
+  readonly reason: string;
+};
+
+type RawJourneyShapeDefinition = Omit<
+  JourneyShapeDefinition,
+  "payloadCompatibility"
+> & {
+  readonly payloadCompatibility?: readonly JourneyPayloadCompatibility[];
+};
+
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v10";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -102,20 +131,181 @@ function cloneSerializable(value: unknown): unknown {
   return value;
 }
 
+function compatibility(
+  familyId: JourneyPayloadCompatibility["familyId"],
+  variants: readonly string[],
+  reason: string,
+): JourneyPayloadCompatibility {
+  return {
+    familyId,
+    variants,
+    legality: variants.length > 0 ? "legal" : "unsupported",
+    reason,
+  };
+}
+
+function payloadCompatibilityFor(
+  definition: RawJourneyShapeDefinition,
+): readonly JourneyPayloadCompatibility[] {
+  const { id, topology, supportedTags } = definition;
+  const isDecisionTree = topology === "decision_tree";
+  const isDirectMenu = topology === "direct_menu";
+  const isRandomCommit = topology === "random_commit";
+  const isDelayedHook = topology === "delayed_hook";
+  const hasCard = supportedTags.includes("card") || supportedTags.includes("target") || supportedTags.includes("rewrite");
+  const hasDreamsign = supportedTags.includes("dreamsign") || id === "shop_row" || id === "curated_reward_trio";
+  const serviceFamilyShape = id === "service_menu";
+  const generatedObjectShape = [
+    "random_allocation",
+    "same_cost_different_rewards",
+    "same_reward_different_costs",
+    "service_menu",
+    "shop_row",
+    "curated_reward_trio",
+    "one_target_many_operations",
+    "mirrored_operations",
+    "one_operation_many_targets",
+  ].includes(id);
+
+  return Object.freeze([
+    compatibility("adapter", ["current"], "All canonical shapes can use the typed adapter payload."),
+    compatibility(
+      "card",
+      [
+        ...(serviceFamilyShape ? ["named-card-operation-menu"] : []),
+        ...(id === "curated_reward_trio" ? ["starter-cleanup-replacement"] : []),
+        ...(hasCard && isDirectMenu ? ["adapter-compatible-card-operations"] : []),
+      ],
+      hasCard || serviceFamilyShape || id === "curated_reward_trio"
+        ? "Shape can expose card targets or card-operation menu rows."
+        : "Shape does not expose a legal card-target operation frame.",
+    ),
+    compatibility(
+      "dreamsign",
+      [
+        ...(id === "shop_row" ? ["named-dreamsign-shop-row"] : []),
+        ...(id === "curated_reward_trio" ? ["dreamsign-transform-duplicate-pool"] : []),
+        ...(hasDreamsign && isDirectMenu ? ["adapter-compatible-dreamsign-operations"] : []),
+      ],
+      hasDreamsign
+        ? "Shape can expose Dreamsign targets, rewards, shops, or pool edits."
+        : "Shape does not expose a legal Dreamsign target or shop frame.",
+    ),
+    compatibility(
+      "bane",
+      serviceFamilyShape || id === "choose_your_loss" ? ["bane-gain-purge-transform"] : [],
+      serviceFamilyShape || id === "choose_your_loss"
+        ? "Shape can frame Bane gain, purge, and transformation decisions."
+        : "Shape lacks a controlled Bane-operation or loss-choice frame.",
+    ),
+    compatibility(
+      "resource",
+      isDirectMenu || topology === "single_offer_refusal" || topology === "single_reward"
+        ? ["resource-edge-cases"]
+        : [],
+      isDirectMenu || topology === "single_offer_refusal" || topology === "single_reward"
+        ? "Shape can compare visible resource costs or rewards."
+        : "Shape-specific payloads own resource timing through sequence or commit metadata.",
+    ),
+    compatibility(
+      "route",
+      id === "alter_dreamscapes" || serviceFamilyShape ? ["route-edits"] : [],
+      id === "alter_dreamscapes" || serviceFamilyShape
+        ? "Shape can expose route edits without mutating state."
+        : "Shape topology is not a route-edit scene.",
+    ),
+    compatibility(
+      "shop",
+      id === "shop_row" ? ["shop-economy"] : [],
+      id === "shop_row"
+        ? "Shape has flat visible prices and shop-row comparison semantics."
+        : "Shape lacks a shop row price frame.",
+    ),
+    compatibility(
+      "dreamwell",
+      serviceFamilyShape || id === "timed_window_menu" ? ["dreamwell-window"] : [],
+      serviceFamilyShape || id === "timed_window_menu"
+        ? "Shape can expose bounded Dreamwell and battle-window modifiers."
+        : "Shape does not provide a shared timing window for Dreamwell payloads.",
+    ),
+    compatibility(
+      "status",
+      serviceFamilyShape || id === "timed_window_menu" || id === "now_vs_later"
+        ? ["status-reward-replacement"]
+        : [],
+      serviceFamilyShape || id === "timed_window_menu" || id === "now_vs_later"
+        ? "Shape can expose one-time, temporary, or delayed rule mutations."
+        : "Shape lacks a legal status or rule-mutation frame.",
+    ),
+    compatibility(
+      "hook",
+      isDelayedHook || serviceFamilyShape || id === "commit_now_future_payoff"
+        ? ["delayed-trigger-matrix"]
+        : [],
+      isDelayedHook || serviceFamilyShape || id === "commit_now_future_payoff"
+        ? "Shape can store visible delayed hook contracts in precommitted metadata."
+        : "Shape has no delayed hook contract surface.",
+    ),
+    compatibility(
+      "return",
+      id === "paired_return" ? ["paired-return-seal-borrow-trade"] : [],
+      id === "paired_return"
+        ? "Shape creates a paired return hook with a specific remembered anchor."
+        : "Shape does not create paired return anchors.",
+    ),
+    compatibility(
+      "random",
+      isRandomCommit || ["risk_or_skip", "random_pool_draws", "probability_ladder", "push_your_luck"].includes(id)
+        ? ["reveal-roll-wager"]
+        : [],
+      isRandomCommit || ["risk_or_skip", "random_pool_draws", "probability_ladder", "push_your_luck"].includes(id)
+        ? "Shape exposes bounded random, reveal, odds, or wager metadata."
+        : "Shape is deterministic and does not require random envelope metadata.",
+    ),
+    compatibility(
+      "generated_object",
+      generatedObjectShape
+        ? ["generated-card", "generated-dreamsign", "generated-status", "generated-transfiguration"]
+        : [],
+      generatedObjectShape
+        ? "Shape can host manifest-local generated object grants or transforms."
+        : "Shape topology has no legal manifest-local generated object host.",
+    ),
+    compatibility(
+      "decision_tree",
+      isDecisionTree ? ["complete-decision-tree"] : [],
+      isDecisionTree
+        ? "Shape owns complete multi-level tree visibility."
+        : "Shape is not a decision-tree topology.",
+    ),
+  ]);
+}
+
 function freezeShapeDefinition(
-  definition: JourneyShapeDefinition,
+  definition: RawJourneyShapeDefinition,
 ): JourneyShapeDefinition {
+  const payloadCompatibility = definition.payloadCompatibility ?? payloadCompatibilityFor(definition);
+  const version = {
+    ...(definition.versionContribution &&
+    typeof definition.versionContribution === "object" &&
+    !Array.isArray(definition.versionContribution)
+      ? definition.versionContribution
+      : { value: definition.versionContribution }),
+    payloadCompatibility,
+  };
+
   return Object.freeze({
     ...definition,
     rootOptionCount: Object.freeze({ ...definition.rootOptionCount }),
     supportedTags: Object.freeze([...definition.supportedTags]),
+    payloadCompatibility: Object.freeze(payloadCompatibility.map(freezeSerializable)) as readonly JourneyPayloadCompatibility[],
     validationRules: Object.freeze([...definition.validationRules]),
     repairPreferences: Object.freeze([...definition.repairPreferences]),
-    versionContribution: freezeSerializable(definition.versionContribution),
+    versionContribution: freezeSerializable(version),
   });
 }
 
-const shapeDefinitions: readonly JourneyShapeDefinition[] = [
+const shapeDefinitions: readonly RawJourneyShapeDefinition[] = [
   {
     id: "random_allocation",
     topology: "direct_menu",
@@ -717,6 +907,7 @@ export function canonicalShapeDefinitions(): unknown {
       topology: definition.topology,
       rootOptionCount: { ...definition.rootOptionCount },
       supportedTags: [...definition.supportedTags],
+      payloadCompatibility: cloneSerializable(definition.payloadCompatibility),
       validationRules: [...definition.validationRules],
       repairPreferences: [...definition.repairPreferences],
       debugLabel: definition.debugLabel,

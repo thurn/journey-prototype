@@ -272,6 +272,8 @@ function committedOutcomeText(value: unknown): string {
     }
     case "push_choice":
       return `Push choice hazard is ${value.bounded === true ? "bounded" : "precommitted"}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
+    case "complete_decision_tree":
+      return `Complete decision tree: ${Array.isArray(value.nodes) ? value.nodes.length : "?"} levels; stop branches ${Array.isArray(value.stopBranchIds) ? value.stopBranchIds.length : "?"}; failure branches ${Array.isArray(value.failureBranchIds) ? value.failureBranchIds.length : "?"}; reward branches ${Array.isArray(value.rewardBranchIds) ? value.rewardBranchIds.length : "?"}.`;
     case "resolved_random_series":
       return `Resolved random series: ${Array.isArray(value.series) ? value.series.length : "?"} committed payloads.`;
     case "no_reward":

@@ -497,7 +497,7 @@ describe("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v9",
+      shapeCatalogVersion: "journey-shapes:v10",
       effectCatalogVersion: "effects:v3",
       valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",

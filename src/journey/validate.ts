@@ -2396,6 +2396,7 @@ function validateRandomEnvelopePayload(value: unknown): ValidationResult {
     "wager",
     "probability_ladder",
     "push_choice",
+    "complete_decision_tree",
     "resolved_random_series",
   ]);
 
@@ -2474,6 +2475,17 @@ function validateRandomEnvelopePayload(value: unknown): ValidationResult {
 
   if (kind === "resolved_random_series" && (!Array.isArray(value.series) || value.series.length === 0)) {
     return fail("empty_random_pool", "Resolved random series requires at least one committed outcome");
+  }
+
+  if (
+    kind === "complete_decision_tree" &&
+    (!Array.isArray(value.nodes) ||
+      value.nodes.length === 0 ||
+      !Array.isArray(value.stopBranchIds) ||
+      !Array.isArray(value.failureBranchIds) ||
+      !Array.isArray(value.rewardBranchIds))
+  ) {
+    return fail("incomplete_decision_tree_precommit", "Complete decision-tree precommit requires nodes, stop branches, failure branches, and reward branches");
   }
 
   return { ok: true };

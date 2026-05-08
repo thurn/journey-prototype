@@ -155,7 +155,14 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "decision_tree",
     description: "Complete decision-tree payloads.",
     variants: [
-      variant("decision_tree", "complete-decision-tree", "unimplemented", "Reserved for complete multi-level decision tree motifs.", ["prize_ladder", "escalating_reward_chain"], ["mid", "late"]),
+      variant(
+        "decision_tree",
+        "complete-decision-tree",
+        "available",
+        "Complete multi-level decision-tree motifs with visible stop, failure, odds, rewards, and precommitted tree metadata.",
+        ["push_your_luck", "probability_ladder", "random_pool_draws", "prize_ladder", "escalating_reward_chain"],
+        ["mid", "late"],
+      ),
     ],
   },
 ] as const satisfies readonly DebugPayloadFamily[]);

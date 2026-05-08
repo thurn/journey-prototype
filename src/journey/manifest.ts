@@ -557,6 +557,26 @@ export type RandomPrecommittedOutcome =
     committedResult?: "success" | "failure";
   })
   | (RandomPrecommitBase & {
+    kind: "complete_decision_tree";
+    motif: JourneyShapeId;
+    nodes: {
+      nodeId: string;
+      levelLabel: string;
+      branches: {
+        branchId: string;
+        label: string;
+        kind: JourneyTreeBranchKind;
+        odds?: RandomOdds;
+        nextNodeId?: string;
+        terminalOutcome?: JourneyTreeTerminal["outcome"];
+        operationCount: number;
+      }[];
+    }[];
+    stopBranchIds: string[];
+    failureBranchIds: string[];
+    rewardBranchIds: string[];
+  })
+  | (RandomPrecommitBase & {
     kind: "resolved_random_series";
     series: unknown[];
     resolved: true;

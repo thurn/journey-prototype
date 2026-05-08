@@ -80,10 +80,31 @@ describe("JOURNEY_SHAPES", () => {
         definition.rootOptionCount.min,
       );
       expect(definition.supportedTags.length).toBeGreaterThan(0);
+      expect(definition.payloadCompatibility.length).toBeGreaterThan(0);
+      expect(definition.payloadCompatibility.map((entry) => entry.familyId)).toEqual(expect.arrayContaining([
+        "adapter",
+        "decision_tree",
+      ]));
       expect(definition.validationRules.length).toBeGreaterThan(0);
       expect(definition.repairPreferences.length).toBeGreaterThan(0);
       expect(definition.debugLabel.length).toBeGreaterThan(0);
       expect(definition.versionContribution).toBeDefined();
+    }
+  });
+
+  it("maps decision-tree payload compatibility only to tree topology shapes", () => {
+    for (const definition of JOURNEY_SHAPES) {
+      const decisionTreeCompatibility = definition.payloadCompatibility.find((entry) =>
+        entry.familyId === "decision_tree"
+      );
+
+      expect(decisionTreeCompatibility, definition.id).toBeDefined();
+      expect(decisionTreeCompatibility?.legality, definition.id).toBe(
+        definition.topology === "decision_tree" ? "legal" : "unsupported",
+      );
+      expect(decisionTreeCompatibility?.variants, definition.id).toEqual(
+        definition.topology === "decision_tree" ? ["complete-decision-tree"] : [],
+      );
     }
   });
 
@@ -152,7 +173,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v9;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v10;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });
