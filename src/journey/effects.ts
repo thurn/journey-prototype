@@ -65,7 +65,7 @@ export type DreamsignTargetPredicate = {
 };
 
 export type BaneTargetPredicate = {
-  source?: "vocabulary" | "state";
+  source?: "vocabulary" | "state" | "future_burden" | "manifest_obligation";
   names?: readonly BaneName[];
 };
 
@@ -936,6 +936,14 @@ function targetOriginForSourcePool(
 
   if (sourcePool === "vocabulary") {
     return "controlled_vocabulary";
+  }
+
+  if (sourcePool === "future_burden") {
+    return "future_burden";
+  }
+
+  if (sourcePool === "manifest_obligation") {
+    return "manifest_obligation";
   }
 
   if (sourcePool === "state") {

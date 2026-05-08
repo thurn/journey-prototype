@@ -578,6 +578,81 @@ export function valueBaneGain(baneName: BaneName, count: number): number {
   return (BANE_VALUE_CONSTANTS.gainedByName[baneName] ?? BANE_VALUE_CONSTANTS.gainedByName.Nightmare) * count;
 }
 
+export function valueBaneBurden(input: {
+  baneName: BaneName;
+  count?: number;
+  temporary?: boolean;
+  delayed?: boolean;
+}): number {
+  const base = valueBaneGain(input.baneName, input.count ?? 1);
+  const temporaryMultiplier = input.temporary === true
+    ? BANE_VALUE_CONSTANTS.temporaryMultiplier
+    : 1;
+  const delayedMultiplier = input.delayed === true
+    ? BANE_VALUE_CONSTANTS.delayedMultiplier
+    : 1;
+
+  return roundToNearestFive(base * temporaryMultiplier * delayedMultiplier);
+}
+
+export function valueBanePurge(input: {
+  baneName: BaneName;
+  count?: number;
+  selection?: "exact" | "chosen_after_commitment" | "visible_random";
+  targetContext?: "current_state" | "future_burden" | "manifest_obligation";
+}): number {
+  const count = input.count ?? 1;
+  const inverse = Math.abs(valueBaneGain(input.baneName, count)) *
+    BANE_VALUE_CONSTANTS.purgeInverseMultiplier;
+  const certainty = input.selection === "visible_random"
+    ? PURGE_VALUE_CONSTANTS.randomBane / PURGE_VALUE_CONSTANTS.chosenBaneBase
+    : input.selection === "chosen_after_commitment"
+      ? 1 + BANE_VALUE_CONSTANTS.chosenPurgeBonus / PURGE_VALUE_CONSTANTS.chosenBaneBase
+      : 1;
+  const contextMultiplier = input.targetContext === "future_burden"
+    ? 0.8
+    : input.targetContext === "manifest_obligation"
+      ? 0.9
+      : 1;
+
+  return roundToNearestFive(inverse * certainty * contextMultiplier);
+}
+
+export function valueBaneReplacement(input: {
+  baneName: BaneName;
+  replacementValue?: number;
+  selection?: "exact" | "chosen_after_commitment" | "visible_random";
+  targetContext?: "current_state" | "future_burden" | "manifest_obligation";
+}): number {
+  return valueBanePurge({
+    baneName: input.baneName,
+    selection: input.selection,
+    targetContext: input.targetContext,
+  }) + BANE_VALUE_CONSTANTS.replacementRelief +
+    Math.max(0, Math.min(60, input.replacementValue ?? 0));
+}
+
+export function valueBaneTransformToCard(input: {
+  baneName: BaneName;
+  cardValue?: number;
+  delayed?: boolean;
+  targetContext?: "current_state" | "future_burden" | "manifest_obligation";
+}): number {
+  const relief = valueBanePurge({
+    baneName: input.baneName,
+    targetContext: input.targetContext,
+  });
+  const cardBonus = Math.max(0, Math.min(55, (input.cardValue ?? 75) - 75));
+  const delayedMultiplier = input.delayed === true
+    ? TIMING_AND_RANDOMNESS_VALUE_CONSTANTS.delayedRewardMultiplier
+    : 1;
+
+  return roundToNearestFive(
+    (BANE_VALUE_CONSTANTS.transformToCardBase + relief * 0.35 + cardBonus) *
+      delayedMultiplier,
+  );
+}
+
 export function valueUsefulNonStarterCardSacrifice(count = 1): number {
   return PURGE_VALUE_CONSTANTS.usefulNonStarterSacrifice * Math.max(1, count);
 }

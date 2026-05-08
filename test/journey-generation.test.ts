@@ -1140,7 +1140,7 @@ describe("generateNextJourney", () => {
           burdenKind: "bane_gain",
           targetSelector: expect.objectContaining({
             selectorKind: "bane",
-            source: "vocabulary",
+            source: "future_burden",
           }),
         }),
         expect.objectContaining({
@@ -1215,6 +1215,194 @@ describe("generateNextJourney", () => {
       ok: false,
       rule: "bane_current_state_target_unavailable",
     });
+  });
+
+  it("generates normal Bane purge rewards, target contexts, and multi-copy Bane burdens", async () => {
+    const findManifest = async (
+      shapeId: JourneyShapeId,
+      predicate: (manifest: JourneyManifest) => boolean,
+    ) => {
+      for (let index = 0; index < 160; index += 1) {
+        const journeyContext = await context(`m9-bane-normal-${shapeId}-${index}`);
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: "mid",
+          forcedShapeId: shapeId,
+        });
+
+        expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+          ok: true,
+        });
+
+        if (predicate(manifest)) {
+          return manifest;
+        }
+      }
+
+      return undefined;
+    };
+    const operations = (manifest: JourneyManifest): JourneyOperation[] => [
+      ...manifest.options.flatMap((journeyOption) => journeyOption.operations),
+      ...(manifest.precommitted.operations ?? []),
+    ];
+    const purgeManifest = await findManifest("service_menu", (manifest) =>
+      operations(manifest).some(
+        (operation) =>
+          operation.operationKind === "reward" &&
+          (
+            operation.rewardKind === "bane_chosen_purge" ||
+            operation.rewardKind === "bane_random_purge" ||
+            operation.rewardKind === "bane_purge"
+          ) &&
+          operation.targetSelector?.selectorKind === "bane" &&
+          (
+            operation.targetSelector.source === "manifest_obligation" ||
+            operation.targetSelector.source === "future_burden"
+          ) &&
+          (
+            operation.targetResolution?.targetOrigin === "manifest_obligation" ||
+            operation.targetResolution?.targetOrigin === "future_burden"
+          ),
+      )
+    );
+    const randomPurgeManifest = await findManifest("service_menu", (manifest) =>
+      operations(manifest).some(
+        (operation) =>
+          operation.operationKind === "reward" &&
+          operation.rewardKind === "bane_random_purge" &&
+          operation.targetSelector?.selectorKind === "bane" &&
+          operation.targetSelector.selection === "visible_random",
+      )
+    );
+    const multiBaneManifest = await findManifest("choose_your_loss", (manifest) =>
+      operations(manifest).some(
+        (operation) =>
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_gain" &&
+          typeof operation.payload.count === "number" &&
+          operation.payload.count > 1,
+      )
+    );
+    const temporaryBaneManifest = await findManifest("same_cost_different_rewards", (manifest) =>
+      operations(manifest).some(
+        (operation) =>
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_temporary",
+      )
+    );
+    const delayedBaneManifest = await findManifest("same_cost_different_rewards", (manifest) =>
+      operations(manifest).some(
+        (operation) =>
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_delayed",
+      )
+    );
+
+    expect(purgeManifest).toBeDefined();
+    expect(randomPurgeManifest).toBeDefined();
+    expect(multiBaneManifest).toBeDefined();
+    expect(temporaryBaneManifest).toBeDefined();
+    expect(delayedBaneManifest).toBeDefined();
+  });
+
+  it("generates Thorned Cleanup, Thin Air, and Bane Ledger Bane structures normally", async () => {
+    const findManifest = async (
+      shapeId: JourneyShapeId,
+      predicate: (manifest: JourneyManifest) => boolean,
+    ) => {
+      for (let index = 0; index < 160; index += 1) {
+        const journeyContext = await context(`m9-bane-examples-${shapeId}-${index}`);
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: "mid",
+          forcedShapeId: shapeId,
+        });
+
+        expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+          ok: true,
+        });
+
+        if (predicate(manifest)) {
+          return manifest;
+        }
+      }
+
+      return undefined;
+    };
+    const thornedCleanup = await findManifest("service_menu", (manifest) =>
+      manifest.options.some((journeyOption) =>
+        journeyOption.operations.some(
+          (operation) =>
+            operation.operationKind === "reward" &&
+            operation.rewardKind === "starter_cleanup",
+        ) &&
+        journeyOption.operations.some(
+          (operation) =>
+            operation.operationKind === "reward" &&
+            (
+              operation.rewardKind === "bane_chosen_purge" ||
+              operation.rewardKind === "bane_random_purge" ||
+              operation.rewardKind === "bane_purge"
+            ),
+        )
+      )
+    );
+    const thinAir = await findManifest("choose_your_loss", (manifest) =>
+      manifest.options.some((journeyOption) =>
+        journeyOption.operations.some(
+          (operation) =>
+            operation.operationKind === "burden" &&
+            operation.burdenKind === "bane_gain" &&
+            typeof operation.payload.count === "number" &&
+            operation.payload.count > 1,
+        )
+      )
+    );
+    const baneLedger = await findManifest("alter_dreamscapes", (manifest) =>
+      manifest.options.some((journeyOption) =>
+        journeyOption.routeEffects.length > 0 &&
+        journeyOption.operations.some(
+          (operation) =>
+            operation.operationKind === "burden" &&
+            operation.burdenKind === "bane_gain",
+        )
+      )
+    );
+
+    expect(thornedCleanup).toBeDefined();
+    expect(thinAir).toBeDefined();
+    expect(baneLedger).toBeDefined();
+  });
+
+  it("can precommit a Bane-to-card transform behind a normal delayed hook", async () => {
+    for (let index = 0; index < 220; index += 1) {
+      const journeyContext = await context(`m9-bane-delayed-transform-${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "late",
+        forcedShapeId: "reward_after_trigger",
+      });
+      const hasDelayedBaneTransform = (manifest.precommitted.operations ?? []).some(
+        (operation) =>
+          operation.operationKind === "delayed_hook" &&
+          operation.rewardOperations?.some(
+            (rewardOperation) =>
+              rewardOperation.operationKind === "reward" &&
+              rewardOperation.rewardKind === "bane_transform_to_card",
+          ),
+      );
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      if (hasDelayedBaneTransform) {
+        expect(manifest.references.baneNames.length).toBeGreaterThan(0);
+        return;
+      }
+    }
+
+    expect.fail("Expected a normal delayed hook to precommit a Bane transform");
   });
 
   it("forces route, shop, Dreamwell, and status payload families with structured scope and duration", async () => {

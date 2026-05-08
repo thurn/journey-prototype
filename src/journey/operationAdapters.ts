@@ -24,6 +24,7 @@ import type {
 import { DEFAULT_BANE_NAME } from "./effects.js";
 import {
   CARD_VALUE_CONSTANTS,
+  BANE_VALUE_CONSTANTS,
   PURGE_VALUE_CONSTANTS,
   cardPredicateSpecificityValue,
 } from "./value.js";
@@ -64,6 +65,22 @@ function stringArray(value: unknown): string[] | undefined {
   const entries = value.filter((entry): entry is string => typeof entry === "string");
 
   return entries.length > 0 ? entries : undefined;
+}
+
+function baneSourceFromPayload(value: PayloadRecord): "vocabulary" | "state" | "future_burden" | "manifest_obligation" {
+  if (value.baneTargetContext === "current_state") {
+    return "state";
+  }
+
+  if (value.baneTargetContext === "future_burden") {
+    return "future_burden";
+  }
+
+  if (value.baneTargetContext === "manifest_obligation") {
+    return "manifest_obligation";
+  }
+
+  return "vocabulary";
 }
 
 function selectionFromLegacy(value: PayloadRecord, predicate: unknown): TargetSelectionMode {
@@ -140,11 +157,18 @@ function targetSelectorFromTarget(value: unknown): TargetSelector {
   }
 
   if (value.kind === "bane") {
+    const targetSource = source === "vocabulary" ||
+      source === "state" ||
+      source === "future_burden" ||
+      source === "manifest_obligation"
+      ? source
+      : undefined;
+
     return {
       selectorKind: "bane",
       selection,
       referenceKind: "controlled_vocabulary",
-      ...(source === "vocabulary" || source === "state" ? { source } : {}),
+      ...(targetSource ? { source: targetSource } : {}),
       ...(names && names.length > 0 ? { names } : {}),
       required,
     };
@@ -230,6 +254,35 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
       ...(typeof value.statusId === "string" ? { statusId: value.statusId } : {}),
       ...(typeof value.statusName === "string" ? { statusName: value.statusName } : {}),
       required: true,
+    };
+  }
+
+  if (
+    typeof value.baneName === "string" ||
+    Array.isArray(value.baneNames) ||
+    value.kind === "bane_purge" ||
+    value.kind === "bane_random_purge" ||
+    value.kind === "bane_chosen_purge" ||
+    value.kind === "bane_replace" ||
+    value.kind === "bane_transform_to_card"
+  ) {
+    const baneNames = typeof value.baneName === "string"
+      ? [value.baneName]
+      : stringArray(value.baneNames);
+    const targetContext = baneSourceFromPayload(value);
+    const selection = value.selection === "visible_random" || value.kind === "bane_random_purge"
+      ? "visible_random"
+      : value.selection === "chosen_after_commitment" || value.kind === "bane_chosen_purge"
+        ? "chosen_after_commitment"
+        : "exact";
+
+    return {
+      selectorKind: "bane",
+      selection,
+      referenceKind: "controlled_vocabulary",
+      source: targetContext,
+      ...(baneNames ? { names: baneNames } : {}),
+      required: targetContext === "state",
     };
   }
 
@@ -334,35 +387,6 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
       ...(typeof value.dreamcallerId === "string" ? { ids: [value.dreamcallerId] } : {}),
       ...(typeof value.dreamcallerName === "string" ? { names: [value.dreamcallerName] } : {}),
       required: true,
-    };
-  }
-
-  if (
-    typeof value.baneName === "string" ||
-    Array.isArray(value.baneNames) ||
-    value.kind === "bane_purge" ||
-    value.kind === "bane_random_purge" ||
-    value.kind === "bane_chosen_purge" ||
-    value.kind === "bane_replace" ||
-    value.kind === "bane_transform_to_card"
-  ) {
-    const baneNames = typeof value.baneName === "string"
-      ? [value.baneName]
-      : stringArray(value.baneNames);
-    const targetContext = value.baneTargetContext === "current_state" ? "state" : "vocabulary";
-    const selection = value.selection === "visible_random" || value.kind === "bane_random_purge"
-      ? "visible_random"
-      : value.selection === "chosen_after_commitment" || value.kind === "bane_chosen_purge"
-        ? "chosen_after_commitment"
-        : "exact";
-
-    return {
-      selectorKind: "bane",
-      selection,
-      referenceKind: "controlled_vocabulary",
-      source: targetContext,
-      ...(baneNames ? { names: baneNames } : {}),
-      required: targetContext === "state",
     };
   }
 
@@ -756,6 +780,72 @@ function dreamsignOperationMetadataBands(value: PayloadRecord): NonNullable<Oper
   return bands;
 }
 
+function baneOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const kind = legacyKind(value);
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+
+  if (!kind?.startsWith("bane_") && typeof value.baneName !== "string") {
+    return bands;
+  }
+
+  if (typeof value.baneName === "string") {
+    bands.push({
+      id: "bane_name",
+      label: value.baneName,
+      description: "Bane value tracks the specific Bane name.",
+    });
+  }
+
+  if (typeof value.count === "number") {
+    bands.push({
+      id: "bane_count",
+      label: "Bane count",
+      description: "Bane value scales by the number of copies gained or purged.",
+      amount: value.count,
+    });
+  }
+
+  if (value.temporary === true) {
+    bands.push({
+      id: "bane_temporary_duration",
+      label: typeof value.duration === "string" ? value.duration : "temporary Bane",
+      description: "Temporary Bane value is discounted by its duration.",
+      ...(typeof value.durationCount === "number" ? { amount: value.durationCount } : {}),
+    });
+  }
+
+  if (typeof value.timing === "string" && value.timing !== "immediate") {
+    bands.push({
+      id: "bane_delayed_timing",
+      label: value.timing,
+      description: "Delayed Bane value is discounted by the timing window.",
+    });
+  }
+
+  if (kind === "bane_purge" || kind === "bane_random_purge" || kind === "bane_chosen_purge") {
+    bands.push({
+      id: "bane_purge_certainty",
+      label: value.selection === "visible_random" || kind === "bane_random_purge"
+        ? "random Bane purge"
+        : value.selection === "chosen_after_commitment" || kind === "bane_chosen_purge"
+          ? "chosen Bane purge"
+          : "named Bane purge",
+      description: "Bane purge value tracks whether the target is named, chosen, or random.",
+    });
+  }
+
+  if (kind === "bane_replace" || typeof value.replacementKind === "string") {
+    bands.push({
+      id: "bane_replacement_relief",
+      label: typeof value.replacementKind === "string" ? value.replacementKind : "Bane replacement",
+      description: "Bane replacement value includes relief from converting a harmful Bane into a non-Bane object.",
+      amount: BANE_VALUE_CONSTANTS.replacementRelief,
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -766,6 +856,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...cardPredicateMetadataBands(payload),
       ...starterOperationMetadataBands(payload),
       ...dreamsignOperationMetadataBands(payload),
+      ...baneOperationMetadataBands(payload),
     ];
 
     if (bands.length > 0) {
@@ -960,7 +1051,9 @@ function adaptStatusWithVisibility(
     visibility,
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
     ...(targetSelector ? { targetSelector } : {}),
-    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(valueMetadata(convertedEssence, isRecord(value) ? value : undefined)
+      ? { value: valueMetadata(convertedEssence, isRecord(value) ? value : undefined) }
+      : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload,
   };
@@ -1004,7 +1097,7 @@ function adaptBurden(
         selectorKind: "bane" as const,
         selection: isRecord(value) && value.selection === "visible_random" ? "visible_random" as const : "exact" as const,
         referenceKind: "controlled_vocabulary" as const,
-        source: isRecord(value) && value.baneTargetContext === "current_state" ? "state" as const : "vocabulary" as const,
+        source: isRecord(value) ? baneSourceFromPayload(value) : "future_burden" as const,
         names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : DEFAULT_BANE_NAME],
       }
     : undefined;
@@ -1018,7 +1111,9 @@ function adaptBurden(
     visibility,
     ...(targetSelector ? { targetSelector } : {}),
     ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
-    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(valueMetadata(convertedEssence, isRecord(value) ? value : undefined)
+      ? { value: valueMetadata(convertedEssence, isRecord(value) ? value : undefined) }
+      : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
   };

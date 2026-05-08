@@ -30,6 +30,7 @@ import type {
 } from "../manifest.js";
 import { type JourneyShapeId } from "../shapes.js";
 import {
+  valueBaneBurden,
   valueBaneGain,
   valueCardDraft,
   valueDreamsignDraft,
@@ -798,18 +799,26 @@ export function fillOptions(
         label: `${shapeId}:operations`,
         count: 3,
       });
+      const cardOperationBane = baneBurdenSlot(
+        drawContext,
+        `${shapeId}:card-operation-bane`,
+      );
 
       return {
-        options: operations.map((operation, index) =>
-          option({
+        options: operations.map((operation, index) => {
+          const burden = index === 2 ? cardOperationBane : undefined;
+
+          return option({
             number: index + 1,
-            text: renderChosenCardOperationText(operation),
+            text: `${burden ? `${burden.prefix} ` : ""}${renderChosenCardOperationText(operation)}`,
             effects: [operation.effect],
+            burdens: burden?.burdens ?? [],
             targets: [sharedTarget],
             effect: operation.value,
+            burden: burden?.burden,
             uncertainty: operation.uncertainty,
-          }),
-        ),
+          });
+        }),
         precommitted: {},
       };
     }
@@ -1183,13 +1192,20 @@ export function fillOptions(
       };
     }
     case "choose_your_loss": {
+      const baneCount = pickSequentialVariant(
+        drawContext,
+        `${shapeId}:bane-count`,
+        [1, 2, 2],
+      );
       const baneName = pickSequentialVariant(
         drawContext,
         `${shapeId}:bane-name`,
-        ["Nightmare", "Despair", "Envy", "Silence", "Paranoia"] as const,
+        baneCount > 1
+          ? ["Despair", "Envy"] as const
+          : ["Nightmare", "Despair", "Envy", "Silence", "Paranoia"] as const,
       );
       const omenLoss = valueOmenLoss(1);
-      const baneLoss = valueBaneGain(baneName, 1);
+      const baneLoss = valueBaneBurden({ baneName, count: baneCount });
       const essenceLoss = comparableEssenceLossAmount(
         [
           ...(context.state.quest.resources.omens >= 1 ? [omenLoss] : []),
@@ -1210,7 +1226,7 @@ export function fillOptions(
         );
       }
 
-      if (context.state.quest.resources.omens >= 1) {
+      if (context.state.quest.resources.omens >= 1 && baneCount === 1) {
         options.push(
           option({
             number: options.length + 1,
@@ -1224,8 +1240,8 @@ export function fillOptions(
       options.push(
         option({
           number: options.length + 1,
-          text: `Gain 1 ${baneName}.`,
-          burdens: [{ kind: "bane_gain", baneName, count: 1 }],
+          text: `Gain ${baneNameText(baneName, baneCount)}.`,
+          burdens: [baneBurden(baneName, baneCount)],
           burden: baneLoss,
         }),
       );
@@ -1823,12 +1839,27 @@ export function fillOptions(
         routeEffects: [reward.payload],
         effect: reward.effect,
       }));
+      const routeBane = baneBurdenSlot(
+        drawContext,
+        `${shapeId}:route-bane`,
+      );
+      const routeOptions = routeRewards.map((reward, index) =>
+        index === 1
+          ? option({
+              number: index + 1,
+              text: `${routeBane.prefix} ${reward.text}`,
+              burdens: routeBane.burdens,
+              routeEffects: reward.routeEffects,
+              burden: routeBane.burden,
+              effect: reward.effect,
+            })
+          : rewardSlotOption(index + 1, reward)
+      );
 
       return {
-        options: routeRewards
-          .map((reward, index) => rewardSlotOption(index + 1, reward)),
+        options: routeOptions,
         precommitted: {
-          routeEdits: routeRewards
+          routeEdits: routeOptions
             .flatMap((reward) => reward.routeEffects ?? []),
         },
       };

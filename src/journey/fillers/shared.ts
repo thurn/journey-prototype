@@ -32,7 +32,11 @@ import {
   DREAMSIGN_VALUE_CONSTANTS,
   LOSS_CHOICE_VALUE_CONSTANTS,
   TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
+  valueBaneBurden,
   valueBaneGain,
+  valueBanePurge,
+  valueBaneReplacement,
+  valueBaneTransformToCard,
   valueCardDraft,
   valueDreamsignDraft,
   valueEssenceGain,
@@ -42,6 +46,14 @@ import {
   valueStarterCleanup,
   valueStarterReplacement,
 } from "../value.js";
+import {
+  baneGainPayload,
+  banePurgePayload,
+  baneReplaceWithCardPayload,
+  baneTransformToCardPayload,
+  type BaneSelectionMode,
+  type BaneTargetContextId,
+} from "./banePayloads.js";
 import {
   STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   cardExactTarget,
@@ -542,7 +554,7 @@ export function target(
 export function baneTarget(
   description: string,
   names: string[],
-  source: "vocabulary" | "state" = "vocabulary",
+  source: "vocabulary" | "state" | "future_burden" | "manifest_obligation" = "vocabulary",
   selection: "exact" | "chosen_after_commitment" | "visible_random" = "exact",
 ) {
   return {
@@ -1187,6 +1199,47 @@ export function starterSurgeryRewardSlots(
     });
   }
 
+  if (label.includes(":starter-services")) {
+    const thornedBaneSlots = baneReliefRewardSlots(
+      context,
+      drawContext,
+      `${label}:thorned-bane`,
+      stage,
+    )
+      .filter((slot) =>
+        slot.key.startsWith("bane-chosen-purge") ||
+        slot.key.startsWith("bane-random-purge") ||
+        slot.key.startsWith("bane-future-purge")
+      )
+      .slice(0, 3);
+
+    slots.push(
+      ...thornedBaneSlots.map((slot) => ({
+        ...slot,
+        key: `starter-cleanup-plus-${slot.key}`,
+        text: `Purge up to 1 chosen Starter card. ${slot.text}`,
+        effects: [
+          {
+            kind: "starter_cleanup",
+            cleanupMode: "chosen_up_to",
+            count: 1,
+            minRequiredTargets: 1,
+            ...starterPayloadBase(context),
+          },
+          ...slot.effects,
+        ],
+        targets: [
+          starterTarget(),
+          ...(slot.targets ?? []),
+        ],
+        effect: starterSurgeryMenuValue(
+          valueStarterCleanup({ count: 1, stage }) + slot.effect,
+        ),
+        uncertainty: slot.uncertainty,
+      })),
+    );
+  }
+
   return shuffleDeterministic(drawContext, `${label}:starter-surgery-slots`, slots);
 }
 
@@ -1194,12 +1247,26 @@ export function baneNameText(baneName: BaneName, count: number): string {
   return `${count} ${baneName}${count === 1 ? "" : "s"}`;
 }
 
-export function baneBurden(baneName: BaneName, count: number) {
-  return {
-    kind: "bane_gain",
+export function baneBurden(
+  baneName: BaneName,
+  count: number,
+  options: {
+    timing?: string;
+    temporary?: boolean;
+    duration?: string;
+    durationCount?: number;
+    targetContext?: BaneTargetContextId;
+  } = {},
+) {
+  return baneGainPayload({
     baneName,
     count,
-  };
+    targetContext: options.targetContext ?? "future_burden",
+    timing: options.timing,
+    temporary: options.temporary,
+    duration: options.duration,
+    durationCount: options.durationCount,
+  });
 }
 
 export function nightmare(count: number) {
@@ -1209,21 +1276,256 @@ export function nightmare(count: number) {
 export function baneBurdenSlot(
   drawContext: DrawContext,
   label: string,
-  count = 1,
+  count?: number,
+  options: {
+    timing?: string;
+    temporary?: boolean;
+    duration?: string;
+    durationCount?: number;
+    key?: string;
+  } = {},
 ): BaneBurdenSlot {
   const baneName = pickSequentialVariant(
     drawContext,
     `${label}:bane-name`,
     BANE_NAMES,
   );
+  const baneCount = count ?? pickSequentialVariant(
+    drawContext,
+    `${label}:bane-count`,
+    [1, 1, 2],
+  );
+  const timingText = options.temporary === true
+    ? ` for ${options.duration ?? BATTLE_WINDOW_DURATION}`
+    : options.timing && options.timing !== "immediate"
+      ? ` ${options.timing}`
+      : "";
+  const burdenPayload = baneBurden(baneName, baneCount, {
+    timing: options.timing,
+    temporary: options.temporary,
+    duration: options.duration,
+    durationCount: options.durationCount,
+  });
 
   return {
-    key: "bane",
+    key: options.key ?? "bane",
     baneName,
-    prefix: `Gain ${baneNameText(baneName, count)}.`,
-    burdens: [baneBurden(baneName, count)],
-    burden: valueBaneGain(baneName, count),
+    prefix: `Gain ${baneNameText(baneName, baneCount)}${timingText}.`,
+    burdens: [burdenPayload],
+    burden: valueBaneBurden({
+      baneName,
+      count: baneCount,
+      temporary: options.temporary,
+      delayed: Boolean(options.timing && options.timing !== "immediate"),
+    }),
   };
+}
+
+function baneReliefText(args: {
+  operation: "chosen_purge" | "random_purge" | "future_purge" | "replace_card" | "transform_card";
+  baneName: BaneName;
+  cardName?: string;
+}): string {
+  switch (args.operation) {
+    case "random_purge":
+      return "Purge a random Bane.";
+    case "future_purge":
+      return `Purge the next ${args.baneName} you would gain.`;
+    case "replace_card":
+      return `Replace a chosen ${args.baneName} with {${args.cardName}}.`;
+    case "transform_card":
+      return `Transform ${args.baneName} into {${args.cardName}}.`;
+    case "chosen_purge":
+      return "Purge a chosen Bane.";
+  }
+}
+
+function baneReliefTarget(
+  description: string,
+  baneName: BaneName,
+  source: "vocabulary" | "state" | "future_burden" | "manifest_obligation",
+  selection: BaneSelectionMode,
+) {
+  return baneTarget(description, [baneName], source, selection);
+}
+
+export function baneReliefRewardSlots(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+  stage: JourneyStage,
+): RewardSlot[] {
+  const names = shuffleDeterministic(
+    drawContext,
+    `${label}:bane-relief-names`,
+    BANE_NAMES,
+  );
+  const replacementCard = selectContentBackedCard({
+    context,
+    drawContext,
+    label: `${label}:bane-replacement-card`,
+    stage,
+    sources: ["draftPool", "catalog"],
+  });
+  const transformCard = selectContentBackedCard({
+    context,
+    drawContext,
+    label: `${label}:bane-transform-card`,
+    stage,
+    sources: ["draftPool", "catalog"],
+  }) ?? replacementCard;
+  const chosenBane = names[0] ?? DEFAULT_BANE_NAME;
+  const randomBane = names[1] ?? chosenBane;
+  const futureBane = names[2] ?? chosenBane;
+  const replaceBane = names[3] ?? chosenBane;
+  const transformBane = names[4] ?? chosenBane;
+  const slots: RewardSlot[] = [
+    {
+      key: `bane-chosen-purge:${chosenBane}`,
+      text: baneReliefText({ operation: "chosen_purge", baneName: chosenBane }),
+      effects: [
+        banePurgePayload({
+          baneName: chosenBane,
+          targetContext: "manifest_obligation",
+          selection: "chosen_after_commitment",
+        }),
+      ],
+      targets: [
+        baneReliefTarget(
+          "manifest-local Bane obligations",
+          chosenBane,
+          "manifest_obligation",
+          "chosen_after_commitment",
+        ),
+      ],
+      effect: valueBanePurge({
+        baneName: chosenBane,
+        selection: "chosen_after_commitment",
+        targetContext: "manifest_obligation",
+      }),
+    },
+    {
+      key: `bane-random-purge:${randomBane}`,
+      text: baneReliefText({ operation: "random_purge", baneName: randomBane }),
+      effects: [
+        banePurgePayload({
+          baneName: randomBane,
+          targetContext: "manifest_obligation",
+          selection: "visible_random",
+        }),
+      ],
+      targets: [
+        baneReliefTarget(
+          "visible random manifest-local Bane obligation",
+          randomBane,
+          "manifest_obligation",
+          "visible_random",
+        ),
+      ],
+      effect: valueBanePurge({
+        baneName: randomBane,
+        selection: "visible_random",
+        targetContext: "manifest_obligation",
+      }),
+      uncertainty: -10,
+    },
+    {
+      key: `bane-future-purge:${futureBane}`,
+      text: baneReliefText({ operation: "future_purge", baneName: futureBane }),
+      effects: [
+        banePurgePayload({
+          baneName: futureBane,
+          targetContext: "future_burden",
+          selection: "exact",
+        }),
+      ],
+      targets: [
+        baneReliefTarget(
+          "named future Bane burden",
+          futureBane,
+          "future_burden",
+          "exact",
+        ),
+      ],
+      effect: valueBanePurge({
+        baneName: futureBane,
+        selection: "exact",
+        targetContext: "future_burden",
+      }),
+    },
+  ];
+
+  if (replacementCard) {
+    slots.push({
+      key: `bane-replace-card:${replaceBane}:${replacementCard.card.id}`,
+      text: baneReliefText({
+        operation: "replace_card",
+        baneName: replaceBane,
+        cardName: replacementCard.card.name,
+      }),
+      effects: [
+        baneReplaceWithCardPayload({
+          baneName: replaceBane,
+          cardId: replacementCard.card.id,
+          cardName: replacementCard.card.name,
+          source: replacementCard.source,
+          targetContext: "manifest_obligation",
+          selection: "chosen_after_commitment",
+        }),
+      ],
+      targets: [
+        baneReliefTarget(
+          "manifest-local Bane obligation",
+          replaceBane,
+          "manifest_obligation",
+          "chosen_after_commitment",
+        ),
+        cardExactTarget(replacementCard.card, replacementCard.source),
+      ],
+      effect: valueBaneReplacement({
+        baneName: replaceBane,
+        replacementValue: cardQualityValue(replacementCard.card),
+        selection: "chosen_after_commitment",
+        targetContext: "manifest_obligation",
+      }),
+    });
+  }
+
+  if (transformCard) {
+    slots.push({
+      key: `bane-transform-card:${transformBane}:${transformCard.card.id}`,
+      text: baneReliefText({
+        operation: "transform_card",
+        baneName: transformBane,
+        cardName: transformCard.card.name,
+      }),
+      effects: [
+        baneTransformToCardPayload({
+          baneName: transformBane,
+          cardId: transformCard.card.id,
+          cardName: transformCard.card.name,
+          source: transformCard.source,
+          targetContext: "manifest_obligation",
+        }),
+      ],
+      targets: [
+        baneReliefTarget(
+          "manifest-local Bane obligation",
+          transformBane,
+          "manifest_obligation",
+          "exact",
+        ),
+        cardExactTarget(transformCard.card, transformCard.source),
+      ],
+      effect: valueBaneTransformToCard({
+        baneName: transformBane,
+        cardValue: cardQualityValue(transformCard.card),
+        targetContext: "manifest_obligation",
+      }),
+    });
+  }
+
+  return shuffleDeterministic(drawContext, `${label}:bane-relief-slots`, slots);
 }
 
 export function comparableEssenceLossAmount(
@@ -1544,6 +1846,12 @@ export function rewardSlotOption(
     uncertainty: reward.uncertainty,
     ...extra,
   });
+}
+
+function shouldIncludeBaneReliefRewardSlots(label: string): boolean {
+  return label.includes(":services") ||
+    label.includes(":trigger-rewards") ||
+    label.endsWith(":reward");
 }
 
 export function rewardSlots(
@@ -1924,14 +2232,30 @@ export function rewardSlots(
     });
   }
 
-  slots.push(
-    ...starterSurgeryRewardSlots(
-      context,
-      drawContext,
-      `${label}:starter-surgery`,
-      stage,
-    ),
-  );
+  if (shouldIncludeBaneReliefRewardSlots(label)) {
+    slots.push(
+      ...baneReliefRewardSlots(
+        context,
+        drawContext,
+        `${label}:bane-relief`,
+        stage,
+      ).map((slot) => ({
+        ...slot,
+        effect: Math.max(320, slot.effect),
+      })),
+    );
+  }
+
+  if (!label.includes(":cache-rewards")) {
+    slots.push(
+      ...starterSurgeryRewardSlots(
+        context,
+        drawContext,
+        `${label}:starter-surgery`,
+        stage,
+      ),
+    );
+  }
 
   return shuffleDeterministic(drawContext, `${label}:reward-slots`, slots);
 }
@@ -1964,6 +2288,21 @@ export function costSlots(
     },
     {
       ...baneBurdenSlot(drawContext, `${label}:bane-cost`),
+    },
+    {
+      ...baneBurdenSlot(drawContext, `${label}:temporary-bane-cost`, 1, {
+        key: "bane-temporary",
+        temporary: true,
+        duration: BATTLE_WINDOW_DURATION,
+        durationCount: 3,
+        timing: BATTLE_WINDOW_DURATION,
+      }),
+    },
+    {
+      ...baneBurdenSlot(drawContext, `${label}:delayed-bane-cost`, 1, {
+        key: "bane-delayed",
+        timing: "after next battle",
+      }),
     },
   ];
 

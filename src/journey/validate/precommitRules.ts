@@ -81,6 +81,10 @@ export function optionImpliesRandomOrHiddenOutcome(option: JourneyOption): boole
     const kind = typeof record.kind === "string" ? record.kind : "";
     const type = typeof record.type === "string" ? record.type : "";
 
+    if (kind === "bane_random_purge") {
+      return false;
+    }
+
     return kind.includes("random") || type.includes("random") || record.hidden === true;
   });
 }

@@ -36,6 +36,8 @@ export type TargetResolutionOrigin =
   | "draft_pool_candidate"
   | "dreamsign_pool_candidate"
   | "future_generated_object"
+  | "future_burden"
+  | "manifest_obligation"
   | "controlled_vocabulary"
   | "state_pool"
   | "catalog_reference";
@@ -99,7 +101,13 @@ export type OperationValueMetadata = {
       | "dreamsign_operation_family"
       | "dreamsign_random_source"
       | "temporary_dreamsign"
-      | "dreamsign_predicate";
+      | "dreamsign_predicate"
+      | "bane_name"
+      | "bane_count"
+      | "bane_temporary_duration"
+      | "bane_delayed_timing"
+      | "bane_purge_certainty"
+      | "bane_replacement_relief";
     label: string;
     description: string;
     amount?: number;
@@ -238,7 +246,7 @@ export type TargetSelector =
   })
   | (TargetSelectorBase & {
     selectorKind: "bane";
-    source?: "vocabulary" | "state";
+    source?: "vocabulary" | "state" | "future_burden" | "manifest_obligation";
     names?: string[];
   })
   | (TargetSelectorBase & {
