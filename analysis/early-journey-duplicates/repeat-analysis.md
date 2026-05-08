@@ -2,6 +2,8 @@
 
 This directory contains a reproducible duplicate-analysis workflow for a batch of stateless Dream Journey examples. The workflow generates raw Journey JSON with the CLI, then derives compact choice data, machine-readable duplicate metrics, and a Markdown report with sections such as `Most repeated choice texts`.
 
+Keep this top-level `repeat-analysis.md` file as workflow instructions. Write requested analysis reports into a run-specific subdirectory, such as `analysis/early-journey-duplicates/mid-stage-100/repeat-analysis.md`.
+
 ## Generate a Batch
 
 Run from the repository root. Use a fresh output directory for each run because the analyzer writes fixed output filenames next to the raw JSON input.
@@ -43,6 +45,12 @@ The analyzer writes these files into the same directory as `journeys.json`:
 - `duplicate-analysis.md`: human-readable report with definitions, totals, `Most repeated choice texts`, and numeric-normalized duplicate journey groups.
 
 Despite the `early-stage-100-*` compact filename, the analyzer reads the actual count, stage, and seed from the input payload. If you are keeping multiple stages or counts in one parent directory, prefer one subdirectory per run so filenames remain unambiguous.
+
+## Write Requested Reports
+
+When a user asks for a concrete report, write the final human-facing report to `analysis/early-journey-duplicates/<run-name>/repeat-analysis.md`, not to this top-level instruction file. Use a run name that captures the sample, such as `mid-stage-100`.
+
+For generated analyzer output, keep `duplicate-analysis.md` in the same run directory as supporting material. If the requested deliverable is named `repeat-analysis.md`, copy or adapt the relevant generated report into the run directory's `repeat-analysis.md`.
 
 ## Desired Report Structure
 
