@@ -16,7 +16,7 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v5" = "effects:v5";
+export const EFFECT_CATALOG_VERSION: "effects:v6" = "effects:v6";
 
 export type EffectEntry = {
   readonly id: string;
@@ -215,10 +215,34 @@ const EFFECT_DEFINITIONS = [
     tags: ["reward", "resource", "persistent"],
   },
   {
+    id: "essence-cap-loss",
+    family: "essence",
+    textTemplate: "Lose {amount} maximum essence.",
+    tags: ["cost", "resource", "persistent"],
+  },
+  {
     id: "essence-restoration",
     family: "essence",
     textTemplate: "Restore essence to full.",
     tags: ["reward", "resource", "immediate"],
+  },
+  {
+    id: "essence-percentage",
+    family: "essence",
+    textTemplate: "Set essence to {percentage}% of maximum.",
+    tags: ["reward", "resource", "percentage"],
+  },
+  {
+    id: "essence-all-remaining-cost",
+    family: "essence",
+    textTemplate: "Pay all remaining essence.",
+    tags: ["cost", "resource", "scaling"],
+  },
+  {
+    id: "essence-random-range",
+    family: "essence",
+    textTemplate: "Use a random essence amount from {minimum} to {maximum}.",
+    tags: ["resource", "random"],
   },
   {
     id: "essence-scaled",

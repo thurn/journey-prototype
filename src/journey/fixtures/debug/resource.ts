@@ -1,32 +1,7 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import type { JourneyOption } from "../../manifest.js";
+import { resourcePayload } from "../../fillers/resourcePayloads.js";
 import { gainEssence, gainOmen, option } from "../../fillers/shared.js";
-
-export function resourcePayload(args: {
-  kind: string;
-  resource: "essence" | "omens" | "maxEssence";
-  amount?: number;
-  percentage?: number;
-  minimum?: number;
-  maximum?: number;
-  capDelta?: number;
-  basis?: "current" | "maximum" | "remaining" | "reward";
-  timing?: string;
-  extra?: Record<string, unknown>;
-}): Record<string, unknown> {
-  return {
-    kind: args.kind,
-    resource: args.resource,
-    timing: args.timing ?? "immediate",
-    ...(args.amount !== undefined ? { amount: args.amount } : {}),
-    ...(args.percentage !== undefined ? { percentage: args.percentage } : {}),
-    ...(args.minimum !== undefined ? { minimum: args.minimum } : {}),
-    ...(args.maximum !== undefined ? { maximum: args.maximum } : {}),
-    ...(args.capDelta !== undefined ? { capDelta: args.capDelta } : {}),
-    ...(args.basis ? { basis: args.basis } : {}),
-    ...(args.extra ?? {}),
-  };
-}
 
 export function resourceEdgeCaseOptions(
   context: JourneyContext,

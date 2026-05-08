@@ -17,6 +17,13 @@ export function asImmediateCost(value: unknown): ImmediateCost | null {
     return null;
   }
 
+  if (
+    typeof value.resourceAmountKind === "string" &&
+    value.resourceAmountKind !== "fixed"
+  ) {
+    return null;
+  }
+
   const amount = typeof value.amount === "number" ? value.amount : 0;
 
   if (value.kind === "essence") {
@@ -38,6 +45,13 @@ export function stringEntries(value: unknown): string[] {
 
 export function immediateCostFromOperation(operation: JourneyOperation): ImmediateCost | null {
   if (operation.operationKind !== "cost") {
+    return null;
+  }
+
+  if (
+    operation.resourceSemantics &&
+    operation.resourceSemantics.amountKind !== "fixed"
+  ) {
     return null;
   }
 

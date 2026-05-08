@@ -638,8 +638,8 @@ describe("generateNextJourney", () => {
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v12",
-      effectCatalogVersion: "effects:v5",
-      valueModelVersion: "value:v7",
+      effectCatalogVersion: "effects:v6",
+      valueModelVersion: "value:v8",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
       validationContractVersion: "validation:v1",
@@ -1111,6 +1111,243 @@ describe("generateNextJourney", () => {
       }),
     );
   });
+
+  it("reaches Milestone 10 resource families through normal generation", async () => {
+    const content = await loadContent(process.cwd());
+    const normalManifest = (
+      shapeId: JourneyShapeId,
+      seed: string,
+      stage: JourneyStage = "late",
+      adjust?: (journeyContext: ReturnType<typeof contextFromContent>) => void,
+    ): JourneyManifest | null => {
+      const journeyContext = contextFromContent(content, seed, stage);
+
+      adjust?.(journeyContext);
+
+      const manifest = fillForShapeAtStage(shapeId, journeyContext, stage);
+      const validation = validateJourneyManifest(manifest, journeyContext);
+
+      expect(manifest.debug.debugPayload, `${shapeId}:${seed}`).toBeUndefined();
+
+      return validation.ok ? manifest : null;
+    };
+    const collectValid = (
+      shapeId: JourneyShapeId,
+      prefix: string,
+      count: number,
+      stage: JourneyStage = "late",
+      adjust?: (journeyContext: ReturnType<typeof contextFromContent>) => void,
+    ): JourneyManifest[] => {
+      const manifests: JourneyManifest[] = [];
+
+      for (let index = 0; index < count * 3 && manifests.length < count; index += 1) {
+        const manifest = normalManifest(shapeId, `${prefix}-${index}`, stage, adjust);
+
+        if (manifest) {
+          manifests.push(manifest);
+        }
+      }
+
+      expect(manifests.length, `${shapeId}:${prefix}`).toBe(count);
+
+      return manifests;
+    };
+    const serviceManifests = collectValid("service_menu", "m10-service", 40);
+    const costedManifests = collectValid(
+      "same_cost_different_rewards",
+      "m10-costed",
+      40,
+      "early",
+    );
+    const singleOfferManifests = collectValid("single_offer", "m10-single", 30, "early");
+    const namedDreamsignManifests = collectValid(
+      "curated_reward_trio",
+      "m10-dreamsign",
+      30,
+    );
+    const multiOmenCostManifests = collectValid(
+      "same_cost_different_rewards",
+      "m10-multi-omen",
+      20,
+      "early",
+      (journeyContext) => {
+        journeyContext.state.quest.resources.omens = 3;
+      },
+    );
+    const operations = [
+      ...serviceManifests,
+      ...costedManifests,
+      ...singleOfferManifests,
+      ...namedDreamsignManifests,
+      ...multiOmenCostManifests,
+    ].flatMap((manifest) =>
+      manifest.options.flatMap((journeyOption) => journeyOption.operations),
+    );
+
+    expect(operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          payload: expect.objectContaining({ kind: "gain_essence" }),
+          resourceSemantics: expect.objectContaining({ amountKind: "fixed" }),
+        }),
+        expect.objectContaining({
+          operationKind: "reward",
+          rewardKind: "resource_cap_change",
+          resourceSemantics: expect.objectContaining({ amountKind: "cap_change" }),
+          payload: expect.objectContaining({ capDelta: expect.any(Number) }),
+        }),
+        expect.objectContaining({
+          operationKind: "reward",
+          resourceSemantics: expect.objectContaining({ amountKind: "percentage_of_maximum" }),
+          payload: expect.objectContaining({ resourceSetMode: "set_current_to_percentage" }),
+        }),
+        expect.objectContaining({
+          operationKind: "burden",
+          burdenKind: "resource_loss",
+          resourceSemantics: expect.objectContaining({ amountKind: "cap_change" }),
+          payload: expect.objectContaining({ capDelta: expect.any(Number) }),
+        }),
+        expect.objectContaining({
+          operationKind: "cost",
+          resourceSemantics: expect.objectContaining({ amountKind: "maximum" }),
+        }),
+        expect.objectContaining({
+          operationKind: "cost",
+          resourceSemantics: expect.objectContaining({ amountKind: "all_remaining" }),
+        }),
+        expect.objectContaining({
+          operationKind: "cost",
+          resourceSemantics: expect.objectContaining({ amountKind: "random_range" }),
+        }),
+        expect.objectContaining({
+          operationKind: "cost",
+          resource: "omens",
+          amount: expect.any(Number),
+          value: expect.objectContaining({
+            bands: expect.arrayContaining([
+              expect.objectContaining({ id: "multi_omen" }),
+            ]),
+          }),
+        }),
+        expect.objectContaining({
+          operationKind: "reward",
+          rewardKind: "dreamsign_gain",
+          targetSelector: expect.objectContaining({
+            selectorKind: "dreamsign",
+            selection: "exact",
+          }),
+        }),
+      ]),
+    );
+
+    const capLoss = operations.find((operation) =>
+      operation.operationKind === "burden" &&
+      operation.resourceSemantics?.amountKind === "cap_change" &&
+      typeof operation.payload.capDelta === "number" &&
+      operation.payload.capDelta < 0
+    );
+    const capGain = operations.find((operation) =>
+      operation.operationKind === "reward" &&
+      operation.resourceSemantics?.amountKind === "cap_change" &&
+      typeof operation.payload.capDelta === "number" &&
+      operation.payload.capDelta > 0
+    );
+    const randomRangeCostWithReward = costedManifests.some((manifest) =>
+      manifest.options.some((journeyOption) =>
+        journeyOption.operations.some((operation) =>
+          operation.operationKind === "cost" &&
+          operation.resourceSemantics?.amountKind === "random_range"
+        ) &&
+        journeyOption.operations.some((operation) => operation.role === "reward")
+      ),
+    );
+
+    expect(capLoss).toBeDefined();
+    expect(capGain).toBeDefined();
+    expect(randomRangeCostWithReward).toBe(true);
+  }, 180000);
+
+  it("carries resource operations through delayed hooks and pre-shop timing", async () => {
+    const content = await loadContent(process.cwd());
+    const delayedManifests: JourneyManifest[] = [];
+
+    for (let index = 0; index < 120 && delayedManifests.length < 50; index += 1) {
+      const journeyContext = contextFromContent(
+        content,
+        `m10-delayed-resource-${index}`,
+        "late",
+      );
+      const manifest = fillForShapeAtStage("reward_after_trigger", journeyContext, "late");
+      const validation = validateJourneyManifest(manifest, journeyContext);
+
+      if (validation.ok) {
+        delayedManifests.push(manifest);
+      }
+    }
+
+    expect(delayedManifests.length).toBe(50);
+
+    const shopManifests: JourneyManifest[] = [];
+
+    for (let index = 0; index < 90 && shopManifests.length < 30; index += 1) {
+      const journeyContext = contextFromContent(
+        content,
+        `twscope-${index}`,
+        "mid",
+      );
+      const manifest = fillForShapeAtStage("timed_window_menu", journeyContext, "mid");
+      const validation = validateJourneyManifest(manifest, journeyContext);
+
+      if (validation.ok) {
+        shopManifests.push(manifest);
+      }
+    }
+
+    expect(shopManifests.length).toBe(30);
+    const delayedRewardOperations = delayedManifests.flatMap((manifest) =>
+      (manifest.precommitted.operations ?? []).flatMap((operation) =>
+        operation.operationKind === "delayed_hook"
+          ? operation.rewardOperations ?? []
+          : []
+      ),
+    );
+    const shopOperations = shopManifests.flatMap((manifest) =>
+      manifest.options.flatMap((journeyOption) => journeyOption.operations),
+    );
+
+    expect(delayedRewardOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "reward",
+          resourceSemantics: expect.objectContaining({
+            amountKind: expect.stringMatching(/^(fixed|restore_to_maximum|percentage_of_maximum|random_range|cap_change)$/u),
+          }),
+        }),
+      ]),
+    );
+    expect(shopOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          rewardKind: "shop_economy_modifier",
+          payload: expect.objectContaining({
+            economyOperationKind: "next_shop_essence_restore",
+          }),
+        }),
+        expect.objectContaining({
+          operationKind: "reward",
+          resourceSemantics: expect.objectContaining({
+            amountKind: "restore_to_maximum",
+          }),
+          timing: expect.objectContaining({
+            timingKind: "delayed",
+            trigger: "before next shop",
+          }),
+        }),
+      ]),
+    );
+  }, 180000);
 
   it("forces Bane gain, purge, replacement, and transform payloads without requiring persistent Bane state", async () => {
     const journeyContext = await context("bane-resource");
@@ -5284,7 +5521,9 @@ describe("validateJourneyManifest", () => {
         if (
           operation.operationKind === "reward" &&
           operation.rewardKind === "card_gain" &&
-          operation.targetResolution?.targetOrigin
+          operation.targetResolution?.targetOrigin &&
+          operation.targetSelector?.selectorKind === "card" &&
+          operation.targetSelector.selection === "exact"
         ) {
           found.add("card");
           evidence.card = operation;

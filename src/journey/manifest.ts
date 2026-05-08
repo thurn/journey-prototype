@@ -584,6 +584,13 @@ export type RandomPrecommittedOutcome =
     committedAmount: number;
   })
   | (RandomPrecommitBase & {
+    kind: "resource_random_range";
+    resource: "essence" | "omens";
+    minimum: number;
+    maximum: number;
+    committedAmount: number;
+  })
+  | (RandomPrecommitBase & {
     kind: "wager";
     stake: unknown;
     success: unknown;

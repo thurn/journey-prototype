@@ -5,6 +5,7 @@ import {
 } from "../../util/rng.js";
 import type { JourneyOption } from "../manifest.js";
 import { dreamwellPayload, shopPayload } from "./environmentPayloads.js";
+import { resourcePayload } from "./resourcePayloads.js";
 import { routePayload } from "./routeEditCatalog.js";
 import {
   BATTLE_WINDOW_DURATION,
@@ -301,6 +302,56 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
     "timed-window:shop:discount",
     [25, 30, 35] as const,
   );
+  const restoreAmount = pickSequentialVariant(
+    drawContext,
+    "timed-window:shop:restore-amount",
+    [80, 100, 120] as const,
+  );
+  const restoreBeforeShop: TimedWindowEntry = {
+    key: "restore-before-next-shop",
+    text: `${window.phrase}, restore ${restoreAmount} essence before your next Shop purchase.`,
+    effects: [
+      {
+        ...shopPayload({
+          kind: "next_shop_essence_restore",
+          scope: "future_shops",
+          duration: window.duration,
+          amount: restoreAmount,
+          count: window.count,
+        }),
+        ...metadata(window, {
+          timedWindowScope: "shop",
+          affectedObjectClass: "shop_resources",
+          windowModifier: "pre_shop_essence_restore",
+          amount: restoreAmount,
+          polarity: "positive",
+          windowValue: valueForWindow(150, window),
+        }),
+      },
+      {
+        ...resourcePayload({
+          kind: "resource_restore_to_maximum",
+          resource: "essence",
+          amount: restoreAmount,
+          basis: "maximum",
+          timing: "before next shop",
+          extra: {
+            resourceAmountKind: "restore_to_maximum",
+            shopEconomyTiming: "before_next_shop",
+          },
+        }),
+        ...metadata(window, {
+          timedWindowScope: "shop",
+          affectedObjectClass: "essence",
+          windowModifier: "restore_before_shop",
+          amount: restoreAmount,
+          polarity: "positive",
+          windowValue: valueForWindow(150, window),
+        }),
+      },
+    ],
+    effect: valueForWindow(150, window),
+  };
   const candidates: TimedWindowEntry[] = [
     {
       key: "reroll-discount",
@@ -378,7 +429,10 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
     },
   ];
 
-  return shuffleDeterministic(drawContext, "timed-window:shop-options", candidates);
+  return [
+    restoreBeforeShop,
+    ...shuffleDeterministic(drawContext, "timed-window:shop-options", candidates),
+  ];
 }
 
 function routeWindowOptions(window: TimedWindow, drawContext: DrawContext): TimedWindowEntry[] {

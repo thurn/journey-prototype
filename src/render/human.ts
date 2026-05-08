@@ -234,6 +234,7 @@ function committedOutcomeText(value: unknown): string {
     case "repeated_pool_draws":
       return `Repeated pool draws: ${value.drawCount ?? "?"} draws from ${String(value.poolId ?? "a committed pool")}; ${visibilityPolicyText(value.visibilityPolicy)}.`;
     case "random_range":
+    case "resource_random_range":
       return `Random ${String(value.resource ?? "resource")} range ${value.minimum ?? "?"}-${value.maximum ?? "?"}; committed amount ${value.committedAmount ?? "?"}.`;
     case "random_cost":
     case "chance_to_pay_cost": {
@@ -267,10 +268,31 @@ function committedOutcomeText(value: unknown): string {
       return `Resolved random series: ${Array.isArray(value.series) ? value.series.length : "?"} committed payloads.`;
     case "no_reward":
       return "Gain nothing.";
+    case "essence":
+      return `Pay ${value.amount ?? "?"} essence.`;
+    case "omens":
+      return `Pay ${countText(value.amount, "omen", "omens")}.`;
+    case "essence_loss":
+      return `Lose ${value.amount ?? "?"} essence.`;
+    case "omen_loss":
+      return `Lose ${countText(value.amount, "omen", "omens")}.`;
     case "gain_essence":
       return `Gain ${value.amount} essence.`;
     case "gain_omens":
       return `Gain ${countText(value.amount, "omen", "omens")}.`;
+    case "resource_restore_to_maximum":
+      return `Restore ${String(value.resource ?? "resource")} to maximum.`;
+    case "resource_percentage":
+      return `${value.resourceSetMode === "set_current_to_percentage" ? "Set" : "Gain"} ${String(value.resource ?? "resource")} to ${value.percentage ?? "?"}% of ${String(value.basis ?? "maximum")}.`;
+    case "resource_random_range":
+      return `${value.minimum ?? "?"}-${value.maximum ?? "?"} random ${String(value.resource ?? "resource")}; committed amount ${value.amount ?? "?"}.`;
+    case "resource_cap_change": {
+      const amount = typeof value.capDelta === "number" ? value.capDelta : value.amount;
+
+      return `Change maximum ${String(value.resource ?? "resource")} by ${amount ?? "?"}.`;
+    }
+    case "resource_reward_reduction":
+      return `Reduce ${String(value.basis ?? "reward")} ${String(value.resource ?? "resource")} by ${value.percentage ?? value.amount ?? "?"}${typeof value.percentage === "number" ? "%" : ""}.`;
     case "route_add_site":
       return `Add a ${value.siteType ?? "site"} site to ${value.routeScope ?? "the route"}.`;
     case "route_remove_site":

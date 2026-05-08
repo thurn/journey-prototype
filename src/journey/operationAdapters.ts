@@ -524,6 +524,7 @@ function isRandomEnvelopePayloadKind(kind: string | undefined): boolean {
     kind === "roll_twice_keep_one" ||
     kind === "repeated_pool_draws" ||
     kind === "random_range" ||
+    kind === "resource_random_range" ||
     kind === "wager" ||
     kind === "probability_ladder" ||
     kind === "push_choice" ||
@@ -846,6 +847,91 @@ function baneOperationMetadataBands(value: PayloadRecord): NonNullable<Operation
   return bands;
 }
 
+function resourceOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const semantics = resourceSemanticsFromPayload(value);
+  const kind = legacyKind(value);
+
+  if (!semantics && kind !== "gain_omens" && kind !== "omens" && kind !== "omen_loss") {
+    return bands;
+  }
+
+  switch (semantics?.amountKind) {
+    case "maximum":
+      bands.push({
+        id: "maximum",
+        label: "maximum",
+        description: "resource amount is evaluated against the current maximum.",
+        ...(semantics.amount !== undefined ? { amount: semantics.amount } : {}),
+        ...(semantics.maximum !== undefined ? { maximum: semantics.maximum } : {}),
+      });
+      break;
+    case "percentage_of_current":
+    case "percentage_of_maximum":
+      bands.push({
+        id: "percentage",
+        label: semantics.amountKind === "percentage_of_current"
+          ? "percentage of current"
+          : "percentage of maximum",
+        description: "resource amount is expressed as a percentage of a resource pool.",
+        ...(semantics.percentage !== undefined ? { amount: semantics.percentage } : {}),
+      });
+      break;
+    case "all_remaining":
+      bands.push({
+        id: "all_remaining",
+        label: "all-remaining",
+        description: "resource cost consumes all remaining resource at resolution.",
+        ...(semantics.amount !== undefined ? { amount: semantics.amount } : {}),
+      });
+      break;
+    case "random_range":
+      bands.push({
+        id: "random_range",
+        label: "random-range",
+        description: "resource amount is selected from an explicit random range.",
+        ...(semantics.minimum !== undefined ? { minimum: semantics.minimum } : {}),
+        ...(semantics.maximum !== undefined ? { maximum: semantics.maximum } : {}),
+      });
+      break;
+    case "cap_change":
+      bands.push({
+        id: "cap_change",
+        label: "cap-change",
+        description: "resource effect changes a maximum resource cap.",
+        ...(semantics.capDelta !== undefined ? { amount: semantics.capDelta } : {}),
+      });
+      break;
+    case "restore_to_maximum":
+      bands.push({
+        id: "maximum",
+        label: "restore to maximum",
+        description: "resource reward restores current resource toward its maximum.",
+        ...(semantics.amount !== undefined ? { amount: semantics.amount } : {}),
+      });
+      break;
+    case "fixed":
+    case "reward_reduction":
+    case undefined:
+      break;
+  }
+
+  if (
+    (semantics?.resource === "omens" || kind === "gain_omens" || kind === "omens" || kind === "omen_loss") &&
+    typeof value.amount === "number" &&
+    value.amount > 1
+  ) {
+    bands.push({
+      id: "multi_omen",
+      label: "multi-omen",
+      description: "omen effect is evaluated as a multi-omen bundle.",
+      amount: value.amount,
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -857,6 +943,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...starterOperationMetadataBands(payload),
       ...dreamsignOperationMetadataBands(payload),
       ...baneOperationMetadataBands(payload),
+      ...resourceOperationMetadataBands(payload),
     ];
 
     if (bands.length > 0) {
@@ -907,7 +994,7 @@ function randomValueMetadata(value: unknown): OperationValueMetadata | undefined
 function adaptCost(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
   const kind = legacyKind(value);
   const resource = kind === "omens" ? "omens" : "essence";
-  const metadata = valueMetadata(convertedEssence);
+  const metadata = valueMetadata(convertedEssence, isRecord(value) ? value : undefined);
 
   return {
     operationId,
@@ -1089,7 +1176,7 @@ function adaptBurden(
       ? "dreamwell_modifier"
     : kind === "resource_reward_reduction"
       ? "reward_reduction"
-      : kind === "omen_loss" || kind === "essence_loss"
+      : kind === "omen_loss" || kind === "essence_loss" || kind === "resource_cap_change"
         ? "resource_loss"
         : "unknown";
   const targetSelector = burdenKind === "bane_gain" || burdenKind === "bane_temporary" || burdenKind === "bane_delayed"

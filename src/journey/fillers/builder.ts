@@ -8,6 +8,8 @@ import {
 import type {
   GeneratedObjectDefinition,
   JourneyManifest,
+  JourneyOption,
+  RandomPrecommittedOutcome,
 } from "../manifest.js";
 import {
   MANIFEST_CONTRACT_VERSION,
@@ -111,6 +113,44 @@ function forcedDebugPayloadDebug(args: BuildArgs): {
   return { debugPayload: { ...args.debugPayload, source: "forced" } };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function naturalResourceRandomPrecommits(
+  options: readonly JourneyOption[],
+): RandomPrecommittedOutcome[] {
+  return options.flatMap((journeyOption) =>
+    [
+      ...journeyOption.costs,
+      ...journeyOption.effects,
+      ...journeyOption.burdens,
+    ]
+      .flatMap((payload): RandomPrecommittedOutcome[] => {
+        if (
+          !isRecord(payload) ||
+          (payload.kind !== "resource_random_range" &&
+            payload.resourceAmountKind !== "random_range") ||
+          (payload.resource !== "essence" && payload.resource !== "omens") ||
+          typeof payload.minimum !== "number" ||
+          typeof payload.maximum !== "number" ||
+          typeof payload.amount !== "number"
+        ) {
+          return [];
+        }
+
+        return [{
+          optionNumber: journeyOption.number,
+          kind: "resource_random_range",
+          resource: payload.resource,
+          minimum: payload.minimum,
+          maximum: payload.maximum,
+          committedAmount: payload.amount,
+        }];
+      }),
+  );
+}
+
 export function buildConservativeJourneyForShape(
   args: BuildArgs,
 ): JourneyManifest {
@@ -155,8 +195,17 @@ export function buildConservativeJourneyForShape(
     (generatedObject
       ? generatedObjectOptions(generatedObject)
       : filled.options.slice(0, shape.rootOptionCount.max));
+  const resourceRandomPrecommits = naturalResourceRandomPrecommits(options);
   const legacyPrecommittedWithPairedReturn = debugOverride?.precommitted ?? {
     ...filled.precommitted,
+    ...(resourceRandomPrecommits.length > 0
+      ? {
+          random: [
+            ...(filled.precommitted.random ?? []),
+            ...resourceRandomPrecommits,
+          ],
+        }
+      : {}),
     ...(generatedKind
       ? {
           delayed: [

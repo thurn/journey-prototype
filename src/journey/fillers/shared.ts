@@ -69,6 +69,10 @@ import {
   namedDreamsignPayload,
   selectContentBackedDreamsign,
 } from "./dreamsignPayloads.js";
+import {
+  resourceCostCatalog,
+  resourceRewardCatalog,
+} from "./resourcePayloads.js";
 import { firstRouteEditReward } from "./routeEditCatalog.js";
 
 export type BuildArgs = {
@@ -1980,6 +1984,11 @@ export function rewardSlots(
     stage,
     sources: ["pool", "catalog"],
   });
+  const resourceRewards = resourceRewardCatalog(
+    context,
+    drawContext,
+    `${label}:resource`,
+  );
   const slots: RewardSlot[] = [
     {
       key: "essence",
@@ -2199,6 +2208,8 @@ export function rewardSlots(
     });
   }
 
+  slots.push(...resourceRewards);
+
   if (context.state.quest.dreamsignPoolIds.length > 0) {
     slots.push({
       key: "dreamsign-draft",
@@ -2273,6 +2284,11 @@ export function costSlots(
     pickSequentialVariant(drawContext, `${label}:high-essence`, [35, 45, 55]),
     context.state.quest.resources.essence,
   );
+  const resourceCosts = resourceCostCatalog(
+    context,
+    drawContext,
+    `${label}:resource`,
+  );
   const slots: CostSlot[] = [
     {
       key: "low-essence",
@@ -2314,6 +2330,8 @@ export function costSlots(
       cost: Math.abs(valueOmenLoss(1)),
     });
   }
+
+  slots.push(...resourceCosts);
 
   return shuffleDeterministic(drawContext, `${label}:cost-slots`, slots);
 }

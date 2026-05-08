@@ -113,10 +113,21 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
       sharedWindowKeys.add(`${window.scope}:${window.duration}`);
     }
 
-    if (option.operations.some((operation) =>
+    const hasResourceReward = option.operations.some((operation) =>
       operation.operationKind === "reward" &&
       operation.rewardKind === "resource"
-    )) {
+    );
+    const hasShopResourceTiming = option.operations.some((operation) =>
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "shop_economy_modifier" &&
+      operation.payload.economyOperationKind === "next_shop_essence_restore"
+    ) && option.operations.some((operation) =>
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "resource" &&
+      operation.payload.shopEconomyTiming === "before_next_shop"
+    );
+
+    if (hasResourceReward && !hasShopResourceTiming) {
       return fail(
         "timed_window_resource_only_reward",
         "Timed window options must alter temporary play rules rather than grant plain resources",

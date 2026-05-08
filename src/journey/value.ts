@@ -3,7 +3,7 @@ import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v7" = "value:v7";
+export const VALUE_MODEL_VERSION: "value:v8" = "value:v8";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
