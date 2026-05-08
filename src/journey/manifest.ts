@@ -236,31 +236,48 @@ export type TargetSelector =
     selectorKind: "none";
   };
 
-export type GeneratedObjectDefinition =
-  | {
-    generatedObjectKind: "card";
-    generatedObjectId: string;
-    name: string;
-    payload: Record<string, unknown>;
-  }
-  | {
-    generatedObjectKind: "dreamsign";
-    generatedObjectId: string;
-    name: string;
-    payload: Record<string, unknown>;
-  }
-  | {
-    generatedObjectKind: "status";
-    generatedObjectId: string;
-    name: string;
-    payload: Record<string, unknown>;
-  }
-  | {
-    generatedObjectKind: "transfiguration";
-    generatedObjectId: string;
-    name: string;
-    payload: Record<string, unknown>;
+export type GeneratedObjectKind = "card" | "dreamsign" | "status" | "transfiguration";
+
+export type GeneratedObjectValueEstimate = {
+  convertedEssence: number;
+  confidence: "low" | "medium" | "high";
+  basis: string;
+};
+
+export type GeneratedObjectValidationMetadata = {
+  source: "generated_manifest_local";
+  status: "validated" | "unvalidated";
+  ruleIds: string[];
+  notes?: string[];
+};
+
+type GeneratedObjectDefinitionBase = {
+  generatedObjectKind: GeneratedObjectKind;
+  generatedObjectId: string;
+  name: string;
+  objectType: string;
+  rulesText: string;
+  tags: string[];
+  references: {
+    cards?: string[];
+    dreamsigns?: string[];
+    dreamcallers?: string[];
+    banes?: string[];
+    rules?: string[];
+    generatedObjects?: string[];
   };
+  duration?: BoundedDuration;
+  lifetime?: "one_time" | "temporary" | "persistent" | "until_returned" | "journey_only";
+  valueEstimate: GeneratedObjectValueEstimate;
+  validation: GeneratedObjectValidationMetadata;
+  payload: Record<string, unknown>;
+};
+
+export type GeneratedObjectDefinition =
+  | (GeneratedObjectDefinitionBase & { generatedObjectKind: "card" })
+  | (GeneratedObjectDefinitionBase & { generatedObjectKind: "dreamsign" })
+  | (GeneratedObjectDefinitionBase & { generatedObjectKind: "status" })
+  | (GeneratedObjectDefinitionBase & { generatedObjectKind: "transfiguration" });
 
 type OperationBase = {
   operationId: string;
@@ -346,6 +363,12 @@ export type RewardOperation = OperationBase & {
     | "battle_window_modifier"
     | "random_reward"
     | "random_series"
+    | "generated_object_create"
+    | "generated_object_grant"
+    | "generated_object_transform"
+    | "generated_object_temporary_grant"
+    | "generated_object_return"
+    | "generated_object_trade"
     | "unknown";
 };
 
@@ -774,6 +797,7 @@ export type JourneyManifest = {
   dreamscape: number;
   selectedTags: string[];
   options: JourneyOption[];
+  generatedObjects: GeneratedObjectDefinition[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;
   sequence?: SequenceState;

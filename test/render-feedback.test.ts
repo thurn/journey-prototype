@@ -147,6 +147,7 @@ function fixtureManifest(): JourneyManifest {
     stage: "early",
     dreamscape: 2,
     selectedTags: ["ember"],
+    generatedObjects: [],
     options: [
       {
         ...option,
@@ -180,6 +181,17 @@ function fixtureManifest(): JourneyManifest {
         algorithm: "semantic-fingerprint:v1",
         value: "fixture",
         components: ["shape:single_offer"],
+      },
+      validation: {
+        ok: true,
+        passed: 0,
+        failed: 0,
+        rules: [],
+      },
+      repair: {
+        status: "accepted_immediately",
+        forcedShape: false,
+        finalShapeId: "single_offer",
       },
     },
     references: {
@@ -284,6 +296,47 @@ describe("review feedback regressions", () => {
     expect(output).toContain("3. Draft 1 of 4 cards (subtype Character; source draftPool).");
     expect(output).toContain("after next victory: Gain 1 omen.");
     expect(output).toContain("after next battle: Draft 1 of 4 cards (card type Character; source draftPool). Gain 1 omen.");
+  });
+
+  it("renders manifest-local generated object debug metadata", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      generatedObjects: [
+        {
+          generatedObjectKind: "card",
+          generatedObjectId: "generated-card-rain-lantern",
+          name: "Rain Lantern",
+          objectType: "Event Card",
+          rulesText: "0 energy Event. Fast. Gain 1 omen.",
+          tags: ["journey-only", "card"],
+          references: { rules: ["Fast", "omens"] },
+          lifetime: "journey_only",
+          valueEstimate: {
+            convertedEssence: 150,
+            confidence: "medium",
+            basis: "Fixture generated card value.",
+          },
+          validation: {
+            source: "generated_manifest_local",
+            status: "validated",
+            ruleIds: ["stable_id"],
+          },
+          payload: { source: "manifest_generated" },
+        },
+      ],
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: true,
+      color: false,
+    });
+
+    expect(output).toContain("Generated objects:");
+    expect(output).toContain("generated-card-rain-lantern: Rain Lantern (card; Event Card).");
+    expect(output).toContain("Rules: 0 energy Event. Fast. Gain 1 omen.");
+    expect(output).toContain("Value estimate: 150 essence (medium); Fixture generated card value.");
+    expect(output).toContain("References: rules=Fast,omens.");
   });
 
   it("keeps precommitted outcomes out of normal human output unless option copy reveals them", () => {

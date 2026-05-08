@@ -20,6 +20,7 @@ import type {
   JourneyManifest,
   JourneyOperation,
   JourneyOption,
+  GeneratedObjectDefinition,
   TargetResolutionMetadata,
   TargetSelector,
   ValidationCheckedPayload,
@@ -68,6 +69,35 @@ function targetResolutionFromDebug(debug: Record<string, unknown> | undefined): 
 
 function payloadFamilyFor(manifest: JourneyManifest): string {
   return manifest.debug.debugPayload?.familyId ?? "adapter";
+}
+
+function generatedObjectsFor(manifest: JourneyManifest): GeneratedObjectDefinition[] {
+  const objects = [
+    ...(Array.isArray(manifest.generatedObjects) ? manifest.generatedObjects : []),
+    ...flattenOperationContracts([
+      ...(Array.isArray(manifest.options)
+        ? manifest.options.flatMap((option) =>
+            isRecord(option) && Array.isArray(option.operations) ? option.operations : []
+          )
+        : []),
+      ...(isRecord(manifest.precommitted) && Array.isArray(manifest.precommitted.operations)
+        ? manifest.precommitted.operations
+        : []),
+      ...(isRecord(manifest.rewardPool) && Array.isArray(manifest.rewardPool.operations)
+        ? manifest.rewardPool.operations
+        : []),
+      ...(manifest.tree?.nodes.flatMap((node) =>
+        node.branches.flatMap((branch) => [
+          ...(Array.isArray(branch.operations) ? branch.operations : []),
+          ...(branch.terminal && Array.isArray(branch.terminal.operations) ? branch.terminal.operations : []),
+        ])
+      ) ?? []),
+    ]).flatMap((operation) =>
+      operation.operationKind === "generated_object" ? [operation.generatedObject] : []
+    ),
+  ];
+
+  return objects;
 }
 
 function manifestCheckedPayloads(manifest: JourneyManifest): ValidationCheckedPayload[] {
@@ -862,6 +892,7 @@ function validateVersionMetadata(manifest: JourneyManifest, context: JourneyCont
 
 function validateReferences(manifest: JourneyManifest, context: JourneyContext): ValidationResult {
   const structuredReferences = collectStructuredReferences([
+    Array.isArray(manifest.generatedObjects) ? manifest.generatedObjects : [],
     manifest.options,
     manifest.tree,
     manifest.rewardPool,
@@ -883,6 +914,103 @@ function validateReferences(manifest: JourneyManifest, context: JourneyContext):
 
   if (!result.ok) {
     return fail("unresolved_reference", result.errors[0] ?? "Unresolved reference");
+  }
+
+  return { ok: true };
+}
+
+function validateGeneratedObjectDefinitions(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
+  const seen = new Set<string>();
+
+  for (const generatedObject of generatedObjectsFor(manifest)) {
+    if (!isRecord(generatedObject)) {
+      return fail("invalid_generated_object_definition", "Generated object definitions must be structured records");
+    }
+
+    if (!generatedObject.generatedObjectId || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(generatedObject.generatedObjectId)) {
+      return fail("invalid_generated_object_id", "Generated object IDs must be stable kebab-case IDs");
+    }
+
+    if (seen.has(generatedObject.generatedObjectId)) {
+      return fail("duplicate_generated_object_id", `Duplicate generated object ID: ${generatedObject.generatedObjectId}`);
+    }
+    seen.add(generatedObject.generatedObjectId);
+
+    if (!["card", "dreamsign", "status", "transfiguration"].includes(generatedObject.generatedObjectKind)) {
+      return fail("invalid_generated_object_kind", `Invalid generated object kind: ${generatedObject.generatedObjectKind}`);
+    }
+
+    if (typeof generatedObject.name !== "string" || generatedObject.name.trim().length === 0) {
+      return fail("invalid_generated_object_name", `Generated object ${generatedObject.generatedObjectId} requires a display name`);
+    }
+
+    if (typeof generatedObject.objectType !== "string" || generatedObject.objectType.trim().length === 0) {
+      return fail("invalid_generated_object_type", `Generated object ${generatedObject.generatedObjectId} requires an object type`);
+    }
+
+    if (typeof generatedObject.rulesText !== "string" || generatedObject.rulesText.trim().length < 10) {
+      return fail("invalid_generated_object_rules", `Generated object ${generatedObject.generatedObjectId} requires compact rules text`);
+    }
+
+    if (!Array.isArray(generatedObject.tags) || generatedObject.tags.length === 0) {
+      return fail("invalid_generated_object_tags", `Generated object ${generatedObject.generatedObjectId} requires tags`);
+    }
+
+    if (!isRecord(generatedObject.references)) {
+      return fail("invalid_generated_object_references", `Generated object ${generatedObject.generatedObjectId} requires references`);
+    }
+
+    const referenceResult = validateNamedReferences(context.content, {
+      cards: stringEntries(generatedObject.references.cards),
+      dreamsigns: stringEntries(generatedObject.references.dreamsigns),
+      dreamcallers: stringEntries(generatedObject.references.dreamcallers),
+      banes: stringEntries(generatedObject.references.banes),
+      rules: stringEntries(generatedObject.references.rules),
+    });
+
+    if (!referenceResult.ok) {
+      return fail("generated_object_unresolved_reference", referenceResult.errors[0] ?? "Generated object reference is unresolved");
+    }
+
+    if (generatedObject.duration !== undefined) {
+      if (
+        !isRecord(generatedObject.duration) ||
+        typeof generatedObject.duration.durationKind !== "string" ||
+        typeof generatedObject.duration.label !== "string" ||
+        (generatedObject.duration.count !== undefined &&
+          (typeof generatedObject.duration.count !== "number" || generatedObject.duration.count < 1))
+      ) {
+        return fail("invalid_generated_object_duration", `Generated object ${generatedObject.generatedObjectId} has an invalid duration`);
+      }
+    }
+
+    if (
+      generatedObject.lifetime !== undefined &&
+      !["one_time", "temporary", "persistent", "until_returned", "journey_only"].includes(generatedObject.lifetime)
+    ) {
+      return fail("invalid_generated_object_lifetime", `Generated object ${generatedObject.generatedObjectId} has an invalid lifetime`);
+    }
+
+    if (
+      !isRecord(generatedObject.valueEstimate) ||
+      typeof generatedObject.valueEstimate.convertedEssence !== "number" ||
+      !["low", "medium", "high"].includes(String(generatedObject.valueEstimate.confidence)) ||
+      typeof generatedObject.valueEstimate.basis !== "string"
+    ) {
+      return fail("invalid_generated_object_value", `Generated object ${generatedObject.generatedObjectId} requires value metadata`);
+    }
+
+    if (
+      !isRecord(generatedObject.validation) ||
+      generatedObject.validation.source !== "generated_manifest_local" ||
+      !["validated", "unvalidated"].includes(String(generatedObject.validation.status)) ||
+      !Array.isArray(generatedObject.validation.ruleIds)
+    ) {
+      return fail("invalid_generated_object_validation", `Generated object ${generatedObject.generatedObjectId} requires validation metadata`);
+    }
   }
 
   return { ok: true };
@@ -942,6 +1070,20 @@ function collectStructuredReferences(value: unknown): {
     }
 
     for (const [key, entry] of Object.entries(nested)) {
+      if (Array.isArray(entry)) {
+        if (key === "cards") {
+          references.cards.push(...stringEntries(entry));
+        } else if (key === "dreamsigns") {
+          references.dreamsigns.push(...stringEntries(entry));
+        } else if (key === "dreamcallers") {
+          references.dreamcallers.push(...stringEntries(entry));
+        } else if (key === "banes") {
+          references.banes.push(...stringEntries(entry));
+        } else if (key === "rules") {
+          references.rules.push(...stringEntries(entry));
+        }
+      }
+
       if (typeof entry === "string") {
         if (
           key === "cardName" ||
@@ -1025,12 +1167,13 @@ function validateTargetSelector(
   selector: TargetSelector,
   context: JourneyContext,
   optionNumber: number,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   if (!("required" in selector) || selector.required !== true) {
     return { ok: true };
   }
 
-  const resolution = resolveTargetSelector(context.content, context.state.quest, selector);
+  const resolution = resolveTargetSelector(context.content, context.state.quest, selector, generatedObjects);
 
   if (resolution.candidateCount === 0) {
     return fail(
@@ -1110,6 +1253,7 @@ function validateOperationTargetSelectors(
   operations: readonly JourneyOperation[] | undefined,
   context: JourneyContext,
   location: string,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   for (const [index, operation] of (operations ?? []).entries()) {
     if (!("targetSelector" in operation) || !operation.targetSelector) {
@@ -1137,7 +1281,7 @@ function validateOperationTargetSelectors(
       }
     }
 
-    const result = validateTargetSelector(operation.targetSelector, context, index + 1);
+    const result = validateTargetSelector(operation.targetSelector, context, index + 1, generatedObjects);
 
     if (!result.ok) {
       return fail(result.rule, `${location} operation ${index + 1}: ${result.message}`, result.debug);
@@ -1499,7 +1643,11 @@ function validateNormalOutputText(text: string): ValidationResult {
   return { ok: true };
 }
 
-function validateOption(option: JourneyOption, context: JourneyContext): ValidationResult {
+function validateOption(
+  option: JourneyOption,
+  context: JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
+): ValidationResult {
   const textResult = validateNormalOutputText(option.text);
 
   if (!textResult.ok) {
@@ -1550,7 +1698,7 @@ function validateOption(option: JourneyOption, context: JourneyContext): Validat
       }
     }
 
-    const result = validateTargetSelector(operation.targetSelector, context, option.number);
+    const result = validateTargetSelector(operation.targetSelector, context, option.number, generatedObjects);
 
     if (!result.ok) {
       return result;
@@ -2724,7 +2872,7 @@ function rootOptionPayloadsResult(
       return optionShapeResult;
     }
 
-    const result = validateOption(option, context);
+    const result = validateOption(option, context, manifest.generatedObjects);
 
     if (!result.ok) {
       return result;
@@ -2969,6 +3117,16 @@ function validationRuleOutcomes(
     return rules;
   }
 
+  const generatedObjectResult = validateGeneratedObjectDefinitions(manifest, context);
+  if (!pushRule(
+    generatedObjectResult.ok ? "generated_object_definitions" : generatedObjectResult.rule,
+    generatedObjectResult,
+    manifestChecked,
+    "Manifest-local generated object definitions are complete and coherent.",
+  )) {
+    return rules;
+  }
+
   const optionResult = rootOptionPayloadsResult(manifest, context);
   if (!pushRule(
     optionResult.ok ? "root_option_payloads" : optionResult.rule,
@@ -3131,7 +3289,7 @@ function validationRuleOutcomes(
   }
 
   const rewardPoolTargetResult = manifest.rewardPool
-    ? validateOperationTargetSelectors(manifest.rewardPool.operations, context, "Reward pool")
+    ? validateOperationTargetSelectors(manifest.rewardPool.operations, context, "Reward pool", manifest.generatedObjects)
     : { ok: true } as const;
   if (!pushRule(
     rewardPoolTargetResult.ok ? "reward_pool_target_selectors" : rewardPoolTargetResult.rule,
@@ -3146,6 +3304,7 @@ function validationRuleOutcomes(
     manifest.precommitted.operations,
     context,
     "Precommitted outcomes",
+    manifest.generatedObjects,
   );
   if (!pushRule(
     precommittedTargetResult.ok ? "operation_target_selectors" : precommittedTargetResult.rule,

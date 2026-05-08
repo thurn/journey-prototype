@@ -167,6 +167,30 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   }
 
   if (
+    typeof value.generatedObjectId === "string" ||
+    typeof value.generatedObjectKind === "string" ||
+    typeof value.generatedObjectName === "string" ||
+    typeof value.generatedObjectReferenceKind === "string"
+  ) {
+    return {
+      selectorKind: "generated_object",
+      selection: value.selection === "chosen_after_commitment" ||
+        value.generatedObjectOperationKind === "trade" ||
+        value.generatedObjectOperationKind === "return"
+        ? "chosen_after_commitment"
+        : "exact",
+      referenceKind: "manifest_generated",
+      generatedObjectReferenceKind: value.generatedObjectReferenceKind === "placeholder" ? "placeholder" : "definition",
+      ...(typeof value.generatedObjectKind === "string"
+        ? { generatedObjectKind: value.generatedObjectKind as "card" | "dreamsign" | "status" | "transfiguration" }
+        : {}),
+      ...(typeof value.generatedObjectId === "string" ? { generatedObjectId: value.generatedObjectId } : {}),
+      ...(typeof value.generatedObjectName === "string" ? { name: value.generatedObjectName } : {}),
+      required: true,
+    };
+  }
+
+  if (
     typeof value.siteType === "string" ||
     typeof value.fromSite === "string" ||
     typeof value.toSite === "string"
@@ -602,6 +626,12 @@ function rewardKind(kind: string | undefined): Extract<JourneyOperation, { opera
     case "battle_window_modifier":
     case "random_reward":
     case "random_series":
+    case "generated_object_create":
+    case "generated_object_grant":
+    case "generated_object_transform":
+    case "generated_object_temporary_grant":
+    case "generated_object_return":
+    case "generated_object_trade":
       return kind;
     default:
       return "unknown";

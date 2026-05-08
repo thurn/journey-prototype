@@ -145,10 +145,10 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     id: "generated_object",
     description: "Manifest-local generated object payloads.",
     variants: [
-      variant("generated_object", "generated-card", "unimplemented", "Reserved for generated card definitions.", "all", ["late"]),
-      variant("generated_object", "generated-dreamsign", "unimplemented", "Reserved for generated Dreamsign definitions.", "all", ["late"]),
-      variant("generated_object", "generated-status", "unimplemented", "Reserved for generated status definitions.", "all", ["mid", "late"]),
-      variant("generated_object", "generated-transfiguration", "unimplemented", "Reserved for generated transfiguration definitions.", "all", ["late"]),
+      variant("generated_object", "generated-card", "available", "Deterministic manifest-local generated card grant, transform, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
+      variant("generated_object", "generated-dreamsign", "available", "Deterministic manifest-local generated Dreamsign grant, temporary grant, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
+      variant("generated_object", "generated-status", "available", "Deterministic manifest-local generated status grant, temporary grant, return, and trade scenes.", ["curated_reward_trio"], ["mid", "late"]),
+      variant("generated_object", "generated-transfiguration", "available", "Deterministic manifest-local generated transfiguration grant, transform, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
     ],
   },
   {

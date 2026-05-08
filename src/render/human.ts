@@ -598,6 +598,33 @@ function operationDebugLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
+function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
+  if (manifest.generatedObjects.length === 0) {
+    return [];
+  }
+
+  const lines = ["", "Generated objects:"];
+
+  for (const generatedObject of manifest.generatedObjects) {
+    const references = Object.entries(generatedObject.references)
+      .flatMap(([kind, values]) =>
+        Array.isArray(values) && values.length > 0 ? [`${kind}=${values.join(",")}`] : []
+      )
+      .join("; ");
+    const duration = generatedObject.duration?.label ?? generatedObject.lifetime ?? "unspecified lifetime";
+
+    lines.push(
+      `${generatedObject.generatedObjectId}: ${generatedObject.name} (${generatedObject.generatedObjectKind}; ${generatedObject.objectType}).`,
+      `  Rules: ${generatedObject.rulesText}`,
+      `  Source: ${generatedObject.validation.source}; validation=${generatedObject.validation.status}; duration=${duration}.`,
+      `  Value estimate: ${generatedObject.valueEstimate.convertedEssence} essence (${generatedObject.valueEstimate.confidence}); ${generatedObject.valueEstimate.basis}`,
+      `  References: ${references || "none"}.`,
+    );
+  }
+
+  return lines;
+}
+
 function previousPickFor(state: JourneyState, manifest: JourneyManifest): PickHistoryEntry | JourneyManifest["debug"]["previousPick"] | undefined {
   if (manifest.debug.previousPick) {
     return manifest.debug.previousPick;
@@ -673,6 +700,7 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   );
 
   lines.push(...operationDebugLines(manifest));
+  lines.push(...generatedObjectDebugLines(manifest));
   lines.push(...validationDebugLines(manifest));
 
   for (const optionValue of manifest.debug.optionValues) {

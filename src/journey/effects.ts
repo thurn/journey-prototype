@@ -1017,7 +1017,10 @@ export function attachTargetResolutionMetadata(
       ])
     ) ?? []),
   ];
-  const generatedObjects = generatedObjectDefinitionsFromOperations(rootOperations);
+  const generatedObjects = [
+    ...manifest.generatedObjects,
+    ...generatedObjectDefinitionsFromOperations(rootOperations),
+  ];
 
   return {
     ...manifest,

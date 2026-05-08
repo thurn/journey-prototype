@@ -21,6 +21,7 @@ import type {
   PrecommittedOutcomes,
   RandomOutcomeVisibility,
   RandomPrecommittedOutcome,
+  GeneratedObjectDefinition,
 } from "./manifest.js";
 import {
   MANIFEST_CONTRACT_VERSION,
@@ -2007,6 +2008,21 @@ function isRandomRevealRollWagerPayload(debugPayload: DebugPayloadSelection | un
   return debugPayload?.qaId === "random/reveal-roll-wager";
 }
 
+function generatedObjectVariant(debugPayload: DebugPayloadSelection | undefined): GeneratedObjectDefinition["generatedObjectKind"] | undefined {
+  switch (debugPayload?.qaId) {
+    case "generated_object/generated-card":
+      return "card";
+    case "generated_object/generated-dreamsign":
+      return "dreamsign";
+    case "generated_object/generated-status":
+      return "status";
+    case "generated_object/generated-transfiguration":
+      return "transfiguration";
+    default:
+      return undefined;
+  }
+}
+
 function randomVisibility(
   outcomeVisibility: RandomOutcomeVisibility,
   disclosure: string,
@@ -3925,6 +3941,7 @@ function semanticFingerprintFor(args: {
   options: readonly JourneyOption[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;
+  generatedObjects?: readonly GeneratedObjectDefinition[];
   precommitted: PrecommittedOutcomes;
 }): JourneyManifest["debug"]["semanticFingerprint"] {
   const operationContract = (operation: JourneyOperation): Record<string, unknown> => {
@@ -3990,6 +4007,13 @@ function semanticFingerprintFor(args: {
           operations: args.rewardPool.operations.map(operationContract),
         }
       : undefined,
+    generatedObjects: (args.generatedObjects ?? []).map((generatedObject) => ({
+      generatedObjectKind: generatedObject.generatedObjectKind,
+      generatedObjectId: generatedObject.generatedObjectId,
+      name: generatedObject.name,
+      rulesText: generatedObject.rulesText,
+      valueEstimate: generatedObject.valueEstimate,
+    })),
     precommitted: {
       operations: (args.precommitted.operations ?? []).map(operationContract),
     },
@@ -4007,6 +4031,9 @@ function semanticFingerprintFor(args: {
     ) ?? []),
     ...(contract.rewardPool
       ? [`reward-pool:${sha256Hex(stableStringify(contract.rewardPool)).slice(0, 16)}`]
+      : []),
+    ...(contract.generatedObjects.length > 0
+      ? [`generated-objects:${sha256Hex(stableStringify(contract.generatedObjects)).slice(0, 16)}`]
       : []),
     ...(contract.precommitted.operations.length > 0
       ? [`precommitted:${sha256Hex(stableStringify(contract.precommitted)).slice(0, 16)}`]
@@ -4120,11 +4147,225 @@ function withResourceEdgeCaseValueBands(options: readonly JourneyOption[]): Jour
   }));
 }
 
+function generatedObjectDuration(label: string, count: number = 3): GeneratedObjectDefinition["duration"] {
+  return {
+    durationKind: "battle_count",
+    count,
+    label,
+  };
+}
+
+function generatedObjectDefinition(kind: GeneratedObjectDefinition["generatedObjectKind"]): GeneratedObjectDefinition {
+  const definitions: Record<GeneratedObjectDefinition["generatedObjectKind"], GeneratedObjectDefinition> = {
+    card: {
+      generatedObjectKind: "card",
+      generatedObjectId: "generated-card-rain-lantern",
+      name: "Rain Lantern",
+      objectType: "Event Card",
+      rulesText: "0 energy Event. Fast. Gain 1 omen, then the next card you draft costs 25 less essence.",
+      tags: ["journey-only", "card", "event", "fast", "late"],
+      references: {
+        rules: ["Fast", "omens", "essence", "card"],
+      },
+      lifetime: "journey_only",
+      valueEstimate: {
+        convertedEssence: 150,
+        confidence: "medium",
+        basis: "Fast zero-cost card plus one omen and a bounded draft discount.",
+      },
+      validation: {
+        source: "generated_manifest_local",
+        status: "validated",
+        ruleIds: ["stable_id", "card_rules_text", "value_estimate", "manifest_local"],
+      },
+      payload: {
+        energyCost: 0,
+        cardType: "Event",
+        keywords: ["Fast"],
+        source: "manifest_generated",
+      },
+    },
+    dreamsign: {
+      generatedObjectKind: "dreamsign",
+      generatedObjectId: "generated-dreamsign-mirror-moon",
+      name: "Mirror Moon",
+      objectType: "Dreamsign",
+      rulesText: "The next time you gain a Dreamsign, choose one: duplicate it, or gain 90 essence.",
+      tags: ["journey-only", "dreamsign", "choice", "late"],
+      references: {
+        rules: ["dreamsign", "essence"],
+      },
+      duration: generatedObjectDuration("until the next Dreamsign gain", 3),
+      lifetime: "until_returned",
+      valueEstimate: {
+        convertedEssence: 155,
+        confidence: "medium",
+        basis: "Comparable to a named Dreamsign with a narrow one-time trigger.",
+      },
+      validation: {
+        source: "generated_manifest_local",
+        status: "validated",
+        ruleIds: ["stable_id", "dreamsign_rules_text", "duration", "value_estimate", "manifest_local"],
+      },
+      payload: {
+        trigger: "next Dreamsign gain",
+        choices: ["duplicate gained Dreamsign", "gain 90 essence"],
+        source: "manifest_generated",
+      },
+    },
+    status: {
+      generatedObjectKind: "status",
+      generatedObjectId: "generated-status-afterimage-oath",
+      name: "Afterimage Oath",
+      objectType: "Quest Status",
+      rulesText: "For the next 3 battles, the first card you purge each battle returns as a temporary copy for that battle.",
+      tags: ["journey-only", "status", "battle", "temporary"],
+      references: {
+        rules: ["battle", "card"],
+      },
+      duration: generatedObjectDuration("next 3 battles", 3),
+      lifetime: "temporary",
+      valueEstimate: {
+        convertedEssence: 135,
+        confidence: "medium",
+        basis: "Temporary battle rule with bounded card-copy upside.",
+      },
+      validation: {
+        source: "generated_manifest_local",
+        status: "validated",
+        ruleIds: ["stable_id", "status_scope", "duration", "value_estimate", "manifest_local"],
+      },
+      payload: {
+        statusScope: "battle",
+        affectedObject: "card",
+        source: "manifest_generated",
+      },
+    },
+    transfiguration: {
+      generatedObjectKind: "transfiguration",
+      generatedObjectId: "generated-transfiguration-glass",
+      name: "Glass Transfiguration",
+      objectType: "Transfiguration",
+      rulesText: "A Glass card gains Fast and Reclaim 1. When it dissolves, gain 60 essence.",
+      tags: ["journey-only", "transfiguration", "card", "fast", "reclaim"],
+      references: {
+        rules: ["Fast", "Reclaim", "essence", "card", "transfiguration"],
+      },
+      lifetime: "journey_only",
+      valueEstimate: {
+        convertedEssence: 145,
+        confidence: "medium",
+        basis: "Slightly above Viridian due to Fast, Reclaim, and a conditional essence payout.",
+      },
+      validation: {
+        source: "generated_manifest_local",
+        status: "validated",
+        ruleIds: ["stable_id", "transfiguration_rules_text", "value_estimate", "manifest_local"],
+      },
+      payload: {
+        generatedTransfigurationName: "Glass",
+        keywords: ["Fast", "Reclaim"],
+        source: "manifest_generated",
+      },
+    },
+  };
+
+  return definitions[kind];
+}
+
+function generatedObjectPayload(args: {
+  kind: "generated_object_create" | "generated_object_grant" | "generated_object_transform" | "generated_object_temporary_grant" | "generated_object_return" | "generated_object_trade";
+  generatedObject: GeneratedObjectDefinition;
+  operation: string;
+  duration?: string;
+  extra?: Record<string, unknown>;
+}) {
+  return {
+    kind: args.kind,
+    generatedObjectOperationKind: args.operation,
+    generatedObjectId: args.generatedObject.generatedObjectId,
+    generatedObjectKind: args.generatedObject.generatedObjectKind,
+    generatedObjectName: args.generatedObject.name,
+    generatedObjectReferenceKind: "definition",
+    rulesText: args.generatedObject.rulesText,
+    timing: "immediate",
+    source: "manifest_generated",
+    ...(args.duration ? { duration: args.duration } : {}),
+    ...(args.extra ?? {}),
+  };
+}
+
+function generatedObjectOptions(generatedObject: GeneratedObjectDefinition): JourneyOption[] {
+  const compactRules = `${generatedObject.name}: ${generatedObject.rulesText}`;
+  const grant = generatedObjectPayload({
+    kind: "generated_object_grant",
+    generatedObject,
+    operation: "grant",
+  });
+  const create = generatedObjectPayload({
+    kind: "generated_object_create",
+    generatedObject,
+    operation: "create",
+  });
+  const transform = generatedObjectPayload({
+    kind: "generated_object_transform",
+    generatedObject,
+    operation: "transform",
+    extra: { transformIntoGeneratedObjectId: generatedObject.generatedObjectId },
+  });
+  const temporary = generatedObjectPayload({
+    kind: "generated_object_temporary_grant",
+    generatedObject,
+    operation: "temporary_grant",
+    duration: generatedObject.duration?.label ?? "next 3 battles",
+    extra: { temporary: true },
+  });
+  const returned = generatedObjectPayload({
+    kind: "generated_object_return",
+    generatedObject,
+    operation: "return",
+    duration: "at the next Dream Journey site",
+  });
+  const trade = generatedObjectPayload({
+    kind: "generated_object_trade",
+    generatedObject,
+    operation: "trade",
+    extra: { tradeFor: "120 essence" },
+  });
+  const value = generatedObject.valueEstimate.convertedEssence;
+
+  return [
+    option({
+      number: 1,
+      text: `Create and gain {${generatedObject.name}}. ${compactRules}`,
+      effects: [create, grant],
+      effect: value,
+    }),
+    option({
+      number: 2,
+      text: `Transform a chosen eligible object into {${generatedObject.name}}. ${compactRules}`,
+      effects: [transform],
+      effect: Math.max(120, value - 10),
+      uncertainty: -10,
+    }),
+    option({
+      number: 3,
+      text: `Gain {${generatedObject.name}} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. ${compactRules}`,
+      effects: [temporary, trade],
+      triggers: [returned],
+      effect: Math.max(105, value - 25),
+      uncertainty: -12,
+    }),
+  ];
+}
+
 export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManifest {
   const selectedCards = selectedCardTargets(args.context, args.drawContext).slice(0, 3);
   const selectedDreamsigns = selectedDreamsignTargets(args.context, args.drawContext).slice(0, 3);
   const shape = getShapeDefinition(args.shapeId);
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
+  const generatedKind = generatedObjectVariant(args.debugPayload);
+  const generatedObjects = generatedKind ? [generatedObjectDefinition(generatedKind)] : [];
   const randomRevealRollWager = isRandomRevealRollWagerPayload(args.debugPayload)
     ? randomRevealRollWagerFill(args.context, args.drawContext)
     : undefined;
@@ -4152,9 +4393,11 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
                         ? delayedTriggerMatrixOptions(args.context, args.drawContext)
                         : isPairedReturnSealBorrowTradePayload(args.debugPayload)
                           ? pairedReturnSealBorrowTradeOptions(args.context, args.drawContext)
-                          : randomRevealRollWager
-                            ? randomRevealRollWager.options
-                            : filled.options.slice(0, shape.rootOptionCount.max);
+                          : generatedObjects[0]
+                            ? generatedObjectOptions(generatedObjects[0])
+                            : randomRevealRollWager
+                              ? randomRevealRollWager.options
+                              : filled.options.slice(0, shape.rootOptionCount.max);
   const options = isResourceEdgeCasePayload(args.debugPayload)
     ? withResourceEdgeCaseValueBands(filledOptions)
     : filledOptions;
@@ -4261,6 +4504,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     ...cardDelayedPrecommits,
     ...dreamsignDelayedPrecommits,
     ...forcedTimedPayloadPrecommits(args.debugPayload, options),
+    ...(generatedKind ? options.flatMap((journeyOption) => journeyOption.triggers) : []),
     ...(isDelayedTriggerMatrixPayload(args.debugPayload)
       ? options.flatMap((journeyOption) => journeyOption.triggers)
       : []),
@@ -4319,6 +4563,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     options,
     tree: filled.tree,
     rewardPool: filled.rewardPool,
+    generatedObjects,
     precommitted,
   });
 
@@ -4341,6 +4586,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
     dreamscape: args.context.state.quest.resources.dreamscape,
     selectedTags: args.selectedTags,
     options,
+    generatedObjects,
     ...(filled.tree ? { tree: filled.tree } : {}),
     ...(filled.rewardPool ? { rewardPool: filled.rewardPool } : {}),
     precommitted,
@@ -4389,6 +4635,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
         options: manifestWithTargetResolution.options,
         tree: manifestWithTargetResolution.tree,
         rewardPool: manifestWithTargetResolution.rewardPool,
+        generatedObjects: manifestWithTargetResolution.generatedObjects,
         precommitted: manifestWithTargetResolution.precommitted,
       }),
     },

@@ -574,6 +574,75 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("forces manifest-local generated object definitions and references", async () => {
+    const journeyContext = await context("generated-objects");
+    const variants = [
+      {
+        familyId: "generated_object",
+        variantId: "generated-card",
+        qaId: "generated_object/generated-card",
+        description: "Generated card coverage.",
+        expectedKind: "card",
+      },
+      {
+        familyId: "generated_object",
+        variantId: "generated-dreamsign",
+        qaId: "generated_object/generated-dreamsign",
+        description: "Generated Dreamsign coverage.",
+        expectedKind: "dreamsign",
+      },
+      {
+        familyId: "generated_object",
+        variantId: "generated-status",
+        qaId: "generated_object/generated-status",
+        description: "Generated status coverage.",
+        expectedKind: "status",
+      },
+      {
+        familyId: "generated_object",
+        variantId: "generated-transfiguration",
+        qaId: "generated_object/generated-transfiguration",
+        description: "Generated transfiguration coverage.",
+        expectedKind: "transfiguration",
+      },
+    ] as const;
+
+    for (const variant of variants) {
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "late",
+        forcedDebugPayload: {
+          familyId: variant.familyId,
+          variantId: variant.variantId,
+          qaId: variant.qaId,
+          description: variant.description,
+          supportedShapes: ["curated_reward_trio"],
+          supportedStages: variant.expectedKind === "status" ? ["mid", "late"] : ["late"],
+        } satisfies DebugPayloadSelection,
+      });
+      const definition = manifest.generatedObjects[0]!;
+      const operations = manifest.options.flatMap((option) => option.operations);
+
+      expect(manifest.shapeId).toBe("curated_reward_trio");
+      expect(manifest.debug.validation.ok).toBe(true);
+      expect(definition).toMatchObject({
+        generatedObjectKind: variant.expectedKind,
+        validation: {
+          source: "generated_manifest_local",
+          status: "validated",
+        },
+      });
+      expect(definition.generatedObjectId).toMatch(/^generated-/u);
+      expect(definition.rulesText.length).toBeGreaterThan(20);
+      expect(definition.tags).toContain("journey-only");
+      expect(definition.valueEstimate.convertedEssence).toBeGreaterThan(0);
+      expect(operations.map((operation) => operation.targetSelector?.selectorKind)).toContain("generated_object");
+      expect(operations.map((operation) => operation.targetResolution?.sourcePool)).toContain("manifest_generated");
+      expect(manifest.precommitted.delayed).toHaveLength(1);
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
+    }
+  });
+
   it("exposes resource edge-case value-band semantics in operations and value debug", async () => {
     const journeyContext = await context("value-resource");
     const resourcePayload = {

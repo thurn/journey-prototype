@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,6 +45,10 @@ async function withTempState<T>(
 async function expectMissingState(statePath: string): Promise<void> {
   await expect(readFile(statePath)).rejects.toThrow();
   await expect(readJourneyState(statePath)).resolves.toEqual({ kind: "missing" });
+}
+
+async function fileSha(path: string): Promise<string> {
+  return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
 describe("stateless command risk transitions", () => {
@@ -299,6 +304,46 @@ describe("stateless command risk transitions", () => {
       }
       await expectMissingState(statePath);
     });
+  });
+
+  it("forced generated-object payloads do not mutate TOML content or simulator state", async () => {
+    const contentFiles = ["data/cards.toml", "data/dreamsigns.toml", "data/dreamcallers.toml"];
+    const before = Object.fromEntries(await Promise.all(
+      contentFiles.map(async (path) => [path, await fileSha(path)] as const),
+    ));
+
+    await withTempState(async ({ statePath, options }) => {
+      for (const variant of [
+        "generated-card",
+        "generated-dreamsign",
+        "generated-status",
+        "generated-transfiguration",
+      ]) {
+        const result = await handleJourney(options({
+          json: true,
+          seed: variant,
+          stage: "late",
+          debugPayloadFamily: "generated_object",
+          debugPayloadVariant: variant,
+        }));
+
+        expect(result.exitCode).toBe(ExitCode.Success);
+        expect(result.stderr).toBe("");
+
+        const payload = JSON.parse(result.stdout);
+
+        expect(payload.manifest.generatedObjects).toHaveLength(1);
+        expect(payload.manifest.debug.validation.ok).toBe(true);
+      }
+
+      await expectMissingState(statePath);
+    });
+
+    const after = Object.fromEntries(await Promise.all(
+      contentFiles.map(async (path) => [path, await fileSha(path)] as const),
+    ));
+
+    expect(after).toEqual(before);
   });
 
   it("prints forced adapter payload metadata in debug human output", async () => {
