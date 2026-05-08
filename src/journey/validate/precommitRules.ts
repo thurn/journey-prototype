@@ -70,6 +70,10 @@ export function optionImpliesDelayedOutcome(option: JourneyOption): boolean {
 
   return option.triggers.length > 0 ||
     containsRecordWhere([option.effects, option.triggers], (record) => {
+      if (typeof record.timedWindowScope === "string") {
+        return false;
+      }
+
       const timing = typeof record.timing === "string" ? record.timing : "";
       const trigger = typeof record.trigger === "string" ? record.trigger : "";
 

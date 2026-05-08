@@ -3017,27 +3017,85 @@ describe("generateNextJourney", () => {
     }
   });
 
-  it("fills timed window menus with broad multi-battle combat effects", async () => {
+  it("fills timed window menus from a shared procedural temporary-window catalog", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("timed_window_menu", journeyContext);
+    const records = manifest.options.flatMap((option) => [
+      ...option.effects,
+      ...option.routeEffects,
+      ...option.operations.map((operation) => operation.payload),
+    ]) as Record<string, unknown>[];
+    const windows = records
+      .filter(
+        (record) =>
+          typeof record.timedWindowScope === "string" &&
+          typeof record.duration === "string",
+      )
+      .map((record) => `${record.timedWindowScope}:${record.duration}`);
 
     expect(manifest.options).toHaveLength(3);
+    expect(new Set(windows)).toHaveLength(1);
     expect(
-      manifest.options.every((option) =>
-        option.text.startsWith("For the next 3 battles,"),
+      records.some(
+        (record) =>
+          typeof record.affectedObjectClass === "string" &&
+          typeof record.windowModifier === "string" &&
+          typeof record.amount === "number" &&
+          typeof record.windowValue === "number" &&
+          record.polarity === "positive",
       ),
     ).toBe(true);
     expect(
       Math.min(...manifest.options.map((option) => option.netConvertedEssence)),
-    ).toBeGreaterThanOrEqual(150);
+    ).toBeGreaterThanOrEqual(120);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
   });
 
+  it("samples timed window menu scopes beyond the old fixed battle trio", async () => {
+    const scopes = new Set<string>();
+    const durations = new Set<string>();
+
+    for (const seed of Array.from({ length: 24 }, (_, index) => `timed-${index}`)) {
+      const journeyContext = await context(seed);
+      const manifest = fillForShape("timed_window_menu", journeyContext);
+      const records = manifest.options.flatMap((option) => [
+        ...option.effects,
+        ...option.routeEffects,
+        ...option.operations.map((operation) => operation.payload),
+      ]) as Record<string, unknown>[];
+
+      for (const record of records) {
+        if (
+          typeof record.timedWindowScope === "string" &&
+          typeof record.duration === "string"
+        ) {
+          scopes.add(record.timedWindowScope);
+          durations.add(record.duration);
+        }
+      }
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+    }
+
+    expect([...scopes]).toEqual(
+      expect.arrayContaining([
+        "battle",
+        "dreamwell",
+        "shop",
+        "route",
+        "temporary_object",
+      ]),
+    );
+    expect(durations.size).toBeGreaterThan(2);
+  });
+
   it.each([
     [
-      "timed_window_requires_battle_window",
+      "timed_window_requires_temporary_window",
       {
         text: "For the next battle, add Fast to a chosen card.",
         effects: [
@@ -3082,6 +3140,7 @@ describe("generateNextJourney", () => {
       options: [
         refreshOptionOperations({
           ...manifest.options[0]!,
+          routeEffects: [],
           ...patch,
         }),
         ...manifest.options.slice(1),

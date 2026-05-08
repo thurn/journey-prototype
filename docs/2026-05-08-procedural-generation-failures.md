@@ -234,11 +234,11 @@ while the costs differ.
 
 ### 6. Timed-Window Menus Are Fixed Battle-Window Scenarios
 
-**Status:** Error with a moderate curation argument.
+**Status:** Fixed.
 
-`timed_window_menu` selects from three authored arrays of effects in
-[`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L1144). Every option is
-hardcoded around "next 3 battles" and a small set of battle/card modifiers:
+The original `timed_window_menu` selected from three authored arrays of effects
+in [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L1144). Every option
+was hardcoded around "next 3 battles" and a small set of battle/card modifiers:
 opening-hand cards, turn-1 energy, event Fast, character discounts, starting
 omens, event Reclaim, turn-2 card draw, fast-card Reclaim, and Dissolve energy.
 
@@ -254,6 +254,15 @@ catalog, not for embedding three fixed menus inside one shape case.
 **Proposed fix to remove hardcoded content:** Introduce a timed-window payload
 catalog that samples scope, duration, affected object class, modifier, amount,
 polarity, and value while preserving shared-timing cohesion for the menu.
+
+**Resolution:** Normal timed-window generation now uses a reusable timed-window
+payload catalog instead of shape-local fixed arrays. The builder samples a
+shared window scope and duration, then fills coherent options from battle,
+Dreamwell, shop, route, and temporary-object payload families where the manifest
+contracts support them. Each payload carries structured window metadata for
+scope, affected object class, modifier, amount, polarity, and value, and
+validation now checks typed shared-window cohesion instead of requiring every
+option to be a text-matched "next 3 battles" battle modifier.
 
 ### 7. Tree Builders Are Scripted Scenario Profiles
 
@@ -476,8 +485,8 @@ places risk normalizing current limitations:
 - `journey-generation.test.ts` asserts all generated card drafts use
   `takeCount: 1` and `choiceCount: 4` in
   [`journey-generation.test.ts`](../test/journey-generation.test.ts#L2582);
-- timed-window tests assert output starts with "For the next 3 battles," in
-  [`journey-generation.test.ts`](../test/journey-generation.test.ts#L2633);
+- older timed-window tests asserted output starts with "For the next 3
+  battles," instead of validating typed shared-window metadata;
 - debug payload tests correctly exercise forced payload families, but those
   should remain QA coverage rather than proof of natural generation breadth.
 

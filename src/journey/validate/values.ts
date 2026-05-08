@@ -95,27 +95,33 @@ export function validatePositiveMenuValues(
 }
 
 export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationResult {
+  const sharedWindowKeys = new Set<string>();
+
   for (const option of manifest.options.filter((entry) => entry.pickBehavior !== "leave")) {
     const records = [
       ...option.effects.filter(isRecord),
+      ...option.routeEffects.filter(isRecord),
       ...option.operations.map((operation) => operation.payload),
     ];
-    const hasBattleWindow = records.some((record) =>
-      typeof record.duration === "string" &&
-      /^next [2-9]\d* battles$/u.test(record.duration)
-    );
+    const windows = records
+      .map(timedWindowDescriptor)
+      .filter((entry): entry is TimedWindowDescriptor => entry !== undefined);
 
-    if (!hasBattleWindow) {
+    if (windows.length === 0) {
       return fail(
-        "timed_window_requires_battle_window",
-        "Timed window options must use a meaningful multi-battle duration",
+        "timed_window_requires_temporary_window",
+        "Timed window options must use a meaningful temporary battle, Dreamwell, shop, route, or object window",
       );
+    }
+
+    for (const window of windows) {
+      sharedWindowKeys.add(`${window.scope}:${window.duration}`);
     }
 
     if (records.some((record) => record.kind === "gain_omens" || record.kind === "gain_essence")) {
       return fail(
         "timed_window_resource_only_reward",
-        "Timed window options must alter battle play rather than grant plain resources",
+        "Timed window options must alter temporary play rules rather than grant plain resources",
       );
     }
 
@@ -127,5 +133,80 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
     }
   }
 
+  if (sharedWindowKeys.size > 1) {
+    return fail(
+      "timed_window_options_must_share_window",
+      "Timed window options must share the same temporary timing window",
+    );
+  }
+
   return { ok: true };
+}
+
+type TimedWindowDescriptor = {
+  scope: string;
+  duration: string;
+};
+
+function timedWindowDescriptor(record: Record<string, unknown>): TimedWindowDescriptor | undefined {
+  const duration = typeof record.duration === "string" ? record.duration : undefined;
+  const declaredScope = typeof record.timedWindowScope === "string"
+    ? record.timedWindowScope
+    : undefined;
+
+  if (declaredScope && duration && isMeaningfulDurationForScope(declaredScope, duration)) {
+    return { scope: declaredScope, duration };
+  }
+
+  if (
+    duration &&
+    /^next [2-9]\d* battles$/u.test(duration) &&
+    (
+      record.kind === "battle_window_modifier" ||
+      record.kind === "card_rewrite" ||
+      record.kind === "card_opening_hand" ||
+      record.kind === "card_temporary_copy" ||
+      record.kind === "dreamsign_temporary_grant" ||
+      record.kind === "generated_object_temporary_grant" ||
+      record.kind === "dreamwell_modifier"
+    )
+  ) {
+    return {
+      scope: record.kind === "dreamwell_modifier" ? "dreamwell" : "battle",
+      duration,
+    };
+  }
+
+  if (
+    duration &&
+    /^next [2-9]\d* future shops$/u.test(duration) &&
+    record.kind === "shop_economy_modifier"
+  ) {
+    return { scope: "shop", duration };
+  }
+
+  if (
+    duration &&
+    /^next [2-9]\d* dreamscapes$/u.test(duration) &&
+    typeof record.routeOperationKind === "string"
+  ) {
+    return { scope: "route", duration };
+  }
+
+  return undefined;
+}
+
+function isMeaningfulDurationForScope(scope: string, duration: string): boolean {
+  switch (scope) {
+    case "battle":
+    case "dreamwell":
+    case "temporary_object":
+      return /^next [2-9]\d* battles$/u.test(duration);
+    case "shop":
+      return /^next [2-9]\d* future shops$/u.test(duration);
+    case "route":
+      return /^next [2-9]\d* dreamscapes$/u.test(duration);
+    default:
+      return false;
+  }
 }

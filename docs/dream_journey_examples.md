@@ -353,12 +353,15 @@ repair, generated-object, and distinctness contracts for a shape.
 
 # timed_window_menu
 
-## Three Battles
+## Shared Temporary Windows
 
 - For the next 3 battles, all event cards in your deck have Fast.
 - For the next 3 battles, draw 1 extra card in your opening hand.
 - For the next 3 battles, gain 1 extra energy on turn 1.
 - For the next 3 battles, your first character each turn enters with +1 spark.
+- For the next 2 future shops, rerolls cost 1 fewer omen.
+- For the next 2 dreamscapes, add a Dreamsign Offering site to one route if possible.
+- For the next 4 battles, the Dreamwell includes 1 additional positive card.
 
 ## After Next Battle
 

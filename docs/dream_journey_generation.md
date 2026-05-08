@@ -622,6 +622,12 @@ upcoming fights. They should use a multi-battle duration and alter battle play
 directly, rather than wrapping ordinary resource rewards in battle timing or
 temporarily modifying only one low-impact card.
 
+Timed-window menus may also use Dreamwell, shop, route, or temporary-object
+windows when the payload contract carries a structured shared duration. The
+options in one menu should share that exact scope and duration, while varying
+the affected object class, modifier, amount, and value inside the same timing
+identity.
+
 ### take_any_number
 
 The site reveals a bounded cache of rewards and lets the player claim any

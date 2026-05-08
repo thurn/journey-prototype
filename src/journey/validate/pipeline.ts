@@ -196,7 +196,7 @@ export function validationRuleOutcomes(
     timedWindowResult.ok ? "timed_window_menu" : timedWindowResult.rule,
     timedWindowResult,
     optionChecked,
-    "Timed window menus use multi-battle, play-changing rewards when applicable.",
+    "Timed window menus use shared temporary windows with play-changing rewards when applicable.",
   )) {
     return rules;
   }

@@ -24,7 +24,6 @@ import {
   valueOmenLoss,
 } from "../value.js";
 import {
-  BATTLE_WINDOW_DURATION,
   CARD_DRAFT_PROFILES,
   CARD_POOL_TARGET_DESCRIPTION,
   DREAMSIGN_POOL_TARGET_DESCRIPTION,
@@ -61,6 +60,7 @@ import {
   delayedRewardHookFill,
   pairedReturnHookFill,
 } from "./hookPayloads.js";
+import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
 export function fillOptions(
   shapeId: JourneyShapeId,
@@ -1055,142 +1055,13 @@ export function fillOptions(
       };
     }
     case "timed_window_menu": {
-      const profile: { text: string; effects: unknown[]; effect: number }[] =
-        pickSequentialVariant(drawContext, `${shapeId}:window-profile`, [
-          [
-            {
-              text: "For the next 3 battles, all event cards in your deck have Fast.",
-              effects: [
-                {
-                  kind: "card_rewrite",
-                  keyword: "Fast",
-                  duration: BATTLE_WINDOW_DURATION,
-                  scope: "all_matching_cards_in_deck",
-                  predicate: { cardType: "Event" },
-                },
-              ],
-              effect: 175,
-            },
-            {
-              text: "For the next 3 battles, draw 1 extra card in your opening hand.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "opening_hand_cards",
-                  amount: 1,
-                },
-              ],
-              effect: 165,
-            },
-            {
-              text: "For the next 3 battles, gain 1 extra energy on turn 1.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "turn_1_energy",
-                  amount: 1,
-                },
-              ],
-              effect: 170,
-            },
-          ],
-          [
-            {
-              text: "For the next 3 battles, all character cards in your deck cost 1 less on turn 1.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "turn_1_character_discount",
-                  amount: 1,
-                },
-              ],
-              effect: 170,
-            },
-            {
-              text: "For the next 3 battles, start each battle with 1 omen.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "starting_omens",
-                  amount: 1,
-                },
-              ],
-              effect: 165,
-            },
-            {
-              text: "For the next 3 battles, the first event you play each battle has Reclaim 1.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "first_event_reclaim",
-                  amount: 1,
-                },
-              ],
-              effect: 175,
-            },
-          ],
-          [
-            {
-              text: "For the next 3 battles, draw 1 extra card on turn 2.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "turn_2_cards",
-                  amount: 1,
-                },
-              ],
-              effect: 160,
-            },
-            {
-              text: "For the next 3 battles, all fast cards in your deck have Reclaim 1.",
-              effects: [
-                {
-                  kind: "card_rewrite",
-                  keyword: "Reclaim",
-                  amount: 1,
-                  duration: BATTLE_WINDOW_DURATION,
-                  scope: "all_matching_cards_in_deck",
-                  predicate: { isFast: true },
-                },
-              ],
-              effect: 170,
-            },
-            {
-              text: "For the next 3 battles, gain 1 extra energy the first time you Dissolve each battle.",
-              effects: [
-                {
-                  kind: "battle_window_modifier",
-                  duration: BATTLE_WINDOW_DURATION,
-                  modifier: "first_dissolve_energy",
-                  amount: 1,
-                },
-              ],
-              effect: 175,
-            },
-          ],
-        ]);
+      const timedWindow = timedWindowMenuFill({ context, drawContext, shapeId });
 
       return {
-        options: shuffleDeterministic(
-          drawContext,
-          `${shapeId}:window-order`,
-          profile,
-        ).map((entry, index) =>
-          option({
-            number: index + 1,
-            text: entry.text,
-            effects: entry.effects,
-            effect: entry.effect,
-            uncertainty: -10,
-          }),
-        ),
-        precommitted: {},
+        options: timedWindow.options,
+        precommitted: timedWindow.routeEdits.length > 0
+          ? { routeEdits: timedWindow.routeEdits }
+          : {},
       };
     }
     case "resolved_random_series": {
