@@ -413,9 +413,20 @@ describe("stateless command risk transitions", () => {
       expect(result.stdout).not.toMatch(ANSI_PATTERN);
 
       const payload = JSON.parse(result.stdout);
-      const qaIds = payload.payloads.families.flatMap((family: { variants: { qaId: string }[] }) =>
-        family.variants.map((variant) => variant.qaId)
+      const variants = payload.payloads.families.flatMap(
+        (family: { variants: { coverageKind: string; qaId: string }[] }) =>
+          family.variants,
       );
+      const qaIds = variants.map((variant: { qaId: string }) =>
+        variant.qaId
+      );
+
+      expect(
+        variants.every(
+          (variant: { coverageKind: string }) =>
+            variant.coverageKind === "debug_fixture",
+        ),
+      ).toBe(true);
 
       expect(payload).toMatchObject({
         status: "ok",

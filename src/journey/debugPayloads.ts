@@ -2,11 +2,13 @@ import type { JourneyStage } from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "./shapes.js";
 
 export type DebugPayloadAvailability = "available" | "unimplemented";
+export type DebugPayloadCoverageKind = "debug_fixture";
 
 export type DebugPayloadVariant = {
   id: string;
   qaId: string;
   availability: DebugPayloadAvailability;
+  coverageKind: DebugPayloadCoverageKind;
   description: string;
   supportedShapes: readonly JourneyShapeId[] | "all";
   supportedStages: readonly JourneyStage[] | "all";
@@ -22,6 +24,7 @@ export type DebugPayloadSelection = {
   familyId: string;
   variantId: string;
   qaId: string;
+  coverageKind?: DebugPayloadCoverageKind;
   description: string;
   supportedShapes: readonly JourneyShapeId[] | "all";
   supportedStages: readonly JourneyStage[] | "all";
@@ -43,6 +46,7 @@ function variant(
     id,
     qaId: `${familyId}/${id}`,
     availability,
+    coverageKind: "debug_fixture",
     description,
     supportedShapes,
     supportedStages,
@@ -272,6 +276,7 @@ export function validateDebugPayloadSelection(args: {
     familyId: family.id,
     variantId: selected.id,
     qaId: selected.qaId,
+    coverageKind: selected.coverageKind,
     description: selected.description,
     supportedShapes: selected.supportedShapes,
     supportedStages: selected.supportedStages,
@@ -295,6 +300,7 @@ export function debugPayloadListJson() {
         id: payloadVariant.id,
         qaId: payloadVariant.qaId,
         availability: payloadVariant.availability,
+        coverageKind: payloadVariant.coverageKind,
         description: payloadVariant.description,
         supportedShapes: payloadVariant.supportedShapes === "all" ? ALL_SHAPES : payloadVariant.supportedShapes,
         supportedStages: payloadVariant.supportedStages === "all" ? ALL_STAGES : payloadVariant.supportedStages,

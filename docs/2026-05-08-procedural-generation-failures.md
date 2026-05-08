@@ -409,7 +409,7 @@ payloads.
 
 ### 11. Debug Payload Menus Are Correctly Hardcoded, But Should Not Count As Natural Generation
 
-**Status:** Justified fixture, with documentation/test risk.
+**Status:** Fixed.
 
 The examples supplied in the request map closely to forced debug payload menus:
 
@@ -437,9 +437,16 @@ deterministic review surfaces, not player-facing interactions.
 **Compelling justification:** Strong, as long as they stay debug-only and the
 docs/tests label them as coverage fixtures rather than natural output.
 
-**Proposed fix to remove hardcoded content:** Keep forced debug payloads as
-fixtures but add natural-generation builders for each covered feature class and
-ensure tests distinguish fixture coverage from organic generation coverage.
+**Resolution:** Forced debug payloads remain deterministic fixtures, and the
+debug payload listing now labels every advertised variant as `debug_fixture`
+coverage. Regression coverage separately proves that organic generation reaches
+the corresponding reusable contracts without forced debug payload metadata:
+normal delayed-hook shapes emit `delayed_hook_contract` outcomes, paired-return
+shapes emit `paired_return_contract` outcomes, risk and wager shapes emit typed
+random envelopes, generated objects come from the natural generated-object
+builder, and timed-window menus sample battle, Dreamwell, shop, and temporary
+object windows. Exact hardcoded debug menus are therefore treated as contract QA
+fixtures, not as evidence of natural generation breadth.
 
 ### 12. Repair Logic Uses A Global Hardcoded Script And Shape-Specific Fallbacks
 

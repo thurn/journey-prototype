@@ -128,6 +128,32 @@ function fillForShape(
   });
 }
 
+function fillForShapeAtStage(
+  shapeId: JourneyShapeId,
+  journeyContext: Awaited<ReturnType<typeof context>>,
+  stage: JourneyStage,
+) {
+  return buildConservativeJourneyForShape({
+    context: journeyContext,
+    drawContext: {
+      seed: journeyContext.state.quest.seed,
+      contentVersion: journeyContext.contentVersion,
+      rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+    },
+    journeyId: "J-000001",
+    shapeId,
+    stage,
+    selectedTags:
+      stage === "late"
+        ? ["convert", "gamble", "reward", "route", "sacrifice"]
+        : ["build", "cleanup", "immediate", "reward"],
+    shapeScores: JOURNEY_SHAPES.map((shape, index) => ({
+      shapeId: shape.id,
+      score: 100 - index,
+    })),
+  });
+}
+
 function generatedObjectDefinition(
   overrides: Partial<GeneratedObjectDefinition> = {},
 ): GeneratedObjectDefinition {
@@ -4485,6 +4511,91 @@ describe("validateJourneyManifest", () => {
         });
       }
     }
+  });
+
+  it("keeps forced debug fixtures distinct from organic feature coverage", async () => {
+    const content = await loadContent(process.cwd());
+    const normalManifest = (
+      shapeId: JourneyShapeId,
+      seed: string,
+      stage: JourneyStage = "mid",
+    ) => {
+      const journeyContext = contextFromContent(content, seed, stage);
+      const manifest = fillForShapeAtStage(shapeId, journeyContext, stage);
+
+      expect(manifest.debug.debugPayload, `${shapeId}:${seed}`).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext), `${shapeId}:${seed}`).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    };
+    const delayed = normalManifest(
+      "reward_after_trigger",
+      "organic-delayed-hook",
+    );
+    const paired = normalManifest("paired_return", "organic-paired-return", "late");
+    const risk = normalManifest("risk_or_skip", "organic-risk-envelope");
+    const wager = normalManifest("single_wager", "organic-wager-envelope");
+    const generated = normalManifest(
+      "one_target_many_operations",
+      "natural-generated-late-0",
+      "late",
+    );
+    const timedPayloads = Array.from({ length: 20 }, (_, index) =>
+      normalManifest("timed_window_menu", `organic-timed-window-${index}`),
+    ).flatMap((manifest) =>
+      manifest.options.flatMap((option) => [
+        ...option.effects,
+        ...(option.routeEffects ?? []),
+      ]),
+    );
+    const timedScopes = new Set(
+      timedPayloads
+        .map((payload) =>
+          typeof payload === "object" &&
+          payload !== null &&
+          "timedWindowScope" in payload
+            ? payload.timedWindowScope
+            : undefined,
+        )
+        .filter((scope): scope is string => typeof scope === "string"),
+    );
+
+    expect(delayed.precommitted.delayed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "delayed_hook_contract",
+          sourceShapeId: "reward_after_trigger",
+          rewardMetadata: expect.any(Object),
+        }),
+      ]),
+    );
+    expect(paired.precommitted.pairedReturn).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "paired_return_contract",
+          sourceShapeId: "paired_return",
+          created: expect.any(Object),
+          returnScene: expect.any(Object),
+        }),
+      ]),
+    );
+    expect(risk.precommitted.random?.map((entry) => entry.kind)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^(chance_to_gain_bane|chance_to_pay_cost)$/u),
+      ]),
+    );
+    expect(wager.precommitted.random?.map((entry) => entry.kind)).toEqual(
+      expect.arrayContaining(["wager"]),
+    );
+    expect(generated.generatedObjects[0]?.payload).toMatchObject({
+      source: "manifest_generated",
+      generatedBy: "natural_generated_object_builder",
+    });
+    expect(Array.from(timedScopes)).toEqual(
+      expect.arrayContaining(["battle", "dreamwell", "shop", "temporary_object"]),
+    );
   });
 
   slowIt("keeps every advertised debug payload shape forceable", async () => {
