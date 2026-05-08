@@ -134,7 +134,7 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
       );
     }
 
-    if (option.netConvertedEssence < 120) {
+    if (Math.abs(option.netConvertedEssence) < 120) {
       return fail(
         "timed_window_low_impact",
         "Timed window options must be impactful enough to define upcoming battles",
@@ -170,11 +170,17 @@ function timedWindowDescriptor(operation: JourneyOperation): TimedWindowDescript
     !declaredScope ||
     !declaredDuration ||
     !isMeaningfulDurationForScope(declaredScope, declaredDuration) ||
+    (record.affectedPlayer !== "you" &&
+      record.affectedPlayer !== "opponent" &&
+      record.affectedPlayer !== "both_players") ||
     typeof record.affectedObjectClass !== "string" ||
     typeof record.windowModifier !== "string" ||
     typeof record.amount !== "number" ||
     typeof record.windowValue !== "number" ||
-    (record.polarity !== "positive" && record.polarity !== "negative" && record.polarity !== "neutral")
+    (record.polarity !== "positive" &&
+      record.polarity !== "negative" &&
+      record.polarity !== "neutral" &&
+      record.polarity !== "mixed")
   ) {
     return undefined;
   }
@@ -192,6 +198,7 @@ function isMeaningfulDurationForScope(scope: string, duration: Record<string, un
 
   switch (scope) {
     case "battle":
+    case "battle_object":
     case "dreamwell":
     case "temporary_object":
       return duration.durationKind === "battle_count";

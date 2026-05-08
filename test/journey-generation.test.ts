@@ -4498,9 +4498,14 @@ describe("generateNextJourney", () => {
       .filter(
         (record) =>
           typeof record.timedWindowScope === "string" &&
-          typeof record.duration === "string",
+          typeof record.timedWindowDuration === "object" &&
+          record.timedWindowDuration !== null,
       )
-      .map((record) => `${record.timedWindowScope}:${record.duration}`);
+      .map((record) => {
+        const duration = record.timedWindowDuration as Record<string, unknown>;
+
+        return `${record.timedWindowScope}:${duration.durationKind}:${duration.count}`;
+      });
 
     expect(manifest.options).toHaveLength(3);
     expect(new Set(windows)).toHaveLength(1);
@@ -4508,6 +4513,7 @@ describe("generateNextJourney", () => {
       records.some(
         (record) =>
           typeof record.affectedObjectClass === "string" &&
+          typeof record.affectedPlayer === "string" &&
           typeof record.windowModifier === "string" &&
           typeof record.amount === "number" &&
           typeof record.windowValue === "number" &&
@@ -4538,10 +4544,12 @@ describe("generateNextJourney", () => {
       for (const record of records) {
         if (
           typeof record.timedWindowScope === "string" &&
-          typeof record.duration === "string"
+          typeof record.timedWindowDuration === "object" &&
+          record.timedWindowDuration !== null
         ) {
           scopes.add(record.timedWindowScope);
-          durations.add(record.duration);
+          const duration = record.timedWindowDuration as Record<string, unknown>;
+          durations.add(`${duration.durationKind}:${duration.count}`);
         }
       }
 
@@ -4553,6 +4561,7 @@ describe("generateNextJourney", () => {
     expect([...scopes]).toEqual(
       expect.arrayContaining([
         "battle",
+        "battle_object",
         "dreamwell",
         "shop",
         "route",
@@ -4588,6 +4597,7 @@ describe("generateNextJourney", () => {
               durationKind: "battle_count",
               count: 3,
             },
+            affectedPlayer: "you",
             affectedObjectClass: "battle_rewards",
             windowModifier: "reward_timing",
             amount: 1,
@@ -4614,6 +4624,7 @@ describe("generateNextJourney", () => {
               durationKind: "battle_count",
               count: 3,
             },
+            affectedPlayer: "you",
             affectedObjectClass: "event_cards",
             windowModifier: "add_keyword_fast",
             amount: 1,
@@ -4644,6 +4655,138 @@ describe("generateNextJourney", () => {
       ok: false,
       rule,
     });
+  });
+
+  it("reaches Milestone 12 battle-window payload families through normal timed-window fills", async () => {
+    const content = await loadContent(process.cwd());
+    const evidence = {
+      firstBreath: undefined as JourneyManifest | undefined,
+      brokenVictory: undefined as JourneyManifest | undefined,
+      trialOfWindows: undefined as JourneyManifest | undefined,
+    };
+    const seen = {
+      positive: false,
+      negative: false,
+      mixed: false,
+      bothPlayers: false,
+      opponent: false,
+      openingPlus: false,
+      openingMinus: false,
+      nextBattleDraw: false,
+      eachTurnDraw: false,
+      startingEnergy: false,
+      bothPlayerStartingEnergy: false,
+      bothPlayerStartingCards: false,
+      opponentPointThreshold: false,
+      battlePointCap: false,
+      characterSpark: false,
+      opponentTemporaryDreamsign: false,
+      temporaryNamedDreamsign: false,
+      energyCarryover: false,
+    };
+
+    for (let index = 0; index < 180; index += 1) {
+      const journeyContext = contextFromContent(content, `m12-timed-window-${index}`, "mid");
+      const manifest = fillForShapeAtStage("timed_window_menu", journeyContext, "mid");
+      const validation = validateJourneyManifest(manifest, journeyContext);
+
+      expect(manifest.debug.debugPayload, `m12-timed-window-${index}`).toBeUndefined();
+
+      if (!validation.ok) {
+        continue;
+      }
+
+      const payloads = manifest.options.flatMap((option) =>
+        option.operations.map((operation) => operation.payload)
+      ) as Record<string, unknown>[];
+
+      for (const payload of payloads) {
+        seen.positive ||= payload.polarity === "positive";
+        seen.negative ||= payload.polarity === "negative";
+        seen.mixed ||= payload.polarity === "mixed";
+        seen.bothPlayers ||= payload.affectedPlayer === "both_players";
+        seen.opponent ||= payload.affectedPlayer === "opponent";
+        seen.openingPlus ||= payload.battleWindowOperationKind === "opening_hand_cards" &&
+          payload.windowModifier === "extra_cards" &&
+          payload.affectedPlayer === "you";
+        seen.openingMinus ||= payload.battleWindowOperationKind === "opening_hand_cards" &&
+          payload.windowModifier === "fewer_cards";
+        seen.nextBattleDraw ||= payload.battleWindowOperationKind === "next_battle_draw";
+        seen.eachTurnDraw ||= payload.battleWindowOperationKind === "each_turn_draw";
+        seen.startingEnergy ||= payload.battleWindowOperationKind === "starting_energy" &&
+          payload.windowModifier === "extra_energy" &&
+          payload.affectedPlayer === "you";
+        seen.bothPlayerStartingEnergy ||= payload.battleWindowOperationKind === "starting_energy" &&
+          payload.windowModifier === "set_starting_energy" &&
+          payload.affectedPlayer === "both_players";
+        seen.bothPlayerStartingCards ||= payload.battleWindowOperationKind === "starting_cards" &&
+          payload.affectedPlayer === "both_players";
+        seen.opponentPointThreshold ||= payload.battleWindowOperationKind === "opponent_point_threshold";
+        seen.battlePointCap ||= payload.battleWindowOperationKind === "battle_point_cap";
+        seen.characterSpark ||= payload.battleWindowOperationKind === "character_spark";
+        seen.opponentTemporaryDreamsign ||= payload.battleWindowOperationKind === "temporary_dreamsign" &&
+          payload.affectedPlayer === "opponent";
+        seen.temporaryNamedDreamsign ||= payload.battleWindowOperationKind === "temporary_dreamsign" &&
+          payload.affectedPlayer === "you" &&
+          typeof payload.dreamsignName === "string";
+        seen.energyCarryover ||= payload.battleWindowOperationKind === "energy_carryover";
+      }
+
+      const hasFirstBreath = payloads.some((payload) =>
+        payload.battleWindowOperationKind === "opening_hand_cards" &&
+        payload.windowModifier === "extra_cards"
+      ) && payloads.some((payload) =>
+        payload.battleWindowOperationKind === "next_battle_draw"
+      ) && payloads.some((payload) =>
+        payload.battleWindowOperationKind === "temporary_dreamsign" &&
+        payload.affectedPlayer === "you" &&
+        typeof payload.dreamsignName === "string"
+      );
+      const hasBrokenVictory = payloads.some((payload) =>
+        payload.battleWindowOperationKind === "battle_point_cap"
+      ) && payloads.some((payload) =>
+        payload.battleWindowOperationKind === "starting_energy" &&
+        payload.affectedPlayer === "both_players"
+      ) && payloads.some((payload) =>
+        payload.battleWindowOperationKind === "starting_cards" &&
+        payload.affectedPlayer === "both_players"
+      );
+      const hasTrialOfWindows = payloads.some((payload) =>
+        payload.battleWindowOperationKind === "character_spark" &&
+        payload.affectedPlayer === "both_players"
+      ) && payloads.some((payload) =>
+        payload.battleWindowOperationKind === "each_turn_draw" &&
+        payload.affectedPlayer === "both_players"
+      );
+
+      evidence.firstBreath = evidence.firstBreath ?? (hasFirstBreath ? manifest : undefined);
+      evidence.brokenVictory = evidence.brokenVictory ?? (hasBrokenVictory ? manifest : undefined);
+      evidence.trialOfWindows = evidence.trialOfWindows ?? (hasTrialOfWindows ? manifest : undefined);
+    }
+
+    expect(seen).toEqual({
+      positive: true,
+      negative: true,
+      mixed: true,
+      bothPlayers: true,
+      opponent: true,
+      openingPlus: true,
+      openingMinus: true,
+      nextBattleDraw: true,
+      eachTurnDraw: true,
+      startingEnergy: true,
+      bothPlayerStartingEnergy: true,
+      bothPlayerStartingCards: true,
+      opponentPointThreshold: true,
+      battlePointCap: true,
+      characterSpark: true,
+      opponentTemporaryDreamsign: true,
+      temporaryNamedDreamsign: true,
+      energyCarryover: true,
+    });
+    expect(evidence.firstBreath).toBeDefined();
+    expect(evidence.brokenVictory).toBeDefined();
+    expect(evidence.trialOfWindows).toBeDefined();
   });
 
   it("does not emit a higher-cost duplicate card draft reward when typed draft predicates fall back", async () => {

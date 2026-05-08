@@ -107,7 +107,10 @@ export type OperationValueMetadata = {
       | "bane_temporary_duration"
       | "bane_delayed_timing"
       | "bane_purge_certainty"
-      | "bane_replacement_relief";
+      | "bane_replacement_relief"
+      | "battle_window_operation"
+      | "battle_window_player"
+      | "battle_window_polarity";
     label: string;
     description: string;
     amount?: number;

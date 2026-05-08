@@ -932,6 +932,44 @@ function resourceOperationMetadataBands(value: PayloadRecord): NonNullable<Opera
   return bands;
 }
 
+function battleWindowMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const kind = legacyKind(value);
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+
+  if (kind !== "battle_window_modifier" && typeof value.timedWindowScope !== "string") {
+    return bands;
+  }
+
+  if (typeof value.battleWindowOperationKind === "string" || typeof value.windowModifier === "string") {
+    bands.push({
+      id: "battle_window_operation",
+      label: typeof value.battleWindowOperationKind === "string"
+        ? value.battleWindowOperationKind
+        : value.windowModifier as string,
+      description: "Battle-window value tracks the selected temporary rule mutation.",
+      ...(typeof value.amount === "number" ? { amount: value.amount } : {}),
+    });
+  }
+
+  if (typeof value.affectedPlayer === "string") {
+    bands.push({
+      id: "battle_window_player",
+      label: value.affectedPlayer,
+      description: "Battle-window value records whether the rule affects you, the opponent, or both players.",
+    });
+  }
+
+  if (typeof value.polarity === "string") {
+    bands.push({
+      id: "battle_window_polarity",
+      label: value.polarity,
+      description: "Battle-window value records positive, negative, neutral, or mixed polarity.",
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -944,6 +982,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...dreamsignOperationMetadataBands(payload),
       ...baneOperationMetadataBands(payload),
       ...resourceOperationMetadataBands(payload),
+      ...battleWindowMetadataBands(payload),
     ];
 
     if (bands.length > 0) {

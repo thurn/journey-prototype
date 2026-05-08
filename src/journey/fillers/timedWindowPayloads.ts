@@ -16,6 +16,7 @@ import {
 
 type TimedWindowScope =
   | "battle"
+  | "battle_object"
   | "dreamwell"
   | "shop"
   | "route"
@@ -43,10 +44,11 @@ type TimedWindowPayloadMetadata = {
     durationKind: "battle_count" | "shop_count" | "dreamscape_count";
     count: number;
   };
+  affectedPlayer: "you" | "opponent" | "both_players";
   affectedObjectClass: string;
   windowModifier: string;
   amount: number;
-  polarity: "positive" | "negative" | "neutral";
+  polarity: "positive" | "negative" | "neutral" | "mixed";
   windowValue: number;
 };
 
@@ -60,10 +62,13 @@ function durationKind(scope: TimedWindowScope): TimedWindowPayloadMetadata["time
 
 function metadata(
   window: TimedWindow,
-  args: Omit<TimedWindowPayloadMetadata, "timedWindowDuration">,
+  args: Omit<TimedWindowPayloadMetadata, "timedWindowDuration" | "affectedPlayer"> & {
+    affectedPlayer?: TimedWindowPayloadMetadata["affectedPlayer"];
+  },
 ): TimedWindowPayloadMetadata {
   return {
     ...args,
+    affectedPlayer: args.affectedPlayer ?? "you",
     timedWindowDuration: {
       durationKind: durationKind(args.timedWindowScope),
       count: window.count,
@@ -75,17 +80,111 @@ function valueForWindow(baseValue: number, window: TimedWindow, amount = 1): num
   return baseValue + (window.count - 2) * 10 + (amount - 1) * 25;
 }
 
-function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): TimedWindowEntry[] {
+function signedValue(baseValue: number, polarity: TimedWindowPayloadMetadata["polarity"]): number {
+  return polarity === "negative" ? -baseValue : baseValue;
+}
+
+function battlePayload(
+  window: TimedWindow,
+  args: {
+    operationKind: string;
+    modifier: string;
+    affectedPlayer?: TimedWindowPayloadMetadata["affectedPlayer"];
+    affectedObjectClass: string;
+    windowModifier: string;
+    amount: number;
+    polarity: TimedWindowPayloadMetadata["polarity"];
+    value: number;
+    scope?: Extract<TimedWindowScope, "battle" | "battle_object">;
+    setValue?: number;
+    dreamsignId?: string;
+    dreamsignName?: string;
+    source?: "pool" | "catalog";
+  },
+): Record<string, unknown> {
+  return {
+    kind: "battle_window_modifier",
+    battleWindowOperationKind: args.operationKind,
+    duration: window.duration,
+    timing: window.duration,
+    modifier: args.modifier,
+    ...(args.setValue !== undefined ? { setValue: args.setValue } : {}),
+    ...(args.dreamsignId ? { dreamsignId: args.dreamsignId } : {}),
+    ...(args.dreamsignName ? { dreamsignName: args.dreamsignName } : {}),
+    ...(args.source ? { source: args.source } : {}),
+    ...metadata(window, {
+      timedWindowScope: args.scope ?? "battle",
+      affectedPlayer: args.affectedPlayer,
+      affectedObjectClass: args.affectedObjectClass,
+      windowModifier: args.windowModifier,
+      amount: args.amount,
+      polarity: args.polarity,
+      windowValue: signedValue(args.value, args.polarity),
+    }),
+  };
+}
+
+function battleWindowOptions(
+  context: JourneyContext,
+  window: TimedWindow,
+  drawContext: DrawContext,
+): TimedWindowEntry[] {
   const openingHandAmount = pickSequentialVariant(
     drawContext,
     "timed-window:battle:opening-hand-amount",
     [1, 2] as const,
   );
-  const turnTwoAmount = pickSequentialVariant(
+  const nextBattleAmount = pickSequentialVariant(
     drawContext,
-    "timed-window:battle:turn-two-amount",
+    "timed-window:battle:next-battle-draw-amount",
     [1, 2] as const,
   );
+  const dreamsign = selectedDreamsignTargets(context, drawContext)[0];
+  const temporaryDreamsignEntries: TimedWindowEntry[] = dreamsign
+    ? [
+        {
+          key: "temporary-named-dreamsign",
+          text: `${window.phrase}, gain {${dreamsign.name}} as a temporary Dreamsign.`,
+          effects: [
+            battlePayload(window, {
+              operationKind: "temporary_dreamsign",
+              modifier: "temporary_dreamsign",
+              affectedObjectClass: "dreamsign",
+              windowModifier: "temporary_grant",
+              amount: 1,
+              polarity: "positive",
+              value: valueForWindow(135, window),
+              dreamsignId: dreamsign.id,
+              dreamsignName: dreamsign.name,
+              source: "pool",
+            }),
+          ],
+          effect: valueForWindow(135, window),
+          uncertainty: -10,
+        },
+        {
+          key: "opponent-temporary-dreamsign",
+          text: `${window.phrase}, your opponent gains {${dreamsign.name}} as a temporary Dreamsign.`,
+          effects: [
+            battlePayload(window, {
+              operationKind: "temporary_dreamsign",
+              modifier: "temporary_dreamsign",
+              affectedPlayer: "opponent",
+              affectedObjectClass: "dreamsign",
+              windowModifier: "temporary_grant",
+              amount: 1,
+              polarity: "negative",
+              value: valueForWindow(125, window),
+              dreamsignId: dreamsign.id,
+              dreamsignName: dreamsign.name,
+              source: "pool",
+            }),
+          ],
+          effect: -valueForWindow(125, window),
+          uncertainty: -10,
+        },
+      ]
+    : [];
   const candidates: TimedWindowEntry[] = [
     {
       key: "event-fast",
@@ -113,41 +212,49 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
       key: "opening-hand",
       text: `${window.phrase}, draw ${openingHandAmount} extra card${openingHandAmount === 1 ? "" : "s"} in your opening hand.`,
       effects: [
-        {
-          kind: "battle_window_modifier",
-          duration: window.duration,
+        battlePayload(window, {
+          operationKind: "opening_hand_cards",
           modifier: "opening_hand_cards",
-          ...metadata(window, {
-            timedWindowScope: "battle",
-            affectedObjectClass: "opening_hand",
-            windowModifier: "extra_cards",
-            amount: openingHandAmount,
-            polarity: "positive",
-            windowValue: valueForWindow(145, window, openingHandAmount),
-          }),
-        },
+          affectedObjectClass: "opening_hand",
+          windowModifier: "extra_cards",
+          amount: openingHandAmount,
+          polarity: "positive",
+          value: valueForWindow(145, window, openingHandAmount),
+        }),
       ],
       effect: valueForWindow(145, window, openingHandAmount),
     },
     {
-      key: "turn-one-energy",
-      text: `${window.phrase}, gain 1 extra energy on turn 1.`,
+      key: "opening-hand-minus",
+      text: `${window.phrase}, draw 1 fewer card in your opening hand.`,
       effects: [
-        {
-          kind: "battle_window_modifier",
-          duration: window.duration,
-          modifier: "turn_1_energy",
-          ...metadata(window, {
-            timedWindowScope: "battle",
-            affectedObjectClass: "turn_1_energy",
-            windowModifier: "extra_energy",
-            amount: 1,
-            polarity: "positive",
-            windowValue: valueForWindow(150, window),
-          }),
-        },
+        battlePayload(window, {
+          operationKind: "opening_hand_cards",
+          modifier: "opening_hand_cards",
+          affectedObjectClass: "opening_hand",
+          windowModifier: "fewer_cards",
+          amount: 1,
+          polarity: "negative",
+          value: valueForWindow(130, window),
+        }),
       ],
-      effect: valueForWindow(150, window),
+      effect: -valueForWindow(130, window),
+    },
+    {
+      key: "starting-energy",
+      text: `${window.phrase}, start each battle with 2 additional energy.`,
+      effects: [
+        battlePayload(window, {
+          operationKind: "starting_energy",
+          modifier: "starting_energy",
+          affectedObjectClass: "starting_energy",
+          windowModifier: "extra_energy",
+          amount: 2,
+          polarity: "positive",
+          value: valueForWindow(150, window, 2),
+        }),
+      ],
+      effect: valueForWindow(150, window, 2),
     },
     {
       key: "event-reclaim",
@@ -170,28 +277,316 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
       effect: valueForWindow(155, window),
     },
     {
-      key: "turn-two-cards",
-      text: `${window.phrase}, draw ${turnTwoAmount} extra card${turnTwoAmount === 1 ? "" : "s"} on turn 2.`,
+      key: "next-battle-draw",
+      text: `${window.phrase}, draw ${nextBattleAmount} additional card${nextBattleAmount === 1 ? "" : "s"} after your opening hand in each battle.`,
       effects: [
-        {
-          kind: "battle_window_modifier",
-          duration: window.duration,
-          modifier: "turn_2_cards",
-          ...metadata(window, {
-            timedWindowScope: "battle",
-            affectedObjectClass: "turn_2_draw",
-            windowModifier: "extra_cards",
-            amount: turnTwoAmount,
-            polarity: "positive",
-            windowValue: valueForWindow(140, window, turnTwoAmount),
-          }),
-        },
+        battlePayload(window, {
+          operationKind: "next_battle_draw",
+          modifier: "next_battle_draw",
+          affectedObjectClass: "battle_draw",
+          windowModifier: "extra_cards",
+          amount: nextBattleAmount,
+          polarity: "positive",
+          value: valueForWindow(140, window, nextBattleAmount),
+        }),
       ],
-      effect: valueForWindow(140, window, turnTwoAmount),
+      effect: valueForWindow(140, window, nextBattleAmount),
     },
+    {
+      key: "energy-carryover",
+      text: `${window.phrase}, carry over up to 1 unspent energy between turns.`,
+      effects: [
+        battlePayload(window, {
+          operationKind: "energy_carryover",
+          modifier: "unspent_energy_carryover",
+          affectedObjectClass: "energy",
+          windowModifier: "carryover",
+          amount: 1,
+          polarity: "positive",
+          value: valueForWindow(135, window),
+        }),
+      ],
+      effect: valueForWindow(135, window),
+    },
+    {
+      key: "opponent-point-threshold",
+      text: `${window.phrase}, your opponent needs 3 additional points to win a battle.`,
+      effects: [
+        battlePayload(window, {
+          operationKind: "opponent_point_threshold",
+          modifier: "opponent_point_threshold",
+          affectedPlayer: "opponent",
+          affectedObjectClass: "battle_point_threshold",
+          windowModifier: "increase_threshold",
+          amount: 3,
+          polarity: "positive",
+          value: valueForWindow(95, window, 3),
+        }),
+      ],
+      effect: valueForWindow(95, window, 3),
+    },
+    ...temporaryDreamsignEntries,
   ];
 
   return shuffleDeterministic(drawContext, "timed-window:battle-options", candidates);
+}
+
+function battleObjectWindowOptions(
+  context: JourneyContext,
+  window: TimedWindow,
+  drawContext: DrawContext,
+): TimedWindowEntry[] {
+  const dreamsign = selectedDreamsignTargets(context, drawContext)[0];
+  const baseScope = "battle_object" as const;
+  const temporaryDreamsign: TimedWindowEntry | undefined = dreamsign
+    ? {
+        key: "temporary-named-dreamsign",
+        text: `${window.phrase}, gain {${dreamsign.name}} as a temporary Dreamsign.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "temporary_dreamsign",
+            modifier: "temporary_dreamsign",
+            affectedObjectClass: "dreamsign",
+            windowModifier: "temporary_grant",
+            amount: 1,
+            polarity: "positive",
+            value: valueForWindow(135, window),
+            scope: baseScope,
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            source: "pool",
+          }),
+        ],
+        effect: valueForWindow(135, window),
+        uncertainty: -10,
+      }
+    : undefined;
+  const variants: TimedWindowEntry[][] = [
+    [
+      {
+        key: "opening-hand",
+        text: `${window.phrase}, draw 1 additional card in your opening hand.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "opening_hand_cards",
+            modifier: "opening_hand_cards",
+            affectedObjectClass: "opening_hand",
+            windowModifier: "extra_cards",
+            amount: 1,
+            polarity: "positive",
+            value: valueForWindow(145, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(145, window),
+      },
+      {
+        key: "next-battle-draw",
+        text: `${window.phrase}, draw 2 additional cards after your opening hand in each battle.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "next_battle_draw",
+            modifier: "next_battle_draw",
+            affectedObjectClass: "battle_draw",
+            windowModifier: "extra_cards",
+            amount: 2,
+            polarity: "positive",
+            value: valueForWindow(150, window, 2),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(150, window, 2),
+      },
+      ...(temporaryDreamsign ? [temporaryDreamsign] : []),
+    ],
+    [
+      {
+        key: "battle-point-cap",
+        text: `${window.phrase}, battles end at 15 points.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "battle_point_cap",
+            modifier: "battle_point_cap",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "battle_point_cap",
+            windowModifier: "set_cap",
+            amount: 15,
+            setValue: 15,
+            polarity: "mixed",
+            value: valueForWindow(130, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(130, window),
+      },
+      {
+        key: "both-player-starting-energy",
+        text: `${window.phrase}, both players start each battle with 5 energy.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "starting_energy",
+            modifier: "starting_energy",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "starting_energy",
+            windowModifier: "set_starting_energy",
+            amount: 5,
+            setValue: 5,
+            polarity: "mixed",
+            value: valueForWindow(130, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(130, window),
+      },
+      {
+        key: "both-player-starting-cards",
+        text: `${window.phrase}, both players begin each battle with 7 cards.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "starting_cards",
+            modifier: "starting_cards",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "opening_hand",
+            windowModifier: "set_starting_cards",
+            amount: 7,
+            setValue: 7,
+            polarity: "mixed",
+            value: valueForWindow(130, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(130, window),
+      },
+    ],
+    [
+      {
+        key: "both-player-character-spark",
+        text: `${window.phrase}, both players' first character each turn enters with +1 spark.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "character_spark",
+            modifier: "character_spark",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "character",
+            windowModifier: "spark_bonus",
+            amount: 1,
+            polarity: "mixed",
+            value: valueForWindow(135, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(135, window),
+      },
+      {
+        key: "both-player-each-turn-draw",
+        text: `${window.phrase}, both players draw 1 additional card each turn.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "each_turn_draw",
+            modifier: "each_turn_draw",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "turn_draw",
+            windowModifier: "extra_cards_each_turn",
+            amount: 1,
+            polarity: "mixed",
+            value: valueForWindow(140, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(140, window),
+      },
+      {
+        key: "both-player-energy-carryover",
+        text: `${window.phrase}, both players carry over up to 1 unspent energy between turns.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "energy_carryover",
+            modifier: "unspent_energy_carryover",
+            affectedPlayer: "both_players",
+            affectedObjectClass: "energy",
+            windowModifier: "carryover",
+            amount: 1,
+            polarity: "mixed",
+            value: valueForWindow(130, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(130, window),
+      },
+    ],
+    [
+      {
+        key: "opening-hand-minus",
+        text: `${window.phrase}, draw 1 fewer card in your opening hand.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "opening_hand_cards",
+            modifier: "opening_hand_cards",
+            affectedObjectClass: "opening_hand",
+            windowModifier: "fewer_cards",
+            amount: 1,
+            polarity: "negative",
+            value: valueForWindow(130, window),
+            scope: baseScope,
+          }),
+        ],
+        effect: -valueForWindow(130, window),
+      },
+      {
+        key: "opponent-temporary-dreamsign",
+        text: dreamsign
+          ? `${window.phrase}, your opponent gains {${dreamsign.name}} as a temporary Dreamsign.`
+          : `${window.phrase}, your opponent gains a temporary Dreamsign.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "temporary_dreamsign",
+            modifier: "temporary_dreamsign",
+            affectedPlayer: "opponent",
+            affectedObjectClass: "dreamsign",
+            windowModifier: "temporary_grant",
+            amount: 1,
+            polarity: "negative",
+            value: valueForWindow(125, window),
+            scope: baseScope,
+            ...(dreamsign
+              ? {
+                  dreamsignId: dreamsign.id,
+                  dreamsignName: dreamsign.name,
+                  source: "pool" as const,
+                }
+              : {}),
+          }),
+        ],
+        effect: -valueForWindow(125, window),
+        uncertainty: -10,
+      },
+      {
+        key: "opponent-point-threshold",
+        text: `${window.phrase}, your opponent needs 3 additional points to win a battle.`,
+        effects: [
+          battlePayload(window, {
+            operationKind: "opponent_point_threshold",
+            modifier: "opponent_point_threshold",
+            affectedPlayer: "opponent",
+            affectedObjectClass: "battle_point_threshold",
+            windowModifier: "increase_threshold",
+            amount: 3,
+            polarity: "positive",
+            value: valueForWindow(95, window, 3),
+            scope: baseScope,
+          }),
+        ],
+        effect: valueForWindow(95, window, 3),
+      },
+    ],
+  ];
+  const eligible = variants.filter((entries) => entries.length >= 3);
+
+  return pickSequentialVariant(
+    drawContext,
+    "timed-window:battle-object-variant",
+    eligible,
+  );
 }
 
 function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): TimedWindowEntry[] {
@@ -443,7 +838,9 @@ function routeWindowOptions(window: TimedWindow, drawContext: DrawContext): Time
   );
   const route = (
     payload: ReturnType<typeof routePayload>,
-    extra: Omit<TimedWindowPayloadMetadata, "timedWindowDuration">,
+    extra: Omit<TimedWindowPayloadMetadata, "timedWindowDuration" | "affectedPlayer"> & {
+      affectedPlayer?: TimedWindowPayloadMetadata["affectedPlayer"];
+    },
   ) => ({
     ...payload,
     duration: window.duration,
@@ -628,13 +1025,19 @@ function timedWindow(
 ): TimedWindow {
   const scope = pickSequentialVariant(drawContext, `${shapeId}:window-scope`, [
     "battle",
+    "battle_object",
     "dreamwell",
     "shop",
     "route",
     "temporary_object",
   ] as const);
 
-  if (scope === "battle" || scope === "dreamwell" || scope === "temporary_object") {
+  if (
+    scope === "battle" ||
+    scope === "battle_object" ||
+    scope === "dreamwell" ||
+    scope === "temporary_object"
+  ) {
     const count = pickSequentialVariant(
       drawContext,
       `${shapeId}:battle-window-count`,
@@ -689,7 +1092,9 @@ export function timedWindowMenuFill(args: {
 } {
   const window = timedWindow(args.drawContext, args.shapeId);
   const entries = window.scope === "battle"
-    ? battleWindowOptions(window, args.drawContext)
+    ? battleWindowOptions(args.context, window, args.drawContext)
+    : window.scope === "battle_object"
+      ? battleObjectWindowOptions(args.context, window, args.drawContext)
     : window.scope === "dreamwell"
       ? dreamwellWindowOptions(window, args.drawContext)
       : window.scope === "shop"

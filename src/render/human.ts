@@ -497,6 +497,32 @@ function operationPoolDebugText(operation: JourneyOption["operations"][number]):
 
 function operationContractDebugText(operation: JourneyOption["operations"][number]): string[] {
   const lines: string[] = [];
+  const payload = operation.payload;
+
+  if (typeof payload.timedWindowScope === "string") {
+    const timedWindowDuration = payload.timedWindowDuration;
+    const duration = isRecord(timedWindowDuration) &&
+      typeof timedWindowDuration.durationKind === "string" &&
+      typeof timedWindowDuration.count === "number"
+      ? `${timedWindowDuration.durationKind}:${timedWindowDuration.count}`
+      : "unknown";
+    const player = typeof payload.affectedPlayer === "string"
+      ? payload.affectedPlayer
+      : "unknown";
+    const objectClass = typeof payload.affectedObjectClass === "string"
+      ? payload.affectedObjectClass
+      : "unknown";
+    const modifier = typeof payload.windowModifier === "string"
+      ? payload.windowModifier
+      : "unknown";
+    const polarity = typeof payload.polarity === "string"
+      ? payload.polarity
+      : "unknown";
+
+    lines.push(
+      `  Window: scope=${payload.timedWindowScope} duration=${duration} player=${player} object=${objectClass} modifier=${modifier} polarity=${polarity}.`,
+    );
+  }
 
   if (operation.operationKind === "delayed_hook") {
     if (operation.triggerSelector) {
