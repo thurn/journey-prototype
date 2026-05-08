@@ -2577,6 +2577,132 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("fills generic paired-return choices with typed return contracts", async () => {
+    const journeyContext = await context("generic-paired-return");
+    const manifest = fillForShape("paired_return", journeyContext);
+    const pairedPrecommits = manifest.precommitted.pairedReturn ?? [];
+    const delayedPrecommits = manifest.precommitted.delayed ?? [];
+    const optionHookIds = new Set(
+      manifest.options
+        .flatMap((option) => option.triggers)
+        .map((trigger) =>
+          typeof trigger === "object" &&
+          trigger !== null &&
+          !Array.isArray(trigger) &&
+          "hookId" in trigger
+            ? trigger.hookId
+            : undefined,
+        )
+        .filter((hookId): hookId is string => typeof hookId === "string"),
+    );
+    const pairedOperations =
+      manifest.precommitted.operations?.filter(
+        (operation) => operation.operationKind === "paired_return",
+      ) ?? [];
+    const delayedOperations =
+      manifest.precommitted.operations?.filter(
+        (operation) =>
+          operation.operationKind === "delayed_hook" &&
+          operation.payload.kind === "paired_return_contract",
+      ) ?? [];
+
+    expect(pairedPrecommits).toHaveLength(2);
+    expect(delayedPrecommits).toHaveLength(2);
+    expect(pairedOperations).toHaveLength(2);
+    expect(delayedOperations).toHaveLength(2);
+
+    for (const precommit of pairedPrecommits) {
+      expect(precommit).toMatchObject({
+        kind: "paired_return_contract",
+        pairedReturnId: expect.any(String),
+        hookId: expect.any(String),
+        optionNumber: expect.any(Number),
+        anchor: expect.any(String),
+        created: expect.objectContaining({
+          referenceKind: expect.stringMatching(
+            /^(sealed_object|borrowed_object|trade_promise)$/u,
+          ),
+          referenceId: expect.any(String),
+          label: expect.any(String),
+        }),
+        returnScene: expect.objectContaining({
+          returnSceneKind: expect.stringMatching(
+            /^(sealed_object_return|borrowed_object_return|future_trade)$/u,
+          ),
+          triggerSelector: expect.objectContaining({
+            triggerKind: expect.any(String),
+            label: expect.any(String),
+          }),
+          referencesCreatedId: expect.any(String),
+          resolution: expect.any(String),
+          expiration: expect.objectContaining({
+            policyKind: expect.any(String),
+            label: expect.any(String),
+          }),
+          duration: expect.objectContaining({
+            durationKind: expect.any(String),
+            label: expect.any(String),
+          }),
+        }),
+        visibilityPolicy: expect.objectContaining({
+          outcomeVisibility: "visible",
+        }),
+        hookBudgetCost: 1,
+        sourceShapeId: "paired_return",
+        returnFamilyId: expect.any(String),
+        rewardMetadata: expect.objectContaining({
+          rewardKey: expect.any(String),
+          expectedConvertedEssence: expect.any(Number),
+        }),
+      });
+      expect(
+        (
+          precommit as {
+            returnScene: { referencesCreatedId: string };
+            created: { referenceId: string };
+          }
+        ).returnScene.referencesCreatedId,
+      ).toBe(
+        (precommit as { created: { referenceId: string } }).created.referenceId,
+      );
+      expect(optionHookIds.has((precommit as { hookId: string }).hookId)).toBe(
+        true,
+      );
+    }
+
+    expect(pairedOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contract: expect.objectContaining({
+            pairedReturnId: expect.any(String),
+            created: expect.any(Object),
+            returnScene: expect.any(Object),
+            visibilityPolicy: expect.any(Object),
+          }),
+        }),
+      ]),
+    );
+    expect(delayedOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          triggerSelector: expect.objectContaining({
+            triggerKind: expect.any(String),
+          }),
+          controlledScene: expect.objectContaining({
+            sceneKind: "return",
+          }),
+          rewardOperations: expect.any(Array),
+        }),
+      ]),
+    );
+    expect(generatedOptionText(manifest).join("\n")).toMatch(
+      /Return|Borrow|Promise/iu,
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
   it("values next-battle Dreamsign rewards as near-term premium rewards", async () => {
     const journeyContext = await context(
       "random:3aa6092e-d433-4819-b86c-ccf61b9f51cd",

@@ -1,6 +1,9 @@
 import type { CardContent, DreamsignContent } from "../../content/model.js";
 import type { JourneyContext } from "../../quest/context.js";
-import { type DrawContext } from "../../util/rng.js";
+import {
+  shuffleDeterministic,
+  type DrawContext,
+} from "../../util/rng.js";
 import type { JourneyOption } from "../manifest.js";
 import { valueOmenLoss } from "../value.js";
 import {
@@ -29,6 +32,11 @@ type DelayedTimingSlot = {
   multiplier: number;
   uncertainty: number;
 };
+
+type PairedReturnFamilyId =
+  | "sealed_card"
+  | "borrowed_dreamsign"
+  | "future_trade";
 
 export function hookTrigger(args: {
   triggerKind:
@@ -145,6 +153,10 @@ export function delayedHookContract(args: {
 
 function normalizedHookId(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "");
+}
+
+function optionRewardLabel(reward: RewardSlot): string {
+  return lowerFirst(reward.text).replace(/\.$/u, "");
 }
 
 function timingTriggerSelector(timing: DelayedTimingSlot): Record<string, unknown> {
@@ -619,6 +631,282 @@ export function pairedReturnContract(args: {
       hookVisibility("visible", "The return scene is shown before choosing."),
     reward: args.reward,
     hookBudgetCost: 1,
+  };
+}
+
+function pairedReturnFamilies(
+  drawContext: DrawContext,
+  label: string,
+): PairedReturnFamilyId[] {
+  return shuffleDeterministic(drawContext, label, [
+    "sealed_card",
+    "borrowed_dreamsign",
+    "future_trade",
+  ] as const);
+}
+
+export function pairedReturnHookFill(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  shapeId: string;
+  optionNumber: number;
+  reward: RewardSlot;
+}): { option: JourneyOption; precommit: Record<string, unknown> } {
+  const cards = catalogRewardCards(args.context, args.drawContext);
+  const cardA = cards[(args.optionNumber - 1) % Math.max(cards.length, 1)] ??
+    args.context.content.cards[0]!;
+  const cardB = cards[args.optionNumber % Math.max(cards.length, 1)] ?? cardA;
+  const dreamsigns = selectedDreamsignTargets(args.context, args.drawContext);
+  const dreamsignA =
+    dreamsigns[(args.optionNumber - 1) % Math.max(dreamsigns.length, 1)] ??
+    args.context.content.dreamsigns[0]!;
+  const dreamsignB =
+    dreamsigns[args.optionNumber % Math.max(dreamsigns.length, 1)] ??
+    args.context.content.dreamsigns.find((entry) => entry.id !== dreamsignA.id) ??
+    dreamsignA;
+  const family = pairedReturnFamilies(
+    args.drawContext,
+    `${args.shapeId}:return-family-order`,
+  )[(args.optionNumber - 1) % 3]!;
+  const rewardLabel = optionRewardLabel(args.reward);
+  const pairedReturnId = normalizedHookId(
+    `${args.shapeId}-${args.optionNumber}-${family}-${args.reward.key}`,
+  );
+  const optionEffect = Math.round(args.reward.effect * 1.15);
+
+  if (family === "sealed_card") {
+    const createdId = `${pairedReturnId}-sealed-card`;
+    const precommit = {
+      ...pairedReturnContract({
+        pairedReturnId,
+        optionNumber: args.optionNumber,
+        anchor: `${cardA.name} sealed bundle`,
+        created: {
+          referenceKind: "sealed_object",
+          referenceId: createdId,
+          label: `Seal {${cardA.name}} until the next Dream Journey site.`,
+          objectKind: "card",
+          cardId: cardA.id,
+          cardName: cardA.name,
+          statusScope: "quest",
+        },
+        returnScene: {
+          returnSceneKind: "sealed_object_return",
+          triggerSelector: hookTrigger({
+            triggerKind: "future_dream_journey",
+            label: "at the next Dream Journey site",
+            count: 1,
+          }),
+          referencesCreatedId: createdId,
+          resolution: `Return {${cardA.name}} as {${cardB.name}} and ${rewardLabel}.`,
+          expiration: expiration(
+            "return_unchanged",
+            "If no Dream Journey site appears within 2 dreamscapes, return the sealed card unchanged.",
+          ),
+          duration: boundedDuration(
+            "dreamscape_count",
+            "within 2 dreamscapes",
+            2,
+          ),
+        },
+        reward: [
+          namedCardPayload(
+            {
+              kind: "card_transform",
+              target: cardA,
+              result: cardB,
+              source: "catalog",
+              extra: { timing: "at the next Dream Journey site" },
+            },
+            args.context,
+          ),
+          ...args.reward.effects,
+        ],
+      }),
+      sourceShapeId: args.shapeId,
+      returnFamilyId: family,
+      rewardMetadata: {
+        rewardKey: args.reward.key,
+        baseConvertedEssence: args.reward.effect,
+        expectedConvertedEssence: optionEffect,
+      },
+    };
+
+    return {
+      option: option({
+        number: args.optionNumber,
+        text: `Seal {${cardA.name}} until the next Dream Journey site. Return it as {${cardB.name}} and ${rewardLabel}, or return it unchanged if the 2-dreamscape window expires.`,
+        triggers: [precommit],
+        effects: args.reward.effects,
+        targets: [
+          target("card", `${cardA.name} in catalog`, {
+            source: "catalog",
+            ids: [cardA.id],
+            names: [cardA.name],
+          }),
+          target("card", `${cardB.name} in catalog`, {
+            source: "catalog",
+            ids: [cardB.id],
+            names: [cardB.name],
+          }),
+          ...(args.reward.targets ?? []),
+        ],
+        effect: optionEffect,
+        uncertainty: -10,
+      }),
+      precommit,
+    };
+  }
+
+  if (family === "borrowed_dreamsign") {
+    const createdId = `${pairedReturnId}-borrowed-dreamsign`;
+    const futureOmenCost = 1;
+    const expectedValue = optionEffect + valueOmenLoss(futureOmenCost);
+    const precommit = {
+      ...pairedReturnContract({
+        pairedReturnId,
+        optionNumber: args.optionNumber,
+        anchor: `${dreamsignA.name} borrowed sign`,
+        created: {
+          referenceKind: "borrowed_object",
+          referenceId: createdId,
+          label: `Borrow {${dreamsignA.name}} for the next 2 battles.`,
+          objectKind: "dreamsign",
+          dreamsignId: dreamsignA.id,
+          dreamsignName: dreamsignA.name,
+          cost: { resource: "omens", amount: futureOmenCost },
+        },
+        returnScene: {
+          returnSceneKind: "borrowed_object_return",
+          triggerSelector: hookTrigger({
+            triggerKind: "each_battle",
+            label: "after 2 battles",
+            count: 2,
+          }),
+          referencesCreatedId: createdId,
+          resolution: `Return {${dreamsignA.name}} and pay ${futureOmenCost} omen; if paid, ${rewardLabel}.`,
+          expiration: expiration(
+            "pay_cost",
+            "If the borrowed sign is not returned after 2 battles, pay the committed omen cost.",
+          ),
+          duration: boundedDuration("battle_count", "next 2 battles", 2),
+        },
+        reward: [
+          namedDreamsignPayload(
+            {
+              kind: "dreamsign_temporary_grant",
+              dreamsign: dreamsignA,
+              source: "pool",
+              extra: { temporary: true, duration: "next 2 battles" },
+            },
+            args.context,
+          ),
+          ...args.reward.effects,
+        ],
+      }),
+      sourceShapeId: args.shapeId,
+      returnFamilyId: family,
+      rewardMetadata: {
+        rewardKey: args.reward.key,
+        baseConvertedEssence: args.reward.effect,
+        expectedConvertedEssence: expectedValue,
+      },
+    };
+
+    return {
+      option: option({
+        number: args.optionNumber,
+        text: `Borrow {${dreamsignA.name}} for 2 battles. Return it after 2 battles and pay ${futureOmenCost} omen; if paid, ${rewardLabel}.`,
+        triggers: [precommit],
+        effects: args.reward.effects,
+        targets: [
+          dreamsignExactTarget(dreamsignA, "pool"),
+          ...(args.reward.targets ?? []),
+        ],
+        effect: expectedValue,
+        uncertainty: -15,
+      }),
+      precommit,
+    };
+  }
+
+  const createdId = `${pairedReturnId}-future-trade`;
+  const expectedValue = optionEffect + valueOmenLoss(1);
+  const precommit = {
+    ...pairedReturnContract({
+      pairedReturnId,
+      optionNumber: args.optionNumber,
+      anchor: `${dreamsignA.name} for ${dreamsignB.name} trade promise`,
+      created: {
+        referenceKind: "trade_promise",
+        referenceId: createdId,
+        label: `Promise to trade {${dreamsignA.name}} for {${dreamsignB.name}} at the next Shop.`,
+        objectKind: "promise",
+        dreamsignId: dreamsignA.id,
+        dreamsignName: dreamsignA.name,
+        cost: { resource: "omens", amount: 1 },
+      },
+      returnScene: {
+        returnSceneKind: "future_trade",
+        triggerSelector: hookTrigger({
+          triggerKind: "future_shop",
+          label: "at the next future shop",
+          count: 1,
+        }),
+        referencesCreatedId: createdId,
+        resolution: `Trade {${dreamsignA.name}} and 1 omen for {${dreamsignB.name}}, then ${rewardLabel}.`,
+        expiration: expiration(
+          "discard_obligation",
+          "If no future shop appears within 2 dreamscapes, discard the trade promise.",
+        ),
+        duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
+      },
+      reward: [
+        namedDreamsignPayload(
+          {
+            kind: "dreamsign_trade_hook",
+            dreamsign: dreamsignA,
+            source: "pool",
+            result: dreamsignB,
+            resultSource: "pool",
+            extra: {
+              timing: "at the next future shop",
+              obligation: `Trade ${dreamsignA.name} and 1 omen for ${dreamsignB.name}`,
+              giveDreamsignId: dreamsignA.id,
+              giveDreamsignName: dreamsignA.name,
+              receiveDreamsignId: dreamsignB.id,
+              receiveDreamsignName: dreamsignB.name,
+            },
+          },
+          args.context,
+        ),
+        ...args.reward.effects,
+      ],
+    }),
+    sourceShapeId: args.shapeId,
+    returnFamilyId: family,
+    rewardMetadata: {
+      rewardKey: args.reward.key,
+      baseConvertedEssence: args.reward.effect,
+      expectedConvertedEssence: expectedValue,
+    },
+  };
+
+  return {
+    option: option({
+      number: args.optionNumber,
+      text: `Promise a future shop trade: give {${dreamsignA.name}} and 1 omen for {${dreamsignB.name}}, then ${rewardLabel}. Discard the promise if no future shop appears within 2 dreamscapes.`,
+      triggers: [precommit],
+      effects: args.reward.effects,
+      targets: [
+        dreamsignExactTarget(dreamsignA, "pool"),
+        dreamsignExactTarget(dreamsignB, "pool"),
+        ...(args.reward.targets ?? []),
+      ],
+      effect: expectedValue,
+      uncertainty: -15,
+    }),
+    precommit,
   };
 }
 

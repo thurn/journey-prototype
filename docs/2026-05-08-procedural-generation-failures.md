@@ -132,7 +132,7 @@ promise.
 
 ### 3. Generic Paired Return Bypasses The Paired-Return Contract
 
-**Status:** Error.
+**Status:** Fixed.
 
 The normal `paired_return` fill in
 [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L1094) creates text such
@@ -155,9 +155,16 @@ return-contract payload family.
 **Compelling justification:** Weak. A simplified fallback may have been
 reasonable during migration, but it now bypasses the richer procedural model.
 
-**Proposed fix to remove hardcoded content:** Replace the generic paired-return
-fill with a paired-return payload family that composes created objects, return
-scenes, expiration policies, and rewards through the full `PairedReturnContract`.
+**Resolution:** Normal `paired_return` generation now routes through a reusable
+paired-return fill. It composes real TOML-backed cards or Dreamsigns, created
+return anchors, return scenes, expiration windows, future costs, rewards, stable
+IDs, reward metadata, and visible hook policy into full
+`paired_return_contract` payloads. Those same payloads are mirrored into
+precommitted delayed outcomes and paired-return metadata, so renderer output,
+semantic operations, validation, and deterministic replay all derive from the
+typed `PairedReturnContract`. The forced `paired-return-seal-borrow-trade` debug
+fixture remains available for deterministic QA of the sealed, borrowed, and
+future-trade return scenes.
 
 ### 4. Normal Card Operation Shapes Embed A Private Operation Catalog
 

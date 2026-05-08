@@ -53,7 +53,10 @@ import {
   timingSlots,
   treeBuilderTools,
 } from "./shared.js";
-import { delayedRewardHookFill } from "./hookPayloads.js";
+import {
+  delayedRewardHookFill,
+  pairedReturnHookFill,
+} from "./hookPayloads.js";
 
 export function fillOptions(
   shapeId: JourneyShapeId,
@@ -1093,47 +1096,26 @@ export function fillOptions(
         drawContext,
         `${shapeId}:return-rewards`,
       ).filter((entry) => entry.routeEffects === undefined);
-      const timing = timingSlots(drawContext, `${shapeId}:timing`).find(
-        (entry) =>
-          entry.key === "next-victory" || entry.key === "next-dreamscape",
-      )!;
+      const firstReturn = pairedReturnHookFill({
+        context,
+        drawContext,
+        shapeId,
+        optionNumber: 1,
+        reward: rewards[0]!,
+      });
+      const secondReturn = pairedReturnHookFill({
+        context,
+        drawContext,
+        shapeId,
+        optionNumber: 2,
+        reward: rewards[1] ?? rewards[0]!,
+      });
 
       return {
-        options: [
-          {
-            ...delayedRewardOption(1, timing, rewards[0]!),
-            text: `Commit a return hook. ${timing.text}, ${lowerFirst(rewards[0]!.text)}`,
-          },
-          {
-            ...delayedRewardOption(2, timing, rewards[1] ?? rewards[0]!),
-            text: `Commit a return hook. ${timing.text}, ${lowerFirst((rewards[1] ?? rewards[0]!).text)}`,
-          },
-        ],
+        options: [firstReturn.option, secondReturn.option],
         precommitted: {
-          delayed: [
-            {
-              optionNumber: 1,
-              trigger: timing.text.toLowerCase(),
-              reward: rewards[0]!.effects,
-            },
-            {
-              optionNumber: 2,
-              trigger: timing.text.toLowerCase(),
-              reward: (rewards[1] ?? rewards[0]!).effects,
-            },
-          ],
-          pairedReturn: [
-            {
-              optionNumber: 1,
-              anchor: `${rewards[0]!.key} return`,
-              reward: rewards[0]!.effects,
-            },
-            {
-              optionNumber: 2,
-              anchor: `${(rewards[1] ?? rewards[0]!).key} return`,
-              reward: (rewards[1] ?? rewards[0]!).effects,
-            },
-          ],
+          delayed: [firstReturn.precommit, secondReturn.precommit],
+          pairedReturn: [firstReturn.precommit, secondReturn.precommit],
         },
       };
     }
