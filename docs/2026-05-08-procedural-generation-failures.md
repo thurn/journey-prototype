@@ -266,7 +266,7 @@ option to be a text-matched "next 3 battles" battle modifier.
 
 ### 7. Tree Builders Are Scripted Scenario Profiles
 
-**Status:** Mixed.
+**Status:** Fixed for normal tree payload lists.
 
 Decision-tree shapes are heavily scripted:
 
@@ -290,9 +290,15 @@ profiles; weak for hardcoded payload lists. The procedural target should be
 "authored ladder progression filled from reusable reward families," not "fully
 general tree soup" and not "one fixed event script per tree family."
 
-**Proposed fix to remove hardcoded content:** Keep authored tree progression
-profiles but fill each level from reusable reward, cost, burden, and random-pool
-families constrained by level, value growth, and topology requirements.
+**Resolution:** Normal decision-tree builders now keep the authored topology and
+progression identity, but fill visible tree payloads from reusable level-aware
+families. Prize ladders, probability ladders, random-pool draws, escalating
+reward chains, and push-your-luck trees now derive costs, odds, stop rewards,
+take rewards, push rewards, visible random-pool entries, and failure burdens
+from shared constrained families rather than selecting whole scripted tree
+profiles. The generators preserve deterministic replay, complete visible tree
+shapes, value growth across levels, and topology-specific invariants such as
+fixed probability-ladder rewards and increasing push-your-luck risk.
 
 ### 8. Route Edits Are Fixed Site-Pair Scenarios
 

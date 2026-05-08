@@ -3366,6 +3366,97 @@ describe("generateNextJourney", () => {
     }
   }, 15000);
 
+  it("keeps tree topology authored while filling rewards, costs, and odds from progressive families", async () => {
+    const journeyContext = await context("tree-family-progressions");
+
+    const prize = fillForShape("prize_ladder", journeyContext);
+    const prizeCosts = prize.tree!.nodes.map((node) =>
+      node.branches.find((branch) => branch.label !== "Stop")!.costConvertedEssence,
+    );
+    const prizeStopValues = prize.tree!.nodes.map((node) =>
+      node.branches.find((branch) => branch.label === "Stop")!.effectConvertedEssence,
+    );
+
+    expect(prizeCosts[1]).toBeGreaterThanOrEqual(prizeCosts[0]!);
+    expect(prizeCosts[2]).toBeGreaterThanOrEqual(prizeCosts[1]!);
+    expect(prizeStopValues[1]).toBeGreaterThanOrEqual(prizeStopValues[0]!);
+    expect(prizeStopValues[2]).toBeGreaterThanOrEqual(prizeStopValues[1]!);
+
+    const probability = fillForShape("probability_ladder", journeyContext);
+    const probabilityAttempts = probability.tree!.nodes.map((node) =>
+      node.branches.find((branch) => branch.label === "Attempt")!,
+    );
+
+    expect(
+      probabilityAttempts.map((branch) => branch.costConvertedEssence),
+    ).toEqual([...probabilityAttempts.map((branch) => branch.costConvertedEssence)].sort((a, b) => a - b));
+    expect(probabilityAttempts.map((branch) => branch.odds!.percent)).toEqual(
+      [...probabilityAttempts.map((branch) => branch.odds!.percent)].sort((a, b) => a - b),
+    );
+
+    const chain = fillForShape("escalating_reward_chain", journeyContext);
+    const takeValues = chain.tree!.nodes.map((node) =>
+      node.branches.find((branch) => branch.label === "Take")!.effectConvertedEssence,
+    );
+
+    expect(takeValues[1]).toBeGreaterThanOrEqual(takeValues[0]!);
+    expect(takeValues[2]).toBeGreaterThanOrEqual(takeValues[1]!);
+
+    const push = fillForShape("push_your_luck", journeyContext);
+    const pushBranches = push.tree!.nodes.map((node) =>
+      node.branches.find((branch) => branch.label === "Push")!,
+    );
+
+    expect(pushBranches.map((branch) => branch.odds!.percent)).toEqual(
+      [...pushBranches.map((branch) => branch.odds!.percent)].sort((a, b) => b - a),
+    );
+    expect(pushBranches[1]!.effectConvertedEssence).toBeGreaterThanOrEqual(
+      pushBranches[0]!.effectConvertedEssence,
+    );
+    expect(pushBranches[2]!.effectConvertedEssence).toBeGreaterThanOrEqual(
+      pushBranches[1]!.effectConvertedEssence,
+    );
+  });
+
+  it("builds random-pool tree rewards from reusable payload families instead of fixed menus", async () => {
+    const summaries = new Set<string>();
+    const payloadSignatures = new Set<string>();
+
+    for (const seed of [
+      "tree-pool-a",
+      "tree-pool-b",
+      "tree-pool-c",
+      "tree-pool-d",
+      "tree-pool-e",
+    ]) {
+      const journeyContext = await context(seed);
+      const manifest = fillForShape("random_pool_draws", journeyContext);
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+      expect(manifest.rewardPool?.summary).toContain("with replacement");
+      expect(manifest.rewardPool?.rewards.length).toBeGreaterThanOrEqual(5);
+
+      summaries.add(manifest.rewardPool!.summary);
+      payloadSignatures.add(
+        manifest.rewardPool!.rewards
+          .map((reward) =>
+            typeof reward === "object" && reward !== null && "kind" in reward
+              ? String(reward.kind)
+              : "unknown",
+          )
+          .join("|"),
+      );
+    }
+
+    expect(summaries.size).toBeGreaterThan(2);
+    expect(payloadSignatures.size).toBeGreaterThan(2);
+    expect([...summaries]).not.toContain(
+      "Randomly gain one: 40 essence, 90 essence, 1 omen, 2 omens, or draft 1 of 4 events. Outcomes draw with replacement.",
+    );
+  });
+
   it("does not emit the reference examples as production sequential trees", async () => {
     const probabilityContext = await context("reference-probability");
     const probabilityText = generatedOptionText(

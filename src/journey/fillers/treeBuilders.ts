@@ -1,5 +1,5 @@
 import type { JourneyContext } from "../../quest/context.js";
-import type { DrawContext } from "../../util/rng.js";
+import { shuffleDeterministic, type DrawContext } from "../../util/rng.js";
 import type {
   JourneyRewardPool,
   JourneyTree,
@@ -47,6 +47,20 @@ type SequentialReward = {
   effects: unknown[];
   targets?: unknown[];
   effect: number;
+};
+
+type TreeRewardFamilyId =
+  | "essence"
+  | "omens"
+  | "card_draft"
+  | "dreamsign_draft"
+  | "starter_cleanup"
+  | "transfiguration"
+  | "battle_window";
+
+type TreeRewardFamily = {
+  id: TreeRewardFamilyId;
+  rewards: SequentialReward[];
 };
 
 export type TreeBuilderTools = {
@@ -198,42 +212,434 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     target,
   } = tools;
 
+  function essenceProgression(
+    drawContext: DrawContext,
+    label: string,
+    levels: number,
+    band: "modest" | "standard" | "rich",
+  ): number[] {
+    const bands = {
+      modest: { base: [35, 45, 55], growth: [25, 35, 45], final: [0, 15, 30] },
+      standard: {
+        base: [45, 55, 65],
+        growth: [35, 45, 55],
+        final: [15, 30, 45],
+      },
+      rich: { base: [70, 85, 100], growth: [45, 60, 75], final: [30, 50, 70] },
+    } as const;
+    const selected = bands[band];
+    const base = pickSequentialVariant(drawContext, `${label}:base`, selected.base);
+    const growth = pickSequentialVariant(
+      drawContext,
+      `${label}:growth`,
+      selected.growth,
+    );
+    const finalBonus = pickSequentialVariant(
+      drawContext,
+      `${label}:final`,
+      selected.final,
+    );
+
+    return Array.from({ length: levels }, (_, index) => {
+      const level = index + 1;
+      const amount = base + growth * index + (level === levels ? finalBonus : 0);
+
+      return Math.round(amount / 5) * 5;
+    });
+  }
+
+  function essenceCostProgression(
+    context: JourneyContext,
+    drawContext: DrawContext,
+    label: string,
+    levels: number,
+    band: "light" | "standard" | "steep",
+  ): number[] {
+    const bands = {
+      light: { base: [10, 15, 20], growth: [15, 20, 25], final: [0, 5, 10] },
+      standard: { base: [20, 25, 30], growth: [25, 30, 35], final: [5, 10, 15] },
+      steep: { base: [25, 30, 35], growth: [30, 40, 50], final: [10, 20, 30] },
+    } as const;
+    const selected = bands[band];
+    const base = pickSequentialVariant(drawContext, `${label}:base`, selected.base);
+    const growth = pickSequentialVariant(
+      drawContext,
+      `${label}:growth`,
+      selected.growth,
+    );
+    const finalBonus = pickSequentialVariant(
+      drawContext,
+      `${label}:final`,
+      selected.final,
+    );
+
+    return Array.from({ length: levels }, (_, index) => {
+      const level = index + 1;
+      const desired = base + growth * index + (level === levels ? finalBonus : 0);
+
+      return payableSequentialCost(context, Math.round(desired / 5) * 5);
+    });
+  }
+
+  function chanceProgression(
+    drawContext: DrawContext,
+    label: string,
+    levels: number,
+    band: "push" | "ladder",
+  ): number[] {
+    const selected =
+      band === "push"
+        ? {
+            start: pickSequentialVariant(drawContext, `${label}:start`, [75, 80, 85]),
+            step: pickSequentialVariant(drawContext, `${label}:step`, [15, 20]),
+            floor: 30,
+          }
+        : {
+            start: pickSequentialVariant(drawContext, `${label}:start`, [25, 30, 35]),
+            step: pickSequentialVariant(drawContext, `${label}:step`, [15, 20]),
+            floor: 95,
+          };
+
+    return Array.from({ length: levels }, (_, index) =>
+      band === "push"
+        ? Math.max(selected.floor, selected.start - selected.step * index)
+        : Math.min(selected.floor, selected.start + selected.step * index),
+    );
+  }
+
+  function omenProgression(
+    drawContext: DrawContext,
+    label: string,
+    levels: number,
+  ): number[] {
+    const finalBonus = pickSequentialVariant(
+      drawContext,
+      `${label}:final-bonus`,
+      [0, 1],
+    );
+
+    return Array.from({ length: levels }, (_, index) =>
+      Math.max(1, index + 1 + (index === levels - 1 ? finalBonus : 0)),
+    );
+  }
+
+  function treeRewardFamily(
+    context: JourneyContext,
+    drawContext: DrawContext,
+    label: string,
+    levels: number,
+    allowedFamilies: readonly TreeRewardFamilyId[] = [
+      "essence",
+      "omens",
+      "card_draft",
+      "dreamsign_draft",
+      "starter_cleanup",
+      "transfiguration",
+      "battle_window",
+    ],
+  ): TreeRewardFamily {
+    const legalFamilies = allowedFamilies.filter((family) => {
+      if (family === "dreamsign_draft") {
+        return context.state.quest.dreamsignPoolIds.length > 0;
+      }
+
+      if (family === "starter_cleanup") {
+        return context.state.quest.deck.summary.starterCards > 0;
+      }
+
+      return true;
+    });
+    const family = pickSequentialVariant(
+      drawContext,
+      `${label}:family`,
+      legalFamilies.length > 0 ? legalFamilies : ["essence"],
+    );
+
+    switch (family) {
+      case "essence": {
+        const amounts = essenceProgression(drawContext, label, levels, "standard");
+
+        return {
+          id: family,
+          rewards: amounts.map((amount) => ({
+            text: `gain ${amount} essence.`,
+            effects: [gainEssence(amount)],
+            effect: amount,
+          })),
+        };
+      }
+      case "omens": {
+        const amounts = omenProgression(drawContext, label, levels);
+
+        return {
+          id: family,
+          rewards: amounts.map((amount) => ({
+            text: `gain ${amount} ${amount === 1 ? "omen" : "omens"}.`,
+            effects: [gainOmen(amount)],
+            effect: valueOmenGain(amount),
+          })),
+        };
+      }
+      case "card_draft": {
+        const profile = legalCardDraftProfile(context, [
+          CARD_DRAFT_PROFILES.events,
+          CARD_DRAFT_PROFILES.lowCostCharacters,
+          CARD_DRAFT_PROFILES.characters,
+        ]);
+        const draft = draftCards(profile);
+
+        return {
+          id: family,
+          rewards: Array.from({ length: levels }, (_, index) => {
+            const omenCount = index;
+            const effects = omenCount > 0 ? [draft, gainOmen(omenCount)] : [draft];
+
+            return {
+              text:
+                omenCount > 0
+                  ? `${lowerFirst(cardDraftText(profile))} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
+                  : lowerFirst(cardDraftText(profile)),
+              effects,
+              targets: [
+                target("card", profile.targetDescription, draft.predicate),
+              ],
+              effect: valueCardDraft(draft) + valueOmenGain(omenCount),
+            };
+          }),
+        };
+      }
+      case "dreamsign_draft":
+        return {
+          id: family,
+          rewards: Array.from({ length: levels }, (_, index) => {
+            const choiceCount = Math.min(4, 2 + Math.floor(index / 2));
+            const omenCount = index === 0 ? 0 : index;
+            const draft = dreamsignDraft(choiceCount);
+            const effects = omenCount > 0 ? [draft, gainOmen(omenCount)] : [draft];
+
+            return {
+              text:
+                omenCount > 0
+                  ? `${lowerFirst(`Choose 1 of ${choiceCount} Dreamsigns.`)} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
+                  : lowerFirst(`Choose 1 of ${choiceCount} Dreamsigns.`),
+              effects,
+              targets: [
+                target(
+                  "dreamsign",
+                  DREAMSIGN_POOL_TARGET_DESCRIPTION,
+                  draft.predicate,
+                ),
+              ],
+              effect: valueDreamsignDraft(draft, context) + valueOmenGain(omenCount),
+            };
+          }),
+        };
+      case "starter_cleanup":
+        return {
+          id: family,
+          rewards: Array.from({ length: levels }, (_, index) => {
+            const cleanupCount = Math.min(2, 1 + Math.floor(index / 2));
+            const omenCount = index;
+            const cleanup = starterCleanup(cleanupCount);
+            const effects = omenCount > 0
+              ? [cleanup, gainOmen(omenCount)]
+              : [cleanup];
+
+            return {
+              text:
+                omenCount > 0
+                  ? `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"} and gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
+                  : `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"}.`,
+              effects,
+              targets: [
+                target("card", "Starter cards in deck", {
+                  source: "deck",
+                  starter: true,
+                }),
+              ],
+              effect: 85 * cleanupCount + valueOmenGain(omenCount),
+            };
+          }),
+        };
+      case "transfiguration": {
+        const startIndex = pickSequentialVariant(
+          drawContext,
+          `${label}:transfiguration-start`,
+          [0, 1, 2],
+        );
+        const names = ["Bronze", "Scarlet", "Viridian", "Golden", "Prismatic"];
+
+        return {
+          id: family,
+          rewards: Array.from({ length: levels }, (_, index) => {
+            const transfigurationName =
+              names[Math.min(names.length - 1, startIndex + index)]!;
+            const wideTarget = index >= levels - 1 && levels > 2;
+            const effect = {
+              kind: "transfiguration",
+              transfigurationName,
+              scope: wideTarget ? "up_to_2_chosen_cards" : "random_card",
+            };
+
+            return {
+              text: wideTarget
+                ? `apply {${transfigurationName} Transfiguration} to up to 2 chosen cards.`
+                : `apply {${transfigurationName} Transfiguration} to a random card.`,
+              effects: [effect],
+              targets: [
+                target(
+                  "card",
+                  wideTarget ? "cards in deck" : "a random card in deck",
+                  { source: "deck" },
+                ),
+              ],
+              effect: wideTarget ? 185 : 90 + index * 25,
+            };
+          }),
+        };
+      }
+      case "battle_window": {
+        const windows = [
+          {
+            text: "draw 1 extra card in your opening hand",
+            effect: {
+              kind: "battle_window_modifier",
+              duration: BATTLE_WINDOW_DURATION,
+              modifier: "opening_hand_cards",
+              amount: 1,
+            },
+            value: 155,
+          },
+          {
+            text: "gain 1 extra energy on turn 1",
+            effect: {
+              kind: "battle_window_modifier",
+              duration: BATTLE_WINDOW_DURATION,
+              modifier: "turn_1_energy",
+              amount: 1,
+            },
+            value: 160,
+          },
+          {
+            text: "give all event cards in your deck Fast",
+            effect: {
+              kind: "card_rewrite",
+              keyword: "Fast",
+              duration: BATTLE_WINDOW_DURATION,
+              scope: "all_matching_cards_in_deck",
+              predicate: { cardType: "Event" },
+            },
+            value: 165,
+          },
+          {
+            text: "give all fast cards in your deck Reclaim 1",
+            effect: {
+              kind: "card_rewrite",
+              keyword: "Reclaim",
+              amount: 1,
+              duration: BATTLE_WINDOW_DURATION,
+              scope: "all_matching_cards_in_deck",
+              predicate: { isFast: true },
+            },
+            value: 170,
+          },
+        ];
+        const startIndex = pickSequentialVariant(
+          drawContext,
+          `${label}:window-start`,
+          [0, 1],
+        );
+
+        return {
+          id: family,
+          rewards: Array.from({ length: levels }, (_, index) => {
+            const window = windows[(startIndex + index) % windows.length]!;
+
+            return {
+              text: `${window.text} for the ${BATTLE_WINDOW_DURATION}.`,
+              effects: [window.effect],
+              effect: window.value,
+            };
+          }),
+        };
+      }
+    }
+
+    return treeRewardFamily(context, drawContext, `${label}:fallback`, levels, [
+      "essence",
+    ]);
+  }
+
+  function randomPoolRewardCandidates(
+    context: JourneyContext,
+    drawContext: DrawContext,
+  ): SequentialReward[] {
+    const families: TreeRewardFamilyId[] = ([
+      "essence",
+      "omens",
+      "card_draft",
+      "transfiguration",
+      "battle_window",
+      "starter_cleanup",
+      "dreamsign_draft",
+    ] as const).filter((family) => {
+      if (family === "starter_cleanup") {
+        return context.state.quest.deck.summary.starterCards > 0;
+      }
+
+      if (family === "dreamsign_draft") {
+        return context.state.quest.dreamsignPoolIds.length > 0;
+      }
+
+      return true;
+    });
+
+    return families
+      .flatMap((family) =>
+        treeRewardFamily(context, drawContext, `random-pool:${family}`, 1, [
+          family,
+        ]).rewards,
+      )
+      .filter((reward) => reward.effects.length > 0);
+  }
+
+  function randomPoolSummary(rewards: readonly SequentialReward[]): string {
+    const entries = rewards.map((reward) =>
+      lowerFirst(reward.text).replace(/\.$/, ""),
+    );
+
+    return `Randomly gain one: ${entries.join(", ")}. Outcomes draw with replacement.`;
+  }
+
   function buildPrizeLadderTree(
     context: JourneyContext,
     drawContext: DrawContext,
   ): JourneyTree {
-    const claimReward = sequentialReward(
+    const rewardFamily = treeRewardFamily(
+      context,
+      drawContext,
+      "prize-ladder:reward-family",
+      4,
+      ["essence", "omens", "card_draft", "dreamsign_draft", "starter_cleanup"],
+    );
+    const claimReward = rewardFamily.rewards[3] ?? sequentialReward(
       context,
       drawContext,
       "prize-ladder:claim-reward",
     );
-    const profile = pickSequentialVariant(drawContext, "prize-ladder:profile", [
-      {
-        costs: [25, 55, 85],
-        stop: [gainEssence(45), gainEssence(80), gainEssence(120)],
-        stopText: ["Gain 45 essence.", "Gain 80 essence.", "Gain 120 essence."],
-        stopValue: [45, 80, 120],
-      },
-      {
-        costs: [30, 60, 95],
-        stop: [gainOmen(1), gainOmen(2), gainOmen(3)],
-        stopText: ["Gain 1 omen.", "Gain 2 omens.", "Gain 3 omens."],
-        stopValue: [valueOmenGain(1), valueOmenGain(2), valueOmenGain(3)],
-      },
-      {
-        costs: [20, 50, 90],
-        stop: [gainEssence(35), gainOmen(1), gainOmen(2)],
-        stopText: ["Gain 35 essence.", "Gain 1 omen.", "Gain 2 omens."],
-        stopValue: [35, valueOmenGain(1), valueOmenGain(2)],
-      },
-    ]);
+    const costs = essenceCostProgression(
+      context,
+      drawContext,
+      "prize-ladder:costs",
+      3,
+      "steep",
+    );
 
     return tree(
       [1, 2, 3].map((level) => {
-        const stopEffect = profile.stop[level - 1]!;
-        const stopText = `${profile.stopText[level - 1]!} End the Journey.`;
-        const stopValue = profile.stopValue[level - 1]!;
-        const price = payableSequentialCost(context, profile.costs[level - 1]!);
+        const stopReward = rewardFamily.rewards[level - 1]!;
+        const stopText = `${sentenceCase(stopReward.text)} End the Journey.`;
+        const price = costs[level - 1]!;
         const isFinal = level === 3;
 
         return {
@@ -244,15 +650,16 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
               id: `level-${level}-stop`,
               label: "Stop",
               text: stopText,
-              effects: [stopEffect],
-              effect: stopValue,
+              effects: stopReward.effects,
+              targets: stopReward.targets ?? [],
+              effect: stopReward.effect,
               terminal: {
                 text: "End the Journey.",
                 outcome: "end",
                 costs: [],
-                effects: [stopEffect],
+                effects: stopReward.effects,
                 burdens: [],
-                targets: [],
+                targets: stopReward.targets ?? [],
                 routeEffects: [],
               },
             }),
@@ -296,23 +703,30 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
       drawContext,
       "probability-ladder:reward",
     );
-    const profile = pickSequentialVariant(
+    const levels = pickSequentialVariant(
       drawContext,
-      "probability-ladder:profile",
-      [
-        { costs: [20, 40, 65], chances: [30, 50, 70] },
-        { costs: [15, 35, 60], chances: [20, 45, 75] },
-        { costs: [30, 50, 80], chances: [35, 55, 80] },
-        { costs: [20, 35, 55, 75], chances: [25, 40, 55, 70] },
-      ],
+      "probability-ladder:levels",
+      [3, 4],
+    );
+    const costs = essenceCostProgression(
+      context,
+      drawContext,
+      "probability-ladder:costs",
+      levels,
+      "standard",
+    );
+    const chances = chanceProgression(
+      drawContext,
+      "probability-ladder:chances",
+      levels,
+      "ladder",
     );
 
     return tree(
-      profile.costs.map((desiredPrice, index) => {
+      costs.map((price, index) => {
         const level = index + 1;
-        const chance = profile.chances[index]!;
-        const isFinal = level === profile.costs.length;
-        const price = payableSequentialCost(context, desiredPrice);
+        const chance = chances[index]!;
+        const isFinal = level === costs.length;
 
         return {
           id: `level-${level}`,
@@ -389,77 +803,22 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     context: JourneyContext,
     drawContext: DrawContext,
   ): JourneyRewardPool {
-    const eventDraft = draftCards(CARD_DRAFT_PROFILES.events);
-    const characterProfile = legalCardDraftProfile(context, [
-      CARD_DRAFT_PROFILES.lowCostCharacters,
-      CARD_DRAFT_PROFILES.characters,
-    ]);
-    const characterDraft = draftCards(characterProfile);
-    const transfiguration = pickSequentialVariant(
-      drawContext,
-      "random-pool:transfiguration",
-      ["Bronze", "Scarlet", "Viridian"],
+    const candidates = randomPoolRewardCandidates(context, drawContext);
+    const poolSize = Math.min(
+      candidates.length,
+      pickSequentialVariant(drawContext, "random-pool:size", [5, 6]),
     );
-    const cleanupReward =
-      context.state.quest.deck.summary.starterCards > 0
-        ? starterCleanup(1)
-        : gainEssence(100);
-    const cleanupSummary =
-      context.state.quest.deck.summary.starterCards > 0
-        ? "purge a starter card"
-        : "100 essence";
-    const variants: { summary: string; rewards: unknown[] }[] = [
-      {
-        summary: `Randomly gain one: 60 essence, 1 omen, draft 1 of 4 ${characterProfile.label}, apply {${transfiguration} Transfiguration} to a random card, or ${cleanupSummary}. Outcomes draw with replacement.`,
-        rewards: [
-          gainEssence(60),
-          gainOmen(1),
-          characterDraft,
-          {
-            kind: "transfiguration",
-            transfigurationName: transfiguration,
-            scope: "random_card",
-          },
-          cleanupReward,
-        ],
-      },
-      {
-        summary:
-          "Randomly gain one: 40 essence, 90 essence, 1 omen, 2 omens, or draft 1 of 4 events. Outcomes draw with replacement.",
-        rewards: [
-          gainEssence(40),
-          gainEssence(90),
-          gainOmen(1),
-          gainOmen(2),
-          eventDraft,
-        ],
-      },
-    ];
-
-    if (context.state.quest.dreamsignPoolIds.length > 0) {
-      variants.push({
-        summary: `Randomly gain one: a Dreamsign, draft 1 of 4 events, {${transfiguration} Transfiguration}, 2 omens, 75 essence, or ${cleanupSummary}. Outcomes draw with replacement.`,
-        rewards: [
-          dreamsignDraft(1),
-          eventDraft,
-          { kind: "transfiguration", transfigurationName: transfiguration },
-          gainOmen(2),
-          gainEssence(75),
-          cleanupReward,
-        ],
-      });
-    }
-    const selected = pickSequentialVariant(
+    const rewards = shuffleDeterministic(
       drawContext,
-      "random-pool:profile",
-      variants,
-    );
+      "random-pool:rewards",
+      candidates,
+    ).slice(0, poolSize);
 
     const pool = {
-      summary: selected.summary,
+      summary: randomPoolSummary(rewards),
       replacement: "with_replacement" as const,
       operations: [],
-      rewards: selected.rewards,
+      rewards: rewards.flatMap((reward) => reward.effects),
     };
 
     return {
@@ -547,270 +906,30 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     context: JourneyContext,
     drawContext: DrawContext,
   ): JourneyTree {
-    const cardProfile = legalCardDraftProfile(context, [
-      CARD_DRAFT_PROFILES.lowCostCharacters,
-      CARD_DRAFT_PROFILES.characters,
-    ]);
-    const cardDraft = draftCards(cardProfile);
-    const dreamsignReward = dreamsignDraft(2);
-    const profiles: { costs: number[]; rewards: SequentialReward[] }[] = [
-      {
-        costs: [15, 35, 65],
-        rewards: [
-          {
-            text: "apply Bronze to a random card.",
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: "Bronze",
-                scope: "random_card",
-              },
-            ],
-            targets: [
-              target("card", "a random card in deck", { source: "deck" }),
-            ],
-            effect: 85,
-          },
-          {
-            text: "apply Viridian to a random card and gain 1 omen.",
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: "Viridian",
-                scope: "random_card",
-              },
-              gainOmen(1),
-            ],
-            targets: [
-              target("card", "a random card in deck", { source: "deck" }),
-            ],
-            effect: 85 + valueOmenGain(1),
-          },
-          {
-            text: "apply Golden to up to 2 chosen cards.",
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: "Golden",
-                scope: "up_to_2_chosen_cards",
-              },
-            ],
-            targets: [target("card", "cards in deck", { source: "deck" })],
-            effect: 170,
-          },
+    const profile = {
+      costs: essenceCostProgression(
+        context,
+        drawContext,
+        "escalating-chain:costs",
+        3,
+        "standard",
+      ),
+      rewards: treeRewardFamily(
+        context,
+        drawContext,
+        "escalating-chain:reward-family",
+        3,
+        [
+          "essence",
+          "omens",
+          "card_draft",
+          "dreamsign_draft",
+          "starter_cleanup",
+          "transfiguration",
+          "battle_window",
         ],
-      },
-      {
-        costs: [20, 40, 70],
-        rewards: [
-          {
-            text: "gain 1 omen.",
-            effects: [gainOmen(1)],
-            effect: valueOmenGain(1),
-          },
-          {
-            text: "gain 2 omens.",
-            effects: [gainOmen(2)],
-            effect: valueOmenGain(2),
-          },
-          {
-            text: "gain 4 omens.",
-            effects: [gainOmen(4)],
-            effect: valueOmenGain(4),
-          },
-        ],
-      },
-      {
-        costs: [25, 45, 75],
-        rewards: [
-          {
-            text: `${lowerFirst(cardDraftText(cardProfile))}`,
-            effects: [cardDraft],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft),
-          },
-          {
-            text: `${lowerFirst(cardDraftText(cardProfile))} Gain 1 omen.`,
-            effects: [cardDraft, gainOmen(1)],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft) + valueOmenGain(1),
-          },
-          {
-            text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`,
-            effects: [cardDraft, gainOmen(2)],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft) + valueOmenGain(2),
-          },
-        ],
-      },
-      {
-        costs: [15, 30, 50],
-        rewards: [
-          { text: "gain 60 essence.", effects: [gainEssence(60)], effect: 60 },
-          {
-            text: "gain 120 essence.",
-            effects: [gainEssence(120)],
-            effect: 120,
-          },
-          {
-            text: "gain 210 essence.",
-            effects: [gainEssence(210)],
-            effect: 210,
-          },
-        ],
-      },
-      {
-        costs: [20, 45, 70],
-        rewards: [
-          {
-            text: "choose 1 of 2 Dreamsigns.",
-            effects: [dreamsignReward],
-            targets: [
-              target(
-                "dreamsign",
-                DREAMSIGN_POOL_TARGET_DESCRIPTION,
-                dreamsignReward.predicate,
-              ),
-            ],
-            effect: valueDreamsignDraft(dreamsignReward, context),
-          },
-          {
-            text: "choose 1 of 2 Dreamsigns and gain 1 omen.",
-            effects: [dreamsignReward, gainOmen(1)],
-            targets: [
-              target(
-                "dreamsign",
-                DREAMSIGN_POOL_TARGET_DESCRIPTION,
-                dreamsignReward.predicate,
-              ),
-            ],
-            effect:
-              valueDreamsignDraft(dreamsignReward, context) + valueOmenGain(1),
-          },
-          {
-            text: "choose 1 of 3 Dreamsigns and gain 2 omens.",
-            effects: [dreamsignDraft(3), gainOmen(2)],
-            targets: [
-              target(
-                "dreamsign",
-                DREAMSIGN_POOL_TARGET_DESCRIPTION,
-                dreamsignReward.predicate,
-              ),
-            ],
-            effect:
-              valueDreamsignDraft(dreamsignDraft(3), context) +
-              valueOmenGain(2),
-          },
-        ],
-      },
-      {
-        costs: [10, 25, 45],
-        rewards: [
-          {
-            text: "draw 1 extra card in your opening hand for the next 3 battles.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "opening_hand_cards",
-                amount: 1,
-              },
-            ],
-            effect: 155,
-          },
-          {
-            text: "gain 1 extra energy on turn 1 for the next 3 battles.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "turn_1_energy",
-                amount: 1,
-              },
-            ],
-            effect: 160,
-          },
-          {
-            text: "give all event cards in your deck Fast for the next 3 battles.",
-            effects: [
-              {
-                kind: "card_rewrite",
-                keyword: "Fast",
-                duration: BATTLE_WINDOW_DURATION,
-                scope: "all_matching_cards_in_deck",
-                predicate: { cardType: "Event" },
-              },
-            ],
-            effect: 165,
-          },
-        ],
-      },
-    ];
-
-    if (context.state.quest.deck.summary.starterCards > 0) {
-      profiles.push({
-        costs: [10, 30, 55],
-        rewards: [
-          {
-            text: "purge up to 1 chosen Starter card.",
-            effects: [starterCleanup(1)],
-            targets: [
-              target("card", "Starter cards in deck", {
-                source: "deck",
-                starter: true,
-              }),
-            ],
-            effect: 85,
-          },
-          {
-            text: "purge up to 1 chosen Starter card and gain 1 omen.",
-            effects: [starterCleanup(1), gainOmen(1)],
-            targets: [
-              target("card", "Starter cards in deck", {
-                source: "deck",
-                starter: true,
-              }),
-            ],
-            effect: 85 + valueOmenGain(1),
-          },
-          {
-            text: "purge up to 2 chosen Starter cards and gain 2 omens.",
-            effects: [starterCleanup(2), gainOmen(2)],
-            targets: [
-              target("card", "Starter cards in deck", {
-                source: "deck",
-                starter: true,
-              }),
-            ],
-            effect: 170 + valueOmenGain(2),
-          },
-        ],
-      });
-    }
-
-    const profile = pickSequentialVariant(
-      drawContext,
-      "escalating-chain:profile",
-      profiles,
-    );
+      ).rewards,
+    };
     const costShift = pickSequentialVariant(
       drawContext,
       "escalating-chain:cost-shift",
@@ -820,10 +939,7 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     return tree(
       profile.rewards.map((reward, index) => {
         const level = index + 1;
-        const price = payableSequentialCost(
-          context,
-          profile.costs[index]! + costShift,
-        );
+        const price = payableSequentialCost(context, profile.costs[index]! + costShift);
         const isFinal = level === profile.rewards.length;
 
         return {
@@ -877,185 +993,29 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     context: JourneyContext,
     drawContext: DrawContext,
   ): JourneyTree {
-    const cardProfile = legalCardDraftProfile(context, [
-      CARD_DRAFT_PROFILES.events,
-      CARD_DRAFT_PROFILES.characters,
-    ]);
-    const cardDraft = draftCards(cardProfile);
-    const transfiguration = pickSequentialVariant(
-      drawContext,
-      "push-your-luck:transfiguration",
-      ["Bronze", "Scarlet", "Viridian", "Golden", "Prismatic"],
-    );
-    const profiles: { chances: number[]; rewards: SequentialReward[] }[] = [
-      {
-        chances: [80, 60, 40],
-        rewards: [
-          { text: "gain 45 essence.", effects: [gainEssence(45)], effect: 45 },
-          { text: "gain 95 essence.", effects: [gainEssence(95)], effect: 95 },
-          {
-            text: "gain 170 essence.",
-            effects: [gainEssence(170)],
-            effect: 170,
-          },
+    const profile = {
+      chances: chanceProgression(
+        drawContext,
+        "push-your-luck:chances",
+        3,
+        "push",
+      ),
+      rewards: treeRewardFamily(
+        context,
+        drawContext,
+        "push-your-luck:reward-family",
+        3,
+        [
+          "essence",
+          "omens",
+          "card_draft",
+          "dreamsign_draft",
+          "starter_cleanup",
+          "transfiguration",
+          "battle_window",
         ],
-      },
-      {
-        chances: [75, 55, 35],
-        rewards: [
-          {
-            text: "gain 1 omen.",
-            effects: [gainOmen(1)],
-            effect: valueOmenGain(1),
-          },
-          {
-            text: "gain 2 omens.",
-            effects: [gainOmen(2)],
-            effect: valueOmenGain(2),
-          },
-          {
-            text: "gain 4 omens.",
-            effects: [gainOmen(4)],
-            effect: valueOmenGain(4),
-          },
-        ],
-      },
-      {
-        chances: [70, 50, 30],
-        rewards: [
-          {
-            text: lowerFirst(cardDraftText(cardProfile)),
-            effects: [cardDraft],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft),
-          },
-          {
-            text: `${lowerFirst(cardDraftText(cardProfile))} Gain 1 omen.`,
-            effects: [cardDraft, gainOmen(1)],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft) + valueOmenGain(1),
-          },
-          {
-            text: `${lowerFirst(cardDraftText(cardProfile))} Gain 2 omens.`,
-            effects: [cardDraft, gainOmen(2)],
-            targets: [
-              target(
-                "card",
-                cardProfile.targetDescription,
-                cardDraft.predicate,
-              ),
-            ],
-            effect: valueCardDraft(cardDraft) + valueOmenGain(2),
-          },
-        ],
-      },
-      {
-        chances: [85, 65, 45],
-        rewards: [
-          {
-            text: `apply {${transfiguration} Transfiguration} to a random card.`,
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: transfiguration,
-                scope: "random_card",
-              },
-            ],
-            targets: [
-              target("card", "a random card in deck", { source: "deck" }),
-            ],
-            effect: 100,
-          },
-          {
-            text: `apply {${transfiguration} Transfiguration} to a random card and gain 1 omen.`,
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: transfiguration,
-                scope: "random_card",
-              },
-              gainOmen(1),
-            ],
-            targets: [
-              target("card", "a random card in deck", { source: "deck" }),
-            ],
-            effect: 100 + valueOmenGain(1),
-          },
-          {
-            text: `apply {${transfiguration} Transfiguration} to up to 2 chosen cards.`,
-            effects: [
-              {
-                kind: "transfiguration",
-                transfigurationName: transfiguration,
-                scope: "up_to_2_chosen_cards",
-              },
-            ],
-            targets: [target("card", "cards in deck", { source: "deck" })],
-            effect: 200,
-          },
-        ],
-      },
-      {
-        chances: [65, 50, 35],
-        rewards: [
-          {
-            text: "draw 1 extra card in your opening hand for the next 3 battles.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "opening_hand_cards",
-                amount: 1,
-              },
-            ],
-            effect: 155,
-          },
-          {
-            text: "gain 1 extra energy on turn 1 for the next 3 battles.",
-            effects: [
-              {
-                kind: "battle_window_modifier",
-                duration: BATTLE_WINDOW_DURATION,
-                modifier: "turn_1_energy",
-                amount: 1,
-              },
-            ],
-            effect: 160,
-          },
-          {
-            text: "give all fast cards in your deck Reclaim 1 for the next 3 battles.",
-            effects: [
-              {
-                kind: "card_rewrite",
-                keyword: "Reclaim",
-                amount: 1,
-                duration: BATTLE_WINDOW_DURATION,
-                scope: "all_matching_cards_in_deck",
-                predicate: { isFast: true },
-              },
-            ],
-            effect: 170,
-          },
-        ],
-      },
-    ];
-    const profile = pickSequentialVariant(
-      drawContext,
-      "push-your-luck:profile",
-      profiles,
-    );
+      ).rewards,
+    };
     const failureBaneName = pickSequentialVariant(
       drawContext,
       "push-your-luck:failure-bane",
