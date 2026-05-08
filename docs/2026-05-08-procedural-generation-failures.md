@@ -83,6 +83,10 @@ generation. Natural generation should either build these objects from reusable
 rule fragments or sample from a data-backed/generated-object catalog with enough
 variation that the object is not a single authored event.
 
+**Proposed fix to remove hardcoded content:** Replace the one-definition-per-kind
+lookup with a generated-object catalog or builder that samples identity, rules,
+duration, lifetime, references, and value metadata from reusable fragments.
+
 ### 2. Generic Delayed Shapes Use Text Promises Instead Of Hook Contracts
 
 **Status:** Error.
@@ -113,6 +117,11 @@ to render, but not structured enough to behave like procedural hook generation.
 system, because the code already has the richer contract and V3 explicitly calls
 for trackable hooks.
 
+**Proposed fix to remove hardcoded content:** Route all delayed reward shapes
+through a shared delayed-hook builder that constructs trigger selectors,
+durations, expiration policies, controlled scenes, rewards, and visibility
+metadata from typed inputs.
+
 ### 3. Generic Paired Return Bypasses The Paired-Return Contract
 
 **Status:** Error.
@@ -137,6 +146,10 @@ return-contract payload family.
 
 **Compelling justification:** Weak. A simplified fallback may have been
 reasonable during migration, but it now bypasses the richer procedural model.
+
+**Proposed fix to remove hardcoded content:** Replace the generic paired-return
+fill with a paired-return payload family that composes created objects, return
+scenes, expiration policies, and rewards through the full `PairedReturnContract`.
 
 ### 4. Normal Card Operation Shapes Embed A Private Operation Catalog
 
@@ -169,6 +182,11 @@ would preserve the same curation by sampling from a shared card-operation
 catalog with operation eligibility, target compatibility, value metadata, and
 text rendering.
 
+**Proposed fix to remove hardcoded content:** Move card operations into a shared
+operation catalog and have each shape request compatible operations by topology,
+target class, value band, and timing instead of declaring operation arrays
+inline.
+
 ### 5. `same_reward_different_costs` Sometimes Changes The Reward
 
 **Status:** Error.
@@ -190,6 +208,10 @@ topology that shape-first generation is supposed to preserve.
 costs scale the same reward upward," that is a different shape or should be
 explicitly modeled as a value-compensated reward variant.
 
+**Proposed fix to remove hardcoded content:** Generate one reward payload first
+and then attach only cost variants, or reclassify this branch into an explicit
+cost-scaled-reward shape with structured reward deltas.
+
 ### 6. Timed-Window Menus Are Fixed Battle-Window Scenarios
 
 **Status:** Error with a moderate curation argument.
@@ -208,6 +230,10 @@ payload family.
 **Compelling justification:** Moderate. Timed windows need curated combinations
 to avoid incoherent temporary rules. That argues for a reusable timed-window
 catalog, not for embedding three fixed menus inside one shape case.
+
+**Proposed fix to remove hardcoded content:** Introduce a timed-window payload
+catalog that samples scope, duration, affected object class, modifier, amount,
+polarity, and value while preserving shared-timing cohesion for the menu.
 
 ### 7. Tree Builders Are Scripted Scenario Profiles
 
@@ -235,6 +261,10 @@ profiles; weak for hardcoded payload lists. The procedural target should be
 "authored ladder progression filled from reusable reward families," not "fully
 general tree soup" and not "one fixed event script per tree family."
 
+**Proposed fix to remove hardcoded content:** Keep authored tree progression
+profiles but fill each level from reusable reward, cost, burden, and random-pool
+families constrained by level, value growth, and topology requirements.
+
 ### 8. Route Edits Are Fixed Site-Pair Scenarios
 
 **Status:** Concern.
@@ -257,6 +287,11 @@ site edits.
 pairs and value polarity, but those constraints should live in a route-edit
 catalog or route legality model rather than fixed shape branches.
 
+**Proposed fix to remove hardcoded content:** Replace fixed site-pair branches
+with a route-edit catalog that samples operation kind, scope, source site,
+destination site, polarity, timing, and site-delta value from legal route
+transitions.
+
 ### 9. Risk And Wager Shapes Use Parallel Hardcoded Random Contracts
 
 **Status:** Concern.
@@ -278,6 +313,10 @@ envelope contract.
 **Compelling justification:** Partial. Shape-specific random invariants are
 valid, but parallel random payload names make it easier for one-off scenarios to
 survive outside the general random model.
+
+**Proposed fix to remove hardcoded content:** Convert `risk_or_skip` and
+`single_wager` to emit the same typed random envelope payloads used by the
+manifest contract, with shape-specific rules expressed as envelope constraints.
 
 ### 10. Bane Handling Defaults To Nightmare In Shared Paths
 
@@ -303,6 +342,10 @@ in structured form.
 
 **Compelling justification:** Moderate for `Nightmare` as the default generic
 Bane; weak for references that ignore actual emitted Bane names.
+
+**Proposed fix to remove hardcoded content:** Replace `nightmare()` and static
+Bane references with a Bane burden selector that samples legal Bane names and
+derives manifest references from emitted Bane payloads.
 
 ### 11. Debug Payload Menus Are Correctly Hardcoded, But Should Not Count As Natural Generation
 
@@ -334,6 +377,10 @@ deterministic review surfaces, not player-facing interactions.
 **Compelling justification:** Strong, as long as they stay debug-only and the
 docs/tests label them as coverage fixtures rather than natural output.
 
+**Proposed fix to remove hardcoded content:** Keep forced debug payloads as
+fixtures but add natural-generation builders for each covered feature class and
+ensure tests distinguish fixture coverage from organic generation coverage.
+
 ### 12. Repair Logic Uses A Global Hardcoded Script And Shape-Specific Fallbacks
 
 **Status:** Concern.
@@ -355,6 +402,10 @@ general payload class.
 **Compelling justification:** Deterministic repair is useful. The concern is
 that the repair implementation ignores the shape catalog's declared repair
 preferences and has named topology escape hatches.
+
+**Proposed fix to remove hardcoded content:** Drive repair from each shape's
+declared repair preferences and typed failure reasons, then repair payload
+families before switching topology or falling back to simpler shapes.
 
 ### 13. Validators Preserve Display Text And Magic Payload Kinds
 
@@ -386,6 +437,10 @@ payload names instead of typed semantics.
 they should be separated from semantic validation and derived from the same
 manifest fields.
 
+**Proposed fix to remove hardcoded content:** Replace display-text and magic-kind
+checks with validation against typed operations, selectors, timing, random
+envelopes, and renderer parity assertions derived from manifest fields.
+
 ### 14. Tests And Docs Sometimes Freeze Current Hardcoded Behavior
 
 **Status:** Concern.
@@ -415,6 +470,11 @@ becoming normal generated output.
 **Compelling justification:** Strong for renderer and debug coverage; weak when
 tests assert exact scenario quantities or phrasing that should become
 procedural.
+
+**Proposed fix to remove hardcoded content:** Rewrite procedural tests to assert
+contract invariants, diversity bands, and feature reachability while reserving
+exact text and exact quantities for explicitly labeled renderer or debug-fixture
+tests.
 
 ## Recommended Direction
 
