@@ -286,7 +286,7 @@ describe("JOURNEY_SHAPES", () => {
       content: minimalContent(),
       journeyCatalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
       canonicalShapeDefinitions: canonicalShapeDefinitions(),
-      effectCatalogVersion: "effects:v4",
+      effectCatalogVersion: "effects:v5",
       valueModelVersion: "value:v2",
       valueModelContribution: { version: "value:v2" },
       manifestSchemaVersion: 2,

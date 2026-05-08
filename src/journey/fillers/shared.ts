@@ -27,6 +27,7 @@ import { adaptJourneyOptionOperations } from "../operationAdapters.js";
 import type { JourneyShapeId } from "../shapes.js";
 import { symbolsForOption } from "../symbols.js";
 import {
+  CARD_MODIFICATION_VALUE_CONSTANTS,
   commonEssenceRewardAmount,
   DREAMSIGN_VALUE_CONSTANTS,
   LOSS_CHOICE_VALUE_CONSTANTS,
@@ -511,11 +512,19 @@ export function target(
   kind: "card" | "dreamsign",
   description: string,
   predicate: unknown,
+  options: {
+    selection?: "exact" | "predicate" | "chosen_after_commitment" | "visible_random" | "hidden_random";
+    cardOperationTargetMode?: string;
+  } = {},
 ) {
   return {
     kind,
     description,
     predicate,
+    ...(options.selection ? { selection: options.selection } : {}),
+    ...(options.cardOperationTargetMode
+      ? { cardOperationTargetMode: options.cardOperationTargetMode }
+      : {}),
     required: true,
   };
 }
@@ -1216,6 +1225,21 @@ export function rewardSlots(
     stage,
     sources: ["draftPool", "catalog"],
   });
+  const namedDeckOperationTarget = selectContentBackedCard({
+    context,
+    drawContext,
+    label: `${label}:named-card-operation-target`,
+    stage,
+    sources: ["deck"],
+    includeStarters: true,
+  });
+  const namedDeckOperationResult = selectContentBackedCard({
+    context,
+    drawContext,
+    label: `${label}:named-card-operation-result`,
+    stage,
+    sources: ["draftPool", "catalog"],
+  });
   const namedDreamsign = selectContentBackedDreamsign({
     context,
     drawContext,
@@ -1344,6 +1368,69 @@ export function rewardSlots(
         ),
       ],
       effect: Math.max(320, cardQualityValue(namedCard.card)),
+    });
+  }
+
+  if (namedDeckOperationTarget && namedDeckOperationResult) {
+    const operationKind = pickSequentialVariant(
+      drawContext,
+      `${label}:named-card-operation-kind`,
+      ["card_transform", "card_replace", "card_duplicate"] as const,
+    );
+    const targetCard = namedDeckOperationTarget.card;
+    const resultCard = namedDeckOperationResult.card;
+    const payload = namedCardPayload(
+      operationKind === "card_duplicate"
+        ? {
+            kind: operationKind,
+            target: targetCard,
+            source: "deck",
+            extra: {
+              copyCount: 2,
+              cardOperationFamily: "duplicate",
+              cardOperationTargetModes: ["exact_named"],
+              cardOperationTargetMode: "exact_named",
+            },
+          }
+        : {
+            kind: operationKind,
+            target: targetCard,
+            result: resultCard,
+            source: "deck",
+            extra: {
+              resultSelection: "exact_named",
+              resultTargetOrigin: "catalog_reward",
+              cardOperationFamily:
+                operationKind === "card_transform" ? "transform" : "replacement",
+              cardOperationTargetModes: ["exact_named"],
+              cardOperationTargetMode: "exact_named",
+            },
+          },
+      context,
+    );
+    const operationText = operationKind === "card_duplicate"
+      ? `Add 2 copies of {${targetCard.name}} to your deck.`
+      : operationKind === "card_transform"
+        ? `Transform {${targetCard.name}} into {${resultCard.name}}.`
+        : `Replace {${targetCard.name}} with {${resultCard.name}}.`;
+
+    slots.push({
+      key: `named-card-operation:${operationKind}:${targetCard.id}:${operationKind === "card_duplicate" ? "copies" : resultCard.id}`,
+      text: operationText,
+      effects: [payload],
+      targets: [
+        cardExactTarget(
+          targetCard,
+          "deck",
+          `${targetCard.name} as an exact current deck card`,
+        ),
+      ],
+      effect: Math.max(
+        320,
+        operationKind === "card_duplicate"
+          ? CARD_MODIFICATION_VALUE_CONSTANTS.duplicateChosen
+          : cardQualityValue(resultCard) + 80,
+      ),
     });
   }
 

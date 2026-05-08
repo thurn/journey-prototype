@@ -16,7 +16,7 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v4" = "effects:v4";
+export const EFFECT_CATALOG_VERSION: "effects:v5" = "effects:v5";
 
 export type EffectEntry = {
   readonly id: string;
@@ -116,6 +116,18 @@ export const STANDARD_TRANSFIGURATIONS = Object.freeze([
   "Prismatic",
 ] as const);
 
+export const EXPANDED_TRANSFIGURATIONS = Object.freeze([
+  "Ivory",
+  "Umbral",
+  "Silver",
+  "Glass",
+] as const);
+
+export const ALLOWED_TRANSFIGURATIONS = Object.freeze([
+  ...STANDARD_TRANSFIGURATIONS,
+  ...EXPANDED_TRANSFIGURATIONS,
+] as const);
+
 export const SITE_TYPES = Object.freeze([
   "Battle",
   "Draft",
@@ -174,7 +186,7 @@ export const ALLOWED_RULES_VOCABULARY = Object.freeze({
   resources: Object.freeze(["essence", "max essence", "omens"] as const),
   siteTypes: SITE_TYPES,
   banes: BANE_NAMES,
-  transfigurations: STANDARD_TRANSFIGURATIONS,
+  transfigurations: ALLOWED_TRANSFIGURATIONS,
   timingsAndTriggers: TIMING_TRIGGERS,
   battleKeywords: BATTLE_KEYWORDS,
   statusScopes: STATUS_SCOPES,

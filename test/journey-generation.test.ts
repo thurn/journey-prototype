@@ -6,7 +6,10 @@ import {
 } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
-import { compatibleCardOperations } from "../src/journey/fillers/cardOperationCatalog.js";
+import {
+  CARD_OPERATION_DEBUG_CATALOG,
+  compatibleCardOperations,
+} from "../src/journey/fillers/cardOperationCatalog.js";
 import {
   CARD_DRAFT_PROFILES,
   cardDraftText,
@@ -618,7 +621,7 @@ describe("generateNextJourney", () => {
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v11",
-      effectCatalogVersion: "effects:v4",
+      effectCatalogVersion: "effects:v5",
       valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
@@ -2577,10 +2580,21 @@ describe("generateNextJourney", () => {
     const oneOperationOperations = compatibleCardOperations(drawContext, {
       topology: "one_operation_many_targets",
       targetClasses: ["draft_card", "starter_card", "deck_card"],
+      targetModes: ["drafted_card", "chosen"],
       valueBands: ["standard", "premium"],
       timings: ["immediate"],
       label: "test:one-operation",
       count: 3,
+    });
+    const duplicateAcrossVisibleTargets = compatibleCardOperations(drawContext, {
+      topology: "one_operation_many_targets",
+      targetClasses: ["draft_card", "starter_card", "deck_card"],
+      targetModes: ["drafted_card", "chosen"],
+      families: ["duplicate"],
+      valueBands: ["premium"],
+      timings: ["immediate"],
+      label: "test:one-duplicate-many-targets",
+      count: 1,
     });
 
     expect(oneTargetOperations).toHaveLength(3);
@@ -2600,6 +2614,135 @@ describe("generateNextJourney", () => {
         (operation) => operation.timing === "immediate",
       ),
     ).toBe(true);
+    expect(duplicateAcrossVisibleTargets[0]).toMatchObject({
+      family: "duplicate",
+      targetModes: expect.arrayContaining(["drafted_card", "chosen"]),
+    });
+  });
+
+  it("covers milestone card-operation families and brainstorm examples through the normal catalog", async () => {
+    const operations = CARD_OPERATION_DEBUG_CATALOG.operations;
+    const byKey = new Map(operations.map((operation) => [operation.key, operation]));
+
+    [
+      "chosen-purge",
+      "random-purge",
+      "all-duplicate-purge",
+      "starter-replacement-draft",
+      "named-card-replacement",
+      "transform-to-random-card",
+      "transform-to-named-card",
+      "duplicate-count-two",
+      "batch-duplicate",
+      "merge",
+      "split",
+      "change-type-event",
+      "change-subtype-sigil",
+      "remove-dissolve",
+      "remove-transfiguration",
+      "ink-reassignment-text",
+      "remove-target-restriction",
+      "opening-hand-window",
+      "materialized-ability-conversion",
+      "all-card-transfiguration",
+      "all-event-transfiguration",
+      "random-predicate-transfiguration",
+    ].forEach((key) => expect(byKey.has(key), key).toBe(true));
+
+    expect(CARD_OPERATION_DEBUG_CATALOG.targetModes).toEqual(
+      expect.arrayContaining([
+        "chosen",
+        "exact_named",
+        "random_predicate",
+        "all_matching",
+        "drafted_card",
+      ]),
+    );
+
+    expect(byKey.get("ink-reassignment-text")).toMatchObject({
+      family: "text",
+      effect: expect.objectContaining({ rewriteMode: "ink_reassignment" }),
+    });
+    expect(byKey.get("change-subtype-sigil")).toMatchObject({
+      family: "subtype",
+      effect: expect.objectContaining({ newSubtype: "Sigil" }),
+    });
+    expect(byKey.get("event-keyword-rewrite")).toMatchObject({
+      family: "keyword",
+      effect: expect.objectContaining({ rewriteMode: "event_keyword_rewrite" }),
+    });
+    expect(byKey.get("merge")).toMatchObject({ family: "merge_split" });
+    expect(byKey.get("split")).toMatchObject({ family: "merge_split" });
+    expect(byKey.get("materialized-ability-conversion")).toMatchObject({
+      family: "materialized_ability",
+      effect: expect.objectContaining({ materializedAbilityConversion: true }),
+    });
+    expect(CARD_OPERATION_DEBUG_CATALOG.allowedTransfigurations).toEqual(
+      expect.arrayContaining(["Viridian", "Scarlet", "Silver", "Umbral", "Glass"]),
+    );
+  });
+
+  it("rejects incompatible card-operation target modes before rendering", async () => {
+    const journeyContext = await context("card-operation-target-compatibility");
+    const manifest = fillForShape("one_operation_many_targets", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option, index) =>
+        index === 0
+          ? refreshOptionOperations({
+              ...option,
+              targets: option.targets.map((targetRecord) =>
+                typeof targetRecord === "object" && targetRecord !== null
+                  ? {
+                      ...targetRecord,
+                      cardOperationTargetMode: "random_predicate",
+                    }
+                  : targetRecord,
+              ),
+            })
+          : option,
+      ),
+    };
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "card_operation_target_compatibility",
+    });
+  });
+
+  it("can produce named card operation rows through normal generation", async () => {
+    const seen = new Set<string>();
+
+    for (let index = 0; index < 40 && seen.size === 0; index += 1) {
+      const journeyContext = await context(`normal-named-card-operation:${index}`);
+      const manifest = fillForShapeAtStage(
+        "curated_reward_trio",
+        journeyContext,
+        "mid",
+      );
+
+      expect(manifest.debug.debugPayload).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      manifest.options
+        .flatMap((option) => option.operations)
+        .filter(
+          (operation) =>
+            operation.operationKind === "reward" &&
+            ["card_transform", "card_replace", "card_duplicate"].includes(
+              operation.rewardKind,
+            ) &&
+            operation.payload.cardOperationTargetMode === "exact_named",
+        )
+        .forEach((operation) => seen.add(operation.rewardKind));
+    }
+
+    expect(seen.size).toBeGreaterThan(0);
   });
 
   it("keeps delayed-hook shapes as real root choices", async () => {

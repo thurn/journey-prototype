@@ -6,8 +6,10 @@ import {
 } from "../../util/rng.js";
 import { decisionTreeForShape, odds } from "./treeBuilders.js";
 import {
+  cardOperationTargetModeForClass,
   compatibleCardOperations,
   renderChosenCardOperationText,
+  type CardOperationTargetClass,
 } from "./cardOperationCatalog.js";
 import type {
   JourneyOption,
@@ -531,12 +533,19 @@ export function fillOptions(
         "card",
         targetProfile.targetDescription,
         cardDraftPredicate(targetProfile),
+        {
+          selection: "chosen_after_commitment",
+          cardOperationTargetMode: "drafted_card",
+        },
       );
       const operations = compatibleCardOperations(drawContext, {
         topology: "one_target_many_operations",
         targetClasses: ["draft_card"],
+        targetModes: ["drafted_card"],
         valueBands: ["standard", "temporary"],
         timings: ["immediate", "battle_window"],
+        context,
+        stage,
         label: `${shapeId}:operations`,
         count: 3,
       });
@@ -687,13 +696,20 @@ export function fillOptions(
           "card",
           targetProfile.targetDescription,
           cardDraftPredicate(targetProfile),
+          {
+            selection: "chosen_after_commitment",
+            cardOperationTargetMode: "drafted_card",
+          },
         );
         const operations = compatibleCardOperations(drawContext, {
           topology: "mirrored_operations",
           targetClasses: ["draft_card"],
+          targetModes: ["drafted_card"],
           families: ["keyword", "cost", "text"],
           valueBands: ["standard"],
           timings: ["immediate"],
+          context,
+          stage,
           label: `${shapeId}:rewrite-operations`,
           count: 3,
         });
@@ -742,9 +758,12 @@ export function fillOptions(
       const operations = compatibleCardOperations(drawContext, {
         topology: "mirrored_operations",
         targetClasses: ["draft_card"],
+        targetModes: ["drafted_card"],
         families: ["transfiguration"],
         valueBands: ["standard"],
         timings: ["immediate"],
+        context,
+        stage,
         label: `${shapeId}:transfiguration-operations`,
         count: 3,
       });
@@ -760,6 +779,10 @@ export function fillOptions(
                 "card",
                 targetProfile.targetDescription,
                 cardDraftPredicate(targetProfile),
+                {
+                  selection: "chosen_after_commitment",
+                  cardOperationTargetMode: "drafted_card",
+                },
               ),
             ],
             effect: operation.value,
@@ -774,30 +797,52 @@ export function fillOptions(
         `${shapeId}:target-order`,
         [
           {
+            targetClass: "draft_card",
             text: chosenCardText(),
             target: target("card", CARD_POOL_TARGET_DESCRIPTION, {
               source: "draftPool",
               tideOverlap: "selected",
+            }, {
+              selection: "chosen_after_commitment",
+              cardOperationTargetMode: "drafted_card",
             }),
           },
           {
+            targetClass: "starter_card",
             text: "a chosen Starter card",
             target: target("card", "Starter cards in deck", {
               source: "deck",
               starter: true,
+            }, {
+              selection: "chosen_after_commitment",
+              cardOperationTargetMode: "chosen",
             }),
           },
           {
+            targetClass: "deck_card",
             text: "a chosen card in your deck",
-            target: target("card", "cards in deck", { source: "deck" }),
+            target: target("card", "cards in deck", { source: "deck" }, {
+              selection: "chosen_after_commitment",
+              cardOperationTargetMode: "chosen",
+            }),
           },
-        ],
+        ] satisfies {
+          targetClass: CardOperationTargetClass;
+          text: string;
+          target: ReturnType<typeof target>;
+        }[],
+      );
+      const requestedTargetClasses = targetEntries.map(
+        (entry) => entry.targetClass,
       );
       const operation = compatibleCardOperations(drawContext, {
         topology: "one_operation_many_targets",
-        targetClasses: ["draft_card", "starter_card", "deck_card"],
+        targetClasses: requestedTargetClasses,
+        targetModes: requestedTargetClasses.map(cardOperationTargetModeForClass),
         valueBands: ["standard", "premium"],
         timings: ["immediate"],
+        context,
+        stage,
         label: `${shapeId}:operation`,
         count: 1,
       })[0]!;
