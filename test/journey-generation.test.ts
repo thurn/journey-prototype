@@ -36,6 +36,8 @@ import { stableStringify } from "../src/util/stableJson.js";
 
 const runDiversityAudit = process.env.JOURNEY_DIVERSITY_AUDIT === "1";
 const diversityAuditIt = runDiversityAudit ? it : it.skip;
+const runSlowTests = process.env.JOURNEY_SLOW_TESTS === "1";
+const slowIt = runSlowTests ? it : it.skip;
 
 async function context(seed = "default") {
   const content = await loadContent(process.cwd());
@@ -777,6 +779,55 @@ describe("generateNextJourney", () => {
 
   it("selects generated objects naturally rarely, with late high-weirdness weighting", async () => {
     const content = await loadContent(process.cwd());
+    const indexes = [0, 10, 16];
+    const countGenerated = (stage: "early" | "late") =>
+      indexes.map((index) => {
+        const journeyContext = contextFromContent(
+          content,
+          `natural-generated-${stage}-${index}`,
+          stage,
+        );
+        const manifest = buildConservativeJourneyForShape({
+          context: journeyContext,
+          drawContext: {
+            seed: journeyContext.state.quest.seed,
+            contentVersion: journeyContext.contentVersion,
+            rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+          },
+          journeyId: "J-000001",
+          shapeId: "one_target_many_operations",
+          stage,
+          selectedTags:
+            stage === "late"
+              ? ["convert", "gamble", "reward", "route", "sacrifice"]
+              : ["build", "cleanup", "immediate", "reward"],
+          shapeScores: JOURNEY_SHAPES.map((shape, shapeIndex) => ({
+            shapeId: shape.id,
+            score: 100 - shapeIndex,
+          })),
+        });
+
+        expect(
+          validateJourneyManifest(manifest, journeyContext),
+          `${stage}:${index}`,
+        ).toEqual({
+          ok: true,
+        });
+
+        return manifest;
+      }).filter((manifest) => manifest.generatedObjects.length > 0).length;
+
+    const earlyGenerated = countGenerated("early");
+    const lateGenerated = countGenerated("late");
+
+    expect(earlyGenerated).toBeGreaterThan(0);
+    expect(earlyGenerated).toBeLessThanOrEqual(1);
+    expect(lateGenerated).toBeGreaterThan(earlyGenerated);
+    expect(lateGenerated).toBeLessThanOrEqual(3);
+  });
+
+  slowIt("samples generated-object natural selection rates across a wider deterministic batch", async () => {
+    const content = await loadContent(process.cwd());
     const countGenerated = (stage: "early" | "late") =>
       Array.from({ length: 80 }, (_, index) => {
         const journeyContext = contextFromContent(
@@ -821,7 +872,7 @@ describe("generateNextJourney", () => {
     expect(earlyGenerated).toBeLessThan(10);
     expect(lateGenerated).toBeGreaterThan(earlyGenerated);
     expect(lateGenerated).toBeLessThan(30);
-  });
+  }, 180000);
 
   it("exposes resource edge-case value-band semantics in operations and value debug", async () => {
     const journeyContext = await context("value-resource");
@@ -3787,7 +3838,68 @@ describe("validateJourneyManifest", () => {
     ]);
   });
 
-  it("keeps every advertised debug payload shape forceable", async () => {
+  it("keeps every advertised debug payload variant forceable", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+
+    for (const family of DEBUG_PAYLOAD_FAMILIES) {
+      for (const variant of family.variants) {
+        if (variant.availability !== "available") {
+          continue;
+        }
+
+        const supportedShapes =
+          variant.supportedShapes === "all"
+            ? JOURNEY_SHAPES.map((shape) => shape.id)
+            : variant.supportedShapes;
+        const forcedStage: JourneyStage =
+          variant.supportedStages === "all"
+            ? "mid"
+            : variant.supportedStages[0]!;
+        const forcedDebugPayload = {
+          familyId: family.id,
+          variantId: variant.id,
+          qaId: variant.qaId,
+          description: variant.description,
+          supportedShapes: variant.supportedShapes,
+          supportedStages: variant.supportedStages,
+        } satisfies DebugPayloadSelection;
+
+        const shapeId = supportedShapes[0]!;
+        const state = createInitialJourneyState({
+          seed: `debug-payload-variant:${variant.qaId}:${shapeId}`,
+          content,
+          contentVersion,
+        });
+        const journeyContext = buildJourneyContext({
+          projectRoot: process.cwd(),
+          content,
+          state,
+          contentVersion,
+        });
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedShapeId: shapeId,
+          forcedStage,
+          forcedDebugPayload,
+        });
+
+        expect(
+          validateJourneyManifest(manifest, journeyContext),
+          `${variant.qaId}:${shapeId}`,
+        ).toEqual({ ok: true });
+        expect(
+          manifest.debug.debugPayload,
+          `${variant.qaId}:${shapeId}`,
+        ).toMatchObject({
+          qaId: variant.qaId,
+          source: "forced",
+        });
+      }
+    }
+  });
+
+  slowIt("keeps every advertised debug payload shape forceable", async () => {
     const content = await loadContent(process.cwd());
     const contentVersion = "test-content-version";
 
@@ -3847,7 +3959,7 @@ describe("validateJourneyManifest", () => {
         }
       }
     }
-  });
+  }, 180000);
 
   it("forces deterministic reveal, roll, range, pool, push, and wager payload envelopes", async () => {
     const journeyContext = await context("random-reveal-roll-wager");

@@ -11,6 +11,7 @@
     "journey": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "test": "vitest run",
+    "test:audit": "JOURNEY_SLOW_TESTS=1 JOURNEY_DIVERSITY_AUDIT=1 vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
