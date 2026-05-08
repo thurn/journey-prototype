@@ -1,5 +1,5 @@
 import type { JourneyContext } from "../../quest/context.js";
-import { shuffleDeterministic, type DrawContext } from "../../util/rng.js";
+import type { DrawContext } from "../../util/rng.js";
 import type {
   JourneyRewardPool,
   JourneyTree,
@@ -7,11 +7,11 @@ import type {
   PrecommittedOutcomes,
 } from "../manifest.js";
 import {
-  adaptRewardPoolOperations,
   adaptTreeBranchOperations,
   adaptTreeTerminalOperations,
 } from "../operationAdapters.js";
 import type { JourneyShapeId } from "../shapes.js";
+import { visibleWheelPool } from "./randomPayloads.js";
 import {
   valueBaneGain,
   valueCardDraft,
@@ -189,6 +189,16 @@ function tree(nodes: JourneyTree["nodes"]): JourneyTree {
     rootNodeId: nodes[0]?.id ?? "level-1",
     nodes,
   };
+}
+
+function stageForContext(context: JourneyContext): "early" | "mid" | "late" {
+  const dreamscape = context.state.quest.resources.dreamscape;
+
+  if (dreamscape <= 1) {
+    return "early";
+  }
+
+  return dreamscape <= 3 ? "mid" : "late";
 }
 
 function createDecisionTreeBuilders(tools: TreeBuilderTools) {
@@ -570,47 +580,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     ]);
   }
 
-  function randomPoolRewardCandidates(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): SequentialReward[] {
-    const families: TreeRewardFamilyId[] = ([
-      "essence",
-      "omens",
-      "card_draft",
-      "transfiguration",
-      "battle_window",
-      "starter_cleanup",
-      "dreamsign_draft",
-    ] as const).filter((family) => {
-      if (family === "starter_cleanup") {
-        return context.state.quest.deck.summary.starterCards > 0;
-      }
-
-      if (family === "dreamsign_draft") {
-        return context.state.quest.dreamsignPoolIds.length > 0;
-      }
-
-      return true;
-    });
-
-    return families
-      .flatMap((family) =>
-        treeRewardFamily(context, drawContext, `random-pool:${family}`, 1, [
-          family,
-        ]).rewards,
-      )
-      .filter((reward) => reward.effects.length > 0);
-  }
-
-  function randomPoolSummary(rewards: readonly SequentialReward[]): string {
-    const entries = rewards.map((reward) =>
-      lowerFirst(reward.text).replace(/\.$/, ""),
-    );
-
-    return `Randomly gain one: ${entries.join(", ")}. Outcomes draw with replacement.`;
-  }
-
   function buildPrizeLadderTree(
     context: JourneyContext,
     drawContext: DrawContext,
@@ -797,34 +766,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
         };
       }),
     );
-  }
-
-  function randomPool(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): JourneyRewardPool {
-    const candidates = randomPoolRewardCandidates(context, drawContext);
-    const poolSize = Math.min(
-      candidates.length,
-      pickSequentialVariant(drawContext, "random-pool:size", [5, 6]),
-    );
-    const rewards = shuffleDeterministic(
-      drawContext,
-      "random-pool:rewards",
-      candidates,
-    ).slice(0, poolSize);
-
-    const pool = {
-      summary: randomPoolSummary(rewards),
-      replacement: "with_replacement" as const,
-      operations: [],
-      rewards: rewards.flatMap((reward) => reward.effects),
-    };
-
-    return {
-      ...pool,
-      operations: adaptRewardPoolOperations(pool),
-    };
   }
 
   function buildRandomPoolDrawsTree(
@@ -1136,7 +1077,15 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
           },
         };
       case "random_pool_draws": {
-        const pool = randomPool(context, drawContext);
+        const wheel = visibleWheelPool({
+          context,
+          drawContext,
+          label: "random-pool",
+          stage: stageForContext(context),
+          size: pickSequentialVariant(drawContext, "random-pool:size", [5, 6]),
+        });
+        const pool = wheel.rewardPool;
+        const drawCount = 2;
 
         return {
           tree: buildRandomPoolDrawsTree(context, drawContext),
@@ -1144,17 +1093,32 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
           precommitted: {
             random: [
               {
-                kind: "visible_pool",
+                ...wheel.visiblePoolEnvelope,
                 poolId: "random-pool-draws",
-                summary: pool.summary,
+              },
+              {
+                kind: "repeated_pool_draws",
+                poolId: "random-pool-draws",
+                drawCount,
                 rewards: pool.rewards,
+                committedDraws: wheel.candidates
+                  .slice(0, drawCount)
+                  .map((candidate) => candidate.payloads),
                 replacement: pool.replacement,
                 visibilityPolicy: {
-                  outcomeVisibility: "visible",
+                  outcomeVisibility: "pre_rolled",
                   disclosure:
-                    "The fixed reward pool and replacement policy are visible before each draw.",
+                    "Repeated draws use the fixed visible pool with replacement and are committed in metadata.",
                   playerVisible: true,
                 },
+                expectedConvertedEssence:
+                  Number(wheel.visiblePoolEnvelope.expectedConvertedEssence ?? 0) *
+                  drawCount,
+                riskPremiumConvertedEssence: -12,
+                worstCaseBurdenConvertedEssence:
+                  Number(wheel.visiblePoolEnvelope.worstCaseBurdenConvertedEssence ?? 0) *
+                  drawCount,
+                presentation: "random_pool_repeated_draws",
               },
             ],
           },

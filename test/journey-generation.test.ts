@@ -6879,7 +6879,7 @@ describe("validateJourneyManifest", () => {
       precommitted: {},
     };
 
-    expect(manifest.precommitted.random).toHaveLength(manifest.options.length);
+    expect(manifest.precommitted.random?.length).toBeGreaterThanOrEqual(manifest.options.length);
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "missing_precommitted_outcomes",
@@ -6912,7 +6912,7 @@ describe("validateJourneyManifest", () => {
           ruleId: "single_wager_known_stake",
         }),
       ],
-      presentation: "visible_odds_debug_roll",
+      presentation: expect.any(String),
     });
     expect(manifest.precommitted.random?.[1]).toMatchObject({
       kind: "wager",
@@ -6957,7 +6957,7 @@ describe("validateJourneyManifest", () => {
       odds: { percent: expect.any(Number) },
       kind: expect.stringMatching(/^(chance_to_gain_bane|chance_to_pay_cost)$/u),
       committedResult: expect.stringMatching(/^(bane|safe|paid|free)$/u),
-      presentation: "visible_odds_debug_roll",
+      presentation: expect.any(String),
     });
     expect(riskEnvelope?.constraints).toEqual([
       expect.objectContaining({
@@ -7060,7 +7060,7 @@ describe("validateJourneyManifest", () => {
     });
   });
 
-  it("reveals committed non-wager random reward values in root option copy", async () => {
+  it("reveals committed non-wager random values in root option copy", async () => {
     const journeyContext = await context();
 
     expect(
@@ -7068,8 +7068,8 @@ describe("validateJourneyManifest", () => {
         (option) => option.text,
       ),
     ).toEqual([
-      expect.stringMatching(/^Gain the precommitted reward: .+\.$/u),
-      expect.stringMatching(/^Gain the precommitted reward: .+\.$/u),
+      expect.stringMatching(/Reveal|Spin the visible wheel|Roll twice/u),
+      expect.stringMatching(/precommitted|kept|random reward/u),
     ]);
     expect(
       fillForShape("resolved_random_series", journeyContext).options.map(
@@ -7079,6 +7079,156 @@ describe("validateJourneyManifest", () => {
       expect.stringMatching(/^Resolve the precommitted rewards: .+\.$/u),
       expect.stringMatching(/^Resolve the precommitted rewards: .+\.$/u),
     ]);
+  });
+
+  it("builds Covered Cups reveal-choice envelopes through normal generation", async () => {
+    const content = await loadContent(process.cwd());
+    const matches = Array.from({ length: 24 }, (_, index) => {
+      const journeyContext = contextFromContent(content, `covered-cups-${index}`, "mid");
+      const manifest = fillForShapeAtStage(
+        "single_random_outcome",
+        journeyContext,
+        "mid",
+      );
+      const kinds = manifest.precommitted.random?.map((entry) => entry.kind) ?? [];
+
+      expect(validateJourneyManifest(manifest, journeyContext), `covered-cups-${index}`).toEqual({
+        ok: true,
+      });
+
+      return {
+        manifest,
+        kinds,
+      };
+    });
+    const reveal = matches.find(({ kinds }) =>
+      [
+        "reveal_rewards",
+        "choose_one_revealed_reward",
+        "choose_one_random_revealed_reward",
+        "gain_one_random_reward",
+      ].every((kind) => kinds.includes(kind))
+    );
+
+    expect(reveal).toBeDefined();
+    expect(reveal?.manifest.options.map((option) => option.text).join(" ")).toMatch(
+      /Reveal \d+ rewards/u,
+    );
+    expect(reveal?.manifest.precommitted.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reveal_envelope",
+          envelopeKind: "reveal_rewards",
+          value: expect.objectContaining({
+            expectedConvertedEssence: expect.any(Number),
+            worstCaseBurdenConvertedEssence: expect.any(Number),
+            riskPremiumConvertedEssence: expect.any(Number),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("builds Bounded Wheel as a visible mixed pool with roll-twice keep-one", async () => {
+    const content = await loadContent(process.cwd());
+    const matches = Array.from({ length: 24 }, (_, index) => {
+      const journeyContext = contextFromContent(content, `bounded-wheel-${index}`, "mid");
+      const manifest = fillForShapeAtStage(
+        "single_random_outcome",
+        journeyContext,
+        "mid",
+      );
+
+      expect(validateJourneyManifest(manifest, journeyContext), `bounded-wheel-${index}`).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    });
+    const wheel = matches.find((manifest) =>
+      (manifest.precommitted.random ?? []).some((entry) => entry.kind === "roll_twice_keep_one")
+    );
+    const rewardKinds = new Set(
+      wheel?.rewardPool?.operations.map((operation) =>
+        operation.operationKind === "reward"
+          ? operation.rewardKind
+          : operation.operationKind === "burden"
+            ? operation.burdenKind
+            : operation.operationKind
+      ) ?? [],
+    );
+
+    expect(wheel).toBeDefined();
+    expect(wheel?.precommitted.random).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "visible_pool" }),
+        expect.objectContaining({ kind: "gain_one_random_reward" }),
+        expect.objectContaining({ kind: "roll_twice_keep_one" }),
+      ]),
+    );
+    expect([...rewardKinds]).toEqual(
+      expect.arrayContaining([
+        "resource",
+        "dreamsign_gain",
+        "bane_random_purge",
+        "bane_gain",
+      ]),
+    );
+    expect(wheel?.options.map((option) => option.text).join(" ")).toMatch(
+      /committed outcome|Roll twice/u,
+    );
+  });
+
+  it("builds Crooked Coin risk rows with named Dreamsign rewards and random costs or purges", async () => {
+    const content = await loadContent(process.cwd());
+    const manifests = Array.from({ length: 80 }, (_, index) => {
+      const journeyContext = contextFromContent(content, `crooked-coin-${index}`, "mid");
+      const manifest = fillForShapeAtStage("risk_or_skip", journeyContext, "mid");
+
+      expect(validateJourneyManifest(manifest, journeyContext), `crooked-coin-${index}`).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    });
+    const namedDreamsignRisk = manifests.find((manifest) =>
+      manifest.options[0]?.operations.some(
+        (operation) =>
+          operation.operationKind === "reward" &&
+          operation.rewardKind === "dreamsign_gain" &&
+          operation.targetSelector?.selectorKind === "dreamsign" &&
+          operation.targetSelector.selection === "exact",
+      )
+    );
+    const chanceBands = new Set(
+      manifests.flatMap((manifest) =>
+        (manifest.precommitted.random ?? []).flatMap((entry) =>
+          entry.odds?.percent ?? []
+        )
+      ),
+    );
+    const randomCostRisk = manifests.find((manifest) =>
+      (manifest.precommitted.random ?? []).some(
+        (entry) =>
+          entry.kind === "chance_to_pay_cost" &&
+          typeof entry.presentation === "string" &&
+          entry.presentation === "random_essence_cost",
+      )
+    );
+    const randomPurgeRisk = manifests.find((manifest) =>
+      (manifest.precommitted.random ?? []).some(
+        (entry) =>
+          entry.kind === "chance_to_pay_cost" &&
+          typeof entry.presentation === "string" &&
+          (entry.presentation === "random_dreamsign_purge" ||
+            entry.presentation === "random_card_purge"),
+      )
+    );
+
+    expect(namedDreamsignRisk).toBeDefined();
+    expect([...chanceBands].some((percent) => ![35, 50, 65].includes(percent))).toBe(true);
+    expect(randomCostRisk).toBeDefined();
+    expect(randomPurgeRisk).toBeDefined();
   });
 
   it("keeps every advertised debug payload variant forceable", async () => {

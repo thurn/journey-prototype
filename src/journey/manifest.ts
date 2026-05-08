@@ -78,6 +78,7 @@ export type OperationTiming =
 export type OperationValueMetadata = {
   convertedEssence?: number;
   expectedConvertedEssence?: number;
+  worstCaseBurdenConvertedEssence?: number;
   uncertaintyConvertedEssence?: number;
   riskPremiumConvertedEssence?: number;
   bands?: {
@@ -522,6 +523,7 @@ type RandomPrecommitBase = {
   visibilityPolicy?: RandomVisibilityPolicy;
   odds?: RandomOdds;
   expectedConvertedEssence?: number;
+  worstCaseBurdenConvertedEssence?: number;
   riskPremiumConvertedEssence?: number;
   presentation?: string;
   constraints?: RandomEnvelopeConstraint[];

@@ -972,6 +972,15 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
       });
     }
 
+    if (typeof operation.value?.worstCaseBurdenConvertedEssence === "number") {
+      components.push({
+        kind: "burden",
+        operationId: operation.operationId,
+        label: `${operation.operationKind} worst-case burden`,
+        value: operation.value.worstCaseBurdenConvertedEssence,
+      });
+    }
+
     for (const band of operation.value?.bands ?? []) {
       components.push({
         kind: "value-band",

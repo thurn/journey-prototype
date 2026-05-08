@@ -452,6 +452,9 @@ function operationValueDebugText(operation: JourneyOption["operations"][number])
     typeof operation.value.uncertaintyConvertedEssence === "number"
       ? `uncertainty=${operation.value.uncertaintyConvertedEssence}`
       : undefined,
+    typeof operation.value.worstCaseBurdenConvertedEssence === "number"
+      ? `worstCaseBurden=${operation.value.worstCaseBurdenConvertedEssence}`
+      : undefined,
     typeof operation.value.riskPremiumConvertedEssence === "number"
       ? `riskPremium=${operation.value.riskPremiumConvertedEssence}`
       : undefined,

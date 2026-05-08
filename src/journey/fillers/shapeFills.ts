@@ -84,7 +84,14 @@ import {
   expandedDelayedHookFills,
   pairedReturnHookFill,
 } from "./hookPayloads.js";
-import { randomVisibility } from "./randomPayloads.js";
+import {
+  namedDreamsignRiskReward,
+  randomBaneChanceEnvelope,
+  randomRiskCostEnvelope,
+  randomVisibility,
+  revealChoiceOptions,
+  wheelRootOptions,
+} from "./randomPayloads.js";
 import { routeEditMenuRewards, routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
@@ -1296,106 +1303,56 @@ export function fillOptions(
       };
     }
     case "risk_or_skip": {
-      const reward = rewardSlots(
+      const reward = namedDreamsignRiskReward({
         context,
         drawContext,
-        `${shapeId}:risk-reward`,
-      ).filter((entry) => entry.routeEffects === undefined)[0]!;
+        label: `${shapeId}:risk-reward`,
+        stage,
+      });
       const downsideChancePercent = pickSequentialVariant(
         drawContext,
         `${shapeId}:downside-chance`,
-        [35, 50, 65],
+        [25, 35, 45, 50, 65, 75],
       );
       const downsideKind = pickSequentialVariant(
         drawContext,
         `${shapeId}:downside-kind`,
-        ["bane", "omen", "essence"] as const,
+        ["bane", "random_cost"] as const,
       );
-      const riskBane = baneBurdenSlot(drawContext, `${shapeId}:risk-bane`);
-      const roll = drawInt(drawContext, "risk-or-skip-downside-roll:1", 1, 100);
-      const downside =
-        downsideKind === "omen" && context.state.quest.resources.omens >= 1
-          ? { kind: "omen_loss", amount: 1 }
-          : downsideKind === "essence"
-            ? {
-                kind: "essence_loss",
-                amount: Math.min(60, context.state.quest.resources.essence),
-              }
-            : baneBurden(riskBane.baneName, 1);
-      const downsideValue =
-        downsideKind === "omen" && context.state.quest.resources.omens >= 1
-          ? valueOmenLoss(1)
-          : downsideKind === "essence"
-            ? -Math.min(60, context.state.quest.resources.essence)
-            : riskBane.burden;
-      const downsideText = downsideKind === "omen" &&
-        context.state.quest.resources.omens >= 1
-        ? "lose 1 omen"
-        : downsideKind === "essence"
-          ? `lose ${Math.min(60, context.state.quest.resources.essence)} essence`
-          : `gain ${baneNameText(riskBane.baneName, 1)}`;
       const riskConstraint = {
         constraintKind: "shape_invariant" as const,
         shapeId,
         ruleId: "risk_or_skip_bounded_downside" as const,
         label: "The accept option has one bounded random downside and the leave option stays safe.",
       };
-      const riskEnvelope = "baneName" in downside
-        ? {
-            kind: "chance_to_gain_bane" as const,
+      const downside = downsideKind === "bane"
+        ? randomBaneChanceEnvelope({
+            drawContext,
+            label: `${shapeId}:risk-bane`,
             optionNumber: 1,
-            odds: odds(downsideChancePercent),
-            baneName: downside.baneName,
-            count: downside.count,
-            committedResult: roll <= downsideChancePercent ? "bane" as const : "safe" as const,
-            visibilityPolicy: randomVisibility(
-              "pre_rolled",
-              "The downside odds are visible and the safe/downside result is precommitted.",
-              true,
-            ),
-            expectedConvertedEssence: Math.round(
-              downsideValue * (downsideChancePercent / 100),
-            ),
-            riskPremiumConvertedEssence: Math.round(
-              downsideValue * (downsideChancePercent / 100),
-            ),
-            constraints: [riskConstraint],
-            presentation: "visible_odds_debug_roll",
-          }
-        : {
-            kind: "chance_to_pay_cost" as const,
+            chancePercent: downsideChancePercent,
+          })
+        : randomRiskCostEnvelope({
+            context,
+            drawContext,
+            label: `${shapeId}:risk-cost`,
             optionNumber: 1,
-            odds: odds(downsideChancePercent),
-            cost: downside.kind === "omen_loss"
-              ? cost("omens", Number(downside.amount))
-              : cost("essence", Number(downside.amount)),
-            committedResult: roll <= downsideChancePercent ? "paid" as const : "free" as const,
-            visibilityPolicy: randomVisibility(
-              "pre_rolled",
-              "The downside odds are visible and the safe/downside result is precommitted.",
-              true,
-            ),
-            expectedConvertedEssence: Math.round(
-              downsideValue * (downsideChancePercent / 100),
-            ),
-            riskPremiumConvertedEssence: Math.round(
-              downsideValue * (downsideChancePercent / 100),
-            ),
-            constraints: [riskConstraint],
-            presentation: "visible_odds_debug_roll",
-          };
+            chancePercent: downsideChancePercent,
+          });
+      const riskEnvelope = {
+        ...downside.envelope,
+        constraints: [riskConstraint],
+      };
 
       return {
         options: [
           option({
             number: 1,
-            text: `${reward.text} ${downsideChancePercent}% chance to ${downsideText}; otherwise no downside.`,
-            effects: reward.effects,
+            text: `${reward.text} ${downsideChancePercent}% chance to ${downside.text}; otherwise no downside.`,
+            effects: reward.payloads,
             targets: reward.targets ?? [],
-            effect: reward.effect,
-            uncertainty: Math.round(
-              downsideValue * (downsideChancePercent / 100),
-            ),
+            effect: reward.value,
+            uncertainty: downside.value,
           }),
           option({
             number: 2,
@@ -1813,39 +1770,40 @@ export function fillOptions(
       };
     }
     case "single_random_outcome": {
-      const rewards = rewardSlots(
+      const family = pickSequentialVariant(
+        drawContext,
+        `${shapeId}:random-family`,
+        ["reveal_choice", "visible_wheel"] as const,
+      );
+
+      if (family === "visible_wheel") {
+        const wheel = wheelRootOptions({
+          context,
+          drawContext,
+          label: `${shapeId}:wheel`,
+          stage,
+        });
+
+        return {
+          options: wheel.options,
+          rewardPool: wheel.rewardPool,
+          precommitted: {
+            random: wheel.precommitted,
+          },
+        };
+      }
+
+      const reveal = revealChoiceOptions({
         context,
         drawContext,
-        `${shapeId}:random-rewards`,
-      )
-        .filter((entry) => entry.routeEffects === undefined)
-        .slice(0, 2);
+        label: `${shapeId}:reveal`,
+        stage,
+      });
 
       return {
-        options: rewards.map((reward, index) =>
-          option({
-            number: index + 1,
-            text: `Gain the precommitted reward: ${lowerFirst(reward.text)}`,
-            effects: [{ kind: "random_reward", table: "precommitted" }],
-            effect: reward.effect,
-            uncertainty: -12,
-          }),
-        ),
+        options: reveal.options,
         precommitted: {
-          random: rewards.map((reward, index) => ({
-            kind: "random_reward",
-            optionNumber: index + 1,
-            reward: reward.effects,
-            committedReward: reward.effects,
-            visibilityPolicy: {
-              outcomeVisibility: "pre_rolled",
-              disclosure:
-                "The random reward is pre-rolled and revealed in root option copy.",
-              playerVisible: true,
-            },
-            expectedConvertedEssence: reward.effect,
-            riskPremiumConvertedEssence: -8,
-          })),
+          random: reveal.precommitted,
         },
       };
     }

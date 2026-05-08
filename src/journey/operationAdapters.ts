@@ -1078,10 +1078,15 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
     }
 
     const expectedConvertedEssence = numberField(payload, "expectedConvertedEssence");
+    const worstCaseBurdenConvertedEssence = numberField(payload, "worstCaseBurdenConvertedEssence");
     const riskPremiumConvertedEssence = numberField(payload, "riskPremiumConvertedEssence");
 
     if (expectedConvertedEssence !== undefined) {
       metadata.expectedConvertedEssence = expectedConvertedEssence;
+    }
+
+    if (worstCaseBurdenConvertedEssence !== undefined) {
+      metadata.worstCaseBurdenConvertedEssence = worstCaseBurdenConvertedEssence;
     }
 
     if (riskPremiumConvertedEssence !== undefined) {
@@ -1106,6 +1111,9 @@ function randomValueMetadata(value: unknown): OperationValueMetadata | undefined
   const metadata: OperationValueMetadata = {
     ...(typeof value.expectedConvertedEssence === "number"
       ? { expectedConvertedEssence: value.expectedConvertedEssence }
+      : {}),
+    ...(typeof value.worstCaseBurdenConvertedEssence === "number"
+      ? { worstCaseBurdenConvertedEssence: value.worstCaseBurdenConvertedEssence }
       : {}),
     ...(typeof value.riskPremiumConvertedEssence === "number"
       ? {
@@ -1720,7 +1728,7 @@ export function adaptRewardPoolOperations(pool: Omit<JourneyRewardPool, "operati
   return adaptRecordArray(
     pool.rewards,
     "reward-pool:reward",
-    (value, operationId) => adaptReward(value, operationId, undefined, "precommitted"),
+    (value, operationId) => adaptHookResolutionPayload(value, operationId),
   );
 }
 
