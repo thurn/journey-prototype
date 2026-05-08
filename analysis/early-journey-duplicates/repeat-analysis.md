@@ -44,6 +44,56 @@ The analyzer writes these files into the same directory as `journeys.json`:
 
 Despite the `early-stage-100-*` compact filename, the analyzer reads the actual count, stage, and seed from the input payload. If you are keeping multiple stages or counts in one parent directory, prefer one subdirectory per run so filenames remain unambiguous.
 
+## Desired Report Structure
+
+The generated Markdown report should be short, skimmable, and stable enough to compare across runs. Use this structure when regenerating `duplicate-analysis.md` or writing a companion report by hand.
+
+1. Title
+
+   Use a direct H1 that names the stage or sample being analyzed, such as `# Early Stage Dream Journey Duplicate Analysis`.
+
+2. Generation command
+
+   Include the exact `npm run journey -- ... --json` command, including `--stage`, `--count`, and `--seed`. This lets another maintainer regenerate the raw sample before interpreting the counts.
+
+3. Definitions
+
+   Define the comparison rules before showing results:
+
+   - Identical journey: same shape and same ordered visible choice text.
+   - Visible choices: normal option text plus decision-tree branch text.
+   - Repeated choice: same visible choice text appearing more than once in the batch.
+   - Structurally unique ignoring numeric differences: same journey comparison after replacing numeric literals with `<n>`.
+
+4. Results
+
+   Present the headline metrics as one flat bullet list:
+
+   - Journey count.
+   - Visible choice count.
+   - Identical journey duplicate groups.
+   - Identical journey duplicate instances beyond first occurrence.
+   - Unique exact journeys.
+   - Distinct repeated choice texts.
+   - Repeated choice occurrences.
+   - Repeated choice instances beyond first occurrence.
+   - Unique choice texts.
+   - Structurally unique journeys ignoring numeric differences.
+   - Numeric-normalized duplicate journey groups.
+   - Numeric-normalized duplicate instances beyond first occurrence.
+
+5. Most repeated choice texts
+
+   Include a heading named exactly `Most repeated choice texts:` and list the highest-frequency repeated choice strings in descending count order. Use the format `<count>x: <choice text>`.
+
+6. Numeric-normalized duplicate journey groups
+
+   Include a heading named exactly `Numeric-normalized duplicate journey groups:`. For each group, list the duplicate count, shape ID, journey indexes, and normalized pattern. If there are no groups, write `- None`.
+
+7. Optional notes
+
+   Add this section only when needed. Use it for known interpretation caveats, such as text-level duplicates hiding different target metadata, forced-shape sampling, or a run with validation repairs.
+
 ## Counting Definitions
 
 The analyzer uses visible text, not internal payload identity, for duplicate counting.
