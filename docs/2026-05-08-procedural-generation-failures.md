@@ -487,7 +487,7 @@ instead of silently switching shapes.
 
 ### 13. Validators Preserve Display Text And Magic Payload Kinds
 
-**Status:** Error in validation design.
+**Status:** Fixed.
 
 Validation should force general structured contracts, but several validators
 still depend on exact strings or allow unknown scenario kinds:
@@ -518,6 +518,19 @@ manifest fields.
 **Proposed fix to remove hardcoded content:** Replace display-text and magic-kind
 checks with validation against typed operations, selectors, timing, random
 envelopes, and renderer parity assertions derived from manifest fields.
+
+**Resolution:** Random precommit validation now rejects unknown payloads that
+claim the random-envelope contract instead of passing them through as
+scenario-specific envelopes; legacy debug precommit records continue to be
+checked by their dedicated Dreamsign, Bane, and resource validators. Sequential tree
+rules validate random branch kind, terminal outcome, reward effects, and typed
+reward-pool replacement metadata rather than requiring labels such as `Success`
+or `Failure` or prose that says `replacement`. Repeatable-menu and sequence
+validators use pick behavior plus costs, burdens, operations, and converted
+value metadata instead of matching `take`, `no effect`, or `refuse` copy. Timed
+window payloads now carry a typed duration kind/count and validator checks use
+that metadata, window scope, operation payload metadata, and resource-operation
+types instead of parsing duration text.
 
 ### 14. Tests And Docs Sometimes Freeze Current Hardcoded Behavior
 

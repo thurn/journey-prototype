@@ -198,7 +198,7 @@ export function repeatableMenuLimitResult(
   }
 
   for (const option of manifest.options) {
-    if (!/^take\b/iu.test(option.text)) {
+    if (option.pickBehavior === "leave" || option.pickBehavior === "complete_sequence") {
       continue;
     }
 

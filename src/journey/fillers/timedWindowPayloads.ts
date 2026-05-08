@@ -38,6 +38,10 @@ type TimedWindowEntry = {
 
 type TimedWindowPayloadMetadata = {
   timedWindowScope: TimedWindowScope;
+  timedWindowDuration: {
+    durationKind: "battle_count" | "shop_count" | "dreamscape_count";
+    count: number;
+  };
   affectedObjectClass: string;
   windowModifier: string;
   amount: number;
@@ -45,8 +49,25 @@ type TimedWindowPayloadMetadata = {
   windowValue: number;
 };
 
-function metadata(args: TimedWindowPayloadMetadata): TimedWindowPayloadMetadata {
-  return args;
+function durationKind(scope: TimedWindowScope): TimedWindowPayloadMetadata["timedWindowDuration"]["durationKind"] {
+  return scope === "shop"
+    ? "shop_count"
+    : scope === "route"
+      ? "dreamscape_count"
+      : "battle_count";
+}
+
+function metadata(
+  window: TimedWindow,
+  args: Omit<TimedWindowPayloadMetadata, "timedWindowDuration">,
+): TimedWindowPayloadMetadata {
+  return {
+    ...args,
+    timedWindowDuration: {
+      durationKind: durationKind(args.timedWindowScope),
+      count: window.count,
+    },
+  };
 }
 
 function valueForWindow(baseValue: number, window: TimedWindow, amount = 1): number {
@@ -75,7 +96,7 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
           duration: window.duration,
           scope: "all_matching_cards_in_deck",
           predicate: { source: "deck", cardType: "Event" },
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "battle",
             affectedObjectClass: "event_cards",
             windowModifier: "add_keyword_fast",
@@ -95,7 +116,7 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
           kind: "battle_window_modifier",
           duration: window.duration,
           modifier: "opening_hand_cards",
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "battle",
             affectedObjectClass: "opening_hand",
             windowModifier: "extra_cards",
@@ -115,7 +136,7 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
           kind: "battle_window_modifier",
           duration: window.duration,
           modifier: "turn_1_energy",
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "battle",
             affectedObjectClass: "turn_1_energy",
             windowModifier: "extra_energy",
@@ -135,7 +156,7 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
           kind: "battle_window_modifier",
           duration: window.duration,
           modifier: "first_event_reclaim",
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "battle",
             affectedObjectClass: "event_cards",
             windowModifier: "reclaim",
@@ -155,7 +176,7 @@ function battleWindowOptions(window: TimedWindow, drawContext: DrawContext): Tim
           kind: "battle_window_modifier",
           duration: window.duration,
           modifier: "turn_2_cards",
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "battle",
             affectedObjectClass: "turn_2_draw",
             windowModifier: "extra_cards",
@@ -185,7 +206,7 @@ function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): 
             duration: window.duration,
             amount: 1,
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "dreamwell",
             affectedObjectClass: "dreamwell_draw",
             windowModifier: "first_draw_energy",
@@ -209,7 +230,7 @@ function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): 
             amount: 1,
             cardRole: "positive",
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "dreamwell",
             affectedObjectClass: "dreamwell_card_pool",
             windowModifier: "add_positive_card",
@@ -233,7 +254,7 @@ function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): 
             amount: 1,
             cardRole: "upgrade",
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "dreamwell",
             affectedObjectClass: "dreamwell_card",
             windowModifier: "upgrade_first_card",
@@ -257,7 +278,7 @@ function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): 
             amount: 1,
             cardRole: "penalty",
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "dreamwell",
             affectedObjectClass: "dreamwell_penalty",
             windowModifier: "ignore_first_penalty",
@@ -293,7 +314,7 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
             amount: 1,
             count: window.count,
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "shop",
             affectedObjectClass: "shop_rerolls",
             windowModifier: "omen_discount",
@@ -317,7 +338,7 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
             amount: discount,
             count: window.count,
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "shop",
             affectedObjectClass: "shop_purchase",
             windowModifier: "essence_discount",
@@ -343,7 +364,7 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
             siteType: "Shop",
             hook: `trade 1 omen for a ${discount + 10} essence discount`,
           }),
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "shop",
             affectedObjectClass: "shop_purchase",
             windowModifier: "omen_trade_discount",
@@ -368,11 +389,11 @@ function routeWindowOptions(window: TimedWindow, drawContext: DrawContext): Time
   );
   const route = (
     payload: ReturnType<typeof routePayload>,
-    extra: TimedWindowPayloadMetadata,
+    extra: Omit<TimedWindowPayloadMetadata, "timedWindowDuration">,
   ) => ({
     ...payload,
     duration: window.duration,
-    ...metadata(extra),
+    ...metadata(window, extra),
   });
   const candidates: TimedWindowEntry[] = [
     {
@@ -478,7 +499,7 @@ function temporaryObjectWindowOptions(
             source: "pool",
             temporary: true,
             duration: window.duration,
-            ...metadata({
+            ...metadata(window, {
               timedWindowScope: "temporary_object",
               affectedObjectClass: "dreamsign",
               windowModifier: "temporary_grant",
@@ -503,7 +524,7 @@ function temporaryObjectWindowOptions(
           copyCount: 1,
           temporary: true,
           predicate: { source: "deck", cardType: "Event" },
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "temporary_object",
             affectedObjectClass: "event_card",
             windowModifier: "temporary_copy",
@@ -524,7 +545,7 @@ function temporaryObjectWindowOptions(
           kind: "card_opening_hand",
           duration: window.duration,
           predicate: { source: "deck", cardType: "Character" },
-          ...metadata({
+          ...metadata(window, {
             timedWindowScope: "temporary_object",
             affectedObjectClass: "character_card",
             windowModifier: "opening_hand",

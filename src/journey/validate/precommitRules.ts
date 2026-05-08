@@ -119,6 +119,36 @@ export function hookBudgetCostFromPayload(value: unknown): number {
   return typeof value.hook === "string" && value.hook.length > 0 ? 1 : 0;
 }
 
+function hasMechanicalPayload(option: JourneyOption | Record<string, unknown>): boolean {
+  const costs = Array.isArray(option.costs) ? option.costs : [];
+  const effects = Array.isArray(option.effects) ? option.effects : [];
+  const burdens = Array.isArray(option.burdens) ? option.burdens : [];
+  const targets = Array.isArray(option.targets) ? option.targets : [];
+  const triggers = Array.isArray(option.triggers) ? option.triggers : [];
+  const routeEffects = Array.isArray(option.routeEffects) ? option.routeEffects : [];
+  const operations = Array.isArray(option.operations) ? option.operations : [];
+  const convertedValues = [
+    option.costConvertedEssence,
+    option.effectConvertedEssence,
+    option.burdenConvertedEssence,
+    option.uncertaintyConvertedEssence,
+    option.netConvertedEssence,
+  ].filter((entry): entry is number => typeof entry === "number");
+
+  return costs.length > 0 ||
+    effects.length > 0 ||
+    burdens.length > 0 ||
+    targets.length > 0 ||
+    triggers.length > 0 ||
+    routeEffects.length > 0 ||
+    operations.some((operation) =>
+      isRecord(operation) &&
+      operation.operationKind !== "validation_requirement" &&
+      operation.operationKind !== "target"
+    ) ||
+    convertedValues.some((value) => value !== 0);
+}
+
 export function manifestHookBudgetCost(manifest: JourneyManifest): number {
   const rootPayloads: unknown[] = manifest.options.flatMap((option) => [
     ...option.effects,
@@ -308,8 +338,7 @@ export function validateSequenceMenu(
     menu.some((entry) =>
       isRecord(entry) &&
       (entry.pickBehavior === "complete_sequence" || entry.pickBehavior === "leave") &&
-      typeof entry.text === "string" &&
-      /(?:no effect|refuse|strategic refusal)/iu.test(entry.text)
+      !hasMechanicalPayload(entry)
     )
   ) {
     return fail("fake_sequence_leave", `${path} has a fake sequence stop or leave option`);
@@ -328,8 +357,8 @@ export function validateSequenceMenu(
     for (const entry of menu) {
       if (
         !isRecord(entry) ||
-        typeof entry.text !== "string" ||
-        !/^take\b/iu.test(entry.text)
+        entry.pickBehavior === "leave" ||
+        entry.pickBehavior === "complete_sequence"
       ) {
         continue;
       }

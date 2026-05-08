@@ -1,4 +1,4 @@
-import type { JourneyManifest } from "../manifest.js";
+import type { JourneyManifest, JourneyOperation } from "../manifest.js";
 import {
   LOSS_CHOICE_VALUE_CONSTANTS,
   POSITIVE_MENU_VALUE_CONSTANTS,
@@ -98,12 +98,7 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
   const sharedWindowKeys = new Set<string>();
 
   for (const option of manifest.options.filter((entry) => entry.pickBehavior !== "leave")) {
-    const records = [
-      ...option.effects.filter(isRecord),
-      ...option.routeEffects.filter(isRecord),
-      ...option.operations.map((operation) => operation.payload),
-    ];
-    const windows = records
+    const windows = option.operations
       .map(timedWindowDescriptor)
       .filter((entry): entry is TimedWindowDescriptor => entry !== undefined);
 
@@ -118,7 +113,10 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
       sharedWindowKeys.add(`${window.scope}:${window.duration}`);
     }
 
-    if (records.some((record) => record.kind === "gain_omens" || record.kind === "gain_essence")) {
+    if (option.operations.some((operation) =>
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "resource"
+    )) {
       return fail(
         "timed_window_resource_only_reward",
         "Timed window options must alter temporary play rules rather than grant plain resources",
@@ -148,64 +146,48 @@ type TimedWindowDescriptor = {
   duration: string;
 };
 
-function timedWindowDescriptor(record: Record<string, unknown>): TimedWindowDescriptor | undefined {
-  const duration = typeof record.duration === "string" ? record.duration : undefined;
+function timedWindowDescriptor(operation: JourneyOperation): TimedWindowDescriptor | undefined {
+  const record = operation.payload;
   const declaredScope = typeof record.timedWindowScope === "string"
     ? record.timedWindowScope
     : undefined;
-
-  if (declaredScope && duration && isMeaningfulDurationForScope(declaredScope, duration)) {
-    return { scope: declaredScope, duration };
-  }
-
-  if (
-    duration &&
-    /^next [2-9]\d* battles$/u.test(duration) &&
-    (
-      record.kind === "battle_window_modifier" ||
-      record.kind === "card_rewrite" ||
-      record.kind === "card_opening_hand" ||
-      record.kind === "card_temporary_copy" ||
-      record.kind === "dreamsign_temporary_grant" ||
-      record.kind === "generated_object_temporary_grant" ||
-      record.kind === "dreamwell_modifier"
-    )
-  ) {
-    return {
-      scope: record.kind === "dreamwell_modifier" ? "dreamwell" : "battle",
-      duration,
-    };
-  }
+  const declaredDuration = isRecord(record.timedWindowDuration)
+    ? record.timedWindowDuration
+    : undefined;
 
   if (
-    duration &&
-    /^next [2-9]\d* future shops$/u.test(duration) &&
-    record.kind === "shop_economy_modifier"
+    !declaredScope ||
+    !declaredDuration ||
+    !isMeaningfulDurationForScope(declaredScope, declaredDuration) ||
+    typeof record.affectedObjectClass !== "string" ||
+    typeof record.windowModifier !== "string" ||
+    typeof record.amount !== "number" ||
+    typeof record.windowValue !== "number" ||
+    (record.polarity !== "positive" && record.polarity !== "negative" && record.polarity !== "neutral")
   ) {
-    return { scope: "shop", duration };
+    return undefined;
   }
 
-  if (
-    duration &&
-    /^next [2-9]\d* dreamscapes$/u.test(duration) &&
-    typeof record.routeOperationKind === "string"
-  ) {
-    return { scope: "route", duration };
-  }
-
-  return undefined;
+  return {
+    scope: declaredScope,
+    duration: `${declaredDuration.durationKind}:${declaredDuration.count}`,
+  };
 }
 
-function isMeaningfulDurationForScope(scope: string, duration: string): boolean {
+function isMeaningfulDurationForScope(scope: string, duration: Record<string, unknown>): boolean {
+  if (typeof duration.count !== "number" || duration.count < 2) {
+    return false;
+  }
+
   switch (scope) {
     case "battle":
     case "dreamwell":
     case "temporary_object":
-      return /^next [2-9]\d* battles$/u.test(duration);
+      return duration.durationKind === "battle_count";
     case "shop":
-      return /^next [2-9]\d* future shops$/u.test(duration);
+      return duration.durationKind === "shop_count";
     case "route":
-      return /^next [2-9]\d* dreamscapes$/u.test(duration);
+      return duration.durationKind === "dreamscape_count";
     default:
       return false;
   }

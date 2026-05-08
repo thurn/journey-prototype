@@ -1,6 +1,41 @@
 import { isRecord } from "./guards.js";
 import { fail, type ValidationResult } from "./result.js";
 
+const typedRandomEnvelopeKinds = new Set([
+  "visible_pool",
+  "random_cost",
+  "random_reward",
+  "chance_to_gain_bane",
+  "chance_to_pay_cost",
+  "reveal_rewards",
+  "choose_one_revealed_reward",
+  "choose_one_random_revealed_reward",
+  "gain_one_random_reward",
+  "roll_twice_keep_one",
+  "repeated_pool_draws",
+  "random_range",
+  "wager",
+  "probability_ladder",
+  "push_choice",
+  "complete_decision_tree",
+  "resolved_random_series",
+]);
+
+const legacyDebugRandomPrecommitKinds = new Set([
+  "dreamsign_random_reward",
+  "bane_random_purge",
+  "resource_random_range",
+]);
+
+function claimsRandomEnvelopeContract(value: Record<string, unknown>): boolean {
+  return isRecord(value.visibilityPolicy) ||
+    isRecord(value.odds) ||
+    Array.isArray(value.constraints) ||
+    typeof value.expectedConvertedEssence === "number" ||
+    typeof value.riskPremiumConvertedEssence === "number" ||
+    typeof value.presentation === "string";
+}
+
 export function hasOdds(value: unknown): boolean {
   return isRecord(value) &&
     isRecord(value.odds) &&
@@ -121,27 +156,15 @@ export function validateRandomEnvelopePayload(value: unknown): ValidationResult 
   }
 
   const kind = value.kind;
-  const typedKinds = new Set([
-    "visible_pool",
-    "random_cost",
-    "random_reward",
-    "chance_to_gain_bane",
-    "chance_to_pay_cost",
-    "reveal_rewards",
-    "choose_one_revealed_reward",
-    "choose_one_random_revealed_reward",
-    "gain_one_random_reward",
-    "roll_twice_keep_one",
-    "repeated_pool_draws",
-    "random_range",
-    "wager",
-    "probability_ladder",
-    "push_choice",
-    "complete_decision_tree",
-    "resolved_random_series",
-  ]);
+  if (legacyDebugRandomPrecommitKinds.has(kind)) {
+    return { ok: true };
+  }
 
-  if (!typedKinds.has(kind)) {
+  if (!typedRandomEnvelopeKinds.has(kind) && claimsRandomEnvelopeContract(value)) {
+    return fail("unknown_random_envelope_kind", `Random precommits do not support unknown envelope kind ${kind}`);
+  }
+
+  if (!typedRandomEnvelopeKinds.has(kind)) {
     return { ok: true };
   }
 

@@ -3141,6 +3141,16 @@ describe("generateNextJourney", () => {
             kind: "battle_window_modifier",
             duration: "next 3 battles",
             modifier: "reward_timing",
+            timedWindowScope: "battle",
+            timedWindowDuration: {
+              durationKind: "battle_count",
+              count: 3,
+            },
+            affectedObjectClass: "battle_rewards",
+            windowModifier: "reward_timing",
+            amount: 1,
+            polarity: "positive",
+            windowValue: 160,
           },
           { kind: "gain_omens", amount: 1 },
         ],
@@ -3153,7 +3163,21 @@ describe("generateNextJourney", () => {
       {
         text: "For the next 3 battles, add Fast to a chosen card.",
         effects: [
-          { kind: "card_rewrite", keyword: "Fast", duration: "next 3 battles" },
+          {
+            kind: "card_rewrite",
+            keyword: "Fast",
+            duration: "next 3 battles",
+            timedWindowScope: "battle",
+            timedWindowDuration: {
+              durationKind: "battle_count",
+              count: 3,
+            },
+            affectedObjectClass: "event_cards",
+            windowModifier: "add_keyword_fast",
+            amount: 1,
+            polarity: "positive",
+            windowValue: 80,
+          },
         ],
         effectConvertedEssence: 80,
         netConvertedEssence: 80,
@@ -3284,7 +3308,7 @@ describe("generateNextJourney", () => {
       journeyOption.number === 1
         ? refreshOptionOperations({
             ...journeyOption,
-            text: "Take cache reward 1: gain 1 omen, then choose whether to take the final reward.",
+            text: "Claim cache reward 1: gain 1 omen, then choose whether to claim the final reward.",
             costs: [],
             costConvertedEssence: 0,
             netConvertedEssence:
@@ -3302,6 +3326,47 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "open_pick_without_limiting_structure",
+    });
+  });
+
+  it("validates sequential tree semantics without depending on branch display labels", async () => {
+    const journeyContext = await context();
+    const probability = fillForShape("probability_ladder", journeyContext);
+    const relabeledProbability: JourneyManifest = {
+      ...probability,
+      tree: {
+        ...probability.tree!,
+        nodes: probability.tree!.nodes.map((node) => ({
+          ...node,
+          branches: node.branches.map((branch) => ({
+            ...branch,
+            label: branch.terminal?.outcome === "claim" ? "Win" : branch.label,
+          })),
+        })),
+      },
+    };
+
+    expect(validateJourneyManifest(relabeledProbability, journeyContext)).toEqual({
+      ok: true,
+    });
+
+    const push = fillForShape("push_your_luck", journeyContext);
+    const relabeledPush: JourneyManifest = {
+      ...push,
+      tree: {
+        ...push.tree!,
+        nodes: push.tree!.nodes.map((node) => ({
+          ...node,
+          branches: node.branches.map((branch) => ({
+            ...branch,
+            label: branch.terminal?.outcome === "failure" ? "Bust" : branch.label,
+          })),
+        })),
+      },
+    };
+
+    expect(validateJourneyManifest(relabeledPush, journeyContext)).toEqual({
+      ok: true,
     });
   });
 
@@ -3482,6 +3547,23 @@ describe("generateNextJourney", () => {
     expect([...summaries]).not.toContain(
       "Randomly gain one: 40 essence, 90 essence, 1 omen, 2 omens, or draft 1 of 4 events. Outcomes draw with replacement.",
     );
+  });
+
+  it("validates random-pool replacement from typed pool metadata instead of summary text", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("random_pool_draws", journeyContext);
+    const hiddenSummary: JourneyManifest = {
+      ...manifest,
+      rewardPool: {
+        ...manifest.rewardPool!,
+        summary: "Randomly gain one reward from the visible pool.",
+      },
+    };
+
+    expect(hiddenSummary.rewardPool?.summary).not.toContain("replacement");
+    expect(validateJourneyManifest(hiddenSummary, journeyContext)).toEqual({
+      ok: true,
+    });
   });
 
   it("does not emit the reference examples as production sequential trees", async () => {
@@ -4876,6 +4958,31 @@ describe("validateJourneyManifest", () => {
       ok: false,
       rule: "invalid_roll_twice_payload",
     });
+    expect(
+      validateJourneyManifest(
+        {
+          ...manifest,
+          precommitted: refreshPrecommittedOperations({
+            ...manifest.precommitted,
+            random: [
+              ...(manifest.precommitted.random ?? []),
+              {
+                kind: "magic_scenario_roll",
+                visibilityPolicy: {
+                  outcomeVisibility: "visible",
+                  disclosure: "Unknown magic scenario.",
+                  playerVisible: true,
+                },
+              },
+            ],
+          }),
+        },
+        journeyContext,
+      ),
+    ).toMatchObject({
+      ok: false,
+      rule: "unknown_random_envelope_kind",
+    });
   });
 
   it("rejects deterministic reward metadata masquerading as a wager", async () => {
@@ -4891,7 +4998,24 @@ describe("validateJourneyManifest", () => {
         manifest.options[1]!,
       ],
       precommitted: refreshPrecommittedOperations({
-        random: [{ kind: "gain_essence", amount: 110 }],
+        random: [
+          {
+            kind: "wager",
+            stake: { kind: "essence", amount: 30 },
+            success: { kind: "gain_essence", amount: 110 },
+            failure: { kind: "no_reward" },
+            odds: {
+              numerator: 50,
+              denominator: 100,
+              percent: 50,
+            },
+            visibilityPolicy: {
+              outcomeVisibility: "visible",
+              disclosure: "The wager outcome is visible.",
+              playerVisible: true,
+            },
+          },
+        ],
       }),
     };
 

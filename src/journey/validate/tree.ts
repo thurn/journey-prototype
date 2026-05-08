@@ -92,21 +92,23 @@ export function validateTreeBranch(
 }
 
 export function validateProbabilityLadder(manifest: JourneyManifest): ValidationResult {
+  const rewardBranches = manifest.tree?.nodes.flatMap((node) =>
+    node.branches.filter((branch) =>
+      branch.kind === "random_chance" &&
+      branch.effects.length > 0
+    )
+  ) ?? [];
   const successBranches = manifest.tree?.nodes.flatMap((node) =>
-    node.branches.filter((branch) => branch.label === "Success")
+    node.branches.filter((branch) => branch.terminal?.outcome === "claim")
   ) ?? [];
 
   if (successBranches.length === 0) {
     return fail("probability_ladder_missing_success", "Probability ladders require visible success outcomes");
   }
 
-  for (const branch of successBranches) {
-    if (branch.nextNodeId || !branch.terminal) {
+  for (const branch of rewardBranches) {
+    if (branch.nextNodeId || branch.terminal?.outcome !== "claim") {
       return fail("fixed_reward_can_be_won_once", "Probability ladder success must end the Journey");
-    }
-
-    if (branch.effects.length === 0) {
-      return fail("fixed_reward_can_be_won_once", "Probability ladder success must award the fixed reward");
     }
   }
 
@@ -180,7 +182,7 @@ export function validateDecisionTree(
     manifest.shapeId === "push_your_luck" &&
     !manifest.tree.nodes.every((node) =>
       node.branches.some((branch) =>
-        branch.label === "Failure" &&
+        branch.kind === "random_chance" &&
         branch.terminal?.outcome === "failure" &&
         !branch.nextNodeId,
       ),
@@ -191,9 +193,31 @@ export function validateDecisionTree(
 
   if (
     manifest.shapeId === "random_pool_draws" &&
-    !manifest.rewardPool?.summary.includes("replacement")
+    (manifest.rewardPool?.replacement !== "with_replacement" &&
+      manifest.rewardPool?.replacement !== "without_replacement")
   ) {
     return fail("missing_pool_replacement_policy", "Random pool draws must state the replacement policy");
+  }
+
+  if (manifest.shapeId === "random_pool_draws") {
+    const rewardPool = manifest.rewardPool;
+    const poolEnvelope = manifest.precommitted.random?.find((entry) =>
+      isRecord(entry) && entry.kind === "visible_pool"
+    );
+    const poolEnvelopeRecord = isRecord(poolEnvelope) ? poolEnvelope as Record<string, unknown> : undefined;
+
+    if (
+      !rewardPool ||
+      !poolEnvelopeRecord ||
+      poolEnvelopeRecord["replacement"] !== rewardPool.replacement ||
+      !Array.isArray(poolEnvelopeRecord["rewards"]) ||
+      poolEnvelopeRecord["rewards"].length !== rewardPool.rewards.length
+    ) {
+      return fail(
+        "missing_pool_replacement_policy",
+        "Random pool draws must mirror reward pool replacement and rewards in a typed visible-pool envelope",
+      );
+    }
   }
 
   if (manifest.shapeId === "probability_ladder") {
