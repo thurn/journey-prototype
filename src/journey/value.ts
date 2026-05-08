@@ -3,7 +3,7 @@ import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v6" = "value:v6";
+export const VALUE_MODEL_VERSION: "value:v7" = "value:v7";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -80,7 +80,15 @@ export const PURGE_VALUE_CONSTANTS = {
   },
   randomStarter: 50,
   randomStarterNoTarget: 0,
+  allStarterSetBonus: 35,
   usefulNonStarterSacrifice: -80,
+} as const;
+
+export const STARTER_SURGERY_VALUE_CONSTANTS = {
+  replacementBase: 70,
+  allReplacementSetBonus: 45,
+  extraStarterEach: 35,
+  twoChosenOperationCoordinationBonus: 25,
 } as const;
 
 export const DREAMSIGN_VALUE_CONSTANTS = {
@@ -262,6 +270,7 @@ export const VALUE_MODEL_VALUES = {
   omens: OMEN_VALUE_CONSTANTS,
   cards: CARD_VALUE_CONSTANTS,
   purge: PURGE_VALUE_CONSTANTS,
+  starterSurgery: STARTER_SURGERY_VALUE_CONSTANTS,
   dreamsigns: DREAMSIGN_VALUE_CONSTANTS,
   transfigurations: TRANSFIGURATION_VALUE_CONSTANTS,
   cardModification: CARD_MODIFICATION_VALUE_CONSTANTS,
@@ -545,6 +554,54 @@ export function valueOmenLoss(amount: number): number {
 
 export function valueBaneGain(baneName: BaneName, count: number): number {
   return (BANE_VALUE_CONSTANTS.gainedByName[baneName] ?? BANE_VALUE_CONSTANTS.gainedByName.Nightmare) * count;
+}
+
+export function valueUsefulNonStarterCardSacrifice(count = 1): number {
+  return PURGE_VALUE_CONSTANTS.usefulNonStarterSacrifice * Math.max(1, count);
+}
+
+export function valueStarterCleanup(input: {
+  count: number;
+  stage?: "early" | "mid" | "late";
+  random?: boolean;
+  all?: boolean;
+}): number {
+  const count = Math.max(1, input.count);
+  const base = input.random === true
+    ? PURGE_VALUE_CONSTANTS.randomStarter
+    : PURGE_VALUE_CONSTANTS.chosenStarter;
+  const stageMultiplier = input.stage
+    ? input.stage === "early"
+      ? PURGE_VALUE_CONSTANTS.chosenStarterStageMultipliers.early
+      : input.stage === "late"
+        ? PURGE_VALUE_CONSTANTS.chosenStarterStageMultipliers.late
+        : 1
+    : 1;
+  const setBonus = input.all === true
+    ? PURGE_VALUE_CONSTANTS.allStarterSetBonus
+    : 0;
+
+  return roundToNearestFive((base * count + setBonus) * stageMultiplier);
+}
+
+export function valueStarterReplacement(input: {
+  count: number;
+  resultValue?: number;
+  stage?: "early" | "mid" | "late";
+  all?: boolean;
+}): number {
+  const count = Math.max(1, input.count);
+  const cleanup = valueStarterCleanup({
+    count,
+    stage: input.stage,
+    all: input.all,
+  });
+  const replacementValue = input.resultValue ?? STARTER_SURGERY_VALUE_CONSTANTS.replacementBase;
+  const setBonus = input.all === true
+    ? STARTER_SURGERY_VALUE_CONSTANTS.allReplacementSetBonus
+    : 0;
+
+  return roundToNearestFive(cleanup + replacementValue * count + setBonus);
 }
 
 export function valueCardDraft(input: {

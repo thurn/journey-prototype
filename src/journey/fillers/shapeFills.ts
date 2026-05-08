@@ -61,6 +61,7 @@ import {
   type ResolvedShapeFill,
   rewardSlotOption,
   rewardSlots,
+  starterSurgeryRewardSlots,
   target,
   timingSlots,
   treeBuilderTools,
@@ -418,14 +419,32 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "service_menu":
+    case "service_menu": {
+      const starterRewards = starterSurgeryRewardSlots(
+        context,
+        drawContext,
+        `${shapeId}:starter-services`,
+        stage,
+      ).filter((reward) => reward.effect >= 140);
+      const serviceFamily = pickSequentialVariant(
+        drawContext,
+        `${shapeId}:service-family`,
+        ["starter_surgery", "general", "general"] as const,
+      );
+      const rewards =
+        serviceFamily === "starter_surgery" && starterRewards.length >= 3
+          ? starterRewards
+          : rewardSlots(context, drawContext, `${shapeId}:services`).filter(
+              (reward) => reward.effect >= 140,
+            );
+
       return {
-        options: rewardSlots(context, drawContext, `${shapeId}:services`)
-          .filter((reward) => reward.effect >= 140)
+        options: rewards
           .slice(0, 3)
           .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {},
       };
+    }
     case "shop_row": {
       const prices = [15, 20, 25] as const;
       const rewards = rewardSlots(

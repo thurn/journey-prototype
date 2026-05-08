@@ -96,6 +96,168 @@ function validateCardPayload(
   return { ok: true };
 }
 
+function starterPredicateFromPayload(payload: Record<string, unknown>): CardTargetPredicate {
+  return {
+    source: "deck",
+    starter: true,
+    ...(isRecord(payload.predicate) ? payload.predicate : {}),
+  } as CardTargetPredicate;
+}
+
+function minimumStarterTargets(payload: Record<string, unknown>): number {
+  if (typeof payload.minRequiredTargets === "number") {
+    return payload.minRequiredTargets;
+  }
+
+  if (payload.cleanupMode === "chosen_up_to") {
+    return 1;
+  }
+
+  if (typeof payload.targetCount === "number") {
+    return payload.targetCount;
+  }
+
+  if (typeof payload.count === "number") {
+    return payload.count;
+  }
+
+  return 1;
+}
+
+function validateStarterPayload(
+  payload: Record<string, unknown>,
+  context: JourneyContext,
+  optionNumber: number,
+): ValidationResult {
+  const isStarterPayload =
+    payload.kind === "starter_cleanup" ||
+    payload.kind === "starter_replacement" ||
+    payload.starterTarget === true ||
+    payload.transfigurationScope === "random_starters" ||
+    payload.transfigurationScope === "two_chosen_starters" ||
+    payload.transfigurationScope === "all_starters";
+
+  if (!isStarterPayload) {
+    return { ok: true };
+  }
+
+  const predicate = starterPredicateFromPayload(payload);
+  const matches = resolveCardTargets(context.content, context.state.quest, predicate);
+  const minimumTargets = minimumStarterTargets(payload);
+  const targetResolution = resolveTargetSelector(context.content, context.state.quest, {
+    selectorKind: "card",
+    selection: payload.selection === "hidden_random"
+      ? "hidden_random"
+      : payload.selection === "predicate" ||
+          payload.cleanupMode === "all" ||
+          payload.replacementMode === "all"
+        ? "predicate"
+        : "chosen_after_commitment",
+    referenceKind: "content",
+    source: "deck",
+    predicate,
+    required: true,
+  });
+
+  if (matches.length < minimumTargets) {
+    return fail(
+      "starter_target_pool_too_small",
+      `Option ${optionNumber} requires ${minimumTargets} Starter cards but only ${matches.length} are available`,
+      { targetResolution },
+    );
+  }
+
+  if (payload.kind === "starter_replacement" && payload.replacementMode === "draft") {
+    const choiceCount = typeof payload.choiceCount === "number" ? payload.choiceCount : 0;
+    const resultPredicate = {
+      source: "draftPool",
+      ...(isRecord(payload.resultPredicate) ? payload.resultPredicate : {}),
+    } as CardTargetPredicate;
+    const resultMatches = resolveCardTargets(
+      context.content,
+      context.state.quest,
+      resultPredicate,
+    );
+
+    if (choiceCount < 1 || resultMatches.length < choiceCount) {
+      return fail(
+        "starter_replacement_pool_too_small",
+        `Option ${optionNumber} starter draft replacement requires ${choiceCount} eligible cards but only ${resultMatches.length} match`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "predicate",
+            referenceKind: "content",
+            source: "draftPool",
+            predicate: resultPredicate,
+            required: true,
+          }),
+        },
+      );
+    }
+  }
+
+  if (payload.kind === "starter_replacement" && payload.replacementMode === "all") {
+    const resultPredicate = {
+      source: "catalog",
+      ...(isRecord(payload.resultPredicate) ? payload.resultPredicate : {}),
+    } as CardTargetPredicate;
+    const resultMatches = resolveCardTargets(
+      context.content,
+      context.state.quest,
+      resultPredicate,
+    );
+
+    if (resultMatches.length < matches.length) {
+      return fail(
+        "starter_replacement_pool_too_small",
+        `Option ${optionNumber} all-starter replacement requires ${matches.length} eligible replacement cards but only ${resultMatches.length} match`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "predicate",
+            referenceKind: "content",
+            source: "catalog",
+            predicate: resultPredicate,
+            required: true,
+          }),
+        },
+      );
+    }
+  }
+
+  if (payload.kind === "starter_replacement" && payload.replacementMode === "random") {
+    const resultPredicate = {
+      source: "catalog",
+      ...(isRecord(payload.resultPredicate) ? payload.resultPredicate : {}),
+    } as CardTargetPredicate;
+    const resultMatches = resolveCardTargets(
+      context.content,
+      context.state.quest,
+      resultPredicate,
+    );
+
+    if (resultMatches.length === 0) {
+      return fail(
+        "starter_replacement_pool_too_small",
+        `Option ${optionNumber} random starter replacement requires at least 1 eligible replacement card`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "hidden_random",
+            referenceKind: "content",
+            source: "catalog",
+            predicate: resultPredicate,
+            required: true,
+          }),
+        },
+      );
+    }
+  }
+
+  return { ok: true };
+}
+
 export function validateOption(
   option: JourneyOption,
   context: JourneyContext,
@@ -201,6 +363,12 @@ export function validateOption(
 
       if (!cardResult.ok) {
         return cardResult;
+      }
+
+      const starterResult = validateStarterPayload(effect, context, option.number);
+
+      if (!starterResult.ok) {
+        return starterResult;
       }
 
       const result = validateDreamsignPayload(effect, context, option.number);

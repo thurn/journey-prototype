@@ -24,6 +24,7 @@ import type {
 import { DEFAULT_BANE_NAME } from "./effects.js";
 import {
   CARD_VALUE_CONSTANTS,
+  PURGE_VALUE_CONSTANTS,
   cardPredicateSpecificityValue,
 } from "./value.js";
 
@@ -635,13 +636,72 @@ function cardPredicateMetadataBands(value: PayloadRecord): NonNullable<Operation
   return bands;
 }
 
+function numericPayloadField(value: PayloadRecord, key: string): number | undefined {
+  return typeof value[key] === "number" ? value[key] : undefined;
+}
+
+function starterOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const kind = legacyKind(value);
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const predicate = isRecord(value.predicate) ? value.predicate : {};
+  const isStarterPredicate = predicate.starter === true || value.starterTarget === true;
+  const count =
+    numericPayloadField(value, "targetCount") ??
+    numericPayloadField(value, "count") ??
+    numericPayloadField(value, "starterTargetCount");
+
+  if (kind === "starter_cleanup") {
+    bands.push({
+      id: "starter_cleanup_reward",
+      label: "starter cleanup reward",
+      description: "starter cleanup is valued as deck cleanup rather than useful-card sacrifice.",
+      ...(count ? { amount: count } : {}),
+    });
+  }
+
+  if (kind === "starter_replacement") {
+    bands.push({
+      id: "starter_replacement",
+      label: "starter replacement",
+      description: "starter replacement combines cleanup relief with a replacement-card reward.",
+      ...(count ? { amount: count } : {}),
+    });
+  }
+
+  if (
+    (kind === "card_purge" || kind === "card_transform" || kind === "card_replace") &&
+    !isStarterPredicate
+  ) {
+    bands.push({
+      id: "useful_card_sacrifice",
+      label: "useful card sacrifice",
+      description: "non-Starter deck card removal or conversion is tracked separately from starter cleanup.",
+      amount: PURGE_VALUE_CONSTANTS.usefulNonStarterSacrifice,
+    });
+  }
+
+  if (value.cleanupMode === "all" || value.replacementMode === "all" || value.transfigurationScope === "all_starters") {
+    bands.push({
+      id: "all_starters",
+      label: "all starters",
+      description: "the operation targets the whole current starter set.",
+      ...(count ? { amount: count } : {}),
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
   };
 
   if (payload) {
-    const bands = cardPredicateMetadataBands(payload);
+    const bands = [
+      ...cardPredicateMetadataBands(payload),
+      ...starterOperationMetadataBands(payload),
+    ];
 
     if (bands.length > 0) {
       metadata.bands = bands;

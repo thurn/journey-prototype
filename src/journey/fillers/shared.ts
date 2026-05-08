@@ -39,12 +39,18 @@ import {
   valueOmenGain,
   valueOmenLoss,
   valueRandomCardGain,
+  valueStarterCleanup,
+  valueStarterReplacement,
 } from "../value.js";
 import {
+  STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   cardExactTarget,
   cardQualityValue,
   namedCardPayload,
   selectContentBackedCard,
+  starterDeckCardCount,
+  starterDeckCards,
+  starterEligibleReplacementCards,
 } from "./namedCardPayloads.js";
 import {
   dreamsignExactTarget,
@@ -744,7 +750,7 @@ export function sequentialReward(
           starter: true,
         }),
       ],
-      effect: 85,
+      effect: valueStarterCleanup({ count: 1, stage: stageFromContext(context) }),
     });
   }
 
@@ -765,6 +771,419 @@ export function starterCleanup(count: number) {
     count,
     predicate: { source: "deck", starter: true },
   };
+}
+
+function starterTarget(
+  description = "Starter cards in deck",
+  options: {
+    selection?: "predicate" | "chosen_after_commitment" | "hidden_random";
+    cardOperationTargetMode?: "chosen" | "random_predicate" | "all_matching";
+  } = {},
+) {
+  return target(
+    "card",
+    description,
+    { source: "deck", starter: true },
+    {
+      selection: options.selection ?? "chosen_after_commitment",
+      cardOperationTargetMode: options.cardOperationTargetMode ?? "chosen",
+    },
+  );
+}
+
+function starterPayloadBase(
+  context: JourneyContext,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    source: "deck",
+    sourcePoolSize: context.state.quest.deck.summary.uniqueCards,
+    starterTargetCount: starterDeckCardCount(context),
+    timing: "immediate",
+    starterTarget: true,
+    predicate: { source: "deck", starter: true },
+    ...extra,
+  };
+}
+
+function lowCostReplacementDraft() {
+  return {
+    source: "draftPool",
+    maxEnergyCost: 2,
+  };
+}
+
+function starterSurgeryMenuValue(value: number): number {
+  return Math.max(320, Math.min(390, value));
+}
+
+export function starterSurgeryRewardSlots(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+  stage: JourneyStage,
+): RewardSlot[] {
+  const starterCount = starterDeckCardCount(context);
+
+  if (starterCount === 0) {
+    return [];
+  }
+
+  const starters = starterDeckCards(context);
+  const starterOrder = shuffleDeterministic(
+    drawContext,
+    `${label}:starter-order`,
+    starters,
+  );
+  const namedReplacement = selectContentBackedCard({
+    context,
+    drawContext,
+    label: `${label}:named-replacement`,
+    stage,
+    sources: ["catalog"],
+    predicate: STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+  });
+  const starterEligiblePool = starterEligibleReplacementCards(context);
+  const transfiguration = pickSequentialVariant(
+    drawContext,
+    `${label}:starter-transfiguration`,
+    ["Viridian", "Bronze", "Scarlet", "Golden"],
+  );
+  const firstStarter = starterOrder[0]!;
+  const secondStarter = starterOrder[1] ?? firstStarter;
+  const thirdStarter = starterOrder[2] ?? secondStarter;
+  const lowCostDraftPredicate = lowCostReplacementDraft();
+  const slots: RewardSlot[] = [
+    {
+      key: "starter-cleanup-up-to-two",
+      text: "Purge up to 2 chosen Starter cards.",
+      effects: [
+        {
+          kind: "starter_cleanup",
+          cleanupMode: "chosen_up_to",
+          count: 2,
+          minRequiredTargets: 1,
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [starterTarget()],
+      effect: starterSurgeryMenuValue(
+        valueStarterCleanup({ count: Math.min(2, starterCount), stage }),
+      ),
+    },
+    {
+      key: "starter-cleanup-random",
+      text: "Purge a random Starter card.",
+      effects: [
+        {
+          kind: "starter_cleanup",
+          cleanupMode: "random",
+          count: 1,
+          selection: "hidden_random",
+          cardOperationFamily: "purge",
+          cardOperationTargetModes: ["random_predicate"],
+          cardOperationTargetMode: "random_predicate",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [
+        starterTarget("random Starter cards in deck", {
+          selection: "hidden_random",
+          cardOperationTargetMode: "random_predicate",
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterCleanup({ count: 1, stage, random: true }),
+      ),
+      uncertainty: -10,
+    },
+    {
+      key: "starter-replacement-random",
+      text: "Purge a random Starter card and gain a random low-cost replacement.",
+      effects: [
+        {
+          kind: "starter_replacement",
+          replacementMode: "random",
+          count: 1,
+          targetCount: 1,
+          selection: "hidden_random",
+          resultSelection: "hidden_random",
+          resultPredicate: {
+            source: "catalog",
+            maxEnergyCost: 2,
+            rarity: "Common",
+          },
+          resultPoolSize: starterEligiblePool.length,
+          cardOperationFamily: "replacement",
+          cardOperationTargetModes: ["random_predicate"],
+          cardOperationTargetMode: "random_predicate",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [
+        starterTarget("random Starter cards in deck", {
+          selection: "hidden_random",
+          cardOperationTargetMode: "random_predicate",
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterReplacement({ count: 1, resultValue: 55, stage }),
+      ),
+      uncertainty: -10,
+    },
+    {
+      key: "starter-cleanup-all",
+      text: "Purge all Starter cards.",
+      effects: [
+        {
+          kind: "starter_cleanup",
+          cleanupMode: "all",
+          count: starterCount,
+          targetCount: starterCount,
+          selection: "predicate",
+          cardOperationFamily: "purge",
+          cardOperationTargetModes: ["all_matching"],
+          cardOperationTargetMode: "all_matching",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [
+        starterTarget("all Starter cards in deck", {
+          selection: "predicate",
+          cardOperationTargetMode: "all_matching",
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterCleanup({ count: starterCount, stage, all: true }),
+      ),
+    },
+    {
+      key: "starter-replacement-draft",
+      text: "Replace a chosen Starter card with 1 of 4 low-cost replacement cards.",
+      effects: [
+        {
+          kind: "starter_replacement",
+          replacementMode: "draft",
+          takeCount: 1,
+          choiceCount: CARD_DRAFT_CHOICE_COUNT,
+          resultPredicate: lowCostDraftPredicate,
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [starterTarget()],
+      effect: starterSurgeryMenuValue(
+        valueStarterReplacement({
+          count: 1,
+          resultValue: valueCardDraft({
+            takeCount: 1,
+            choiceCount: CARD_DRAFT_CHOICE_COUNT,
+            predicate: lowCostDraftPredicate,
+          }),
+          stage,
+        }),
+      ),
+    },
+    {
+      key: "starter-gain-extra",
+      text: "Gain 3 additional Starter cards.",
+      effects: [
+        randomCardGain(
+          CARD_DRAFT_PROFILES.starters,
+          3,
+          { source: "catalog" },
+        ),
+      ],
+      targets: [
+        target("card", "Starter cards in catalog", {
+          source: "catalog",
+          starter: true,
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueRandomCardGain({
+          count: 3,
+          predicate: { source: "catalog", starter: true },
+        }),
+      ),
+      uncertainty: -10,
+    },
+  ];
+
+  if (namedReplacement) {
+    const resultValue = cardQualityValue(namedReplacement.card);
+
+    slots.push({
+      key: `starter-replacement-named:${namedReplacement.card.id}`,
+      text: `Replace a chosen Starter card with {${namedReplacement.card.name}}.`,
+      effects: [
+        namedCardPayload(
+          {
+            kind: "starter_replacement",
+            target: firstStarter,
+            result: namedReplacement.card,
+            source: "deck",
+            extra: {
+              replacementMode: "named",
+              resultSelection: "exact_named",
+              resultTargetOrigin: "catalog_reward",
+              cardOperationFamily: "replacement",
+              cardOperationTargetModes: ["chosen", "exact_named"],
+              cardOperationTargetMode: "chosen",
+              starterTarget: true,
+              starterTargetCount: starterCount,
+              predicate: { source: "deck", starter: true },
+            },
+          },
+          context,
+        ),
+      ],
+      targets: [starterTarget()],
+      effect: starterSurgeryMenuValue(
+        valueStarterReplacement({ count: 1, resultValue, stage }),
+      ),
+    });
+  }
+
+  if (starterEligiblePool.length >= starterCount) {
+    slots.push({
+      key: "starter-replacement-all",
+      text: "Purge all Starter cards and replace them with new starter-eligible cards.",
+      effects: [
+        {
+          kind: "starter_replacement",
+          replacementMode: "all",
+          count: starterCount,
+          targetCount: starterCount,
+          selection: "predicate",
+          resultSelection: "hidden_random",
+          resultPredicate: {
+            source: "catalog",
+            ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+          },
+          resultPoolSize: starterEligiblePool.length,
+          cardOperationFamily: "replacement",
+          cardOperationTargetModes: ["all_matching"],
+          cardOperationTargetMode: "all_matching",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [
+        starterTarget("all Starter cards in deck", {
+          selection: "predicate",
+          cardOperationTargetMode: "all_matching",
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterReplacement({
+          count: starterCount,
+          resultValue: 45,
+          stage,
+          all: true,
+        }),
+      ),
+      uncertainty: -10,
+    });
+  }
+
+  if (starterCount >= 2) {
+    slots.push({
+      key: "starter-two-chosen-transfiguration",
+      text: `Apply {${transfiguration} Transfiguration} to 2 chosen Starter cards.`,
+      effects: [
+        {
+          kind: "card_transfigure",
+          transfigurationName: transfiguration,
+          targetCount: 2,
+          minRequiredTargets: 2,
+          selection: "chosen_after_commitment",
+          transfigurationScope: "two_chosen_starters",
+          cardOperationFamily: "transfiguration",
+          cardOperationTargetModes: ["chosen"],
+          cardOperationTargetMode: "chosen",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [starterTarget()],
+      effect: starterSurgeryMenuValue(
+        valueStarterCleanup({ count: 2, stage }) + 25,
+      ),
+    });
+  }
+
+  if (starterCount >= 3) {
+    slots.push({
+      key: "starter-random-transfiguration",
+      text: `Apply {${transfiguration} Transfiguration} to 3 random Starter cards.`,
+      effects: [
+        {
+          kind: "card_transfigure",
+          transfigurationName: transfiguration,
+          targetCount: 3,
+          minRequiredTargets: 3,
+          selection: "hidden_random",
+          transfigurationScope: "random_starters",
+          cardOperationFamily: "transfiguration",
+          cardOperationTargetModes: ["random_predicate"],
+          cardOperationTargetMode: "random_predicate",
+          ...starterPayloadBase(context),
+        },
+      ],
+      targets: [
+        starterTarget("random Starter cards in deck", {
+          selection: "hidden_random",
+          cardOperationTargetMode: "random_predicate",
+        }),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterCleanup({ count: 3, stage, random: true }) + 30,
+      ),
+      uncertainty: -10,
+    });
+  }
+
+  if (starters.length >= 3 && namedReplacement) {
+    slots.push({
+      key: `starter-door-named-transform:${namedReplacement.card.id}`,
+      text: `Transform {${thirdStarter.name}} into {${namedReplacement.card.name}}.`,
+      effects: [
+        namedCardPayload(
+          {
+            kind: "card_transform",
+            target: thirdStarter,
+            result: namedReplacement.card,
+            source: "deck",
+            extra: {
+              resultSelection: "exact_named",
+              resultTargetOrigin: "catalog_reward",
+              cardOperationFamily: "transform",
+              cardOperationTargetModes: ["exact_named"],
+              cardOperationTargetMode: "exact_named",
+              starterTarget: true,
+              starterTargetCount: starterCount,
+              predicate: { source: "deck", starter: true },
+            },
+          },
+          context,
+        ),
+      ],
+      targets: [
+        cardExactTarget(
+          thirdStarter,
+          "deck",
+          `${thirdStarter.name} in starter deck`,
+        ),
+      ],
+      effect: starterSurgeryMenuValue(
+        valueStarterReplacement({
+          count: 1,
+          resultValue: cardQualityValue(namedReplacement.card),
+          stage,
+        }),
+      ),
+    });
+  }
+
+  return shuffleDeterministic(drawContext, `${label}:starter-surgery-slots`, slots);
 }
 
 export function baneNameText(baneName: BaneName, count: number): string {
@@ -956,7 +1375,9 @@ export function commonPositiveOptions(
               starter: true,
             }),
           ],
-          effect: 85 + valueOmenGain(4),
+          effect:
+            valueStarterCleanup({ count: 1, stage: stageFromContext(context) }) +
+            valueOmenGain(4),
         })
       : option({
           number: 3,
@@ -1493,9 +1914,20 @@ export function rewardSlots(
           starter: true,
         }),
       ],
-      effect: 345,
+      effect:
+        valueStarterCleanup({ count: 1, stage }) +
+        valueOmenGain(4),
     });
   }
+
+  slots.push(
+    ...starterSurgeryRewardSlots(
+      context,
+      drawContext,
+      `${label}:starter-surgery`,
+      stage,
+    ),
+  );
 
   return shuffleDeterministic(drawContext, `${label}:reward-slots`, slots);
 }

@@ -110,7 +110,7 @@ describe("buildProgram", () => {
           contentVersion: expect.any(String),
           shapeCatalogVersion: "journey-shapes:v11",
           effectCatalogVersion: "effects:v5",
-          valueModelVersion: "value:v6",
+          valueModelVersion: "value:v7",
           rendererVersion: "renderer:v1",
           manifestContractVersion: "manifest:v2",
           validationContractVersion: "validation:v1",

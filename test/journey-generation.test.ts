@@ -15,6 +15,7 @@ import {
   cardDraftText,
   draftCards,
   randomCardGain,
+  starterSurgeryRewardSlots,
   target,
 } from "../src/journey/fillers/shared.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
@@ -44,6 +45,10 @@ import {
   buildValidationReport,
   validateJourneyManifest,
 } from "../src/journey/validate/index.js";
+import {
+  valueStarterCleanup,
+  valueUsefulNonStarterCardSacrifice,
+} from "../src/journey/value.js";
 import { validateGeneratedObjectDefinitions } from "../src/journey/validate/metadataReferences.js";
 import { buildJourneyContext } from "../src/quest/context.js";
 import { createInitialJourneyState } from "../src/quest/init.js";
@@ -622,7 +627,7 @@ describe("generateNextJourney", () => {
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v11",
       effectCatalogVersion: "effects:v5",
-      valueModelVersion: "value:v6",
+      valueModelVersion: "value:v7",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
       validationContractVersion: "validation:v1",
@@ -2017,6 +2022,173 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("can produce a normal starter surgery service menu with starter target metadata", async () => {
+    const found: JourneyManifest[] = [];
+
+    for (let index = 0; index < 80 && found.length === 0; index += 1) {
+      const journeyContext = await context(`normal-starter-surgery:${index}`);
+      const manifest = fillForShapeAtStage("service_menu", journeyContext, "early");
+      const starterOptions = manifest.options.filter((option) =>
+        option.operations.some(
+          (operation) =>
+            operation.operationKind === "reward" &&
+            operation.payload.starterTarget === true,
+        ),
+      );
+
+      expect(manifest.debug.debugPayload).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      if (starterOptions.length === 3) {
+        found.push(manifest);
+      }
+    }
+
+    expect(found).toHaveLength(1);
+
+    const starterMetadata = found[0]!.options.flatMap((option) =>
+      option.operations.flatMap((operation) =>
+        operation.targetResolution?.selectorKind === "card" &&
+        operation.targetResolution.sourcePool === "deck" &&
+        operation.targetResolution.candidateCount > 1
+          ? [operation.targetResolution]
+          : [],
+      ),
+    );
+
+    expect(starterMetadata.length).toBeGreaterThan(0);
+    expect(starterMetadata[0]?.candidateCount).toBeGreaterThan(1);
+  });
+
+  it("validates Starter Door and Locksmith Counter starter surgery families", async () => {
+    const journeyContext = await context("starter-door-locksmith");
+    const drawContext: DrawContext = {
+      seed: "starter-door-locksmith",
+      contentVersion: journeyContext.contentVersion,
+      rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+    };
+    const slots = starterSurgeryRewardSlots(
+      journeyContext,
+      drawContext,
+      "starter-door-locksmith",
+      "early",
+    );
+    const aspiringGuardian = journeyContext.content.cards.find(
+      (card) => card.name === "Aspiring Guardian",
+    );
+    const byKey = new Map(slots.map((slot) => [slot.key, slot]));
+
+    expect(aspiringGuardian).toBeDefined();
+    expect(slots.some((slot) => slot.key.startsWith("starter-replacement-named"))).toBe(true);
+    expect(byKey.get("starter-cleanup-random")).toBeDefined();
+    expect(byKey.get("starter-replacement-random")).toBeDefined();
+    expect(byKey.get("starter-replacement-all")).toBeDefined();
+    expect(byKey.get("starter-cleanup-up-to-two")).toBeDefined();
+    expect(byKey.get("starter-random-transfiguration")).toBeDefined();
+    expect(byKey.get("starter-replacement-draft")).toBeDefined();
+
+    const starterDoorShapes = [
+      "starter-door-named-transform",
+      "starter-replacement-random",
+      "starter-replacement-all",
+    ];
+    const locksmithShapes = [
+      "starter-cleanup-up-to-two",
+      "starter-random-transfiguration",
+      "starter-replacement-draft",
+    ];
+
+    expect(
+      slots.some(
+        (slot) =>
+          slot.key.startsWith("starter-door-named-transform") &&
+          slot.effects.some(
+            (effect) =>
+              typeof effect === "object" &&
+              effect !== null &&
+              "resultCardId" in effect &&
+              effect.resultCardId === aspiringGuardian?.id,
+          ),
+      ) ||
+        slots.some((slot) =>
+          slot.effects.some(
+            (effect) =>
+              typeof effect === "object" &&
+              effect !== null &&
+              "resultPredicate" in effect &&
+              JSON.stringify(effect.resultPredicate).includes("Common"),
+          ),
+        ),
+    ).toBe(true);
+
+    expect(
+      starterDoorShapes.every((shape) =>
+        slots.some((slot) => slot.key.startsWith(shape)),
+      ),
+    ).toBe(true);
+    expect(
+      locksmithShapes.every((shape) =>
+        slots.some((slot) => slot.key.startsWith(shape)),
+      ),
+    ).toBe(true);
+  });
+
+  it("fails and repairs multi-starter operations when too few starters are available", async () => {
+    const journeyContext = await context("starter-too-few");
+    journeyContext.state.quest.deck.entries = journeyContext.state.quest.deck.entries.slice(0, 1);
+    journeyContext.state.quest.deck.summary = {
+      totalCards: 1,
+      starterCards: 1,
+      uniqueCards: 1,
+    };
+    const base = fillForShapeAtStage("service_menu", journeyContext, "early");
+    const invalidOption = refreshOptionOperations({
+      ...base.options[0]!,
+      text: "Apply {Viridian Transfiguration} to 2 chosen Starter cards.",
+      effects: [
+        {
+          kind: "card_transfigure",
+          transfigurationName: "Viridian",
+          targetCount: 2,
+          minRequiredTargets: 2,
+          selection: "chosen_after_commitment",
+          transfigurationScope: "two_chosen_starters",
+          starterTarget: true,
+          predicate: { source: "deck", starter: true },
+        },
+      ],
+      targets: [
+        target("card", "Starter cards in deck", {
+          source: "deck",
+          starter: true,
+        }),
+      ],
+    });
+    const invalid: JourneyManifest = {
+      ...base,
+      options: [invalidOption, ...base.options.slice(1)],
+    };
+    const failed = validateJourneyManifest(invalid, journeyContext);
+
+    expect(failed).toMatchObject({
+      ok: false,
+      rule: "starter_target_pool_too_small",
+    });
+
+    const repaired = repairOrFallbackJourney(invalid, journeyContext, failed);
+
+    expect(validateJourneyManifest(repaired, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("separates starter cleanup value from useful non-Starter card sacrifice", async () => {
+    expect(valueStarterCleanup({ count: 1, stage: "early" })).toBeGreaterThan(0);
+    expect(valueUsefulNonStarterCardSacrifice(1)).toBeLessThan(0);
+  });
+
   it("rejects unavailable deck-affecting named card operations with a stable rule", async () => {
     const journeyContext = await context("named-card-invalid");
     const unavailable = journeyContext.content.cards.find(
@@ -2629,6 +2801,11 @@ describe("generateNextJourney", () => {
       "random-purge",
       "all-duplicate-purge",
       "starter-replacement-draft",
+      "starter-replacement-named",
+      "starter-replacement-all",
+      "starter-replacement-random",
+      "random-starter-purge",
+      "all-starter-purge",
       "named-card-replacement",
       "transform-to-random-card",
       "transform-to-named-card",
@@ -2647,6 +2824,8 @@ describe("generateNextJourney", () => {
       "all-card-transfiguration",
       "all-event-transfiguration",
       "random-predicate-transfiguration",
+      "random-starter-transfiguration",
+      "two-chosen-starter-transfiguration",
     ].forEach((key) => expect(byKey.has(key), key).toBe(true));
 
     expect(CARD_OPERATION_DEBUG_CATALOG.targetModes).toEqual(

@@ -34,6 +34,8 @@ const TARGET_FAILURE_RULES = new Set([
   "named_card_target_unavailable",
   "dreamsign_loss_without_dreamsign",
   "bane_current_state_target_unavailable",
+  "starter_target_pool_too_small",
+  "starter_replacement_pool_too_small",
   "invalid_target_selector",
   "unresolved_target_selector",
 ]);

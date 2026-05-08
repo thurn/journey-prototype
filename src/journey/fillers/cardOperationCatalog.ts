@@ -10,10 +10,15 @@ import type { JourneyStage } from "../manifest.js";
 import {
   CARD_MODIFICATION_VALUE_CONSTANTS,
   TRANSFIGURATION_VALUE_CONSTANTS,
+  valueStarterCleanup,
+  valueStarterReplacement,
 } from "../value.js";
 import {
+  STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   cardQualityValue,
   selectContentBackedCard,
+  starterDeckCardCount,
+  starterEligibleReplacementCards,
 } from "./namedCardPayloads.js";
 import { BATTLE_WINDOW_DURATION, chosenCardText } from "./shared.js";
 
@@ -234,6 +239,61 @@ function namedResultOperation(
   };
 }
 
+function starterTargetCountEffect(
+  args: CardOperationMaterializerArgs,
+  effect: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...effect,
+    source: "deck",
+    sourcePoolSize: args.context.state.quest.deck.summary.uniqueCards,
+    starterTarget: true,
+    starterTargetCount: starterDeckCardCount(args.context),
+    predicate: { source: "deck", starter: true },
+  };
+}
+
+function namedStarterReplacementOperation(
+  entry: CardOperationCatalogEntry,
+  args: CardOperationMaterializerArgs,
+): MaterializedCardOperation | undefined {
+  const result = selectContentBackedCard({
+    context: args.context,
+    drawContext: args.drawContext,
+    label: `${args.label}:${args.entry.key}:starter-result`,
+    stage: args.stage,
+    sources: ["catalog"],
+    predicate: STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+  })?.card;
+
+  if (!result) {
+    return undefined;
+  }
+
+  return {
+    ...entry,
+    key: `${entry.key}:${result.id}`,
+    renderText: (targetText) => `Replace ${targetText} with {${result.name}}.`,
+    effect: withCompatibility(
+      starterTargetCountEffect(args, {
+        kind: "starter_replacement",
+        replacementMode: "named",
+        resultCardId: result.id,
+        resultCardName: result.name,
+        resultSelection: "exact_named",
+        resultTargetOrigin: "catalog_reward",
+      }),
+      entry.targetModes,
+      entry.family,
+    ),
+    value: valueStarterReplacement({
+      count: 1,
+      resultValue: cardQualityValue(result),
+      stage: args.stage,
+    }),
+  };
+}
+
 const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
   ...STANDARD_TRANSFIGURATIONS.map(transfigurationEntry),
   transfigurationEntry("Ivory"),
@@ -305,6 +365,192 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     },
     value: 120,
   }),
+  {
+    ...baseEntry({
+      key: "starter-replacement-named",
+      family: "replacement",
+      valueBand: "premium",
+      timing: "immediate",
+      topologies: ALL_NORMAL_TOPOLOGIES,
+      targetClasses: ["starter_card"],
+      targetModes: CHOSEN_OR_NAMED,
+      renderText: (targetText) => `Replace ${targetText} with a named catalog card.`,
+      effect: {
+        kind: "starter_replacement",
+        replacementMode: "named",
+      },
+      value: 145,
+    }),
+    materialize: (args) => namedStarterReplacementOperation(args.entry, args),
+  },
+  {
+    ...baseEntry({
+      key: "starter-replacement-all",
+      family: "replacement",
+      valueBand: "premium",
+      timing: "immediate",
+      topologies: ["one_target_many_operations", "mirrored_operations"],
+      targetClasses: ["starter_card"],
+      targetModes: ["all_matching"],
+      renderText: () =>
+        "Purge all Starter cards and replace them with new starter-eligible cards.",
+      effect: {
+        kind: "starter_replacement",
+        replacementMode: "all",
+        selection: "predicate",
+        resultSelection: "hidden_random",
+        resultPredicate: {
+          source: "catalog",
+          ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+        },
+      },
+      value: 170,
+      uncertainty: -10,
+    }),
+    materialize: (args) => {
+      const starterCount = starterDeckCardCount(args.context);
+      const replacementCount = starterEligibleReplacementCards(args.context).length;
+
+      if (starterCount === 0 || replacementCount < starterCount) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, {
+            ...args.entry.effect,
+            count: starterCount,
+            targetCount: starterCount,
+            resultPoolSize: replacementCount,
+          }),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+        value: valueStarterReplacement({
+          count: starterCount,
+          resultValue: 45,
+          stage: args.stage,
+          all: true,
+        }),
+      };
+    },
+  },
+  {
+    ...baseEntry({
+      key: "starter-replacement-random",
+      family: "replacement",
+      valueBand: "standard",
+      timing: "immediate",
+      topologies: ["one_target_many_operations", "mirrored_operations"],
+      targetClasses: ["starter_card"],
+      targetModes: ["random_predicate"],
+      renderText: () =>
+        "Purge a random Starter card and gain a random low-cost replacement.",
+      effect: {
+        kind: "starter_replacement",
+        replacementMode: "random",
+        count: 1,
+        targetCount: 1,
+        selection: "hidden_random",
+        resultSelection: "hidden_random",
+        resultPredicate: {
+          source: "catalog",
+          ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+        },
+      },
+      value: valueStarterReplacement({ count: 1, resultValue: 55 }),
+      uncertainty: -10,
+    }),
+    materialize: (args) => {
+      if (starterDeckCardCount(args.context) === 0) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, {
+            ...args.entry.effect,
+            resultPoolSize: starterEligibleReplacementCards(args.context).length,
+          }),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+      };
+    },
+  },
+  {
+    ...baseEntry({
+      key: "random-starter-purge",
+      family: "purge",
+      valueBand: "standard",
+      timing: "immediate",
+      topologies: ["one_target_many_operations", "mirrored_operations"],
+      targetClasses: ["starter_card"],
+      targetModes: ["random_predicate"],
+      renderText: () => "Purge a random Starter card.",
+      effect: {
+        kind: "starter_cleanup",
+        cleanupMode: "random",
+        count: 1,
+        selection: "hidden_random",
+      },
+      value: valueStarterCleanup({ count: 1, random: true }),
+      uncertainty: -10,
+    }),
+    materialize: (args) => ({
+      ...args.entry,
+      effect: withCompatibility(
+        starterTargetCountEffect(args, args.entry.effect),
+        args.entry.targetModes,
+        args.entry.family,
+      ),
+    }),
+  },
+  {
+    ...baseEntry({
+      key: "all-starter-purge",
+      family: "purge",
+      valueBand: "premium",
+      timing: "immediate",
+      topologies: ["one_target_many_operations", "mirrored_operations"],
+      targetClasses: ["starter_card"],
+      targetModes: ["all_matching"],
+      renderText: () => "Purge all Starter cards.",
+      effect: {
+        kind: "starter_cleanup",
+        cleanupMode: "all",
+        selection: "predicate",
+      },
+      value: 180,
+    }),
+    materialize: (args) => {
+      const starterCount = starterDeckCardCount(args.context);
+
+      if (starterCount === 0) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, {
+            ...args.entry.effect,
+            count: starterCount,
+            targetCount: starterCount,
+          }),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+        value: valueStarterCleanup({
+          count: starterCount,
+          stage: args.stage,
+          all: true,
+        }),
+      };
+    },
+  },
   {
     ...baseEntry({
       key: "named-card-replacement",
@@ -692,6 +938,79 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     value: TRANSFIGURATION_VALUE_CONSTANTS.random,
     uncertainty: -10,
   }),
+  {
+    ...baseEntry({
+      key: "random-starter-transfiguration",
+      family: "transfiguration",
+      valueBand: "standard",
+      timing: "immediate",
+      topologies: ["one_target_many_operations", "mirrored_operations"],
+      targetClasses: ["starter_card"],
+      targetModes: ["random_predicate"],
+      renderText: () =>
+        "Apply {Viridian Transfiguration} to 3 random Starter cards.",
+      effect: {
+        kind: "card_transfigure",
+        transfigurationName: "Viridian",
+        selection: "hidden_random",
+        transfigurationScope: "random_starters",
+        minRequiredTargets: 3,
+        targetCount: 3,
+      },
+      value: valueStarterCleanup({ count: 3, random: true }) + 30,
+      uncertainty: -10,
+    }),
+    materialize: (args) => {
+      if (starterDeckCardCount(args.context) < 3) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, args.entry.effect),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+      };
+    },
+  },
+  {
+    ...baseEntry({
+      key: "two-chosen-starter-transfiguration",
+      family: "transfiguration",
+      valueBand: "standard",
+      timing: "immediate",
+      topologies: ALL_NORMAL_TOPOLOGIES,
+      targetClasses: ["starter_card"],
+      targetModes: ["chosen"],
+      renderText: () =>
+        "Apply {Viridian Transfiguration} to 2 chosen Starter cards.",
+      effect: {
+        kind: "card_transfigure",
+        transfigurationName: "Viridian",
+        selection: "chosen_after_commitment",
+        transfigurationScope: "two_chosen_starters",
+        minRequiredTargets: 2,
+        targetCount: 2,
+      },
+      value: valueStarterCleanup({ count: 2 }) + 25,
+    }),
+    materialize: (args) => {
+      if (starterDeckCardCount(args.context) < 2) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, args.entry.effect),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+      };
+    },
+  },
 ];
 
 function includesAll<T>(

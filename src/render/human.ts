@@ -460,10 +460,17 @@ function operationTargetDebugText(operation: JourneyOption["operations"][number]
 
 function operationPoolDebugText(operation: JourneyOption["operations"][number]): string | undefined {
   const sourcePoolSize = operation.payload.sourcePoolSize;
+  const starterTargetCount = operation.payload.starterTargetCount;
+  const parts = [
+    typeof sourcePoolSize === "number"
+      ? `Source pool size: ${sourcePoolSize}`
+      : undefined,
+    typeof starterTargetCount === "number"
+      ? `starter cards available: ${starterTargetCount}`
+      : undefined,
+  ].filter((part): part is string => part !== undefined);
 
-  return typeof sourcePoolSize === "number"
-    ? `Source pool size: ${sourcePoolSize}.`
-    : undefined;
+  return parts.length > 0 ? `${parts.join("; ")}.` : undefined;
 }
 
 function operationContractDebugText(operation: JourneyOption["operations"][number]): string[] {

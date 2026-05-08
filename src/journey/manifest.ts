@@ -91,7 +91,11 @@ export type OperationValueMetadata = {
       | "take_count"
       | "copy_count"
       | "random_hidden_target"
-      | "temporary_gain";
+      | "temporary_gain"
+      | "starter_cleanup_reward"
+      | "starter_replacement"
+      | "useful_card_sacrifice"
+      | "all_starters";
     label: string;
     description: string;
     amount?: number;

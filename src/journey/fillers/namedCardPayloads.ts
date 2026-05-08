@@ -251,6 +251,24 @@ export function starterDeckCards(context: JourneyContext): CardContent[] {
   });
 }
 
+export function starterDeckCardCount(context: JourneyContext): number {
+  return starterDeckCards(context).length;
+}
+
+export const STARTER_ELIGIBLE_REPLACEMENT_PREDICATE = {
+  maxEnergyCost: 2,
+  rarity: "Common",
+} as const satisfies Omit<CardTargetPredicate, "source">;
+
+export function starterEligibleReplacementCards(
+  context: JourneyContext,
+): CardContent[] {
+  return resolveCardTargets(context.content, context.state.quest, {
+    source: "catalog",
+    ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+  });
+}
+
 export function catalogRewardCards(
   context: JourneyContext,
   drawContext: DrawContext,

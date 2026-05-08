@@ -88,7 +88,7 @@ export function fixtureManifest(): JourneyManifest {
       contentVersion: "test-content",
       shapeCatalogVersion: "journey-shapes:v11",
       effectCatalogVersion: "effects:v5",
-      valueModelVersion: "value:v6",
+      valueModelVersion: "value:v7",
       rendererVersion: "renderer:v1",
       manifestContractVersion: MANIFEST_CONTRACT_VERSION,
       validationContractVersion: "validation:v1",
