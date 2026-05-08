@@ -895,6 +895,10 @@ function validateGeneratedObjectDefinitions(
   manifest: JourneyManifest,
   context: JourneyContext,
 ): ValidationResult {
+  if (!Array.isArray(manifest.generatedObjects)) {
+    return fail("invalid_generated_object_definition", "Generated object definitions must be an array");
+  }
+
   const seen = new Set<string>();
 
   for (const generatedObject of generatedObjectResolverPool(manifest)) {

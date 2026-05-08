@@ -46,11 +46,79 @@ This document intentionally focuses on:
 - the content authoring contract
 - validation and repair rules
 - balancing and telemetry rules
-- explicit V1 scope boundaries
+- explicit V3 compatibility boundaries
 
 This document does not attempt to exhaustively list every reward, cost, burden,
 predicate, magnitude band, or payload template. A later companion document
 should define those reusable effect lists in more detail.
+
+## Current V3 CLI And Manifest Contract
+
+The current V3 `journey` command is a deterministic, non-interactive
+design-review CLI. Running `journey` without a subcommand and running
+`journey run` use the same stateless generation path: both load TOML-backed
+content, build an in-memory quest context, generate one or more manifests, print
+human or JSON output, and exit. They do not read or write `.journey/state.json`
+and they do not apply selected effects to persistent quest state.
+
+The supported compatibility controls are:
+
+- `--seed <seed>` for deterministic replay.
+- `--stage early|mid|late` for stage-specific generation.
+- `--shape <canonical-shape>` for forced-shape QA.
+- `--count <1..1000>` for deterministic batches.
+- `--json` for structured output without ANSI escape sequences.
+- `--debug` for generation metadata, validation results, repair metadata,
+  forced payload metadata, and semantic fingerprint detail.
+- `--debug-context` for simulated quest context only.
+- `--no-color` for stable human-output fixtures.
+
+V3 manifests use schema version 2. The manifest is the source of truth for both
+human and JSON rendering and includes version metadata for content, shape
+catalog, effect catalog, value model, renderer, manifest contract, and
+validation contract. User-visible consequences are represented by typed
+semantic operations rather than only by rendered text or loose legacy records.
+Options, tree branches, tree terminals, reward pools, and precommitted outcomes
+can carry operation objects with stable operation kind, role, visibility, target
+selector, timing, value metadata, resource semantics, random envelope, delayed
+hook, paired-return, route, status, and generated-object fields.
+
+The JSON command payload includes command parameters, seed, stage, shape,
+content/catalog versions, simulated context, the full manifest, and debug
+metadata. Batch JSON includes the same per-Journey manifest contract for every
+entry. Debug output exposes shape scoring, selected shape, value calculations,
+validation rule outcomes, repairs when attempted, forced payload selections,
+referenced generated objects, and semantic distinctness fingerprints.
+`--debug-context` by itself intentionally omits generation internals such as
+shape scores, validation rule IDs, repairs, and fingerprint components.
+
+V3 includes a supported deterministic QA/debug payload surface. The hidden
+developer flags `--debug-list-payloads`, `--debug-payload-family`, and
+`--debug-payload-variant` list and force representative payload families for
+adapter/current output, named cards, named Dreamsigns, Banes, resources, route
+edits, shop economy, Dreamwell windows, statuses, delayed hooks, paired returns,
+random reveal/roll/wager envelopes, manifest-local generated objects, and
+complete decision trees. These flags are debug surfaces for reproducible design
+review; they are not player-facing interactions and they do not mutate content
+or quest state.
+
+Validation now records a rule-by-rule report in debug metadata. It checks the
+manifest schema, version metadata, shape contracts, option/tree topology,
+operation target selectors, generated object definitions, structured random and
+route precommits, value comparability, semantic operation coverage, and illegal
+structured values. Repair metadata is retained when repair is attempted; forced
+shape generation must not silently fall back to another shape.
+
+Every generated manifest carries a semantic distinctness fingerprint. The
+fingerprint includes meaningful identity such as shape, topology, payload
+families, operation verbs, target classes, named object identities, generated
+object archetypes, timing classes, trigger classes, route scopes, status scopes,
+random or reveal envelope types, visibility policy, major cost/reward/burden
+families, motif, and curated variant ID. Trivial quantities such as essence
+amount, omen count, chance percentage, duration count, and choice count
+contribute only through equivalence bands. For fixed seeds, early, mid, and
+late `--count 100` batches are expected to produce 100 unique meaningful
+fingerprints per stage.
 
 ## Related Information
 

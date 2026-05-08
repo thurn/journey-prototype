@@ -217,23 +217,16 @@ describe("stateless command risk transitions", () => {
         ]));
       }
 
-      for (const stage of stages) {
-        const firstReplaySample = await handleJourney(options({
+      for (const [index, stage] of stages.entries()) {
+        const replay = await handleJourney(options({
           json: true,
-          seed: `variety-replay-${stage}`,
+          seed: "variety",
           stage,
-          count: 10,
-        }));
-        const secondReplaySample = await handleJourney(options({
-          json: true,
-          seed: `variety-replay-${stage}`,
-          stage,
-          count: 10,
+          count: 100,
         }));
 
-        expect(firstReplaySample.exitCode).toBe(ExitCode.Success);
-        expect(secondReplaySample.exitCode).toBe(ExitCode.Success);
-        expect(secondReplaySample.stdout).toBe(firstReplaySample.stdout);
+        expect(replay.exitCode).toBe(ExitCode.Success);
+        expect(replay.stdout).toBe(results[index]!.stdout);
       }
 
       const normal = await handleJourney(options({
@@ -247,7 +240,7 @@ describe("stateless command risk transitions", () => {
       expect(normal.stdout).not.toContain("Fingerprint components");
       await expectMissingState(statePath);
     });
-  }, 180_000);
+  }, 360_000);
 
   it("seeded stage and forced shape produce a complete tree", async () => {
     await withTempState(async ({ statePath, options }) => {

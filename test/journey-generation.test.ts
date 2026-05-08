@@ -2942,6 +2942,21 @@ describe("validateJourneyManifest", () => {
     });
   });
 
+  it("rejects malformed generated object collections instead of throwing", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      generatedObjects: undefined as unknown as JourneyManifest["generatedObjects"],
+    };
+
+    expect(() => validateJourneyManifest(invalid, journeyContext)).not.toThrow();
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "invalid_generated_object_definition",
+    });
+  });
+
   it("rejects choose-your-loss menus with trivial losses beside severe losses", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("choose_your_loss", journeyContext);

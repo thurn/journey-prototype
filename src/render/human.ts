@@ -630,13 +630,17 @@ function fingerprintDebugLines(manifest: JourneyManifest): string[] {
 }
 
 function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
-  if (manifest.generatedObjects.length === 0) {
+  const generatedObjects = Array.isArray(manifest.generatedObjects)
+    ? manifest.generatedObjects
+    : [];
+
+  if (generatedObjects.length === 0) {
     return [];
   }
 
   const lines = ["", "Generated objects:"];
 
-  for (const generatedObject of manifest.generatedObjects) {
+  for (const generatedObject of generatedObjects) {
     const references = Object.entries(generatedObject.references)
       .flatMap(([kind, values]) =>
         Array.isArray(values) && values.length > 0 ? [`${kind}=${values.join(",")}`] : []

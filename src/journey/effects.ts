@@ -1032,8 +1032,12 @@ function rootOperationsForGeneratedObjectResolver(manifest: JourneyManifest): Jo
 }
 
 export function generatedObjectResolverPool(manifest: JourneyManifest): GeneratedObjectDefinition[] {
+  const manifestGeneratedObjects = Array.isArray(manifest.generatedObjects)
+    ? manifest.generatedObjects
+    : [];
+
   return [
-    ...manifest.generatedObjects,
+    ...manifestGeneratedObjects,
     ...rootOperationsForGeneratedObjectResolver(manifest).flatMap((operation) =>
       operation.operationKind === "generated_object" ? [operation.generatedObject] : []
     ),

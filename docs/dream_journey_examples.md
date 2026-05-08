@@ -1,3 +1,12 @@
+# Dream Journey Examples
+
+These examples are illustrative Journey-shape sketches. The V3 CLI now renders
+generated manifests from typed semantic operations rather than treating these
+lines as executable scripts. Use `journey --debug-list-payloads --json` for the
+current deterministic QA surface, and use `journey --seed <seed> --stage
+<stage> --shape <shape> --json` when checking the final manifest, validation,
+repair, generated-object, and distinctness contracts for a shape.
+
 # random_allocation
 
 ## Quick Revision
