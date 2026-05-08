@@ -15,6 +15,12 @@ import {
   compatibleDreamsignOperations,
   renderChosenDreamsignOperationText,
 } from "./dreamsignOperationCatalog.js";
+import {
+  dreamsignExactTarget,
+  namedDreamsignPayload,
+  selectNamedDreamsignShopRow,
+  type NamedDreamsignShopRowSelection,
+} from "./dreamsignPayloads.js";
 import type {
   JourneyOption,
   JourneyRewardPool,
@@ -27,6 +33,7 @@ import {
   valueBaneGain,
   valueCardDraft,
   valueDreamsignDraft,
+  valueDreamsignOperation,
   valueOmenGain,
   valueOmenLoss,
   valueRandomCardGain,
@@ -77,6 +84,154 @@ import {
 import { randomVisibility } from "./randomPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
+
+type ShopRowPrice = {
+  key: string;
+  currency: "essence" | "omens";
+  amount: number;
+  convertedEssence: number;
+};
+
+function shopRowPriceText(price: ShopRowPrice): string {
+  const unit =
+    price.currency === "omens"
+      ? price.amount === 1 ? "omen" : "omens"
+      : "essence";
+
+  return `${price.amount} ${unit}`;
+}
+
+function namedDreamsignShopPrices(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+}): ShopRowPrice[] {
+  const affordableOmenAmount = Math.min(
+    args.context.state.quest.resources.omens,
+    2,
+  );
+  const priceFrames = affordableOmenAmount > 0
+    ? ["shared_essence", "varied_essence", "shared_omens"] as const
+    : ["shared_essence", "varied_essence"] as const;
+  const priceFrame = pickSequentialVariant(
+    args.drawContext,
+    `${args.label}:named-price-frame`,
+    priceFrames,
+  );
+
+  if (priceFrame === "shared_omens") {
+    const amount = affordableOmenAmount;
+
+    return [1, 2, 3].map((index) => ({
+      key: `${priceFrame}:${index}`,
+      currency: "omens",
+      amount,
+      convertedEssence: Math.abs(valueOmenLoss(amount)),
+    }));
+  }
+
+  if (priceFrame === "varied_essence") {
+    return [25, 35, 45].map((amount, index) => ({
+      key: `${priceFrame}:${index + 1}`,
+      currency: "essence",
+      amount: Math.min(amount, args.context.state.quest.resources.essence),
+      convertedEssence: Math.min(
+        amount,
+        args.context.state.quest.resources.essence,
+      ),
+    }));
+  }
+
+  const amount = Math.min(
+    pickSequentialVariant(
+      args.drawContext,
+      `${args.label}:shared-essence-price`,
+      [30, 45, 85],
+    ),
+    args.context.state.quest.resources.essence,
+  );
+
+  return [1, 2, 3].map((index) => ({
+    key: `${priceFrame}:${index}`,
+    currency: "essence",
+    amount,
+    convertedEssence: amount,
+  }));
+}
+
+function namedDreamsignShopRowFill(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  row: NamedDreamsignShopRowSelection;
+}): ResolvedShapeFill {
+  const prices = namedDreamsignShopPrices(args);
+
+  return {
+    fillKind: "named_dreamsign_shop_row",
+    options: args.row.candidates.map((candidate, index) => {
+      const price = prices[index]!;
+      const priceCost = cost(price.currency, price.amount);
+      const effect = namedDreamsignPayload(
+        {
+          kind: "dreamsign_purchase",
+          dreamsign: candidate.dreamsign,
+          source: candidate.source,
+          extra: {
+            purchaseCurrency: price.currency,
+            purchaseAmount: price.amount,
+            shopRowPriceMode: prices.every((entry) =>
+              entry.currency === prices[0]!.currency &&
+              entry.amount === prices[0]!.amount
+            )
+              ? "shared_price"
+              : "per_row_variation",
+            shopRowCoherenceRule: args.row.coherenceRule,
+            shopRowCoherenceKey: args.row.coherenceKey,
+            targetOrigin: candidate.targetOrigin,
+            selectionWeight: candidate.weight,
+            weightHooks: candidate.weightHooks,
+          },
+        },
+        args.context,
+      );
+      const effectValue = valueDreamsignOperation("purchase", {
+        tideOverlap: candidate.weightHooks.tideOverlap > 0,
+      });
+
+      return {
+        number: index + 1,
+        textParts: [
+          {
+            source: "reward",
+            text: `Buy {${candidate.dreamsign.name}} for ${shopRowPriceText(price)}.`,
+          },
+        ],
+        payloadSpecs: [
+          {
+            role: "cost",
+            key: price.key,
+            payloads: [priceCost],
+          },
+          {
+            role: "reward",
+            key: `dreamsign-purchase:${candidate.dreamsign.id}`,
+            payloads: [effect],
+          },
+        ],
+        costs: [priceCost],
+        effects: [effect],
+        targetSelectors: [
+          dreamsignExactTarget(candidate.dreamsign, candidate.source),
+        ],
+        valueEstimate: {
+          cost: price.convertedEssence,
+          effect: effectValue,
+        },
+      };
+    }),
+  } satisfies ResolvedShapeFill;
+}
 
 export function fillOptions(
   shapeId: JourneyShapeId,
@@ -450,6 +605,35 @@ export function fillOptions(
       };
     }
     case "shop_row": {
+      const namedDreamsignRow = selectNamedDreamsignShopRow({
+        context,
+        drawContext,
+        label: `${shapeId}:goods`,
+        stage,
+        sources: ["catalog"],
+      });
+      const shopFamily = pickSequentialVariant(
+        drawContext,
+        `${shapeId}:shop-family`,
+        ["named_dreamsign", "named_dreamsign", "general"] as const,
+      );
+
+      if (namedDreamsignRow && shopFamily === "named_dreamsign") {
+        const shopFill = namedDreamsignShopRowFill({
+          context,
+          drawContext,
+          label: `${shapeId}:goods`,
+          row: namedDreamsignRow,
+        });
+
+        return {
+          options: shopFill.options.map((fill) =>
+            optionFromResolvedShapeFill(fill),
+          ),
+          precommitted: {},
+        };
+      }
+
       const prices = [15, 20, 25] as const;
       const rewards = rewardSlots(
         context,

@@ -86,7 +86,7 @@ export function fixtureManifest(): JourneyManifest {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     versions: {
       contentVersion: "test-content",
-      shapeCatalogVersion: "journey-shapes:v11",
+      shapeCatalogVersion: "journey-shapes:v12",
       effectCatalogVersion: "effects:v5",
       valueModelVersion: "value:v7",
       rendererVersion: "renderer:v1",

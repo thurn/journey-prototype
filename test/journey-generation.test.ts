@@ -37,6 +37,7 @@ import {
 import {
   contentBackedDreamsignCandidates,
   dreamsignExactTarget,
+  namedDreamsignShopRowCandidateGroups,
 } from "../src/journey/fillers/dreamsignPayloads.js";
 import { routeEditCatalog } from "../src/journey/fillers/routeEditCatalog.js";
 import { generateNextJourney } from "../src/journey/generate.js";
@@ -636,7 +637,7 @@ describe("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v11",
+      shapeCatalogVersion: "journey-shapes:v12",
       effectCatalogVersion: "effects:v5",
       valueModelVersion: "value:v7",
       rendererVersion: "renderer:v1",
@@ -2702,10 +2703,122 @@ describe("generateNextJourney", () => {
         expect(rewardOperation).toBeDefined();
 
         return costOperation?.operationKind === "cost"
-          ? costOperation.amount
+          ? {
+              resource: costOperation.resource,
+              amount: costOperation.amount,
+            }
           : undefined;
       }),
-    ).toEqual([15, 20, 25]);
+    ).toEqual([
+      { resource: "omens", amount: 1 },
+      { resource: "omens", amount: 1 },
+      { resource: "omens", amount: 1 },
+    ]);
+  });
+
+  it("fills shared-cost named Dreamsign shop rows without forced debug payloads", async () => {
+    const journeyContext = await context("shop-test-4");
+    const manifest = fillForShapeAtStage("shop_row", journeyContext, "mid");
+    const report = buildValidationReport(manifest, journeyContext);
+    const costOperations = manifest.options.map((journeyOption) =>
+      journeyOption.operations.find((operation) =>
+        operation.operationKind === "cost"
+      )
+    );
+    const dreamsignPurchases = manifest.options.map((journeyOption) =>
+      journeyOption.operations.find((operation) =>
+        operation.operationKind === "reward" &&
+        operation.rewardKind === "dreamsign_purchase"
+      )
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(manifest.debug.debugPayload).toBeUndefined();
+    expect(costOperations).toEqual([
+      expect.objectContaining({ resource: "essence", amount: 45 }),
+      expect.objectContaining({ resource: "essence", amount: 45 }),
+      expect.objectContaining({ resource: "essence", amount: 45 }),
+    ]);
+    expect(dreamsignPurchases.map((operation) => operation?.payload.dreamsignName))
+      .toHaveLength(3);
+    expect(new Set(dreamsignPurchases.map((operation) => operation?.payload.dreamsignName)).size)
+      .toBe(3);
+    expect(report.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: "same_cost_different_named_goods",
+          status: "pass",
+        }),
+      ]),
+    );
+  });
+
+  it("represents omen-priced named Dreamsign purchases as structured costs", async () => {
+    const journeyContext = await context("default");
+    journeyContext.state.quest.resources.omens = 2;
+    const manifest = fillForShapeAtStage("shop_row", journeyContext, "mid");
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(
+      manifest.options.map((journeyOption) =>
+        journeyOption.operations.find((operation) =>
+          operation.operationKind === "cost"
+        )
+      ),
+    ).toEqual([
+      expect.objectContaining({ resource: "omens", amount: 2 }),
+      expect.objectContaining({ resource: "omens", amount: 2 }),
+      expect.objectContaining({ resource: "omens", amount: 2 }),
+    ]);
+    expect(
+      manifest.options.map((journeyOption) =>
+        journeyOption.operations.find((operation) =>
+          operation.operationKind === "reward" &&
+          operation.rewardKind === "dreamsign_purchase"
+        )?.payload
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        purchaseCurrency: "omens",
+        purchaseAmount: 2,
+      }),
+      expect.objectContaining({
+        purchaseCurrency: "omens",
+        purchaseAmount: 2,
+      }),
+      expect.objectContaining({
+        purchaseCurrency: "omens",
+        purchaseAmount: 2,
+      }),
+    ]);
+  });
+
+  it("keeps Curator's Shelf and Moon Market names as ordinary coherent shop-row candidates", async () => {
+    const journeyContext = await context();
+    const groups = namedDreamsignShopRowCandidateGroups({
+      context: journeyContext,
+      stage: "mid",
+      sources: ["catalog"],
+    });
+    const groupContains = (names: readonly string[]) =>
+      groups.some((group) => {
+        const groupNames = new Set(
+          group.candidates.map((candidate) => candidate.dreamsign.name),
+        );
+
+        return names.every((name) => groupNames.has(name));
+      });
+
+    expect(
+      groupContains(["Ginger Root", "Cloud Lens", "Leather Satchel"]),
+    ).toBe(true);
+    expect(
+      groupContains(["Witch Hat", "Black Cat", "Skull Dagger"]),
+    ).toBe(true);
   });
 
   it("adapts a shared operation fill plan across several target selectors", async () => {
