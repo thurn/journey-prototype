@@ -22,7 +22,7 @@ import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
 import {
   buildValidationReport,
   validateJourneyManifest,
-} from "../src/journey/validate.js";
+} from "../src/journey/validate/index.js";
 import { buildJourneyContext } from "../src/quest/context.js";
 import { createInitialJourneyState } from "../src/quest/init.js";
 import {

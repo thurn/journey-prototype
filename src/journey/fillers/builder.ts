@@ -22,7 +22,7 @@ import {
   getShapeDefinition,
   type JourneyShapeId,
 } from "../shapes.js";
-import { VALIDATION_CONTRACT_VERSION } from "../validate.js";
+import { VALIDATION_CONTRACT_VERSION } from "../validate/index.js";
 import {
   VALUE_MODEL_VERSION,
   evaluateOptionValue,

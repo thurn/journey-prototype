@@ -23,7 +23,7 @@ import { RENDERER_VERSION } from "../render/theme.js";
 import type { JourneyState } from "../state/schema.js";
 import { ExitCode } from "../util/exitCodes.js";
 import type { CommandResult, CommonCommandOptions } from "./options.js";
-import { VALIDATION_CONTRACT_VERSION } from "../journey/validate.js";
+import { VALIDATION_CONTRACT_VERSION } from "../journey/validate/index.js";
 
 export type LoadedContentContext = {
   content: ContentBundle;

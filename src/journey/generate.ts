@@ -26,7 +26,7 @@ import {
   buildValidationReport,
   validateJourneyManifest,
   type ValidationResult,
-} from "./validate.js";
+} from "./validate/index.js";
 import { evaluateOptionValue } from "./value.js";
 import {
   validateDebugPayloadCompatibility,
