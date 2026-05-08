@@ -650,6 +650,13 @@ export function buildConservativeJourneyForShape(
       args.context.content,
       selectedCards.map((card) => card.id),
       selectedDreamsigns.map((dreamsign) => dreamsign.id),
+      [
+        options,
+        generatedObjects,
+        filled.tree,
+        filled.rewardPool,
+        precommitted,
+      ],
     ),
   };
 

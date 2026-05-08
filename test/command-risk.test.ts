@@ -334,7 +334,7 @@ describe("stateless command risk transitions", () => {
           versions: {
             contentVersion: expect.any(String),
             shapeCatalogVersion: "journey-shapes:v11",
-            effectCatalogVersion: "effects:v3",
+            effectCatalogVersion: "effects:v4",
             valueModelVersion: "value:v6",
             rendererVersion: "renderer:v1",
             manifestContractVersion: "manifest:v2",
@@ -743,14 +743,14 @@ describe("stateless command risk transitions", () => {
         );
 
       expect(dreamsignNames(firstPayload)).toEqual([
-        "Oak Leaf",
-        "Green Beetle",
-        "Charm Bracelet",
+        "Steel Wand",
+        "Ivory Claw",
+        "Clam Shell",
       ]);
       expect(dreamsignNames(secondPayload)).toEqual([
-        "Sealed Letter",
-        "Notes",
-        "Flaming Button",
+        "Poison Bottle",
+        "Charm Pouch",
+        "Berries",
       ]);
       expect(firstPayload.manifest.debug.semanticFingerprint.value).not.toBe(
         secondPayload.manifest.debug.semanticFingerprint.value,

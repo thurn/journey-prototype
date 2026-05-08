@@ -4,6 +4,7 @@ import type {
   JourneyOption,
   JourneyStage,
 } from "../manifest.js";
+import { BANE_NAMES } from "../effects.js";
 import type { JourneyShapeId } from "../shapes.js";
 import { option } from "./shared.js";
 
@@ -579,16 +580,21 @@ function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBod
   }
 
   if (fragment === "bane-essence") {
+    const baneName = pick(
+      args.drawContext,
+      "generated-object:status:bane-name",
+      BANE_NAMES,
+    );
+
     return {
-      idPart: "bane-essence",
+      idPart: `bane-essence-${kebab(baneName)}`,
       name,
       objectType: "Quest Status",
-      rulesText:
-        "During the next dreamscape, the first time you gain a Bane, gain 100 essence.",
+      rulesText: `During the next dreamscape, the first time you gain {${baneName}}, gain 100 essence.`,
       tags: ["journey-only", "status", "quest", "bane"],
       references: {
-        banes: ["Nightmare"],
-        rules: ["Nightmare", "essence"],
+        banes: [baneName],
+        rules: [baneName, "essence"],
       },
       duration: generatedObjectDuration(
         "next dreamscape",

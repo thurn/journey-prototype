@@ -7,12 +7,13 @@ import type {
   RandomOutcomeVisibility,
   RandomPrecommittedOutcome,
 } from "../manifest.js";
-import { valueBaneGain } from "../value.js";
 import {
+  baneBurden,
+  baneBurdenSlot,
+  baneNameText,
   cost,
   gainEssence,
   lowerFirst,
-  nightmare,
   option,
   pickSequentialVariant,
   rewardSlots,
@@ -127,6 +128,10 @@ export function randomRevealRollWagerFill(
     "random-reveal-roll-wager:bane-roll",
     1,
     100,
+  );
+  const baneDownside = baneBurdenSlot(
+    drawContext,
+    "random-reveal-roll-wager:bane-downside",
   );
   const costPercent = pickSequentialVariant(
     drawContext,
@@ -335,7 +340,7 @@ export function randomRevealRollWagerFill(
       kind: "chance_to_gain_bane",
       optionNumber: 2,
       odds: odds(banePercent),
-      baneName: "Nightmare",
+      baneName: baneDownside.baneName,
       count: 1,
       committedResult: baneRoll <= banePercent ? "bane" : "safe",
       visibilityPolicy: randomVisibility(
@@ -344,7 +349,7 @@ export function randomRevealRollWagerFill(
         true,
       ),
       expectedConvertedEssence: Math.round(
-        valueBaneGain("Nightmare", 1) * (banePercent / 100),
+        baneDownside.burden * (banePercent / 100),
       ),
       riskPremiumConvertedEssence: -15,
     },
@@ -389,7 +394,7 @@ export function randomRevealRollWagerFill(
       optionNumber: 2,
       bounded: true,
       odds: odds(65),
-      hazard: nightmare(1),
+      hazard: baneBurden(baneDownside.baneName, 1),
       committedResult:
         drawInt(drawContext, "random-reveal-roll-wager:push-roll", 1, 100) <= 65
           ? "success"
@@ -439,7 +444,7 @@ export function randomRevealRollWagerFill(
       }),
       option({
         number: 2,
-        text: `Pay ${stake} essence. Roll twice and keep the better committed roll (${firstRoll}, ${secondRoll}); gain ${rangeMinimum}-${rangeMaximum} random essence; ${wagerPercent}% chance to ${wagerSuccessText}; ${banePercent}% chance to gain 1 Nightmare; ${costPercent}% chance to pay ${randomCostAmount} extra essence.`,
+        text: `Pay ${stake} essence. Roll twice and keep the better committed roll (${firstRoll}, ${secondRoll}); gain ${rangeMinimum}-${rangeMaximum} random essence; ${wagerPercent}% chance to ${wagerSuccessText}; ${banePercent}% chance to gain ${baneNameText(baneDownside.baneName, 1)}; ${costPercent}% chance to pay ${randomCostAmount} extra essence.`,
         costs: [cost("essence", stake)],
         effects: [
           {

@@ -374,7 +374,7 @@ precommit kind strings.
 
 ### 10. Bane Handling Defaults To Nightmare In Shared Paths
 
-**Status:** Concern.
+**Status:** Fixed.
 
 The effect catalog defines many Bane names in
 [`effects.ts`](../src/journey/effects.ts#L90), and the Bane payload helper can
@@ -397,9 +397,15 @@ in structured form.
 **Compelling justification:** Moderate for `Nightmare` as the default generic
 Bane; weak for references that ignore actual emitted Bane names.
 
-**Proposed fix to remove hardcoded content:** Replace `nightmare()` and static
-Bane references with a Bane burden selector that samples legal Bane names and
-derives manifest references from emitted Bane payloads.
+**Resolution:** Normal generation now uses a shared Bane burden selector for
+Bane costs, risk downsides, and random-envelope hazards. The selector samples
+legal Bane names from the controlled vocabulary, emits structured
+`bane_gain`/`chance_to_gain_bane` payloads with that chosen name, and values the
+burden with the matching Bane. Manifest Bane references are collected from the
+actual emitted options, precommits, generated objects, and target selectors
+instead of always listing Nightmare. `Nightmare` remains the default for generic
+fallback handling and forced debug Bane fixtures keep their deterministic named
+payloads.
 
 ### 11. Debug Payload Menus Are Correctly Hardcoded, But Should Not Count As Natural Generation
 
@@ -569,7 +575,7 @@ tests.
 | Tree builder scripted profiles | Yes | Mixed |
 | Route edit fixed site pairs | Yes | Concern |
 | Risk/wager bespoke random contracts | Yes | Concern |
-| Nightmare defaults and references | Yes | Concern |
+| Nightmare defaults and references | Yes | Fixed |
 | Debug payload edge-case menus | Forced debug only | Justified fixture |
 | Repair global script/fallbacks | Yes | Concern |
 | Text and magic-kind validation | Yes | Error in validation design |

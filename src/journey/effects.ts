@@ -15,7 +15,7 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v3" = "effects:v3";
+export const EFFECT_CATALOG_VERSION: "effects:v4" = "effects:v4";
 
 export type EffectEntry = {
   readonly id: string;
@@ -265,8 +265,8 @@ const EFFECT_DEFINITIONS = [
   {
     id: "bane-gain",
     family: "bane",
-    textTemplate: "Gain {count} Nightmare.",
-    tags: ["burden", "bane", "default-nightmare"],
+    textTemplate: "Gain {count} {baneName}.",
+    tags: ["burden", "bane", "named-bane"],
   },
   {
     id: "bane-purge",

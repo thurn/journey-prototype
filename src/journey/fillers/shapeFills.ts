@@ -28,6 +28,9 @@ import {
   CARD_POOL_TARGET_DESCRIPTION,
   DREAMSIGN_POOL_TARGET_DESCRIPTION,
   GENERIC_CARD_DRAFT_PROFILE,
+  baneBurden,
+  baneBurdenSlot,
+  baneNameText,
   cardDraftPredicate,
   cardDraftText,
   chosenCardText,
@@ -44,7 +47,6 @@ import {
   gainOmen,
   legalCardDraftProfile,
   lowerFirst,
-  nightmare,
   option,
   pickLegalCardDraftProfile,
   pickSequentialVariant,
@@ -151,7 +153,13 @@ export function fillOptions(
           ],
           effect: 100 + valueOmenGain(sharedOmenBonus),
         };
-        const costs = [
+        const costs: {
+          prefix: string;
+          costs?: unknown[];
+          burdens?: unknown[];
+          cost?: number;
+          burden?: number;
+        }[] = [
           {
             prefix: `Pay ${Math.min(15, context.state.quest.resources.essence)} essence.`,
             costs: [
@@ -174,9 +182,10 @@ export function fillOptions(
                 cost: payablePrice,
               },
           {
-            prefix: "Gain 1 Nightmare.",
-            burdens: [nightmare(1)],
-            burden: valueBaneGain("Nightmare", 1),
+            ...baneBurdenSlot(
+              drawContext,
+              `${shapeId}:same-reward-transfiguration-bane-cost`,
+            ),
           },
         ];
 
@@ -207,7 +216,13 @@ export function fillOptions(
           `${shapeId}:dreamsign-choice-order`,
           [2, 3, 4],
         );
-        const dreamsignCosts = [
+        const dreamsignCosts: {
+          prefix: string;
+          costs?: unknown[];
+          burdens?: unknown[];
+          cost?: number;
+          burden?: number;
+        }[] = [
           {
             prefix: `Pay ${Math.min(pickSequentialVariant(drawContext, `${shapeId}:dreamsign-price`, [10, 15, 20]), context.state.quest.resources.essence)} essence.`,
             costs: [
@@ -244,9 +259,10 @@ export function fillOptions(
                 cost: payablePrice,
               },
           {
-            prefix: "Gain 1 Nightmare.",
-            burdens: [nightmare(1)],
-            burden: valueBaneGain("Nightmare", 1),
+            ...baneBurdenSlot(
+              drawContext,
+              `${shapeId}:dreamsign-draft-bane-cost`,
+            ),
           },
         ];
 
@@ -287,7 +303,14 @@ export function fillOptions(
           context.state.quest.resources.omens >= 1
             ? cost("omens", 1)
             : cost("essence", payablePrice);
-        const options = [
+        const options: {
+          prefix: string;
+          costs?: unknown[];
+          burdens?: unknown[];
+          cost?: number;
+          burden?: number;
+          amount: number;
+        }[] = [
           {
             prefix: `Pay ${Math.min(10, context.state.quest.resources.essence)} essence.`,
             costs: [
@@ -312,9 +335,7 @@ export function fillOptions(
             amount: amounts[1]!,
           },
           {
-            prefix: "Gain 1 Nightmare.",
-            burdens: [nightmare(1)],
-            burden: valueBaneGain("Nightmare", 1),
+            ...baneBurdenSlot(drawContext, `${shapeId}:omen-cache-bane-cost`),
             amount: amounts[2]!,
           },
         ];
@@ -805,8 +826,9 @@ export function fillOptions(
       const downsideKind = pickSequentialVariant(
         drawContext,
         `${shapeId}:downside-kind`,
-        ["nightmare", "omen", "essence"] as const,
+        ["bane", "omen", "essence"] as const,
       );
+      const riskBane = baneBurdenSlot(drawContext, `${shapeId}:risk-bane`);
       const roll = drawInt(drawContext, "risk-or-skip-downside-roll:1", 1, 100);
       const downside =
         downsideKind === "omen" && context.state.quest.resources.omens >= 1
@@ -816,19 +838,19 @@ export function fillOptions(
                 kind: "essence_loss",
                 amount: Math.min(60, context.state.quest.resources.essence),
               }
-            : nightmare(1);
+            : baneBurden(riskBane.baneName, 1);
       const downsideValue =
         downsideKind === "omen" && context.state.quest.resources.omens >= 1
           ? valueOmenLoss(1)
           : downsideKind === "essence"
             ? -Math.min(60, context.state.quest.resources.essence)
-            : valueBaneGain("Nightmare", 1);
+            : riskBane.burden;
       const downsideText = downsideKind === "omen" &&
         context.state.quest.resources.omens >= 1
         ? "lose 1 omen"
         : downsideKind === "essence"
           ? `lose ${Math.min(60, context.state.quest.resources.essence)} essence`
-          : "gain 1 Nightmare";
+          : `gain ${baneNameText(riskBane.baneName, 1)}`;
       const riskConstraint = {
         constraintKind: "shape_invariant" as const,
         shapeId,
@@ -1281,7 +1303,7 @@ export function fillOptions(
           (entry) => entry.key === "low-essence",
         )!,
         costSlots(context, drawContext, `${shapeId}:commitment:2`).find(
-          (entry) => entry.key === "nightmare",
+          (entry) => entry.key === "bane",
         )!,
         costSlots(context, drawContext, `${shapeId}:commitment:3`).find(
           (entry) => entry.key === "high-essence",

@@ -21,6 +21,7 @@ import type {
   TargetSelectionMode,
   TargetSelector,
 } from "./manifest.js";
+import { DEFAULT_BANE_NAME } from "./effects.js";
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -763,7 +764,7 @@ function adaptBurden(
         selection: isRecord(value) && value.selection === "visible_random" ? "visible_random" as const : "exact" as const,
         referenceKind: "controlled_vocabulary" as const,
         source: isRecord(value) && value.baneTargetContext === "current_state" ? "state" as const : "vocabulary" as const,
-        names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : "Nightmare"],
+        names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : DEFAULT_BANE_NAME],
       }
     : undefined;
 

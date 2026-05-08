@@ -7,8 +7,12 @@ import {
 } from "../../util/rng.js";
 import type { DebugPayloadSelection } from "../debugPayloads.js";
 import {
+  BANE_NAMES,
+  DEFAULT_BANE_NAME,
   resolveCardTargets,
   resolveDreamsignTargets,
+  isBaneName,
+  type BaneName,
   type CardTargetPredicate,
 } from "../effects.js";
 import { type TreeBuilderTools } from "./treeBuilders.js";
@@ -126,6 +130,14 @@ export type CostSlot = {
   burdens?: unknown[];
   cost?: number;
   burden?: number;
+};
+
+export type BaneBurdenSlot = {
+  key: string;
+  baneName: BaneName;
+  prefix: string;
+  burdens: [ReturnType<typeof baneBurden>];
+  burden: number;
 };
 
 export function uniqueSorted(values: readonly string[]): string[] {
@@ -524,11 +536,39 @@ export function starterCleanup(count: number) {
   };
 }
 
-export function nightmare(count: number) {
+export function baneNameText(baneName: BaneName, count: number): string {
+  return `${count} ${baneName}${count === 1 ? "" : "s"}`;
+}
+
+export function baneBurden(baneName: BaneName, count: number) {
   return {
     kind: "bane_gain",
-    baneName: "Nightmare",
+    baneName,
     count,
+  };
+}
+
+export function nightmare(count: number) {
+  return baneBurden(DEFAULT_BANE_NAME, count);
+}
+
+export function baneBurdenSlot(
+  drawContext: DrawContext,
+  label: string,
+  count = 1,
+): BaneBurdenSlot {
+  const baneName = pickSequentialVariant(
+    drawContext,
+    `${label}:bane-name`,
+    BANE_NAMES,
+  );
+
+  return {
+    key: "bane",
+    baneName,
+    prefix: `Gain ${baneNameText(baneName, count)}.`,
+    burdens: [baneBurden(baneName, count)],
+    burden: valueBaneGain(baneName, count),
   };
 }
 
@@ -557,10 +597,65 @@ export function comparableEssenceLossAmount(
     : null;
 }
 
+function addBaneReference(references: Set<string>, value: unknown): void {
+  if (typeof value === "string" && isBaneName(value)) {
+    references.add(value);
+  }
+}
+
+function collectBaneReferencesFromValue(
+  value: unknown,
+  references: Set<string>,
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectBaneReferencesFromValue(entry, references));
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  addBaneReference(references, record.baneName);
+  addBaneReference(references, record.newBaneName);
+
+  if (Array.isArray(record.baneNames)) {
+    record.baneNames.forEach((entry) => addBaneReference(references, entry));
+  }
+
+  if (Array.isArray(record.banes)) {
+    record.banes.forEach((entry) => addBaneReference(references, entry));
+  }
+
+  if (
+    (record.kind === "bane" || record.selectorKind === "bane") &&
+    Array.isArray(record.names)
+  ) {
+    record.names.forEach((entry) => addBaneReference(references, entry));
+  }
+
+  Object.values(record).forEach((entry) =>
+    collectBaneReferencesFromValue(entry, references),
+  );
+}
+
+export function collectBaneReferences(
+  values: readonly unknown[],
+): string[] {
+  const references = new Set<string>();
+
+  values.forEach((value) => collectBaneReferencesFromValue(value, references));
+
+  return uniqueSorted([...references]);
+}
+
 export function referencesFor(
   content: ContentBundle,
   cardIds: readonly string[],
   dreamsignIds: readonly string[],
+  baneReferenceSources: readonly unknown[] = [],
 ): ManifestReferences {
   const dreamcallerIds = content.dreamcallers.map(
     (dreamcaller) => dreamcaller.id,
@@ -570,7 +665,7 @@ export function referencesFor(
     cardIds: uniqueSorted(cardIds),
     dreamsignIds: uniqueSorted(dreamsignIds),
     dreamcallerIds: uniqueSorted(dreamcallerIds),
-    baneNames: ["Nightmare"],
+    baneNames: collectBaneReferences(baneReferenceSources),
   };
 }
 
@@ -948,10 +1043,7 @@ export function costSlots(
       cost: highEssence,
     },
     {
-      key: "nightmare",
-      prefix: "Gain 1 Nightmare.",
-      burdens: [nightmare(1)],
-      burden: valueBaneGain("Nightmare", 1),
+      ...baneBurdenSlot(drawContext, `${label}:bane-cost`),
     },
   ];
 

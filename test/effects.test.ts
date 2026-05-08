@@ -148,7 +148,7 @@ function quest(overrides: Partial<QuestState> = {}): QuestState {
 
 describe("EFFECT_CATALOG", () => {
   it("exports the pinned version and required mechanical families", () => {
-    expect(EFFECT_CATALOG_VERSION).toBe("effects:v3");
+    expect(EFFECT_CATALOG_VERSION).toBe("effects:v4");
     expect(DEFAULT_BANE_NAME).toBe("Nightmare");
     expect(BANE_NAMES).toContain("Nightmare");
 

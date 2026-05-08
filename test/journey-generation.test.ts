@@ -571,7 +571,7 @@ describe("generateNextJourney", () => {
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v11",
-      effectCatalogVersion: "effects:v3",
+      effectCatalogVersion: "effects:v4",
       valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
@@ -4312,6 +4312,49 @@ describe("validateJourneyManifest", () => {
       }),
     ]);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("derives manifest Bane references from normal generated Bane payloads", async () => {
+    const riskContext = await context("risk");
+    const riskManifest = fillForShape("risk_or_skip", riskContext);
+    const riskEnvelope = riskManifest.precommitted.random?.[0] as
+      | { kind?: string; baneName?: string }
+      | undefined;
+
+    expect(riskEnvelope).toMatchObject({
+      kind: "chance_to_gain_bane",
+      baneName: expect.any(String),
+    });
+    expect(riskEnvelope?.baneName).not.toBe("Nightmare");
+    expect(riskManifest.references.baneNames).toEqual([
+      riskEnvelope?.baneName,
+    ]);
+    expect(riskManifest.options[0]?.text).toContain(
+      String(riskEnvelope?.baneName),
+    );
+
+    const costContext = await context("qa");
+    const costManifest = fillForShape(
+      "same_reward_different_costs",
+      costContext,
+    );
+    const burdenNames = costManifest.options.flatMap((journeyOption) =>
+      journeyOption.burdens
+        .filter(
+          (burden): burden is { baneName: string } =>
+            typeof burden === "object" &&
+            burden !== null &&
+            "baneName" in burden,
+        )
+        .map((burden) => burden.baneName),
+    );
+
+    expect(burdenNames).toHaveLength(1);
+    expect(burdenNames[0]).not.toBe("Nightmare");
+    expect(costManifest.references.baneNames).toEqual(burdenNames);
+    expect(validateJourneyManifest(costManifest, costContext)).toEqual({
       ok: true,
     });
   });
