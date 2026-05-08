@@ -79,7 +79,7 @@ type RawJourneyShapeDefinition = Omit<
   readonly payloadCompatibility?: readonly JourneyPayloadCompatibility[];
 };
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v10";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v11";
 
 const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -193,23 +193,32 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "bane",
-      serviceFamilyShape || id === "choose_your_loss" ? ["bane-gain-purge-transform"] : [],
+      [
+        ...(serviceFamilyShape ? ["bane-gain-purge-transform"] : []),
+        ...(id === "choose_your_loss" ? ["adapter-compatible-bane-losses"] : []),
+      ],
       serviceFamilyShape || id === "choose_your_loss"
         ? "Shape can frame Bane gain, purge, and transformation decisions."
         : "Shape lacks a controlled Bane-operation or loss-choice frame.",
     ),
     compatibility(
       "resource",
-      isDirectMenu || topology === "single_offer_refusal" || topology === "single_reward"
-        ? ["resource-edge-cases"]
-        : [],
+      [
+        ...(serviceFamilyShape ? ["resource-edge-cases"] : []),
+        ...((isDirectMenu || topology === "single_offer_refusal" || topology === "single_reward") && !serviceFamilyShape
+          ? ["adapter-compatible-resource-operations"]
+          : []),
+      ],
       isDirectMenu || topology === "single_offer_refusal" || topology === "single_reward"
         ? "Shape can compare visible resource costs or rewards."
         : "Shape-specific payloads own resource timing through sequence or commit metadata.",
     ),
     compatibility(
       "route",
-      id === "alter_dreamscapes" || serviceFamilyShape ? ["route-edits"] : [],
+      [
+        ...(serviceFamilyShape ? ["route-edits"] : []),
+        ...(id === "alter_dreamscapes" ? ["adapter-compatible-route-edits"] : []),
+      ],
       id === "alter_dreamscapes" || serviceFamilyShape
         ? "Shape can expose route edits without mutating state."
         : "Shape topology is not a route-edit scene.",
@@ -223,25 +232,34 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "dreamwell",
-      serviceFamilyShape || id === "timed_window_menu" ? ["dreamwell-window"] : [],
+      [
+        ...(serviceFamilyShape ? ["dreamwell-window"] : []),
+        ...(id === "timed_window_menu" ? ["adapter-compatible-dreamwell-window"] : []),
+      ],
       serviceFamilyShape || id === "timed_window_menu"
         ? "Shape can expose bounded Dreamwell and battle-window modifiers."
         : "Shape does not provide a shared timing window for Dreamwell payloads.",
     ),
     compatibility(
       "status",
-      serviceFamilyShape || id === "timed_window_menu" || id === "now_vs_later"
-        ? ["status-reward-replacement"]
-        : [],
+      [
+        ...(serviceFamilyShape ? ["status-reward-replacement"] : []),
+        ...(id === "timed_window_menu" || id === "now_vs_later"
+          ? ["adapter-compatible-status-rules"]
+          : []),
+      ],
       serviceFamilyShape || id === "timed_window_menu" || id === "now_vs_later"
         ? "Shape can expose one-time, temporary, or delayed rule mutations."
         : "Shape lacks a legal status or rule-mutation frame.",
     ),
     compatibility(
       "hook",
-      isDelayedHook || serviceFamilyShape || id === "commit_now_future_payoff"
-        ? ["delayed-trigger-matrix"]
-        : [],
+      [
+        ...(serviceFamilyShape ? ["delayed-trigger-matrix"] : []),
+        ...((isDelayedHook || id === "commit_now_future_payoff") && !serviceFamilyShape
+          ? ["adapter-compatible-delayed-hooks"]
+          : []),
+      ],
       isDelayedHook || serviceFamilyShape || id === "commit_now_future_payoff"
         ? "Shape can store visible delayed hook contracts in precommitted metadata."
         : "Shape has no delayed hook contract surface.",
@@ -255,9 +273,14 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "random",
-      isRandomCommit || ["risk_or_skip", "random_pool_draws", "probability_ladder", "push_your_luck"].includes(id)
-        ? ["reveal-roll-wager"]
-        : [],
+      [
+        ...(id === "single_random_outcome" || id === "resolved_random_series" ? ["reveal-roll-wager"] : []),
+        ...((isRandomCommit || ["risk_or_skip", "random_pool_draws", "probability_ladder", "push_your_luck"].includes(id)) &&
+          id !== "single_random_outcome" &&
+          id !== "resolved_random_series"
+          ? ["adapter-compatible-random-envelope"]
+          : []),
+      ],
       isRandomCommit || ["risk_or_skip", "random_pool_draws", "probability_ladder", "push_your_luck"].includes(id)
         ? "Shape exposes bounded random, reveal, odds, or wager metadata."
         : "Shape is deterministic and does not require random envelope metadata.",
@@ -265,7 +288,9 @@ function payloadCompatibilityFor(
     compatibility(
       "generated_object",
       generatedObjectShape
-        ? ["generated-card", "generated-dreamsign", "generated-status", "generated-transfiguration"]
+        ? id === "curated_reward_trio"
+          ? ["generated-card", "generated-dreamsign", "generated-status", "generated-transfiguration"]
+          : ["adapter-compatible-generated-objects"]
         : [],
       generatedObjectShape
         ? "Shape can host manifest-local generated object grants or transforms."

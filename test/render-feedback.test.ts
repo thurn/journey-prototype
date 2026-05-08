@@ -133,7 +133,7 @@ function fixtureManifest(): JourneyManifest {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     versions: {
       contentVersion: "test-content",
-      shapeCatalogVersion: "journey-shapes:v10",
+      shapeCatalogVersion: "journey-shapes:v11",
       effectCatalogVersion: "effects:v3",
       valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",

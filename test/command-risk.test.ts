@@ -137,7 +137,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v10",
+        catalogVersion: "journey-shapes:v11",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -146,7 +146,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v10",
+            shapeCatalogVersion: "journey-shapes:v11",
             effectCatalogVersion: "effects:v3",
             valueModelVersion: "value:v6",
             rendererVersion: "renderer:v1",
@@ -555,8 +555,8 @@ describe("stateless command risk transitions", () => {
             ?.payload?.dreamsignName
         );
 
-      expect(dreamsignNames(firstPayload)).toEqual(["Philosopher's Stone", "Gold Key", "Rainbow Horn"]);
-      expect(dreamsignNames(secondPayload)).toEqual(["Wolf Sigil", "Shadow Droplet", "Flower Petals"]);
+      expect(dreamsignNames(firstPayload)).toEqual(["Red Pin", "Amanita", "Hair Lock"]);
+      expect(dreamsignNames(secondPayload)).toEqual(["Crystal Wand", "Leaf Bundle", "Eyeball Plant"]);
       expect(firstPayload.manifest.debug.semanticFingerprint.value).not.toBe(
         secondPayload.manifest.debug.semanticFingerprint.value,
       );

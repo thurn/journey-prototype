@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { loadContent } from "../src/content/loadToml.js";
-import type { DebugPayloadSelection } from "../src/journey/debugPayloads.js";
+import { DEBUG_PAYLOAD_FAMILIES, type DebugPayloadSelection } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
 import { generateNextJourney } from "../src/journey/generate.js";
-import type { GeneratedObjectDefinition, JourneyManifest, JourneyOperation } from "../src/journey/manifest.js";
+import type { GeneratedObjectDefinition, JourneyManifest, JourneyOperation, JourneyStage } from "../src/journey/manifest.js";
 import {
   adaptJourneyOptionOperations,
   adaptPrecommittedOperations,
@@ -497,7 +497,7 @@ describe("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v10",
+      shapeCatalogVersion: "journey-shapes:v11",
       effectCatalogVersion: "effects:v3",
       valueModelVersion: "value:v6",
       rendererVersion: "renderer:v1",
@@ -3158,6 +3158,60 @@ describe("validateJourneyManifest", () => {
     ]);
   });
 
+  it("keeps every advertised debug payload shape forceable", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+
+    for (const family of DEBUG_PAYLOAD_FAMILIES) {
+      for (const variant of family.variants) {
+        if (variant.availability !== "available") {
+          continue;
+        }
+
+        const supportedShapes = variant.supportedShapes === "all"
+          ? JOURNEY_SHAPES.map((shape) => shape.id)
+          : variant.supportedShapes;
+        const forcedStage: JourneyStage = variant.supportedStages === "all"
+          ? "mid"
+          : variant.supportedStages[0]!;
+        const forcedDebugPayload = {
+          familyId: family.id,
+          variantId: variant.id,
+          qaId: variant.qaId,
+          description: variant.description,
+          supportedShapes: variant.supportedShapes,
+          supportedStages: variant.supportedStages,
+        } satisfies DebugPayloadSelection;
+
+        for (const shapeId of supportedShapes) {
+          const state = createInitialJourneyState({
+            seed: `debug-payload-matrix:${variant.qaId}:${shapeId}`,
+            content,
+            contentVersion,
+          });
+          const journeyContext = buildJourneyContext({
+            projectRoot: process.cwd(),
+            content,
+            state,
+            contentVersion,
+          });
+          const manifest = generateNextJourney({
+            context: journeyContext,
+            forcedShapeId: shapeId,
+            forcedStage,
+            forcedDebugPayload,
+          });
+
+          expect(validateJourneyManifest(manifest, journeyContext), `${variant.qaId}:${shapeId}`).toEqual({ ok: true });
+          expect(manifest.debug.debugPayload, `${variant.qaId}:${shapeId}`).toMatchObject({
+            qaId: variant.qaId,
+            source: "forced",
+          });
+        }
+      }
+    }
+  });
+
   it("forces deterministic reveal, roll, range, pool, push, and wager payload envelopes", async () => {
     const journeyContext = await context("random-reveal-roll-wager");
     const randomPayload = {
@@ -3165,7 +3219,7 @@ describe("validateJourneyManifest", () => {
       variantId: "reveal-roll-wager",
       qaId: "random/reveal-roll-wager",
       description: "Reveal, roll, and wager payload coverage.",
-      supportedShapes: ["single_random_outcome", "single_wager", "random_pool_draws", "resolved_random_series"],
+      supportedShapes: ["single_random_outcome", "resolved_random_series"],
       supportedStages: ["late"],
     } satisfies DebugPayloadSelection;
     const first = generateNextJourney({
@@ -3235,7 +3289,7 @@ describe("validateJourneyManifest", () => {
       variantId: "reveal-roll-wager",
       qaId: "random/reveal-roll-wager",
       description: "Reveal, roll, and wager payload coverage.",
-      supportedShapes: ["single_random_outcome", "single_wager", "random_pool_draws", "resolved_random_series"],
+      supportedShapes: ["single_random_outcome", "resolved_random_series"],
       supportedStages: ["late"],
     } satisfies DebugPayloadSelection;
     const manifest = generateNextJourney({

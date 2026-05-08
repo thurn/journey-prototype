@@ -108,7 +108,7 @@ describe("buildProgram", () => {
         stage: "late",
         versions: {
           contentVersion: expect.any(String),
-          shapeCatalogVersion: "journey-shapes:v10",
+          shapeCatalogVersion: "journey-shapes:v11",
           effectCatalogVersion: "effects:v3",
           valueModelVersion: "value:v6",
           rendererVersion: "renderer:v1",
@@ -170,7 +170,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 1,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v10",
+              shapeCatalogVersion: "journey-shapes:v11",
             },
           },
         },
@@ -184,7 +184,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 2,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v10",
+              shapeCatalogVersion: "journey-shapes:v11",
             },
           },
         },
@@ -198,7 +198,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 3,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v10",
+              shapeCatalogVersion: "journey-shapes:v11",
             },
           },
         },
