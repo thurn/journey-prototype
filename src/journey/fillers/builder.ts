@@ -16,8 +16,8 @@ import {
 import { adaptPrecommittedOperations } from "../operationAdapters.js";
 import {
   JOURNEY_SHAPE_CATALOG_VERSION,
-  getShapeDefinition,
-  type JourneyShapeId,
+  getShapePlugin,
+  type FilledJourney,
 } from "../shapes.js";
 import { VALIDATION_CONTRACT_VERSION } from "../validate/index.js";
 import {
@@ -35,15 +35,12 @@ import {
   generatedObjectDefinition,
   generatedObjectOptions,
 } from "./generatedObjects.js";
-import { fillOptions } from "./shapeFills.js";
 import {
   BuildArgs,
   referencesFor,
   selectedCardTargets,
   selectedDreamsignTargets,
 } from "./shared.js";
-
-type FilledJourney = ReturnType<typeof fillOptions>;
 
 function generatedObjectsFor(
   generatedKind: GeneratedObjectDefinition["generatedObjectKind"] | undefined,
@@ -124,8 +121,12 @@ export function buildConservativeJourneyForShape(
     args.context,
     args.drawContext,
   ).slice(0, 3);
-  const shape = getShapeDefinition(args.shapeId);
-  const baseFilled = fillOptions(args.shapeId, args.context, args.drawContext);
+  const plugin = getShapePlugin(args.shapeId);
+  const shape = plugin.definition;
+  const baseFilled = plugin.fill({
+    context: args.context,
+    drawContext: args.drawContext,
+  });
   const debugOverride = args.debugPayload
     ? buildDebugFixtureOverride({
         context: args.context,
@@ -250,16 +251,6 @@ export function buildConservativeJourneyForShape(
   return withDistinctnessFingerprint({
     ...manifestWithTargetResolution,
   });
-}
-
-export const FALLBACK_SHAPE_IDS = Object.freeze([
-  "curated_reward_trio",
-  "single_reward",
-  "service_menu",
-] as const satisfies readonly JourneyShapeId[]);
-
-export function fallbackShapeIds(): readonly JourneyShapeId[] {
-  return FALLBACK_SHAPE_IDS;
 }
 
 export function allowedGeneratedVocabulary() {

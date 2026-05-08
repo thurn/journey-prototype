@@ -4,10 +4,15 @@ import { computeContentVersion } from "../src/content/version.js";
 import { DEBUG_PAYLOAD_FAMILIES } from "../src/journey/debugPayloads.js";
 import {
   canonicalShapeDefinitions,
+  fallbackShapeIds,
   getShapeDefinition,
+  getShapePlugin,
+  isJourneyShapeId,
   JOURNEY_SHAPE_CATALOG_VERSION,
   JOURNEY_SHAPES,
+  journeyShapePlugins,
 } from "../src/journey/shapes.js";
+import { defineShapePlugin } from "../src/journey/shapes/shared.js";
 
 const expectedShapeIds = [
   "random_allocation",
@@ -61,6 +66,17 @@ function minimalContent(): ContentBundle {
 }
 
 describe("JOURNEY_SHAPES", () => {
+  it("exposes plugins and compatibility definitions in the same deterministic order", () => {
+    const pluginIds = journeyShapePlugins().map((plugin) => plugin.id);
+    const definitionIds = JOURNEY_SHAPES.map((shape) => shape.id);
+
+    expect(pluginIds).toEqual(expectedShapeIds);
+    expect(definitionIds).toEqual(pluginIds);
+    expect(journeyShapePlugins().map((plugin) => plugin.definition)).toEqual(
+      JOURNEY_SHAPES,
+    );
+  });
+
   it("contains the exact canonical V5 shape IDs once and in catalog order", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
@@ -72,8 +88,13 @@ describe("JOURNEY_SHAPES", () => {
   it("provides complete definitions and lookups for every canonical shape", () => {
     for (const id of expectedShapeIds) {
       const definition = getShapeDefinition(id);
+      const plugin = getShapePlugin(id);
 
       expect(definition.id).toBe(id);
+      expect(plugin.id).toBe(id);
+      expect(plugin.definition).toBe(definition);
+      expect(plugin.scoreWeight).toBeGreaterThan(0);
+      expect(plugin.fill).toEqual(expect.any(Function));
       expect(definition.rootOptionCount.min).toBeGreaterThanOrEqual(
         definition.topology === "decision_tree" ? 0 : 1,
       );
@@ -91,6 +112,19 @@ describe("JOURNEY_SHAPES", () => {
       expect(definition.debugLabel.length).toBeGreaterThan(0);
       expect(definition.versionContribution).toBeDefined();
     }
+  });
+
+  it("uses registry lookup and fallback metadata without a closed ID union", () => {
+    expect(isJourneyShapeId("risk_or_skip")).toBe(true);
+    expect(isJourneyShapeId("fixture_test_shape")).toBe(false);
+    expect(getShapePlugin("risk_or_skip").validators?.map((entry) => entry.ruleId)).toContain(
+      "risk_or_skip_envelope",
+    );
+    expect(fallbackShapeIds()).toEqual([
+      "curated_reward_trio",
+      "single_reward",
+      "service_menu",
+    ]);
   });
 
   it("maps decision-tree payload compatibility only to tree topology shapes", () => {
@@ -171,6 +205,8 @@ describe("JOURNEY_SHAPES", () => {
     const canonicalBeforeMutationAttempts = canonicalShapeDefinitions();
 
     expect(Object.isFrozen(JOURNEY_SHAPES)).toBe(true);
+    expect(Object.isFrozen(journeyShapePlugins())).toBe(true);
+    expect(Object.isFrozen(getShapePlugin("random_allocation"))).toBe(true);
     expect(Object.isFrozen(definition)).toBe(true);
     expect(Object.isFrozen(definition.rootOptionCount)).toBe(true);
     expect(Object.isFrozen(definition.supportedTags)).toBe(true);
@@ -199,6 +235,46 @@ describe("JOURNEY_SHAPES", () => {
     expect(() =>
       getShapeDefinition("not_a_shape" as (typeof expectedShapeIds)[number]),
     ).toThrow("Unknown Journey shape ID: not_a_shape");
+    expect(() => getShapePlugin("not_a_shape")).toThrow(
+      "Unknown Journey shape ID: not_a_shape",
+    );
+  });
+
+  it("can define a source-local fixture plugin with a new shape ID", () => {
+    const plugin = defineShapePlugin({
+      definition: {
+        id: "fixture_test_shape",
+        topology: "decision_tree",
+        rootOptionCount: { min: 0, max: 0 },
+        supportedTags: ["fixture"],
+        validationRules: ["fixture_tree_is_complete"],
+        repairPreferences: ["fixture_rebuild"],
+        debugLabel: "Fixture test shape",
+        versionContribution: {
+          catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+          id: "fixture_test_shape",
+          topology: "decision_tree",
+        },
+      },
+      scoreWeight: 1.1,
+      fill: () => ({ options: [], precommitted: {} }),
+      repair: {
+        actions: [
+          { action: "fixture_rebuild", kind: "simplify_fill" },
+        ],
+      },
+    });
+
+    expect(plugin.id).toBe("fixture_test_shape");
+    expect(plugin.definition.id).toBe("fixture_test_shape");
+    expect(plugin.fill({ context: {} as never, drawContext: {} as never })).toEqual({
+      options: [],
+      precommitted: {},
+    });
+    expect(plugin.repair?.actions?.[0]).toEqual({
+      action: "fixture_rebuild",
+      kind: "simplify_fill",
+    });
   });
 
   it("returns deterministic canonical definitions for fingerprinting", () => {

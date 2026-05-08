@@ -2,7 +2,7 @@ import type { JourneyContext } from "../../quest/context.js";
 import { generatedObjectResolverPool } from "../effects.js";
 import type { JourneyManifest, ValidationCheckedPayload, ValidationRuleOutcome } from "../manifest.js";
 import { MANIFEST_SCHEMA_VERSION } from "../manifest.js";
-import { getShapeDefinition } from "../shapes.js";
+import { getShapePlugin } from "../shapes.js";
 import {
   validateGeneratedObjectDefinitions,
   validateReferences,
@@ -15,9 +15,6 @@ import {
   randomPrecommittedResult,
   routePrecommittedPayloadResult,
   routePrecommittedPresenceResult,
-  validateRiskOrSkip,
-  validateSequenceMenus,
-  validateSingleWager,
 } from "./precommitRules.js";
 import { manifestCheckedPayloads, resultToOutcome } from "./report.js";
 import { fail, type ValidationResult } from "./result.js";
@@ -32,8 +29,6 @@ import {
 } from "./rootRules.js";
 import { validateSemanticOperations } from "./semanticOperations.js";
 import { validateOperationTargetSelectors } from "./targetSelectors.js";
-import { validateDecisionTree } from "./tree.js";
-import { validateTimedWindowMenu } from "./values.js";
 
 export type ValidationPipelineOptions = {
   stopAfterFirstFailure?: boolean;
@@ -53,20 +48,32 @@ export function validationRuleOutcomes(
   const rewardPoolChecked = checked.filter((entry) => entry.scope === "reward_pool");
   const precommittedChecked = checked.filter((entry) => entry.scope === "precommitted");
   const rules: ValidationRuleOutcome[] = [];
-  const definition = getShapeDefinition(manifest.shapeId);
+  const plugin = getShapePlugin(manifest.shapeId);
+  const definition = plugin.definition;
   const generatedObjects = generatedObjectResolverPool(manifest);
   const pushRule = (
     ruleId: string,
     result: ValidationResult,
-    ruleChecked: ValidationCheckedPayload[],
+    ruleChecked: readonly ValidationCheckedPayload[],
     passMessage: string,
     ruleOptions: { fatal?: boolean } = {},
   ): boolean => {
-    const outcome = resultToOutcome(ruleId, result, ruleChecked, passMessage);
+    const outcome = resultToOutcome(ruleId, result, [...ruleChecked], passMessage);
     rules.push(outcome);
 
     return outcome.status === "pass" ||
       !(options.stopAfterFirstFailure || ruleOptions.fatal);
+  };
+  const shapeValidatorArgs = {
+    manifest,
+    context,
+    definition,
+    generatedObjects,
+    checked,
+    manifestChecked,
+    optionChecked,
+    treeChecked,
+    precommittedChecked,
   };
 
   if (!pushRule(
@@ -177,28 +184,17 @@ export function validationRuleOutcomes(
     return rules;
   }
 
-  const riskResult = manifest.shapeId === "risk_or_skip"
-    ? validateRiskOrSkip(manifest)
-    : { ok: true } as const;
-  if (!pushRule(
-    riskResult.ok ? "risk_or_skip_envelope" : riskResult.rule,
-    riskResult,
-    optionChecked.length > 0 ? optionChecked : precommittedChecked,
-    "Risk-or-skip envelopes expose bounded downside metadata when applicable.",
-  )) {
-    return rules;
-  }
+  for (const validator of plugin.validators ?? []) {
+    const result = validator.validate(shapeValidatorArgs);
 
-  const timedWindowResult = manifest.shapeId === "timed_window_menu"
-    ? validateTimedWindowMenu(manifest)
-    : { ok: true } as const;
-  if (!pushRule(
-    timedWindowResult.ok ? "timed_window_menu" : timedWindowResult.rule,
-    timedWindowResult,
-    optionChecked,
-    "Timed window menus use shared temporary windows with play-changing rewards when applicable.",
-  )) {
-    return rules;
+    if (!pushRule(
+      result.ok ? validator.ruleId : result.rule,
+      result,
+      validator.checkedPayloads(shapeValidatorArgs),
+      validator.passMessage,
+    )) {
+      return rules;
+    }
   }
 
   const valueResult = rootValueResult(manifest);
@@ -217,18 +213,6 @@ export function validationRuleOutcomes(
     refusalResult,
     optionChecked,
     "Offer shapes include a real leave option when required.",
-  )) {
-    return rules;
-  }
-
-  const treeResult = definition.topology === "decision_tree"
-    ? validateDecisionTree(manifest, context, generatedObjects)
-    : { ok: true } as const;
-  if (!pushRule(
-    treeResult.ok ? "decision_tree_invariants" : treeResult.rule,
-    treeResult,
-    treeChecked.length > 0 ? treeChecked : checked,
-    "Decision-tree topology is complete and legal when applicable.",
   )) {
     return rules;
   }
@@ -259,18 +243,6 @@ export function validationRuleOutcomes(
     randomResult,
     precommittedChecked,
     "Random or hidden outcomes are precommitted when required.",
-  )) {
-    return rules;
-  }
-
-  const wagerResult = manifest.shapeId === "single_wager"
-    ? validateSingleWager(manifest)
-    : { ok: true } as const;
-  if (!pushRule(
-    wagerResult.ok ? "single_wager_envelope" : wagerResult.rule,
-    wagerResult,
-    checked,
-    "Single wager options expose stakes, odds, and committed roll metadata when applicable.",
   )) {
     return rules;
   }

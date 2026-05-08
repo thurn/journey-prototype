@@ -1,40 +1,20 @@
 import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import type { GeneratedObjectDefinition, JourneyStage } from "../manifest.js";
-import type { JourneyShapeId } from "../shapes.js";
-
-export const NATURAL_GENERATED_OBJECT_SHAPE_IDS = new Set<JourneyShapeId>([
-  "random_allocation",
-  "same_cost_different_rewards",
-  "same_reward_different_costs",
-  "service_menu",
-  "shop_row",
-  "curated_reward_trio",
-  "one_target_many_operations",
-  "mirrored_operations",
-  "one_operation_many_targets",
-]);
-
-export const HIGH_WEIRDNESS_GENERATED_OBJECT_SHAPE_IDS =
-  new Set<JourneyShapeId>([
-    "random_allocation",
-    "one_target_many_operations",
-    "mirrored_operations",
-    "one_operation_many_targets",
-  ]);
+import { getShapePlugin, type JourneyShapeId } from "../shapes.js";
 
 export function naturalGeneratedObjectKind(args: {
   drawContext: DrawContext;
   shapeId: JourneyShapeId;
   stage: JourneyStage;
 }): GeneratedObjectDefinition["generatedObjectKind"] | undefined {
-  if (!NATURAL_GENERATED_OBJECT_SHAPE_IDS.has(args.shapeId)) {
+  const policy = getShapePlugin(args.shapeId).generatedObjects;
+
+  if (policy?.natural !== true) {
     return undefined;
   }
 
   const stageChance = args.stage === "early" ? 1 : args.stage === "mid" ? 3 : 7;
-  const weirdnessBonus = HIGH_WEIRDNESS_GENERATED_OBJECT_SHAPE_IDS.has(
-    args.shapeId,
-  )
+  const weirdnessBonus = policy.highWeirdness === true
     ? args.stage === "early"
       ? 2
       : args.stage === "mid"

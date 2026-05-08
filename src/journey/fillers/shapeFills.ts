@@ -1370,4 +1370,6 @@ export function fillOptions(
       };
     }
   }
+
+  throw new Error(`Unknown Journey shape fill: ${shapeId}`);
 }

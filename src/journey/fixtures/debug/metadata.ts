@@ -1,5 +1,5 @@
 import type { JourneyStage } from "../../manifest.js";
-import { JOURNEY_SHAPES, type JourneyShapeId } from "../../shapes.js";
+import { journeyShapePlugins, type JourneyShapeId } from "../../shapes.js";
 
 export type DebugPayloadAvailability = "available" | "unimplemented";
 export type DebugPayloadCoverageKind = "debug_fixture";
@@ -32,7 +32,7 @@ export type DebugPayloadSelection = {
 
 const ALL_STAGES = ["early", "mid", "late"] as const satisfies readonly JourneyStage[];
 
-const ALL_SHAPES = JOURNEY_SHAPES.map((shape) => shape.id);
+const ALL_SHAPES = journeyShapePlugins().map((plugin) => plugin.id);
 
 function variant(
   familyId: string,

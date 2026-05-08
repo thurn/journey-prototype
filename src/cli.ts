@@ -8,7 +8,10 @@ import type { CommandResult, CommonCommandOptions } from "./commands/options.js"
 import { handleRun } from "./commands/run.js";
 import { supportsColor } from "./util/ansi.js";
 import { ExitCode } from "./util/exitCodes.js";
-import { JOURNEY_SHAPES } from "./journey/shapes.js";
+import {
+  isJourneyShapeId,
+  journeyShapeDefinitions,
+} from "./journey/shapes.js";
 
 export type RawCommonOptions = {
   json?: boolean;
@@ -98,7 +101,7 @@ function addGenerationFlags(command: Command): Command {
     )
     .addOption(
       new Option("--shape <shape>", "force a canonical Journey shape")
-        .choices(JOURNEY_SHAPES.map((shape) => shape.id)),
+        .choices(journeyShapeDefinitions().map((shape) => shape.id)),
     );
 }
 
@@ -147,7 +150,7 @@ export function buildProgram(): Command {
     const opts = thisCommand.opts<RawCommonOptions>();
     if (
       opts.shape !== undefined &&
-      !JOURNEY_SHAPES.some((shape) => shape.id === opts.shape)
+      !isJourneyShapeId(opts.shape)
     ) {
       thisCommand.error(`error: unknown Journey shape '${opts.shape}'`);
     }

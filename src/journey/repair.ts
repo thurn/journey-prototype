@@ -1,7 +1,6 @@
 import type { JourneyContext } from "../quest/context.js";
 import {
   buildConservativeJourneyForShape,
-  fallbackShapeIds,
 } from "./fillers/index.js";
 import type {
   JourneyManifest,
@@ -10,9 +9,11 @@ import type {
 } from "./manifest.js";
 import { adaptJourneyOptionOperations } from "./operationAdapters.js";
 import {
-  JOURNEY_SHAPES,
-  getShapeDefinition,
+  fallbackShapeIds,
+  getShapePlugin,
+  journeyShapePlugins,
   type JourneyShapeId,
+  type ShapeRepairAction,
 } from "./shapes.js";
 import {
   buildValidationReport,
@@ -21,21 +22,7 @@ import {
 } from "./validate/index.js";
 import { evaluateOptionValue } from "./value.js";
 
-type RepairActionKind =
-  | "adjust_cost_or_burden"
-  | "adjust_quantity"
-  | "reveal_hidden_target_or_outcome"
-  | "repair_payload_family"
-  | "simplify_fill"
-  | "switch_to_shape"
-  | "switch_shape"
-  | "fallback";
-
-type RepairAction = {
-  readonly action: string;
-  readonly kind: RepairActionKind;
-  readonly targetShapeId?: JourneyShapeId;
-};
+type RepairAction = ShapeRepairAction;
 
 const COST_FAILURE_RULES = new Set([
   "unpayable_immediate_cost",
@@ -197,66 +184,12 @@ function typedFailureRepairActions(failed: ValidationResult): RepairAction[] {
   return [];
 }
 
-function repairPreferenceAction(preference: string): RepairAction {
-  if (preference === "fall_back_to_reward_after_trigger") {
-    return {
-      action: preference,
-      kind: "switch_to_shape",
-      targetShapeId: "reward_after_trigger",
-    };
-  }
-
-  if (preference === "move_guaranteed_cost_to_single_offer") {
-    return {
-      action: preference,
-      kind: "switch_to_shape",
-      targetShapeId: "single_offer",
-    };
-  }
-
-  if (preference === "replace_with_simple_reward") {
-    return {
-      action: preference,
-      kind: "switch_to_shape",
-      targetShapeId: "single_reward",
-    };
-  }
-
-  if (
-    preference.includes("cost") ||
-    preference.includes("price") ||
-    preference.includes("stake")
-  ) {
-    return { action: preference, kind: "adjust_cost_or_burden" };
-  }
-
-  if (preference.includes("hidden") || preference.includes("visible")) {
-    return { action: preference, kind: "reveal_hidden_target_or_outcome" };
-  }
-
-  if (
-    preference.includes("collapse") ||
-    preference.includes("reduce_to") ||
-    preference.includes("simplify")
-  ) {
-    return { action: preference, kind: "simplify_fill" };
-  }
-
-  return { action: preference, kind: "repair_payload_family" };
-}
-
 function shapeRepairActions(manifest: JourneyManifest): RepairAction[] {
-  const definition = getShapeDefinition(manifest.shapeId);
-  const sameShapeRepairs = definition.repairPreferences
-    .map(repairPreferenceAction)
-    .filter((action) => action.kind !== "switch_to_shape");
-  const topologySwitches = definition.repairPreferences
-    .map(repairPreferenceAction)
-    .filter((action) => action.kind === "switch_to_shape");
+  const actions = getShapePlugin(manifest.shapeId).repair?.actions ?? [];
 
   return [
-    ...sameShapeRepairs,
-    ...topologySwitches,
+    ...actions.filter((action) => action.kind !== "switch_to_shape"),
+    ...actions.filter((action) => action.kind === "switch_to_shape"),
   ];
 }
 
@@ -307,7 +240,7 @@ function nextShape(manifest: JourneyManifest): JourneyShapeId {
   const orderedIds =
     selectedIds.length > 0
       ? selectedIds
-      : JOURNEY_SHAPES.map((shape) => shape.id);
+      : journeyShapePlugins().map((plugin) => plugin.id);
 
   return (
     orderedIds.find((shapeId) => shapeId !== manifest.shapeId) ??
