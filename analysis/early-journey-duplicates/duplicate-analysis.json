@@ -1,0 +1,298 @@
+{
+  "input": "analysis/early-journey-duplicates/early-stage-100.json",
+  "parameters": {
+    "count": 100,
+    "debug": false,
+    "debugContext": false,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shape": null,
+    "stage": "early"
+  },
+  "journeyCount": 100,
+  "totalChoices": 351,
+  "exact": {
+    "duplicateJourneyGroups": 0,
+    "duplicateJourneyInstancesBeyondFirst": 0,
+    "uniqueJourneys": 100
+  },
+  "choices": {
+    "repeatedChoiceGroups": 40,
+    "repeatedChoiceOccurrences": 180,
+    "repeatedChoiceInstancesBeyondFirst": 140,
+    "totalChoices": 351,
+    "uniqueChoiceTexts": 211
+  },
+  "structuralIgnoringNumericDifferences": {
+    "duplicateJourneyGroups": 2,
+    "duplicateJourneyInstancesBeyondFirst": 2,
+    "uniqueJourneys": 98
+  },
+  "repeatedChoices": [
+    {
+      "count": 37,
+      "text": "Leave."
+    },
+    {
+      "count": 11,
+      "text": "Purge up to 1 chosen Starter card. Gain 4 omens."
+    },
+    {
+      "count": 9,
+      "text": "Gain 5 omens."
+    },
+    {
+      "count": 8,
+      "text": "Leave with no effect."
+    },
+    {
+      "count": 6,
+      "text": "Choose 1 of 2 Dreamsigns."
+    },
+    {
+      "count": 6,
+      "text": "Draft 1 of 4 events. Gain 4 omens."
+    },
+    {
+      "count": 5,
+      "text": "Gain 320 essence."
+    },
+    {
+      "count": 5,
+      "text": "Reduce the cost of a chosen card by 1."
+    },
+    {
+      "count": 4,
+      "text": "Apply {Viridian Transfiguration} to a chosen card."
+    },
+    {
+      "count": 4,
+      "text": "Choose 1 of 3 Dreamsigns. End the Journey."
+    },
+    {
+      "count": 4,
+      "text": "Draft 1 of 4 Reclaim events. Gain 4 omens."
+    },
+    {
+      "count": 4,
+      "text": "End the Journey."
+    },
+    {
+      "count": 4,
+      "text": "Gain 110 essence. End the Journey."
+    },
+    {
+      "count": 4,
+      "text": "Gain 300 essence."
+    },
+    {
+      "count": 4,
+      "text": "Go to Level 2."
+    },
+    {
+      "count": 4,
+      "text": "Go to Level 3."
+    },
+    {
+      "count": 4,
+      "text": "Lose 1 omen. Choose 1 of 2 Dreamsigns."
+    },
+    {
+      "count": 4,
+      "text": "Purge up to 1 chosen Starter card. End the Journey."
+    },
+    {
+      "count": 3,
+      "text": "Add \"Foresee 1\" to a chosen card."
+    },
+    {
+      "count": 3,
+      "text": "Add Fast to a chosen card."
+    },
+    {
+      "count": 3,
+      "text": "Add Reclaim 1 to a chosen card."
+    },
+    {
+      "count": 3,
+      "text": "Apply {Golden Transfiguration} to a chosen card."
+    },
+    {
+      "count": 3,
+      "text": "Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens."
+    },
+    {
+      "count": 3,
+      "text": "Gain 1 Despair. End the Journey."
+    },
+    {
+      "count": 3,
+      "text": "Gain 90 essence. End the Journey."
+    },
+    {
+      "count": 3,
+      "text": "Lose 1 omen."
+    },
+    {
+      "count": 3,
+      "text": "Pay 55 essence. Gain 5 omens."
+    },
+    {
+      "count": 2,
+      "text": "Apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens."
+    },
+    {
+      "count": 2,
+      "text": "Apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens."
+    },
+    {
+      "count": 2,
+      "text": "Apply {Scarlet Transfiguration} to a chosen card."
+    },
+    {
+      "count": 2,
+      "text": "Draft 1 of 4 events. Apply {Prismatic Transfiguration} to it."
+    },
+    {
+      "count": 2,
+      "text": "Draft 1 of 4 survivors. Apply {Prismatic Transfiguration} to it."
+    },
+    {
+      "count": 2,
+      "text": "Gain 340 essence."
+    },
+    {
+      "count": 2,
+      "text": "Keep the last safe reward. End the Journey."
+    },
+    {
+      "count": 2,
+      "text": "Leave the cache."
+    },
+    {
+      "count": 2,
+      "text": "Lose 1 omen. Choose 1 of 3 Dreamsigns."
+    },
+    {
+      "count": 2,
+      "text": "Lose 1 omen. Purge up to 1 chosen Starter card. Gain 4 omens."
+    },
+    {
+      "count": 2,
+      "text": "Pay 10 essence. Choose 1 of 3 Dreamsigns."
+    },
+    {
+      "count": 2,
+      "text": "Pay 100 essence."
+    },
+    {
+      "count": 2,
+      "text": "Pay 55 essence now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens."
+    }
+  ],
+  "structuralDuplicateGroups": [
+    {
+      "count": 2,
+      "journeys": [
+        {
+          "choices": [
+            "Leave.",
+            "Pay 55 essence and gain a random reward from the pool. Go to Level 2.",
+            "Leave.",
+            "Pay 55 essence and gain a random reward from the pool. Go to Level 3.",
+            "Leave.",
+            "Pay 55 essence and gain a random reward from the pool. Go to Level 4.",
+            "Leave.",
+            "Pay 55 essence and gain a random reward from the pool. End the Journey."
+          ],
+          "index": 48,
+          "shapeId": "random_pool_draws"
+        },
+        {
+          "choices": [
+            "Leave.",
+            "Pay 45 essence and gain a random reward from the pool. Go to Level 2.",
+            "Leave.",
+            "Pay 45 essence and gain a random reward from the pool. Go to Level 3.",
+            "Leave.",
+            "Pay 45 essence and gain a random reward from the pool. Go to Level 4.",
+            "Leave.",
+            "Pay 45 essence and gain a random reward from the pool. End the Journey."
+          ],
+          "index": 60,
+          "shapeId": "random_pool_draws"
+        }
+      ],
+      "pattern": {
+        "choices": [
+          "Leave.",
+          "Pay <n> essence and gain a random reward from the pool. Go to Level <n>.",
+          "Leave.",
+          "Pay <n> essence and gain a random reward from the pool. Go to Level <n>.",
+          "Leave.",
+          "Pay <n> essence and gain a random reward from the pool. Go to Level <n>.",
+          "Leave.",
+          "Pay <n> essence and gain a random reward from the pool. End the Journey."
+        ],
+        "shapeId": "random_pool_draws"
+      }
+    },
+    {
+      "count": 2,
+      "journeys": [
+        {
+          "choices": [
+            "Leave.",
+            "Pay 25 essence for a 25% chance to gain 110 essence.",
+            "Gain 110 essence. End the Journey.",
+            "Go to Level 2.",
+            "Leave.",
+            "Pay 55 essence for a 40% chance to gain 110 essence.",
+            "Gain 110 essence. End the Journey.",
+            "Go to Level 3.",
+            "Leave.",
+            "Pay 90 essence for a 55% chance to gain 110 essence.",
+            "Gain 110 essence. End the Journey.",
+            "End the Journey."
+          ],
+          "index": 13,
+          "shapeId": "probability_ladder"
+        },
+        {
+          "choices": [
+            "Leave.",
+            "Pay 25 essence for a 30% chance to gain 90 essence.",
+            "Gain 90 essence. End the Journey.",
+            "Go to Level 2.",
+            "Leave.",
+            "Pay 60 essence for a 45% chance to gain 90 essence.",
+            "Gain 90 essence. End the Journey.",
+            "Go to Level 3.",
+            "Leave.",
+            "Pay 110 essence for a 60% chance to gain 90 essence.",
+            "Gain 90 essence. End the Journey.",
+            "End the Journey."
+          ],
+          "index": 51,
+          "shapeId": "probability_ladder"
+        }
+      ],
+      "pattern": {
+        "choices": [
+          "Leave.",
+          "Pay <n> essence for a <n>% chance to gain <n> essence.",
+          "Gain <n> essence. End the Journey.",
+          "Go to Level <n>.",
+          "Leave.",
+          "Pay <n> essence for a <n>% chance to gain <n> essence.",
+          "Gain <n> essence. End the Journey.",
+          "Go to Level <n>.",
+          "Leave.",
+          "Pay <n> essence for a <n>% chance to gain <n> essence.",
+          "Gain <n> essence. End the Journey.",
+          "End the Journey."
+        ],
+        "shapeId": "probability_ladder"
+      }
+    }
+  ]
+}

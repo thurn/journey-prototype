@@ -1,0 +1,1153 @@
+[
+  {
+    "index": 1,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 warriors. Apply {Viridian Transfiguration} to it.",
+      "Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Draft 1 of 4 low-cost characters. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 2,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_random_outcome",
+    "stage": "early",
+    "choices": [
+      "Gain the precommitted reward: apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Gain the precommitted reward: gain 5 omens."
+    ]
+  },
+  {
+    "index": 3,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_reward",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Gain 4 omens.",
+      "Gain 5 omens."
+    ]
+  },
+  {
+    "index": 4,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "risk_or_skip",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens. 35% chance to lose 60 essence; otherwise no downside.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 5,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 Reclaim events. Gain 4 omens.",
+      "Choose 1 of 2 Dreamsigns.",
+      "Draft 1 of 4 events. Apply {Bronze Transfiguration} to it."
+    ]
+  },
+  {
+    "index": 6,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence now. At the next dreamscape, gain 5 omens.",
+      "Gain 1 Envy now. At the next dreamscape, apply {Bronze Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Pay 55 essence now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 7,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_offer",
+    "stage": "early",
+    "choices": [
+      "Pay 55 essence. Gain 5 omens.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 8,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_operation_many_targets",
+    "stage": "early",
+    "choices": [
+      "Add Fast to a chosen card in your deck.",
+      "Add Fast to a chosen Starter card.",
+      "Add Fast to a chosen card."
+    ]
+  },
+  {
+    "index": 9,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "service_menu",
+    "stage": "early",
+    "choices": [
+      "Gain 320 essence.",
+      "Draft 1 of 4 Dissolve events. Gain 4 omens.",
+      "Choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 10,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Apply {Scarlet Transfiguration} to a chosen card.",
+      "Apply {Viridian Transfiguration} to a chosen card.",
+      "Add Reclaim 1 to a chosen card."
+    ]
+  },
+  {
+    "index": 11,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "shop_row",
+    "stage": "early",
+    "choices": [
+      "Pay 15 essence. Draft 1 of 4 warriors. Apply {Viridian Transfiguration} to it.",
+      "Pay 20 essence. Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Pay 25 essence. Draft 1 of 4 Reclaim events. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 12,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "escalating_reward_chain",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 25 essence and gain 1 extra energy on turn 1 for the next 3 battles. Go to Level 2.",
+      "Leave.",
+      "Pay 60 essence and give all event cards in your deck Fast for the next 3 battles. Go to Level 3.",
+      "Leave.",
+      "Pay 100 essence and give all fast cards in your deck Reclaim 1 for the next 3 battles. End the Journey."
+    ]
+  },
+  {
+    "index": 13,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "probability_ladder",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 25 essence for a 25% chance to gain 110 essence.",
+      "Gain 110 essence. End the Journey.",
+      "Go to Level 2.",
+      "Leave.",
+      "Pay 55 essence for a 40% chance to gain 110 essence.",
+      "Gain 110 essence. End the Journey.",
+      "Go to Level 3.",
+      "Leave.",
+      "Pay 90 essence for a 55% chance to gain 110 essence.",
+      "Gain 110 essence. End the Journey.",
+      "End the Journey."
+    ]
+  },
+  {
+    "index": 14,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence. Choose 1 of 3 Dreamsigns.",
+      "Lose 1 omen. Choose 1 of 2 Dreamsigns.",
+      "Gain 1 Betrayal. Choose 1 of 4 Dreamsigns."
+    ]
+  },
+  {
+    "index": 15,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "resolved_random_series",
+    "stage": "early",
+    "choices": [
+      "Resolve the precommitted rewards: draft 1 of 4 characters. Gain 4 omens, then draft 1 of 4 survivors. Apply {Bronze Transfiguration} to it, then choose 1 of 3 Dreamsigns.",
+      "Resolve the precommitted rewards: choose 1 of 3 Dreamsigns, then apply {Bronze Transfiguration} to a random card in your deck. Gain 3 omens, then gain 5 omens."
+    ]
+  },
+  {
+    "index": 16,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Gain 1 Burden now. At the next dreamscape, draft 1 of 4 characters. Gain 4 omens.",
+      "Pay 45 essence now. At the next dreamscape, choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 17,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_cost_different_rewards",
+    "stage": "early",
+    "choices": [
+      "Lose 1 omen. Draft 1 of 4 characters. Gain 4 omens.",
+      "Lose 1 omen. Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Lose 1 omen. Choose 1 of 3 Dreamsigns."
+    ]
+  },
+  {
+    "index": 18,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence. Draft 1 of 4 low-cost characters.",
+      "Pay 30 essence. Draft 1 of 4 characters. Gain 1 omen.",
+      "Pay 45 essence. Draft 1 of 4 events. Gain 2 omens."
+    ]
+  },
+  {
+    "index": 19,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "now_vs_later",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 20,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Add Fast to a chosen card.",
+      "Apply {Scarlet Transfiguration} to a chosen card.",
+      "Apply {Prismatic Transfiguration} to a chosen card."
+    ]
+  },
+  {
+    "index": 21,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 10 essence. Choose 1 of 3 Dreamsigns.",
+      "Lose 1 omen. Choose 1 of 2 Dreamsigns.",
+      "Gain 1 Oblivion. Choose 1 of 4 Dreamsigns."
+    ]
+  },
+  {
+    "index": 22,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "push_your_luck",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Risk immediate failure for a 85% chance to apply {Scarlet Transfiguration} to a random card. Go to Level 2.",
+      "Gain 1 Despair. End the Journey.",
+      "Keep the last safe reward. End the Journey.",
+      "Risk immediate failure for a 70% chance to apply {Viridian Transfiguration} to a random card. Go to Level 3.",
+      "Gain 1 Despair. End the Journey.",
+      "Keep the last safe reward. End the Journey.",
+      "Risk immediate failure for a 55% chance to apply {Golden Transfiguration} to up to 2 chosen cards. End the Journey.",
+      "Gain 1 Despair. End the Journey."
+    ]
+  },
+  {
+    "index": 23,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 Reclaim events. Gain 4 omens.",
+      "Gain 320 essence.",
+      "Choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 24,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 fast characters. Gain 4 omens.",
+      "Draft 1 of 4 warriors. Apply {Scarlet Transfiguration} to it.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 25,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_cost_different_rewards",
+    "stage": "early",
+    "choices": [
+      "Pay 55 essence. Gain 5 omens.",
+      "Pay 55 essence. Choose 1 of 3 Dreamsigns.",
+      "Pay 55 essence. Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 26,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "prize_ladder",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. End the Journey.",
+      "Pay 25 essence. Go to Level 2.",
+      "Purge up to 1 chosen Starter card and gain 1 omen. End the Journey.",
+      "Pay 65 essence. Go to Level 3.",
+      "Purge up to 2 chosen Starter cards and gain 2 omens. End the Journey.",
+      "Pay 120 essence and purge up to 2 chosen Starter cards and gain 3 omens. End the Journey."
+    ]
+  },
+  {
+    "index": 27,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "choose_your_loss",
+    "stage": "early",
+    "choices": [
+      "Pay 100 essence.",
+      "Lose 1 omen.",
+      "Gain 1 Paranoia."
+    ]
+  },
+  {
+    "index": 28,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 15 essence now. At the next dreamscape, draft 1 of 4 warriors. Apply {Scarlet Transfiguration} to it.",
+      "Gain 1 Paralysis now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Pay 35 essence now. At the next dreamscape, gain 340 essence."
+    ]
+  },
+  {
+    "index": 29,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 10 essence. Choose 1 of 3 Dreamsigns.",
+      "Lose 1 omen. Choose 1 of 2 Dreamsigns.",
+      "Gain 1 Doubt. Choose 1 of 4 Dreamsigns."
+    ]
+  },
+  {
+    "index": 30,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "take_any_number",
+    "stage": "early",
+    "choices": [
+      "Take up to 2 rewards from this cache. Lose 1 omen. Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Take up to 2 rewards from this cache. Gain 1 Silence. Apply {Scarlet Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Leave the cache."
+    ]
+  },
+  {
+    "index": 31,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "service_menu",
+    "stage": "early",
+    "choices": [
+      "Gain 300 essence.",
+      "Gain 5 omens.",
+      "Draft 1 of 4 characters with a Materialized ability. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 32,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_cost_different_rewards",
+    "stage": "early",
+    "choices": [
+      "Pay 45 essence. Choose 1 of 3 Dreamsigns.",
+      "Pay 45 essence. Draft 1 of 4 survivors. Apply {Scarlet Transfiguration} to it.",
+      "Pay 45 essence. Draft 1 of 4 characters. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 33,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Create and gain {Liminal Pattern}. Liminal Pattern: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Illumination of Glory}, it also gains Fast.",
+      "Transform a chosen eligible object into {Liminal Pattern}. Liminal Pattern: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Illumination of Glory}, it also gains Fast.",
+      "Gain {Liminal Pattern} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Liminal Pattern: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Illumination of Glory}, it also gains Fast."
+    ]
+  },
+  {
+    "index": 34,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_reward",
+    "stage": "early",
+    "choices": [
+      "Gain 5 omens.",
+      "Draft 1 of 4 Reclaim events. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 35,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_cost_different_rewards",
+    "stage": "early",
+    "choices": [
+      "Pay 55 essence. Draft 1 of 4 spirit animals. Apply {Scarlet Transfiguration} to it.",
+      "Pay 55 essence. Gain 320 essence.",
+      "Pay 55 essence. Gain 5 omens."
+    ]
+  },
+  {
+    "index": 36,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "now_vs_later",
+    "stage": "early",
+    "choices": [
+      "Gain 5 omens.",
+      "In 2 dreamscapes, gain 5 omens."
+    ]
+  },
+  {
+    "index": 37,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 10 essence. Gain 5 omens.",
+      "Lose 1 omen. Gain 4 omens.",
+      "Gain 1 Paranoia. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 38,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_offer",
+    "stage": "early",
+    "choices": [
+      "Gain 1 Betrayal. Apply {Bronze Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 39,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_operation_many_targets",
+    "stage": "early",
+    "choices": [
+      "Duplicate a chosen card.",
+      "Duplicate a chosen card in your deck.",
+      "Duplicate a chosen Starter card."
+    ]
+  },
+  {
+    "index": 40,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "shop_row",
+    "stage": "early",
+    "choices": [
+      "Pay 15 essence. Draft 1 of 4 survivors. Apply {Prismatic Transfiguration} to it.",
+      "Pay 20 essence. Choose 1 of 2 Dreamsigns.",
+      "Pay 25 essence. Apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 41,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_offer",
+    "stage": "early",
+    "choices": [
+      "Gain 1 Paranoia. Draft 1 of 4 characters with a Materialized ability. Gain 4 omens.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 42,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Draft 1 of 4 events. Gain 4 omens.",
+      "Choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 43,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "service_menu",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Gain 4 omens.",
+      "Gain 300 essence.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 44,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "shop_row",
+    "stage": "early",
+    "choices": [
+      "Pay 15 essence. Draft 1 of 4 spirit animals. Apply {Bronze Transfiguration} to it.",
+      "Pay 20 essence. Draft 1 of 4 characters. Gain 4 omens.",
+      "Pay 25 essence. Apply {Bronze Transfiguration} to a random card in your deck. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 45,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Gain 4 omens.",
+      "Choose 1 of 3 Dreamsigns.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 46,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence now. At the next dreamscape, gain 300 essence.",
+      "Gain 1 Betrayal now. At the next dreamscape, apply {Scarlet Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Pay 55 essence now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 47,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "paired_return",
+    "stage": "early",
+    "choices": [
+      "Promise a future shop trade: give {Spider Medallion} and 1 omen for {Spice Blossoms}, then choose 1 of 2 Dreamsigns. Discard the promise if no future shop appears within 2 dreamscapes.",
+      "Seal {Duskmount} until the next Dream Journey site. Return it as {Grotto Seer} and gain 5 omens, or return it unchanged if the 2-dreamscape window expires."
+    ]
+  },
+  {
+    "index": 48,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_pool_draws",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 55 essence and gain a random reward from the pool. Go to Level 2.",
+      "Leave.",
+      "Pay 55 essence and gain a random reward from the pool. Go to Level 3.",
+      "Leave.",
+      "Pay 55 essence and gain a random reward from the pool. Go to Level 4.",
+      "Leave.",
+      "Pay 55 essence and gain a random reward from the pool. End the Journey."
+    ]
+  },
+  {
+    "index": 49,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "risk_or_skip",
+    "stage": "early",
+    "choices": [
+      "Choose 1 of 2 Dreamsigns. 50% chance to lose 60 essence; otherwise no downside.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 50,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "probability_ladder",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 20 essence for a 25% chance to choose 1 of 3 Dreamsigns.",
+      "Choose 1 of 3 Dreamsigns. End the Journey.",
+      "Go to Level 2.",
+      "Leave.",
+      "Pay 45 essence for a 45% chance to choose 1 of 3 Dreamsigns.",
+      "Choose 1 of 3 Dreamsigns. End the Journey.",
+      "Go to Level 3.",
+      "Leave.",
+      "Pay 70 essence for a 65% chance to choose 1 of 3 Dreamsigns.",
+      "Choose 1 of 3 Dreamsigns. End the Journey.",
+      "Go to Level 4.",
+      "Leave.",
+      "Pay 105 essence for a 85% chance to choose 1 of 3 Dreamsigns.",
+      "Choose 1 of 3 Dreamsigns. End the Journey.",
+      "End the Journey."
+    ]
+  },
+  {
+    "index": 51,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "probability_ladder",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 25 essence for a 30% chance to gain 90 essence.",
+      "Gain 90 essence. End the Journey.",
+      "Go to Level 2.",
+      "Leave.",
+      "Pay 60 essence for a 45% chance to gain 90 essence.",
+      "Gain 90 essence. End the Journey.",
+      "Go to Level 3.",
+      "Leave.",
+      "Pay 110 essence for a 60% chance to gain 90 essence.",
+      "Gain 90 essence. End the Journey.",
+      "End the Journey."
+    ]
+  },
+  {
+    "index": 52,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "paired_return",
+    "stage": "early",
+    "choices": [
+      "Seal {Miraculous Arrival} until the next Dream Journey site. Return it as {Conduit of Resonance} and purge up to 1 chosen Starter card. Gain 4 omens, or return it unchanged if the 2-dreamscape window expires.",
+      "Promise a future shop trade: give {Golden Acorn} and 1 omen for {Charm Bracelet}, then gain 5 omens. Discard the promise if no future shop appears within 2 dreamscapes."
+    ]
+  },
+  {
+    "index": 53,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Gain 4 omens.",
+      "Gain 340 essence.",
+      "Draft 1 of 4 survivors. Apply {Prismatic Transfiguration} to it."
+    ]
+  },
+  {
+    "index": 54,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_operation_many_targets",
+    "stage": "early",
+    "choices": [
+      "Apply {Golden Transfiguration} to a chosen Starter card.",
+      "Apply {Golden Transfiguration} to a chosen card in your deck.",
+      "Apply {Golden Transfiguration} to a chosen card."
+    ]
+  },
+  {
+    "index": 55,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "paired_return",
+    "stage": "early",
+    "choices": [
+      "Borrow {Mandrake Root} for 2 battles. Return it after 2 battles and pay 1 omen; if paid, apply {Scarlet Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Seal {Moonlit Voyage} until the next Dream Journey site. Return it as {Grotto Seer} and purge up to 1 chosen Starter card. Gain 4 omens, or return it unchanged if the 2-dreamscape window expires."
+    ]
+  },
+  {
+    "index": 56,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "risk_or_skip",
+    "stage": "early",
+    "choices": [
+      "Gain 5 omens. 35% chance to lose 60 essence; otherwise no downside.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 57,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "take_any_number",
+    "stage": "early",
+    "choices": [
+      "Take up to 2 rewards from this cache. Lose 1 omen. Gain 300 essence.",
+      "Take up to 2 rewards from this cache. Gain 1 Despair. Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Leave the cache."
+    ]
+  },
+  {
+    "index": 58,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "paired_return",
+    "stage": "early",
+    "choices": [
+      "Promise a future shop trade: give {Larva} and 1 omen for {Eyeball Slime}, then draft 1 of 4 characters. Gain 4 omens. Discard the promise if no future shop appears within 2 dreamscapes.",
+      "Borrow {Eyeball Slime} for 2 battles. Return it after 2 battles and pay 1 omen; if paid, purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 59,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "mirrored_operations",
+    "stage": "early",
+    "choices": [
+      "Add \"Foresee 1\" to a chosen card.",
+      "Reduce the cost of a chosen card by 1.",
+      "Add Reclaim 1 to a chosen card."
+    ]
+  },
+  {
+    "index": 60,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_pool_draws",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 45 essence and gain a random reward from the pool. Go to Level 2.",
+      "Leave.",
+      "Pay 45 essence and gain a random reward from the pool. Go to Level 3.",
+      "Leave.",
+      "Pay 45 essence and gain a random reward from the pool. Go to Level 4.",
+      "Leave.",
+      "Pay 45 essence and gain a random reward from the pool. End the Journey."
+    ]
+  },
+  {
+    "index": 61,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "timed_window_menu",
+    "stage": "early",
+    "choices": [
+      "For the next 3 battles, create a temporary copy of the first Event card you play each battle.",
+      "For the next 3 battles, gain {Powder Bowl} as a temporary Dreamsign.",
+      "For the next 3 battles, one Character card in your deck starts in your opening hand."
+    ]
+  },
+  {
+    "index": 62,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_operation_many_targets",
+    "stage": "early",
+    "choices": [
+      "Reduce the cost of a chosen Starter card by 1.",
+      "Reduce the cost of a chosen card in your deck by 1.",
+      "Reduce the cost of a chosen card by 1."
+    ]
+  },
+  {
+    "index": 63,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "heterogeneous_pair",
+    "stage": "early",
+    "choices": [
+      "Gain 340 essence.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 64,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Draft 1 of 4 Reclaim events. Gain 4 omens.",
+      "Gain 300 essence."
+    ]
+  },
+  {
+    "index": 65,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence now. At the next dreamscape, draft 1 of 4 Reclaim events. Gain 4 omens.",
+      "Gain 1 Doubt now. At the next dreamscape, apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Pay 45 essence now. At the next dreamscape, purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 66,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "probability_ladder",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 30 essence for a 25% chance to purge up to 1 chosen Starter card.",
+      "Purge up to 1 chosen Starter card. End the Journey.",
+      "Go to Level 2.",
+      "Leave.",
+      "Pay 60 essence for a 40% chance to purge up to 1 chosen Starter card.",
+      "Purge up to 1 chosen Starter card. End the Journey.",
+      "Go to Level 3.",
+      "Leave.",
+      "Pay 105 essence for a 55% chance to purge up to 1 chosen Starter card.",
+      "Purge up to 1 chosen Starter card. End the Journey.",
+      "End the Journey."
+    ]
+  },
+  {
+    "index": 67,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "escalating_reward_chain",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 30 essence and gain 55 essence. Go to Level 2.",
+      "Leave.",
+      "Pay 60 essence and gain 110 essence. Go to Level 3.",
+      "Leave.",
+      "Pay 95 essence and gain 195 essence. End the Journey."
+    ]
+  },
+  {
+    "index": 68,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 15 essence. Choose 1 of 2 Dreamsigns.",
+      "Lose 1 omen. Choose 1 of 3 Dreamsigns.",
+      "Gain 1 Paranoia. Choose 1 of 4 Dreamsigns."
+    ]
+  },
+  {
+    "index": 69,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "risk_or_skip",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Apply {Prismatic Transfiguration} to it. 50% chance to lose 1 omen; otherwise no downside.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 70,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Add \"Foresee 1\" to a chosen card.",
+      "Apply {Viridian Transfiguration} to a chosen card.",
+      "Apply {Golden Transfiguration} to a chosen card."
+    ]
+  },
+  {
+    "index": 71,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "heterogeneous_pair",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 72,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_reward",
+    "stage": "early",
+    "choices": [
+      "Gain 5 omens.",
+      "Draft 1 of 4 characters. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 73,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Apply {Viridian Transfiguration} to it.",
+      "Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Gain 320 essence."
+    ]
+  },
+  {
+    "index": 74,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 25 essence now. At the next dreamscape, choose 1 of 2 Dreamsigns.",
+      "Gain 1 Despair now. At the next dreamscape, gain 5 omens.",
+      "Pay 45 essence now. At the next dreamscape, gain 300 essence."
+    ]
+  },
+  {
+    "index": 75,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_offer",
+    "stage": "early",
+    "choices": [
+      "Lose 1 omen. Choose 1 of 2 Dreamsigns.",
+      "Leave with no effect."
+    ]
+  },
+  {
+    "index": 76,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Apply {Prismatic Transfiguration} to it.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Gain 320 essence."
+    ]
+  },
+  {
+    "index": 77,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "escalating_reward_chain",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 30 essence and apply {Bronze Transfiguration} to a random card. Go to Level 2.",
+      "Leave.",
+      "Pay 55 essence and apply {Scarlet Transfiguration} to a random card. Go to Level 3.",
+      "Leave.",
+      "Pay 95 essence and apply {Viridian Transfiguration} to up to 2 chosen cards. End the Journey."
+    ]
+  },
+  {
+    "index": 78,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_allocation",
+    "stage": "early",
+    "choices": [
+      "Purge up to 1 chosen Starter card. Gain 4 omens.",
+      "Apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Draft 1 of 4 spirit animals. Apply {Prismatic Transfiguration} to it."
+    ]
+  },
+  {
+    "index": 79,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 survivors. Apply {Scarlet Transfiguration} to it.",
+      "Gain 320 essence.",
+      "Gain 5 omens."
+    ]
+  },
+  {
+    "index": 80,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "reward_after_trigger",
+    "stage": "early",
+    "choices": [
+      "After next victory, purge up to 1 chosen Starter card. Gain 4 omens.",
+      "After next battle, gain 5 omens."
+    ]
+  },
+  {
+    "index": 81,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "reward_after_trigger",
+    "stage": "early",
+    "choices": [
+      "After next victory, choose 1 of 3 Dreamsigns.",
+      "After next battle, apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 82,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "commit_now_future_payoff",
+    "stage": "early",
+    "choices": [
+      "Pay 25 essence now. At the next dreamscape, draft 1 of 4 survivors. Apply {Scarlet Transfiguration} to it.",
+      "Gain 1 Betrayal now. At the next dreamscape, draft 1 of 4 characters with a Materialized ability. Gain 4 omens.",
+      "Pay 35 essence now. At the next dreamscape, choose 1 of 3 Dreamsigns."
+    ]
+  },
+  {
+    "index": 83,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "escalating_reward_chain",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 30 essence and gain 1 omen. Go to Level 2.",
+      "Leave.",
+      "Pay 60 essence and gain 2 omens. Go to Level 3.",
+      "Leave.",
+      "Pay 105 essence and gain 4 omens. End the Journey."
+    ]
+  },
+  {
+    "index": 84,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "now_vs_later",
+    "stage": "early",
+    "choices": [
+      "Apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "In 2 dreamscapes, apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens."
+    ]
+  },
+  {
+    "index": 85,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Reduce the cost of a chosen card by 1.",
+      "Apply {Viridian Transfiguration} to a chosen card.",
+      "Add \"Foresee 1\" to a chosen card."
+    ]
+  },
+  {
+    "index": 86,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "heterogeneous_pair",
+    "stage": "early",
+    "choices": [
+      "Apply {Viridian Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Choose 1 of 2 Dreamsigns."
+    ]
+  },
+  {
+    "index": 87,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "service_menu",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Apply {Prismatic Transfiguration} to it.",
+      "Apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Gain 300 essence."
+    ]
+  },
+  {
+    "index": 88,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_reward_different_costs",
+    "stage": "early",
+    "choices": [
+      "Pay 20 essence. Draft 1 of 4 characters.",
+      "Pay 30 essence. Draft 1 of 4 fast characters. Gain 1 omen.",
+      "Pay 45 essence. Draft 1 of 4 Dissolve events. Gain 2 omens."
+    ]
+  },
+  {
+    "index": 89,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "single_wager",
+    "stage": "early",
+    "choices": [
+      "Pay 30 essence. 45% chance to apply {Prismatic Transfiguration} to a random card in your deck. Gain 3 omens; otherwise gain nothing.",
+      "Pay 50 essence. 65% chance to choose 1 of 3 Dreamsigns; otherwise gain nothing."
+    ]
+  },
+  {
+    "index": 90,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Apply {Golden Transfiguration} to a chosen card.",
+      "Add Reclaim 1 to a chosen card.",
+      "Reduce the cost of a chosen card by 1."
+    ]
+  },
+  {
+    "index": 91,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "service_menu",
+    "stage": "early",
+    "choices": [
+      "Gain 5 omens.",
+      "Apply {Golden Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Draft 1 of 4 events. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 92,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "timed_window_menu",
+    "stage": "early",
+    "choices": [
+      "For the next 3 dreamscapes, add a Dreamsign Offering site to one route if possible.",
+      "For the next 3 dreamscapes, replace one Shop site with a Purge site if possible.",
+      "For the next 3 dreamscapes, increase Transfiguration site odds by 20%."
+    ]
+  },
+  {
+    "index": 93,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 survivors. Apply {Prismatic Transfiguration} to it.",
+      "Gain 5 omens.",
+      "Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 94,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "one_target_many_operations",
+    "stage": "early",
+    "choices": [
+      "Add Fast to a chosen card.",
+      "Apply {Viridian Transfiguration} to a chosen card.",
+      "Reduce the cost of a chosen card by 1."
+    ]
+  },
+  {
+    "index": 95,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "choose_your_loss",
+    "stage": "early",
+    "choices": [
+      "Pay 95 essence.",
+      "Lose 1 omen.",
+      "Gain 1 Nightmare."
+    ]
+  },
+  {
+    "index": 96,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "choose_your_loss",
+    "stage": "early",
+    "choices": [
+      "Lose 1 omen.",
+      "Pay 100 essence.",
+      "Gain 1 Silence."
+    ]
+  },
+  {
+    "index": 97,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "random_pool_draws",
+    "stage": "early",
+    "choices": [
+      "Leave.",
+      "Pay 35 essence and gain a random reward from the pool. Go to Level 2.",
+      "Leave.",
+      "Pay 35 essence and gain a random reward from the pool. Go to Level 3.",
+      "Leave.",
+      "Pay 35 essence and gain a random reward from the pool. End the Journey."
+    ]
+  },
+  {
+    "index": 98,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "curated_reward_trio",
+    "stage": "early",
+    "choices": [
+      "Draft 1 of 4 events. Apply {Scarlet Transfiguration} to it.",
+      "Apply {Scarlet Transfiguration} to a random card in your deck. Gain 3 omens.",
+      "Gain 5 omens."
+    ]
+  },
+  {
+    "index": 99,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "same_cost_different_rewards",
+    "stage": "early",
+    "choices": [
+      "Lose 1 omen. Gain 340 essence.",
+      "Lose 1 omen. Draft 1 of 4 events. Apply {Golden Transfiguration} to it.",
+      "Lose 1 omen. Purge up to 1 chosen Starter card. Gain 4 omens."
+    ]
+  },
+  {
+    "index": 100,
+    "seed": "early-duplicate-analysis-2026-05-08",
+    "shapeId": "prize_ladder",
+    "stage": "early",
+    "choices": [
+      "Gain 65 essence. End the Journey.",
+      "Pay 30 essence. Go to Level 2.",
+      "Gain 110 essence. End the Journey.",
+      "Pay 60 essence. Go to Level 3.",
+      "Gain 155 essence. End the Journey.",
+      "Pay 110 essence and gain 215 essence. End the Journey."
+    ]
+  }
+]
