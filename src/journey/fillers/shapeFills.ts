@@ -5,6 +5,10 @@ import {
   type DrawContext,
 } from "../../util/rng.js";
 import { decisionTreeForShape, odds } from "./treeBuilders.js";
+import {
+  compatibleCardOperations,
+  renderChosenCardOperationText,
+} from "./cardOperationCatalog.js";
 import type {
   JourneyOption,
   JourneyRewardPool,
@@ -454,56 +458,23 @@ export function fillOptions(
         targetProfile.targetDescription,
         cardDraftPredicate(targetProfile),
       );
-      const transfiguration = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:transfiguration`,
-        ["Bronze", "Viridian", "Prismatic", "Golden"],
-      );
-      const operations = shuffleDeterministic(
-        drawContext,
-        `${shapeId}:operations`,
-        [
-          {
-            text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.`,
-            effects: [
-              { kind: "transfiguration", transfigurationName: transfiguration },
-            ],
-            effect: 100,
-          },
-          {
-            text: `Add Fast to ${chosenCardText()}.`,
-            effects: [{ kind: "card_rewrite", keyword: "Fast" }],
-            effect: 95,
-          },
-          {
-            text: `Add Reclaim 1 to ${chosenCardText()}.`,
-            effects: [{ kind: "card_rewrite", keyword: "Reclaim", amount: 1 }],
-            effect: 95,
-          },
-          {
-            text: `Reduce the cost of ${chosenCardText()} by 1 for the next 3 battles.`,
-            effects: [
-              {
-                kind: "card_rewrite",
-                field: "energy_cost",
-                amount: -1,
-                duration: BATTLE_WINDOW_DURATION,
-              },
-            ],
-            effect: 105,
-            uncertainty: -10,
-          },
-        ],
-      ).slice(0, 3);
+      const operations = compatibleCardOperations(drawContext, {
+        topology: "one_target_many_operations",
+        targetClasses: ["draft_card"],
+        valueBands: ["standard", "temporary"],
+        timings: ["immediate", "battle_window"],
+        label: `${shapeId}:operations`,
+        count: 3,
+      });
 
       return {
         options: operations.map((operation, index) =>
           option({
             number: index + 1,
-            text: operation.text,
-            effects: operation.effects,
+            text: renderChosenCardOperationText(operation),
+            effects: [operation.effect],
             targets: [sharedTarget],
-            effect: operation.effect,
+            effect: operation.value,
             uncertainty: operation.uncertainty,
           }),
         ),
@@ -597,35 +568,27 @@ export function fillOptions(
           targetProfile.targetDescription,
           cardDraftPredicate(targetProfile),
         );
+        const operations = compatibleCardOperations(drawContext, {
+          topology: "mirrored_operations",
+          targetClasses: ["draft_card"],
+          families: ["keyword", "cost", "text"],
+          valueBands: ["standard"],
+          timings: ["immediate"],
+          label: `${shapeId}:rewrite-operations`,
+          count: 3,
+        });
 
         return {
-          options: [
+          options: operations.map((operation, index) =>
             option({
-              number: 1,
-              text: `Add Fast to ${chosenCardText()}.`,
-              effects: [{ kind: "card_rewrite", keyword: "Fast" }],
+              number: index + 1,
+              text: renderChosenCardOperationText(operation),
+              effects: [operation.effect],
               targets: [sharedTarget],
-              effect: 95,
+              effect: operation.value,
+              uncertainty: operation.uncertainty,
             }),
-            option({
-              number: 2,
-              text: `Add Reclaim 1 to ${chosenCardText()}.`,
-              effects: [
-                { kind: "card_rewrite", keyword: "Reclaim", amount: 1 },
-              ],
-              targets: [sharedTarget],
-              effect: 95,
-            }),
-            option({
-              number: 3,
-              text: `Reduce the cost of ${chosenCardText()} by 1.`,
-              effects: [
-                { kind: "card_rewrite", field: "energy_cost", amount: -1 },
-              ],
-              targets: [sharedTarget],
-              effect: 95,
-            }),
-          ],
+          ),
           precommitted: {},
         };
       }
@@ -656,73 +619,36 @@ export function fillOptions(
         };
       }
 
+      const operations = compatibleCardOperations(drawContext, {
+        topology: "mirrored_operations",
+        targetClasses: ["draft_card"],
+        families: ["transfiguration"],
+        valueBands: ["standard"],
+        timings: ["immediate"],
+        label: `${shapeId}:transfiguration-operations`,
+        count: 3,
+      });
+
       return {
-        options: ["Bronze", "Viridian", "Golden"].map(
-          (transfiguration, index) =>
-            option({
-              number: index + 1,
-              text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.`,
-              effects: [
-                {
-                  kind: "transfiguration",
-                  transfigurationName: transfiguration,
-                },
-              ],
-              targets: [
-                target(
-                  "card",
-                  targetProfile.targetDescription,
-                  cardDraftPredicate(targetProfile),
-                ),
-              ],
-              effect: 100,
-            }),
+        options: operations.map((operation, index) =>
+          option({
+            number: index + 1,
+            text: renderChosenCardOperationText(operation),
+            effects: [operation.effect],
+            targets: [
+              target(
+                "card",
+                targetProfile.targetDescription,
+                cardDraftPredicate(targetProfile),
+              ),
+            ],
+            effect: operation.value,
+          }),
         ),
         precommitted: {},
       };
     }
     case "one_operation_many_targets": {
-      const transfiguration = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:transfiguration`,
-        ["Bronze", "Viridian", "Prismatic", "Golden"],
-      );
-      const operation = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:operation`,
-        [
-          {
-            text: (targetText: string) =>
-              `Apply {${transfiguration} Transfiguration} to ${targetText}.`,
-            effect: {
-              kind: "transfiguration",
-              transfigurationName: transfiguration,
-            },
-            value: 100,
-          },
-          {
-            text: (targetText: string) => `Add Fast to ${targetText}.`,
-            effect: { kind: "card_rewrite", keyword: "Fast" },
-            value: 95,
-          },
-          {
-            text: (targetText: string) => `Add Reclaim 1 to ${targetText}.`,
-            effect: { kind: "card_rewrite", keyword: "Reclaim", amount: 1 },
-            value: 95,
-          },
-          {
-            text: (targetText: string) => `Duplicate ${targetText}.`,
-            effect: { kind: "card_duplicate" },
-            value: 105,
-          },
-          {
-            text: (targetText: string) =>
-              `Reduce the cost of ${targetText} by 1.`,
-            effect: { kind: "card_rewrite", field: "energy_cost", amount: -1 },
-            value: 95,
-          },
-        ],
-      );
       const targetEntries = shuffleDeterministic(
         drawContext,
         `${shapeId}:target-order`,
@@ -747,15 +673,24 @@ export function fillOptions(
           },
         ],
       );
+      const operation = compatibleCardOperations(drawContext, {
+        topology: "one_operation_many_targets",
+        targetClasses: ["draft_card", "starter_card", "deck_card"],
+        valueBands: ["standard", "premium"],
+        timings: ["immediate"],
+        label: `${shapeId}:operation`,
+        count: 1,
+      })[0]!;
 
       return {
         options: targetEntries.map((entry, index) =>
           option({
             number: index + 1,
-            text: operation.text(entry.text),
+            text: operation.renderText(entry.text),
             effects: [operation.effect],
             targets: [entry.target],
             effect: operation.value,
+            uncertainty: operation.uncertainty,
           }),
         ),
         precommitted: {},

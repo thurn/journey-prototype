@@ -168,7 +168,7 @@ future-trade return scenes.
 
 ### 4. Normal Card Operation Shapes Embed A Private Operation Catalog
 
-**Status:** Error with a moderate curation argument.
+**Status:** Fixed.
 
 Several normal shape cases contain their own hardcoded card operation lists:
 
@@ -197,10 +197,14 @@ would preserve the same curation by sampling from a shared card-operation
 catalog with operation eligibility, target compatibility, value metadata, and
 text rendering.
 
-**Proposed fix to remove hardcoded content:** Move card operations into a shared
-operation catalog and have each shape request compatible operations by topology,
-target class, value band, and timing instead of declaring operation arrays
-inline.
+**Resolution:** Normal card-operation shapes now use a shared card-operation
+catalog. `one_target_many_operations`, `mirrored_operations`, and
+`one_operation_many_targets` request compatible operations by topology, target
+class, value band, timing, and optional operation family, then render those
+catalog results into their shape-specific option topology. This preserves the
+curated symmetry of those shapes while moving reusable card operations out of
+shape-local inline arrays. The named-card debug menu remains a deterministic QA
+fixture for exact real-card operation coverage.
 
 ### 5. `same_reward_different_costs` Sometimes Changes The Reward
 

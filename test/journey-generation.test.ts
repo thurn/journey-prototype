@@ -6,6 +6,7 @@ import {
 } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
+import { compatibleCardOperations } from "../src/journey/fillers/cardOperationCatalog.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type {
@@ -2445,6 +2446,57 @@ describe("generateNextJourney", () => {
         shapeId,
       ).toEqual({ ok: true });
     }
+  });
+
+  it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {
+    const drawContext: DrawContext = {
+      seed: "card-operation-catalog",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const oneTargetOperations = compatibleCardOperations(drawContext, {
+      topology: "one_target_many_operations",
+      targetClasses: ["draft_card"],
+      valueBands: ["standard", "temporary"],
+      timings: ["immediate", "battle_window"],
+      label: "test:one-target",
+      count: 3,
+    });
+    const mirroredRewriteOperations = compatibleCardOperations(drawContext, {
+      topology: "mirrored_operations",
+      targetClasses: ["draft_card"],
+      families: ["keyword", "cost", "text"],
+      valueBands: ["standard"],
+      timings: ["immediate"],
+      label: "test:mirrored-rewrite",
+      count: 4,
+    });
+    const oneOperationOperations = compatibleCardOperations(drawContext, {
+      topology: "one_operation_many_targets",
+      targetClasses: ["draft_card", "starter_card", "deck_card"],
+      valueBands: ["standard", "premium"],
+      timings: ["immediate"],
+      label: "test:one-operation",
+      count: 3,
+    });
+
+    expect(oneTargetOperations).toHaveLength(3);
+    expect(
+      mirroredRewriteOperations.map((operation) => operation.family),
+    ).toEqual(expect.arrayContaining(["keyword", "cost", "text"]));
+    expect(
+      new Set(oneOperationOperations.map((operation) => operation.key)).size,
+    ).toBe(3);
+    expect(
+      oneTargetOperations.every((operation) =>
+        ["standard", "temporary"].includes(operation.valueBand),
+      ),
+    ).toBe(true);
+    expect(
+      oneOperationOperations.every(
+        (operation) => operation.timing === "immediate",
+      ),
+    ).toBe(true);
   });
 
   it("keeps delayed-hook shapes as real root choices", async () => {
