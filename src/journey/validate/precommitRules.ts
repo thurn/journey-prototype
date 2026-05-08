@@ -35,6 +35,32 @@ export function containsRecordWhere(value: unknown, predicate: (record: Record<s
   return Object.values(value).some((entry) => containsRecordWhere(entry, predicate));
 }
 
+function hasEnvelopeConstraint(
+  value: Record<string, unknown>,
+  shapeId: JourneyManifest["shapeId"],
+  ruleId: string,
+): boolean {
+  return Array.isArray(value.constraints) &&
+    value.constraints.some((constraint) =>
+      isRecord(constraint) &&
+      constraint.constraintKind === "shape_invariant" &&
+      constraint.shapeId === shapeId &&
+      constraint.ruleId === ruleId
+    );
+}
+
+function isRiskDownsideEnvelope(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) &&
+    hasEnvelopeConstraint(value, "risk_or_skip", "risk_or_skip_bounded_downside") &&
+    (value.kind === "chance_to_gain_bane" || value.kind === "chance_to_pay_cost");
+}
+
+function isSingleWagerEnvelope(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) &&
+    value.kind === "wager" &&
+    hasEnvelopeConstraint(value, "single_wager", "single_wager_known_stake");
+}
+
 export function optionImpliesRandomOrHiddenOutcome(option: JourneyOption): boolean {
   if (option.operations.some((operation) =>
     operation.operationKind === "random_envelope" ||
@@ -167,28 +193,28 @@ export function validateRiskOrSkip(manifest: JourneyManifest): ValidationResult 
     return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
   }
 
-  const downsideRolls = manifest.precommitted.random?.filter((entry) =>
-    isRecord(entry) && entry.kind === "risk_downside_roll"
-  ) ?? [];
+  const downsideRolls = manifest.precommitted.random?.filter(isRiskDownsideEnvelope) ?? [];
 
   if (downsideRolls.length < acceptOptions.length) {
     return fail(
       "downside_is_random_inside_visible_envelope",
-      "Risk-or-skip precommit must store one downside roll per accept option",
+      "Risk-or-skip precommit must store one typed constrained downside envelope per accept option",
     );
   }
 
   for (const roll of downsideRolls) {
-    if (
-      !isRecord(roll) ||
-      !hasOdds(roll) ||
-      !("downside" in roll) ||
-      !("safe" in roll) ||
-      (roll.committedResult !== "downside" && roll.committedResult !== "safe")
-    ) {
+    const hasBaneEnvelope = roll.kind === "chance_to_gain_bane" &&
+      typeof roll.baneName === "string" &&
+      typeof roll.count === "number" &&
+      (roll.committedResult === "bane" || roll.committedResult === "safe");
+    const hasCostEnvelope = roll.kind === "chance_to_pay_cost" &&
+      isRecord(roll.cost) &&
+      (roll.committedResult === "paid" || roll.committedResult === "free");
+
+    if (!hasOdds(roll) || (!hasBaneEnvelope && !hasCostEnvelope)) {
       return fail(
         "downside_is_random_inside_visible_envelope",
-        "Risk-or-skip precommit must store odds, downside and safe outcomes, and the committed roll",
+        "Risk-or-skip precommit must store odds, typed downside metadata, and the committed safe/downside result",
       );
     }
   }
@@ -212,28 +238,29 @@ export function validateSingleWager(manifest: JourneyManifest): ValidationResult
     }
   }
 
-  const wagers = manifest.precommitted.random?.filter((entry) =>
-    isRecord(entry) && entry.kind === "wager_roll"
-  ) ?? [];
+  const wagers = (manifest.precommitted.random ?? [])
+    .filter((entry) => isSingleWagerEnvelope(entry))
+    .map((entry) => entry as Record<string, unknown>);
 
   if (wagers.length < wagerOptions.length) {
     return fail(
       "reward_outcome_is_bounded_random_envelope",
-      "Single wager precommit must store one committed roll per wager option",
+      "Single wager precommit must store one typed constrained wager envelope per wager option",
     );
   }
 
   for (const wager of wagers) {
     if (
-      !isRecord(wager) ||
       !hasOdds(wager) ||
+      !isRecord(wager.stake) ||
       !("success" in wager) ||
       !("failure" in wager) ||
-      typeof wager.committedResult !== "string"
+      typeof wager.roll !== "number" ||
+      (wager.committedResult !== "success" && wager.committedResult !== "failure")
     ) {
       return fail(
         "reward_outcome_is_bounded_random_envelope",
-        "Single wager precommit must store odds, success and failure outcomes, and the committed roll",
+        "Single wager precommit must store stake, odds, success and failure outcomes, and the committed roll",
       );
     }
   }

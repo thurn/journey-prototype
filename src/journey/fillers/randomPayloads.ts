@@ -442,7 +442,18 @@ export function randomRevealRollWagerFill(
         text: `Pay ${stake} essence. Roll twice and keep the better committed roll (${firstRoll}, ${secondRoll}); gain ${rangeMinimum}-${rangeMaximum} random essence; ${wagerPercent}% chance to ${wagerSuccessText}; ${banePercent}% chance to gain 1 Nightmare; ${costPercent}% chance to pay ${randomCostAmount} extra essence.`,
         costs: [cost("essence", stake)],
         effects: [
-          { kind: "random_reward", table: "wager", odds: odds(wagerPercent) },
+          {
+            kind: "wager",
+            odds: odds(wagerPercent),
+            stake: cost("essence", stake),
+            success: secondReward.effects,
+            failure: { kind: "no_reward" },
+            visibilityPolicy: randomVisibility(
+              "visible",
+              "The wager odds, stake, success, and failure are visible before choosing.",
+              true,
+            ),
+          },
           {
             kind: "resource_random_range",
             resource: "essence",

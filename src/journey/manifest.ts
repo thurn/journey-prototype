@@ -456,6 +456,15 @@ export type RandomVisibilityPolicy = {
 
 export type RandomPoolReplacementPolicy = "with_replacement" | "without_replacement" | "precommitted_order";
 
+export type RandomEnvelopeConstraint = {
+  constraintKind: "shape_invariant";
+  shapeId: JourneyShapeId;
+  ruleId:
+    | "risk_or_skip_bounded_downside"
+    | "single_wager_known_stake";
+  label: string;
+};
+
 type RandomPrecommitBase = {
   kind: string;
   optionNumber?: number;
@@ -464,6 +473,7 @@ type RandomPrecommitBase = {
   expectedConvertedEssence?: number;
   riskPremiumConvertedEssence?: number;
   presentation?: string;
+  constraints?: RandomEnvelopeConstraint[];
 };
 
 export type RandomPrecommittedOutcome =

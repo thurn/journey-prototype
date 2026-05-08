@@ -59,6 +59,7 @@ import {
   delayedRewardHookFill,
   pairedReturnHookFill,
 } from "./hookPayloads.js";
+import { randomVisibility } from "./randomPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
@@ -822,19 +823,68 @@ export function fillOptions(
           : downsideKind === "essence"
             ? -Math.min(60, context.state.quest.resources.essence)
             : valueBaneGain("Nightmare", 1);
+      const downsideText = downsideKind === "omen" &&
+        context.state.quest.resources.omens >= 1
+        ? "lose 1 omen"
+        : downsideKind === "essence"
+          ? `lose ${Math.min(60, context.state.quest.resources.essence)} essence`
+          : "gain 1 Nightmare";
+      const riskConstraint = {
+        constraintKind: "shape_invariant" as const,
+        shapeId,
+        ruleId: "risk_or_skip_bounded_downside" as const,
+        label: "The accept option has one bounded random downside and the leave option stays safe.",
+      };
+      const riskEnvelope = "baneName" in downside
+        ? {
+            kind: "chance_to_gain_bane" as const,
+            optionNumber: 1,
+            odds: odds(downsideChancePercent),
+            baneName: downside.baneName,
+            count: downside.count,
+            committedResult: roll <= downsideChancePercent ? "bane" as const : "safe" as const,
+            visibilityPolicy: randomVisibility(
+              "pre_rolled",
+              "The downside odds are visible and the safe/downside result is precommitted.",
+              true,
+            ),
+            expectedConvertedEssence: Math.round(
+              downsideValue * (downsideChancePercent / 100),
+            ),
+            riskPremiumConvertedEssence: Math.round(
+              downsideValue * (downsideChancePercent / 100),
+            ),
+            constraints: [riskConstraint],
+            presentation: "visible_odds_debug_roll",
+          }
+        : {
+            kind: "chance_to_pay_cost" as const,
+            optionNumber: 1,
+            odds: odds(downsideChancePercent),
+            cost: downside.kind === "omen_loss"
+              ? cost("omens", Number(downside.amount))
+              : cost("essence", Number(downside.amount)),
+            committedResult: roll <= downsideChancePercent ? "paid" as const : "free" as const,
+            visibilityPolicy: randomVisibility(
+              "pre_rolled",
+              "The downside odds are visible and the safe/downside result is precommitted.",
+              true,
+            ),
+            expectedConvertedEssence: Math.round(
+              downsideValue * (downsideChancePercent / 100),
+            ),
+            riskPremiumConvertedEssence: Math.round(
+              downsideValue * (downsideChancePercent / 100),
+            ),
+            constraints: [riskConstraint],
+            presentation: "visible_odds_debug_roll",
+          };
 
       return {
         options: [
           option({
             number: 1,
-            text: `${reward.text} ${downsideChancePercent}% chance to ${
-              downsideKind === "omen" &&
-              context.state.quest.resources.omens >= 1
-                ? "lose 1 omen"
-                : downsideKind === "essence"
-                  ? `lose ${Math.min(60, context.state.quest.resources.essence)} essence`
-                  : "gain 1 Nightmare"
-            }; otherwise no downside.`,
+            text: `${reward.text} ${downsideChancePercent}% chance to ${downsideText}; otherwise no downside.`,
             effects: reward.effects,
             targets: reward.targets ?? [],
             effect: reward.effect,
@@ -849,18 +899,7 @@ export function fillOptions(
           }),
         ],
         precommitted: {
-          random: [
-            {
-              kind: "risk_downside_roll",
-              optionNumber: 1,
-              odds: odds(downsideChancePercent),
-              downside,
-              safe: { kind: "no_downside" },
-              committedResult:
-                roll <= downsideChancePercent ? "downside" : "safe",
-              presentation: "visible_odds_debug_roll",
-            },
-          ],
+          random: [riskEnvelope],
         },
       };
     }
@@ -891,6 +930,54 @@ export function fillOptions(
       const secondRoll = drawInt(drawContext, "single-wager-roll:2", 1, 100);
       const secondCommittedResult =
         secondRoll <= secondSuccessPercent ? "success" : "failure";
+      const wagerConstraint = {
+        constraintKind: "shape_invariant" as const,
+        shapeId,
+        ruleId: "single_wager_known_stake" as const,
+        label: "The stake, odds, success reward, and failure outcome are visible before commitment.",
+      };
+      const firstWagerEnvelope = {
+        kind: "wager" as const,
+        optionNumber: 1,
+        odds: odds(firstSuccessPercent),
+        stake: cost("essence", payablePrice),
+        success: firstSuccessReward,
+        failure: { kind: "no_reward" },
+        roll: firstRoll,
+        committedResult: firstCommittedResult,
+        visibilityPolicy: randomVisibility(
+          "pre_rolled",
+          "The wager odds, stake, success, and failure are visible; the roll is precommitted.",
+          true,
+        ),
+        expectedConvertedEssence:
+          Math.round(firstReward.effect * (firstSuccessPercent / 100)) -
+          payablePrice,
+        riskPremiumConvertedEssence: -12,
+        constraints: [wagerConstraint],
+        presentation: "visible_odds_debug_roll",
+      };
+      const secondWagerEnvelope = {
+        kind: "wager" as const,
+        optionNumber: 2,
+        odds: odds(secondSuccessPercent),
+        stake: cost("essence", secondPrice),
+        success: secondSuccessReward,
+        failure: { kind: "no_reward" },
+        roll: secondRoll,
+        committedResult: secondCommittedResult,
+        visibilityPolicy: randomVisibility(
+          "pre_rolled",
+          "The wager odds, stake, success, and failure are visible; the roll is precommitted.",
+          true,
+        ),
+        expectedConvertedEssence:
+          Math.round(secondReward.effect * (secondSuccessPercent / 100)) -
+          secondPrice,
+        riskPremiumConvertedEssence: -16,
+        constraints: [wagerConstraint],
+        presentation: "visible_odds_debug_roll",
+      };
 
       return {
         options: [
@@ -900,9 +987,17 @@ export function fillOptions(
             costs: [cost("essence", payablePrice)],
             effects: [
               {
-                kind: "random_reward",
-                table: "wager",
+                kind: "wager",
                 odds: odds(firstSuccessPercent),
+                stake: cost("essence", payablePrice),
+                success: firstSuccessReward,
+                failure: { kind: "no_reward" },
+                visibilityPolicy: randomVisibility(
+                  "visible",
+                  "The wager odds, stake, success, and failure are visible before choosing.",
+                  true,
+                ),
+                constraints: [wagerConstraint],
               },
             ],
             cost: payablePrice,
@@ -917,9 +1012,17 @@ export function fillOptions(
             costs: [cost("essence", secondPrice)],
             effects: [
               {
-                kind: "random_reward",
-                table: "wager",
+                kind: "wager",
                 odds: odds(secondSuccessPercent),
+                stake: cost("essence", secondPrice),
+                success: secondSuccessReward,
+                failure: { kind: "no_reward" },
+                visibilityPolicy: randomVisibility(
+                  "visible",
+                  "The wager odds, stake, success, and failure are visible before choosing.",
+                  true,
+                ),
+                constraints: [wagerConstraint],
               },
             ],
             cost: secondPrice,
@@ -930,28 +1033,7 @@ export function fillOptions(
           }),
         ],
         precommitted: {
-          random: [
-            {
-              kind: "wager_roll",
-              optionNumber: 1,
-              odds: odds(firstSuccessPercent),
-              success: firstSuccessReward,
-              failure: { kind: "no_reward" },
-              roll: firstRoll,
-              committedResult: firstCommittedResult,
-              presentation: "visible_odds_debug_roll",
-            },
-            {
-              kind: "wager_roll",
-              optionNumber: 2,
-              odds: odds(secondSuccessPercent),
-              success: secondSuccessReward,
-              failure: { kind: "no_reward" },
-              roll: secondRoll,
-              committedResult: secondCommittedResult,
-              presentation: "visible_odds_debug_roll",
-            },
-          ],
+          random: [firstWagerEnvelope, secondWagerEnvelope],
         },
       };
     }

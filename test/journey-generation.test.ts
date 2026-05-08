@@ -4242,23 +4242,46 @@ describe("validateJourneyManifest", () => {
       /^Pay \d+ essence\. \d+% chance to .+ otherwise gain nothing\.$/u,
     );
     expect(manifest.precommitted.random?.[0]).toMatchObject({
-      kind: "wager_roll",
+      kind: "wager",
       optionNumber: 1,
       odds: { percent: expect.any(Number) },
+      stake: expect.anything(),
       success: expect.anything(),
       failure: { kind: "no_reward" },
+      roll: expect.any(Number),
       committedResult: expect.stringMatching(/^(success|failure)$/u),
+      constraints: [
+        expect.objectContaining({
+          constraintKind: "shape_invariant",
+          shapeId: "single_wager",
+          ruleId: "single_wager_known_stake",
+        }),
+      ],
       presentation: "visible_odds_debug_roll",
     });
     expect(manifest.precommitted.random?.[1]).toMatchObject({
-      kind: "wager_roll",
+      kind: "wager",
       optionNumber: 2,
       odds: { percent: expect.any(Number) },
+      stake: expect.anything(),
       success: expect.anything(),
       failure: { kind: "no_reward" },
+      roll: expect.any(Number),
       committedResult: expect.stringMatching(/^(success|failure)$/u),
+      constraints: [
+        expect.objectContaining({
+          constraintKind: "shape_invariant",
+          shapeId: "single_wager",
+          ruleId: "single_wager_known_stake",
+        }),
+      ],
       presentation: "visible_odds_debug_roll",
     });
+    expect(manifest.options.flatMap((option) => option.effects)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "wager" }),
+      ]),
+    );
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
@@ -4273,15 +4296,21 @@ describe("validateJourneyManifest", () => {
     );
     expect(manifest.options[0]?.effects.length).toBeGreaterThan(0);
     expect(manifest.options[0]?.burdens).toEqual([]);
-    expect(manifest.precommitted.random?.[0]).toMatchObject({
-      kind: "risk_downside_roll",
+    const riskEnvelope = manifest.precommitted.random?.[0];
+    expect(riskEnvelope).toMatchObject({
       optionNumber: 1,
       odds: { percent: expect.any(Number) },
-      downside: expect.anything(),
-      safe: { kind: "no_downside" },
-      committedResult: expect.stringMatching(/^(downside|safe)$/u),
+      kind: expect.stringMatching(/^(chance_to_gain_bane|chance_to_pay_cost)$/u),
+      committedResult: expect.stringMatching(/^(bane|safe|paid|free)$/u),
       presentation: "visible_odds_debug_roll",
     });
+    expect(riskEnvelope?.constraints).toEqual([
+      expect.objectContaining({
+        constraintKind: "shape_invariant",
+        shapeId: "risk_or_skip",
+        ruleId: "risk_or_skip_bounded_downside",
+      }),
+    ]);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });

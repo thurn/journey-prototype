@@ -242,12 +242,18 @@ describe("review feedback regressions", () => {
       random: [
         { kind: "gain_essence", amount: 110 },
         {
-          kind: "wager_roll",
+          kind: "wager",
           odds: { numerator: 50, denominator: 100, percent: 50 },
+          stake: { kind: "essence", amount: 30, timing: "immediate" },
           success: { kind: "gain_essence", amount: 160 },
           failure: { kind: "no_reward" },
           roll: 73,
           committedResult: "failure",
+          visibilityPolicy: {
+            outcomeVisibility: "pre_rolled",
+            disclosure: "The wager odds, stake, success, and failure are visible; the roll is precommitted.",
+            playerVisible: true,
+          },
           presentation: "visible_odds_debug_roll",
         },
         {

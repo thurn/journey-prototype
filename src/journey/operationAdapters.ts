@@ -4,6 +4,7 @@ import type {
   JourneyRewardPool,
   JourneyTreeBranch,
   JourneyTreeTerminal,
+  OperationVisibility,
   OperationTiming,
   OperationValueMetadata,
   ResourceAmountSemantics,
@@ -453,6 +454,26 @@ function oddsFromPayload(value: unknown): RandomEnvelopeOperation["odds"] | unde
   return undefined;
 }
 
+function isRandomEnvelopePayloadKind(kind: string | undefined): boolean {
+  return kind === "visible_pool" ||
+    kind === "random_cost" ||
+    kind === "random_reward" ||
+    kind === "chance_to_gain_bane" ||
+    kind === "chance_to_pay_cost" ||
+    kind === "reveal_rewards" ||
+    kind === "choose_one_revealed_reward" ||
+    kind === "choose_one_random_revealed_reward" ||
+    kind === "gain_one_random_reward" ||
+    kind === "roll_twice_keep_one" ||
+    kind === "repeated_pool_draws" ||
+    kind === "random_range" ||
+    kind === "wager" ||
+    kind === "probability_ladder" ||
+    kind === "push_choice" ||
+    kind === "complete_decision_tree" ||
+    kind === "resolved_random_series";
+}
+
 function resourceAmount(value: unknown): number {
   return isRecord(value) && typeof value.amount === "number" ? value.amount : 0;
 }
@@ -709,7 +730,9 @@ function adaptEffect(
   convertedEssence?: number,
   visibility: "visible" | "precommitted" = "visible",
 ): JourneyOperation {
-  return isStatusPayload(value)
+  return isRecord(value) && isRandomEnvelopePayloadKind(legacyKind(value))
+    ? adaptRandomEnvelope(value, operationId, visibility)
+    : isStatusPayload(value)
     ? adaptStatusWithVisibility(value, operationId, convertedEssence, visibility)
     : adaptReward(value, operationId, convertedEssence, visibility);
 }
@@ -854,7 +877,11 @@ function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: 
   };
 }
 
-function adaptRandomEnvelope(value: unknown, operationId: string): JourneyOperation {
+function adaptRandomEnvelope(
+  value: unknown,
+  operationId: string,
+  visibility: OperationVisibility = "precommitted",
+): JourneyOperation {
   const kind = legacyKind(value) ?? (Array.isArray(value) ? "random_series" : "random_outcome");
   const operationKind = kind.includes("reveal") ? "reveal_envelope" : "random_envelope";
   const visibilityLabel = isRecord(value) && isRecord(value.visibilityPolicy) && typeof value.visibilityPolicy.outcomeVisibility === "string"
@@ -870,7 +897,7 @@ function adaptRandomEnvelope(value: unknown, operationId: string): JourneyOperat
     role: "random",
     envelopeKind: kind,
     timing,
-    visibility: "precommitted",
+    visibility,
     ...(oddsFromPayload(value) ? { odds: oddsFromPayload(value) } : {}),
     ...(randomValueMetadata(value) ? { value: randomValueMetadata(value) } : {}),
     legacyKind: kind,
@@ -1092,7 +1119,11 @@ export function adaptRewardPoolOperations(pool: Omit<JourneyRewardPool, "operati
 
 export function adaptPrecommittedOperations(precommitted: Omit<PrecommittedOutcomes, "operations">): JourneyOperation[] {
   return [
-    ...adaptRecordArray(precommitted.random ?? [], "precommitted:random", adaptRandomEnvelope),
+    ...adaptRecordArray(
+      precommitted.random ?? [],
+      "precommitted:random",
+      (value, operationId) => adaptRandomEnvelope(value, operationId),
+    ),
     ...adaptRecordArray(precommitted.delayed ?? [], "precommitted:delayed", adaptDelayedPrecommit),
     ...adaptRecordArray(precommitted.pairedReturn ?? [], "precommitted:paired-return", adaptPairedReturn),
     ...adaptRecordArray(precommitted.routeEdits ?? [], "precommitted:route", adaptRouteEdit),

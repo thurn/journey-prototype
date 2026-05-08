@@ -339,7 +339,7 @@ fixture for exact adapter coverage.
 
 ### 9. Risk And Wager Shapes Use Parallel Hardcoded Random Contracts
 
-**Status:** Concern.
+**Status:** Fixed.
 
 `risk_or_skip` and `single_wager` use bespoke precommit kinds and option stubs:
 
@@ -362,6 +362,15 @@ survive outside the general random model.
 **Proposed fix to remove hardcoded content:** Convert `risk_or_skip` and
 `single_wager` to emit the same typed random envelope payloads used by the
 manifest contract, with shape-specific rules expressed as envelope constraints.
+
+**Resolution:** Normal `risk_or_skip` generation now emits constrained
+`chance_to_gain_bane` or `chance_to_pay_cost` random envelopes for bounded
+downsides instead of `risk_downside_roll`. Normal `single_wager` generation now
+uses constrained `wager` envelopes for both visible option operations and
+precommitted rolls instead of `wager_roll` plus shape-local `random_reward`
+stubs. The shape validators now require those typed envelope constraints, so
+the risk and wager invariants live in manifest metadata rather than magic
+precommit kind strings.
 
 ### 10. Bane Handling Defaults To Nightmare In Shared Paths
 

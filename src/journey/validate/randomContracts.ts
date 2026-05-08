@@ -145,6 +145,25 @@ export function validateRandomEnvelopePayload(value: unknown): ValidationResult 
     return { ok: true };
   }
 
+  if (value.constraints !== undefined) {
+    if (!Array.isArray(value.constraints)) {
+      return fail("invalid_random_envelope_constraint", "Random envelope constraints must be structured");
+    }
+
+    for (const constraint of value.constraints) {
+      if (
+        !isRecord(constraint) ||
+        constraint.constraintKind !== "shape_invariant" ||
+        typeof constraint.shapeId !== "string" ||
+        typeof constraint.ruleId !== "string" ||
+        typeof constraint.label !== "string" ||
+        constraint.label.length === 0
+      ) {
+        return fail("invalid_random_envelope_constraint", "Random envelope constraints require shape, rule, and label metadata");
+      }
+    }
+  }
+
   const visibilityResult = validateRandomVisibilityPolicy(value.visibilityPolicy);
   if (!visibilityResult.ok) {
     return visibilityResult;

@@ -578,15 +578,18 @@ guaranteed if accepted but the cost, burden, sacrifice, or corruption outcome
 determined randomly inside a clearly signaled envelope. This is a compact
 high-tension shape for cursed gifts, dangerous boons, and other optional
 temptations where the player is specifically gambling on whether, which, or how
-much downside applies. If the cost definitely applies, use `single_offer`
-instead.
+much downside applies. The downside must be represented as a typed random
+envelope, with the shape's accept-or-safe refusal invariant recorded as an
+envelope constraint. If the cost definitely applies, use `single_offer` instead.
 
 ### single_wager
 
 The site offers one visible one-shot gamble with a known stake and a bounded
 outcome envelope. Unlike `risk_or_skip`, the stake or cost is known up front and
 the reward is the uncertain part. Unlike `push_your_luck`, the player commits
-once and the scene does not ask whether to continue.
+once and the scene does not ask whether to continue. The stake, odds, success,
+failure, and committed roll must use the manifest `wager` random envelope, with
+the known-stake invariant recorded as an envelope constraint.
 
 ### now_vs_later
 
