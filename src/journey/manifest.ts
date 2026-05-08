@@ -719,6 +719,38 @@ export type RepairOutcomeMetadata = {
   targetResolution?: TargetResolutionMetadata;
 };
 
+export type ReachabilityEvidenceCategory =
+  | "payload"
+  | "selector"
+  | "timing";
+
+export type ReachabilityEvidence = {
+  category: ReachabilityEvidenceCategory;
+  family: string;
+  path: string;
+  operationId?: string;
+  operationKind?: JourneyOperation["operationKind"];
+  role?: JourneyOperation["role"];
+  detail?: string;
+};
+
+export type ReachabilityMetadata = {
+  evidenceSource: "structured_manifest_operations";
+  generatorMode: "normal_generation" | "forced_debug_fixture";
+  shapeTopology: string;
+  shapeId: JourneyShapeId;
+  payloadFamilies: string[];
+  selectorFamilies: string[];
+  timingFamilies: string[];
+  evidence: ReachabilityEvidence[];
+  debugFixture?: {
+    qaId: string;
+    familyId: string;
+    variantId: string;
+    coverageKind?: string;
+  };
+};
+
 export type PrecommittedOutcomes = {
   random?: RandomPrecommittedOutcome[];
   delayed?: unknown[];
@@ -744,6 +776,7 @@ export type JourneyDebug = {
   validation: ValidationReport;
   repair: RepairOutcomeMetadata;
   semanticFingerprint: DistinctnessFingerprint;
+  reachability?: ReachabilityMetadata;
   previousPick?: {
     journeyId: string;
     shapeId: JourneyShapeId;

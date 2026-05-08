@@ -37,6 +37,12 @@ import {
   type DrawContext,
 } from "../src/util/rng.js";
 import { stableStringify } from "../src/util/stableJson.js";
+import {
+  batchReachabilityFamilies,
+  findReachabilityEvidence,
+  reachabilityFor,
+  type ReachabilityFamilyRequirement,
+} from "./helpers/journeyReachability.js";
 
 const runDiversityAudit = process.env.JOURNEY_DIVERSITY_AUDIT === "1";
 const diversityAuditIt = runDiversityAudit ? it : it.skip;
@@ -4733,6 +4739,131 @@ describe("validateJourneyManifest", () => {
     });
     expect(Array.from(timedScopes)).toEqual(
       expect.arrayContaining(["battle", "dreamwell", "shop", "temporary_object"]),
+    );
+  });
+
+  it("checks brainstorm reachability matrix families through structured manifest operations", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const normalManifest = (
+      shapeId: JourneyShapeId,
+      seed: string,
+      stage: JourneyStage = "early",
+    ) => {
+      const journeyContext = contextFromContent(content, seed, stage);
+      const manifest = fillForShapeAtStage(shapeId, journeyContext, stage);
+
+      expect(manifest.debug.debugPayload, `${shapeId}:${seed}`).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext), `${shapeId}:${seed}`).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    };
+    const normalBatch = [
+      normalManifest("curated_reward_trio", "matrix-three-masks"),
+      normalManifest("alter_dreamscapes", "matrix-atlas-locksmith", "late"),
+      normalManifest("random_pool_draws", "matrix-bottomless-bowl", "mid"),
+    ];
+    const brainstormMatrixSamples = [
+      {
+        example: "Three Masks",
+        normalReach: "partial",
+        requirement: {
+          payloadFamilies: ["card_draft"],
+          selectorFamilies: ["card:predicate"],
+          timingFamilies: ["immediate"],
+        },
+      },
+      {
+        example: "Atlas Locksmith",
+        normalReach: "partial",
+        requirement: {
+          payloadFamilies: ["route_edit"],
+          selectorFamilies: ["route_site:exact"],
+          timingFamilies: ["route"],
+        },
+      },
+      {
+        example: "Bottomless Bowl",
+        normalReach: "partial_tree",
+        requirement: {
+          payloadFamilies: ["resource_cost:essence", "resource"],
+          timingFamilies: ["immediate"],
+        },
+      },
+    ] satisfies readonly {
+      example: string;
+      normalReach: "partial" | "partial_tree";
+      requirement: ReachabilityFamilyRequirement;
+    }[];
+
+    for (const matrixRow of brainstormMatrixSamples) {
+      expect(
+        findReachabilityEvidence(normalBatch, matrixRow.requirement).length,
+        matrixRow.example,
+      ).toBeGreaterThan(0);
+    }
+
+    const batchFamilies = batchReachabilityFamilies(normalBatch);
+
+    expect(batchFamilies.payloadFamilies).toEqual(
+      expect.arrayContaining(["card_draft", "route_edit", "resource"]),
+    );
+    expect(normalBatch.map((manifest) => reachabilityFor(manifest).generatorMode)).toEqual([
+      "normal_generation",
+      "normal_generation",
+      "normal_generation",
+    ]);
+    expect(
+      normalBatch.flatMap((manifest) => reachabilityFor(manifest).evidence),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "payload",
+          family: "card_draft",
+          operationKind: "reward",
+        }),
+      ]),
+    );
+  });
+
+  it("marks debug fixture reachability separately from normal generation", async () => {
+    const journeyContext = await context("matrix-debug-fixture");
+    const forcedDebugPayload = {
+      familyId: "dreamsign",
+      variantId: "named-dreamsign-shop-row",
+      qaId: "dreamsign/named-dreamsign-shop-row",
+      coverageKind: "debug_fixture",
+      description: "Named Dreamsign purchase rows for reachability matrix coverage.",
+      supportedShapes: ["shop_row"],
+      supportedStages: ["mid", "late"],
+    } satisfies DebugPayloadSelection;
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "shop_row",
+      forcedStage: "mid",
+      forcedDebugPayload,
+    });
+    const reachability = reachabilityFor(manifest);
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(reachability).toMatchObject({
+      generatorMode: "forced_debug_fixture",
+      evidenceSource: "structured_manifest_operations",
+      shapeTopology: "direct_menu",
+      debugFixture: {
+        qaId: "dreamsign/named-dreamsign-shop-row",
+        coverageKind: "debug_fixture",
+      },
+    });
+    expect(reachability.payloadFamilies).toEqual(
+      expect.arrayContaining(["dreamsign_purchase", "resource_cost"]),
+    );
+    expect(reachability.selectorFamilies).toEqual(
+      expect.arrayContaining(["dreamsign:exact"]),
     );
   });
 

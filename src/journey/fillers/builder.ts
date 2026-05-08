@@ -14,6 +14,7 @@ import {
   MANIFEST_SCHEMA_VERSION,
 } from "../manifest.js";
 import { adaptPrecommittedOperations } from "../operationAdapters.js";
+import { withReachabilityMetadata } from "../reachability.js";
 import {
   JOURNEY_SHAPE_CATALOG_VERSION,
   getShapePlugin,
@@ -248,9 +249,11 @@ export function buildConservativeJourneyForShape(
     args.context.state.quest,
   );
 
-  return withDistinctnessFingerprint({
-    ...manifestWithTargetResolution,
-  });
+  return withReachabilityMetadata(
+    withDistinctnessFingerprint({
+      ...manifestWithTargetResolution,
+    }),
+  );
 }
 
 export function allowedGeneratedVocabulary() {

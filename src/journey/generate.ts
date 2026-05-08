@@ -37,6 +37,7 @@ import {
   validateDebugPayloadCompatibility,
   type DebugPayloadSelection,
 } from "./debugPayloads.js";
+import { withReachabilityMetadata } from "./reachability.js";
 
 export type GenerationInput = {
   context: JourneyContext;
@@ -416,14 +417,16 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     : repairOrFallbackJourney(resolvedManifest, context, validation, {
         forcedShape: input.forcedShapeId !== undefined,
       });
-  const resolvedFinalManifest = withDistinctnessFingerprint(
-    withValidationReport(
-      attachTargetResolutionMetadata(
-        finalManifest,
-        context.content,
-        context.state.quest,
+  const resolvedFinalManifest = withReachabilityMetadata(
+    withDistinctnessFingerprint(
+      withValidationReport(
+        attachTargetResolutionMetadata(
+          finalManifest,
+          context.content,
+          context.state.quest,
+        ),
+        context,
       ),
-      context,
     ),
   );
 
@@ -573,6 +576,6 @@ export function advanceSequenceJourney(
 
   return {
     kind: "advanced",
-    manifest: freezeSerializable(reportedAdvanced),
+    manifest: freezeSerializable(withReachabilityMetadata(reportedAdvanced)),
   };
 }

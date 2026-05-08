@@ -605,6 +605,29 @@ function fingerprintDebugLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
+function reachabilityDebugLines(manifest: JourneyManifest): string[] {
+  const reachability = manifest.debug.reachability;
+
+  if (!reachability) {
+    return [];
+  }
+
+  return [
+    "",
+    "Reachability:",
+    `Mode: ${reachability.generatorMode}; evidence=${reachability.evidenceSource}.`,
+    `Shape topology: ${reachability.shapeTopology}.`,
+    `Payload families: ${reachability.payloadFamilies.join(", ") || "none"}.`,
+    `Selector families: ${reachability.selectorFamilies.join(", ") || "none"}.`,
+    `Timing families: ${reachability.timingFamilies.join(", ") || "none"}.`,
+    ...(reachability.debugFixture
+      ? [
+          `Debug fixture: ${reachability.debugFixture.qaId}; coverage=${reachability.debugFixture.coverageKind ?? "debug_fixture"}.`,
+        ]
+      : []),
+  ];
+}
+
 function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
   const generatedObjects = Array.isArray(manifest.generatedObjects)
     ? manifest.generatedObjects
@@ -707,6 +730,7 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   }
 
   lines.push(...fingerprintDebugLines(manifest));
+  lines.push(...reachabilityDebugLines(manifest));
 
   lines.push(...operationDebugLines(manifest));
   lines.push(...generatedObjectDebugLines(manifest));
