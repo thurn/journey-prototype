@@ -51,10 +51,10 @@ compose those effects.
 
 ### 1. Fixed Generated Objects Appear In Natural Generation
 
-**Status:** Error.
+**Status:** Fixed.
 
-`generatedObjectDefinition()` returns exactly one object for each generated
-object kind:
+The original implementation made `generatedObjectDefinition()` return exactly
+one object for each generated object kind:
 
 - `Rain Lantern` card in
   [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L22);
@@ -65,27 +65,30 @@ object kind:
 - `Glass Transfiguration` in
   [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L128).
 
-This would be fine as a debug fixture. It is not limited to debug fixtures:
+That was fine as a debug fixture, but it was not limited to debug fixtures:
 `naturalGeneratedObjectKind()` gates generated objects into normal shapes in
 [`debugPayloadRouting.ts`](../src/journey/fillers/debugPayloadRouting.ts#L127),
 and the builder substitutes those options in
 [`builder.ts`](../src/journey/fillers/builder.ts#L185).
 
-The result is a procedural generation failure: "generated object" often means
+The result was a procedural generation failure: "generated object" often meant
 "choose one canned object definition." The status example, "For the next 3
 battles, the first card you purge each battle returns as a temporary copy for
 that battle," is especially clear. The manifest supports generated object
 kind, lifetime, duration, references, payload, and value metadata, but the rules
-text and identity are static.
+text and identity were static.
 
 **Compelling justification:** Strong for forced QA payloads; weak for natural
 generation. Natural generation should either build these objects from reusable
 rule fragments or sample from a data-backed/generated-object catalog with enough
 variation that the object is not a single authored event.
 
-**Proposed fix to remove hardcoded content:** Replace the one-definition-per-kind
-lookup with a generated-object catalog or builder that samples identity, rules,
-duration, lifetime, references, and value metadata from reusable fragments.
+**Resolution:** Natural generation now routes manifest-local generated objects
+through a deterministic reusable-fragment builder. The builder samples identity,
+rules, duration, lifetime, real TOML-backed card or Dreamsign references, value
+metadata, and validation notes per generated object kind, stage, shape, seed, and
+content version. Forced `generated_object` debug payloads still use stable
+fixture definitions so QA commands and compatibility tests remain valid.
 
 ### 2. Generic Delayed Shapes Use Text Promises Instead Of Hook Contracts
 

@@ -6,6 +6,7 @@ import {
 } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
+import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type {
   GeneratedObjectDefinition,
@@ -23,6 +24,7 @@ import {
   buildValidationReport,
   validateJourneyManifest,
 } from "../src/journey/validate/index.js";
+import { validateGeneratedObjectDefinitions } from "../src/journey/validate/metadataReferences.js";
 import { buildJourneyContext } from "../src/quest/context.js";
 import { createInitialJourneyState } from "../src/quest/init.js";
 import {
@@ -824,6 +826,61 @@ describe("generateNextJourney", () => {
     expect(earlyGenerated).toBeLessThanOrEqual(1);
     expect(lateGenerated).toBeGreaterThan(earlyGenerated);
     expect(lateGenerated).toBeLessThanOrEqual(3);
+  });
+
+  it("builds natural generated objects from deterministic reusable fragments", async () => {
+    const journeyContext = await context("natural-generated-object-fragments");
+    const cards = journeyContext.content.cards
+      .slice(0, 16)
+      .map((card) => ({ id: card.id, name: card.name }));
+    const dreamsigns = journeyContext.content.dreamsigns
+      .slice(0, 16)
+      .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name }));
+
+    for (const kind of [
+      "card",
+      "dreamsign",
+      "status",
+      "transfiguration",
+    ] satisfies GeneratedObjectDefinition["generatedObjectKind"][]) {
+      const definitions = Array.from({ length: 48 }, (_, index) =>
+        buildGeneratedObjectDefinition({
+          kind,
+          drawContext: {
+            seed: `natural-generated-${kind}-${index}`,
+            contentVersion: journeyContext.contentVersion,
+            rootJourneyIndex: 0,
+          },
+          shapeId: "one_target_many_operations",
+          stage: "late",
+          cards,
+          dreamsigns,
+        }),
+      );
+      const referenceSignatures = new Set(
+        definitions.map((definition) => stableStringify(definition.references)),
+      );
+
+      expect(new Set(definitions.map((definition) => definition.name)).size).toBeGreaterThan(1);
+      expect(new Set(definitions.map((definition) => definition.rulesText)).size).toBeGreaterThan(1);
+      expect(new Set(definitions.map((definition) => definition.lifetime)).size).toBeGreaterThan(1);
+      expect(new Set(definitions.map((definition) => definition.duration?.label ?? "none")).size).toBeGreaterThan(1);
+      expect(new Set(definitions.map((definition) => definition.valueEstimate.convertedEssence)).size).toBeGreaterThan(1);
+      expect(referenceSignatures.size).toBeGreaterThan(1);
+
+      for (const definition of definitions) {
+        expect(definition.generatedObjectId).toMatch(/^generated-[a-z]+-[a-z0-9-]+$/u);
+        expect(definition.tags).toContain("journey-only");
+        expect(definition.tags).toContain("shape-one_target_many_operations");
+        expect(definition.payload.generatedBy).toBe("natural_generated_object_builder");
+        expect(
+          validateGeneratedObjectDefinitions(
+            { generatedObjects: [definition] } as JourneyManifest,
+            journeyContext,
+          ),
+        ).toEqual({ ok: true });
+      }
+    }
   });
 
   slowIt("samples generated-object natural selection rates across a wider deterministic batch", async () => {

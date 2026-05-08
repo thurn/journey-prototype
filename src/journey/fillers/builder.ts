@@ -106,12 +106,30 @@ function completeDecisionTreeFill(
 
 function generatedObjectsFor(
   generatedKind: GeneratedObjectDefinition["generatedObjectKind"] | undefined,
+  args: BuildArgs,
+  sources: {
+    cards: ReturnType<typeof selectedCardTargets>;
+    dreamsigns: ReturnType<typeof selectedDreamsignTargets>;
+  },
 ): GeneratedObjectDefinition[] {
   if (!generatedKind) {
     return [];
   }
 
-  return [generatedObjectDefinition(generatedKind)];
+  return [
+    generatedObjectDefinition(
+      args.debugPayload
+        ? { kind: generatedKind, fixture: true }
+        : {
+            kind: generatedKind,
+            drawContext: args.drawContext,
+            shapeId: args.shapeId,
+            stage: args.stage,
+            cards: sources.cards,
+            dreamsigns: sources.dreamsigns,
+          },
+    ),
+  ];
 }
 
 function randomRevealRollWagerFor(args: BuildArgs): RandomRevealRollWagerFill {
@@ -544,7 +562,10 @@ export function buildConservativeJourneyForShape(
   const generatedKind =
     generatedObjectVariant(args.debugPayload) ??
     naturalGeneratedObjectKind(args);
-  const generatedObjects = generatedObjectsFor(generatedKind);
+  const generatedObjects = generatedObjectsFor(generatedKind, args, {
+    cards: selectedCards,
+    dreamsigns: selectedDreamsigns,
+  });
   const randomRevealRollWager = randomRevealRollWagerFor(args);
   const filledOptions = selectFilledOptions({
     build: args,
