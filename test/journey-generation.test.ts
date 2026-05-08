@@ -3167,8 +3167,7 @@ describe("generateNextJourney", () => {
       expect(operation.rewardOperations).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            operationKind: "reward",
-            role: "reward",
+            operationKind: expect.stringMatching(/^(reward|burden|route_edit|status)$/u),
             visibility: "precommitted",
           }),
         ]),
@@ -4038,7 +4037,7 @@ describe("generateNextJourney", () => {
             label: expect.any(String),
           }),
           controlledScene: expect.objectContaining({
-            sceneKind: "reward",
+            sceneKind: expect.stringMatching(/^(reward|cost|transformation|trade|return)$/u),
             label: expect.any(String),
           }),
           visibilityPolicy: expect.objectContaining({
@@ -4069,7 +4068,7 @@ describe("generateNextJourney", () => {
             policyKind: expect.any(String),
           }),
           controlledScene: expect.objectContaining({
-            sceneKind: "reward",
+            sceneKind: expect.stringMatching(/^(reward|cost|transformation|trade|return)$/u),
           }),
           visibilityPolicy: expect.objectContaining({
             outcomeVisibility: "visible",
@@ -4229,8 +4228,9 @@ describe("generateNextJourney", () => {
         expect.objectContaining({
           kind: "delayed_hook_contract",
           triggerSelector: expect.objectContaining({
-            triggerKind: expect.stringMatching(/^(battle|victory)$/u),
-            count: 1,
+            triggerKind: expect.stringMatching(
+              /^(battle|victory|each_battle|dreamscape|site_visit|named_card_play|dreamsign_trigger|card_added|essence_payment|future_shop|future_dream_journey)$/u,
+            ),
           }),
           rewardMetadata: expect.objectContaining({
             expectedConvertedEssence: expect.any(Number),
@@ -4262,19 +4262,28 @@ describe("generateNextJourney", () => {
     expect(manifest.options.every((option) => option.triggers.length === 1)).toBe(
       true,
     );
-    expect(manifest.options.some((option) => option.costs.length > 0)).toBe(true);
-    expect(manifest.options.some((option) => option.burdens.length > 0)).toBe(
-      true,
-    );
+    expect(
+      manifest.precommitted.operations?.some((operation) =>
+        operation.rewardOperations?.some((rewardOperation) =>
+          rewardOperation.operationKind === "burden" ||
+          rewardOperation.operationKind === "route_edit" ||
+          rewardOperation.operationKind === "status" ||
+          rewardOperation.operationKind === "reward"
+        )
+      ),
+    ).toBe(true);
     expect(manifest.options.flatMap((option) => option.triggers)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: "delayed_hook_contract",
           triggerSelector: expect.objectContaining({
-            triggerKind: "dreamscape",
-            count: 1,
+            triggerKind: expect.stringMatching(
+              /^(battle|victory|each_battle|dreamscape|site_visit|named_card_play|dreamsign_trigger|card_added|essence_payment|future_shop|future_dream_journey)$/u,
+            ),
           }),
-          controlledScene: expect.objectContaining({ sceneKind: "reward" }),
+          controlledScene: expect.objectContaining({
+            sceneKind: expect.stringMatching(/^(reward|cost|transformation|trade|return)$/u),
+          }),
         }),
       ]),
     );
@@ -4304,6 +4313,241 @@ describe("generateNextJourney", () => {
       manifest.options[0]?.netConvertedEssence ?? 0,
     );
     expect(manifest.precommitted.delayed).toHaveLength(1);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("reaches the expanded delayed hook trigger catalog through normal delayed shapes", async () => {
+    const content = await loadContent(process.cwd());
+    const seen = new Set<string>();
+    const shapeIds: JourneyShapeId[] = [
+      "now_vs_later",
+      "reward_after_trigger",
+      "commit_now_future_payoff",
+    ];
+
+    for (let index = 0; index < 60; index += 1) {
+      const journeyContext = contextFromContent(content, `s${index}`);
+
+      for (const shapeId of shapeIds) {
+        const manifest = fillForShape(shapeId, journeyContext);
+
+        for (const delayed of manifest.precommitted.delayed ?? []) {
+          const triggerKind =
+            typeof delayed === "object" &&
+            delayed !== null &&
+            "triggerSelector" in delayed &&
+            typeof delayed.triggerSelector === "object" &&
+            delayed.triggerSelector !== null &&
+            "triggerKind" in delayed.triggerSelector
+              ? delayed.triggerSelector.triggerKind
+              : undefined;
+
+          if (typeof triggerKind === "string") {
+            seen.add(triggerKind);
+          }
+        }
+
+        expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({
+          ok: true,
+        });
+      }
+    }
+
+    expect(seen).toEqual(
+      new Set([
+        "battle",
+        "victory",
+        "each_battle",
+        "dreamscape",
+        "site_visit",
+        "named_card_play",
+        "dreamsign_trigger",
+        "card_added",
+        "essence_payment",
+        "future_shop",
+        "future_dream_journey",
+      ]),
+    );
+  });
+
+  it("validates Sleeping Contract as an immediate named reward plus after-two-victories named payoff", async () => {
+    const journeyContext = await context("sleeping-contract");
+    const manifest = fillForShape("now_vs_later", journeyContext);
+    const delayedOperation = manifest.precommitted.operations?.find(
+      (operation) => operation.operationKind === "delayed_hook",
+    );
+
+    expect(manifest.options[0]?.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          rewardKind: "dreamsign_gain",
+          targetSelector: expect.objectContaining({
+            names: ["Dead Rat"],
+          }),
+        }),
+      ]),
+    );
+    expect(delayedOperation).toMatchObject({
+      triggerSelector: expect.objectContaining({
+        triggerKind: "victory",
+        count: 2,
+      }),
+      rewardOperations: expect.arrayContaining([
+        expect.objectContaining({
+          operationKind: "reward",
+          rewardKind: "dreamsign_gain",
+          targetSelector: expect.objectContaining({
+            names: ["Essence Vial"],
+          }),
+        }),
+      ]),
+    });
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("validates Winchime Promise as site-visit triggers with named Dreamsign rewards", async () => {
+    const journeyContext = await context("s0");
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const delayedOperations = manifest.precommitted.operations?.filter(
+      (operation) => operation.operationKind === "delayed_hook",
+    ) ?? [];
+
+    expect(delayedOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          triggerSelector: expect.objectContaining({
+            triggerKind: "site_visit",
+            siteType: "Purge",
+          }),
+          rewardOperations: expect.arrayContaining([
+            expect.objectContaining({
+              rewardKind: "dreamsign_gain",
+              targetSelector: expect.objectContaining({ names: ["Dragon Egg"] }),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          triggerSelector: expect.objectContaining({
+            triggerKind: "site_visit",
+            siteType: "Transfiguration",
+          }),
+          rewardOperations: expect.arrayContaining([
+            expect.objectContaining({
+              rewardKind: "dreamsign_gain",
+              targetSelector: expect.objectContaining({ names: ["Eye Amulet"] }),
+            }),
+          ]),
+        }),
+      ]),
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("validates Promise Card as named card and Dreamsign counters with payoff operations", async () => {
+    const journeyContext = await context("s4");
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const delayedOperations = manifest.precommitted.operations?.filter(
+      (operation) => operation.operationKind === "delayed_hook",
+    ) ?? [];
+
+    expect(delayedOperations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          triggerSelector: expect.objectContaining({
+            triggerKind: "named_card_play",
+            cardName: "Moonlit Voyage",
+            count: 4,
+          }),
+          rewardOperations: expect.arrayContaining([
+            expect.objectContaining({
+              rewardKind: "resource",
+              resourceSemantics: expect.objectContaining({
+                resource: "essence",
+                amount: 120,
+              }),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          triggerSelector: expect.objectContaining({
+            triggerKind: "dreamsign_trigger",
+            dreamsignName: "Ginger Root",
+            count: 3,
+          }),
+          rewardOperations: expect.arrayContaining([
+            expect.objectContaining({
+              rewardKind: "resource",
+              resourceSemantics: expect.objectContaining({
+                resource: "omens",
+                amount: 2,
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("validates Waking Cache as named card rewards with delayed Bane obligations", async () => {
+    const journeyContext = await context("waking-cache");
+    const manifest = fillForShape("commit_now_future_payoff", journeyContext);
+
+    expect(manifest.options.map((option) =>
+      option.operations.find((operation) =>
+        operation.operationKind === "reward" && operation.rewardKind === "card_gain"
+      )?.targetSelector,
+    )).toEqual([
+      expect.objectContaining({ names: ["Beacon of Tomorrow"] }),
+      expect.objectContaining({ names: ["Scrap Reclaimer"] }),
+      expect.objectContaining({ names: ["Evacuation Enforcer"] }),
+    ]);
+    expect(
+      manifest.precommitted.operations?.map((operation) => ({
+        triggerKind: operation.triggerSelector?.triggerKind,
+        rewardOperations: operation.rewardOperations,
+      })),
+    ).toEqual([
+      expect.objectContaining({
+        triggerKind: "battle",
+        rewardOperations: expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "burden",
+            burdenKind: "bane_delayed",
+            targetSelector: expect.objectContaining({ names: ["Despair"] }),
+          }),
+        ]),
+      }),
+      expect.objectContaining({
+        triggerKind: "battle",
+        rewardOperations: expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "burden",
+            burdenKind: "bane_delayed",
+            targetSelector: expect.objectContaining({ names: ["Nightmare"] }),
+          }),
+        ]),
+      }),
+      expect.objectContaining({
+        triggerKind: "battle",
+        rewardOperations: expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "burden",
+            burdenKind: "bane_delayed",
+            targetSelector: expect.objectContaining({ names: ["Oblivion"] }),
+          }),
+        ]),
+      }),
+    ]);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
@@ -7315,6 +7559,39 @@ describe("validateJourneyManifest", () => {
       ok: false,
       rule: "missing_precommitted_outcomes",
     });
+  });
+
+  it("rejects delayed hook contracts missing selector, duration, expiration, or controlled scene metadata", async () => {
+    const journeyContext = await context("delayed-hook-required-fields");
+    const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const fields = [
+      ["triggerSelector", "invalid_hook_trigger"],
+      ["duration", "invalid_hook_duration"],
+      ["expiration", "invalid_hook_expiration"],
+      ["controlledScene", "invalid_hook_resolution"],
+    ] as const;
+
+    for (const [field, rule] of fields) {
+      const invalidHook = {
+        ...(manifest.precommitted.delayed?.[0] as Record<string, unknown>),
+      };
+      delete invalidHook[field];
+      const invalid: JourneyManifest = {
+        ...manifest,
+        precommitted: refreshPrecommittedOperations({
+          ...manifest.precommitted,
+          delayed: [
+            invalidHook,
+            ...(manifest.precommitted.delayed ?? []).slice(1),
+          ],
+        }),
+      };
+
+      expect(validateJourneyManifest(invalid, journeyContext), field).toMatchObject({
+        ok: false,
+        rule,
+      });
+    }
   });
 
   it("keeps route edits manifest-only and requires committed route metadata", async () => {

@@ -79,7 +79,9 @@ import {
   treeBuilderTools,
 } from "./shared.js";
 import {
+  delayedHookFillFromExpanded,
   delayedRewardHookFill,
+  expandedDelayedHookFills,
   pairedReturnHookFill,
 } from "./hookPayloads.js";
 import { randomVisibility } from "./randomPayloads.js";
@@ -1541,6 +1543,50 @@ export function fillOptions(
       };
     }
     case "now_vs_later": {
+      const expandedHooks = expandedDelayedHookFills({
+        context,
+        drawContext,
+        label: `${shapeId}:expanded`,
+        stage,
+      });
+      const namedFuture = expandedHooks.find((entry) =>
+        entry.key === "victory:two:named-dreamsign"
+      );
+      const deadRat = context.content.dreamsigns.find((entry) =>
+        entry.name === "Dead Rat"
+      );
+      if (namedFuture && deadRat) {
+        const immediateEffect = namedDreamsignPayload(
+          {
+            kind: "dreamsign_gain",
+            dreamsign: deadRat,
+            source: "catalog",
+          },
+          context,
+        );
+        const delayedHook = delayedHookFillFromExpanded({
+          shapeId,
+          optionNumber: 2,
+          fill: namedFuture,
+        });
+
+        return {
+          options: [
+            option({
+              number: 1,
+              text: `Gain {${deadRat.name}}.`,
+              effects: [immediateEffect],
+              targets: [dreamsignExactTarget(deadRat, "catalog")],
+              effect: valueDreamsignOperation("gain", { tideOverlap: false }),
+            }),
+            delayedHook.option,
+          ],
+          precommitted: {
+            delayed: [delayedHook.precommit],
+          },
+        };
+      }
+
       const reward = rewardSlots(
         context,
         drawContext,
@@ -1580,27 +1626,45 @@ export function fillOptions(
       };
     }
     case "reward_after_trigger": {
-      const rewards = rewardSlots(
+      const expandedHooks = expandedDelayedHookFills({
         context,
         drawContext,
-        `${shapeId}:trigger-rewards`,
-      ).filter((entry) => entry.routeEffects === undefined);
-      const timings = timingSlots(drawContext, `${shapeId}:timing`).filter(
-        (entry) => entry.key === "next-battle" || entry.key === "next-victory",
+        label: `${shapeId}:expanded`,
+        stage,
+      });
+      const hookFamily = pickSequentialVariant(
+        drawContext,
+        `${shapeId}:hook-family`,
+        ["expanded_pair", "site_visit_pair", "counter_pair"] as const,
       );
-      const firstTiming = timings[0]!;
-      const secondTiming = timings[1] ?? timings[0]!;
-      const firstHook = delayedRewardHookFill({
+      const selectedHooks = hookFamily === "site_visit_pair"
+        ? [
+            expandedHooks.find((entry) =>
+              entry.key === "site-visit:purge:named-dreamsign"
+            ),
+            expandedHooks.find((entry) =>
+              entry.key === "site-visit:transfiguration:named-dreamsign"
+            ),
+          ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
+        : hookFamily === "counter_pair"
+          ? [
+              expandedHooks.find((entry) =>
+                entry.key === "named-card-play:four:essence"
+              ),
+              expandedHooks.find((entry) =>
+                entry.key === "dreamsign-trigger:three:omens"
+              ),
+            ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
+          : expandedHooks;
+      const firstHook = delayedHookFillFromExpanded({
         shapeId,
         optionNumber: 1,
-        timing: firstTiming,
-        reward: rewards[0]!,
+        fill: selectedHooks[0] ?? expandedHooks[0]!,
       });
-      const secondHook = delayedRewardHookFill({
+      const secondHook = delayedHookFillFromExpanded({
         shapeId,
         optionNumber: 2,
-        timing: secondTiming,
-        reward: rewards[1] ?? rewards[0]!,
+        fill: selectedHooks[1] ?? selectedHooks[0] ?? expandedHooks[1] ?? expandedHooks[0]!,
       });
 
       return {
@@ -1771,6 +1835,39 @@ export function fillOptions(
       };
     }
     case "commit_now_future_payoff": {
+      const expandedHooks = expandedDelayedHookFills({
+        context,
+        drawContext,
+        label: `${shapeId}:expanded`,
+        stage,
+      });
+      const delayedBaneHooks = [
+        "battle:next:delayed-bane",
+        "battle:next:delayed-nightmare",
+        "battle:next:delayed-oblivion",
+      ].flatMap((key) => {
+        const fill = expandedHooks.find((entry) => entry.key === key);
+
+        return fill ? [fill] : [];
+      });
+
+      if (delayedBaneHooks.length === 3) {
+        const hooks = delayedBaneHooks.map((fill, index) =>
+          delayedHookFillFromExpanded({
+            shapeId,
+            optionNumber: index + 1,
+            fill,
+          })
+        );
+
+        return {
+          options: hooks.map((entry) => entry.option),
+          precommitted: {
+            delayed: hooks.map((entry) => entry.precommit),
+          },
+        };
+      }
+
       const rewards = rewardSlots(
         context,
         drawContext,

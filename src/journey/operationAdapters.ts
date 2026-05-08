@@ -1362,6 +1362,14 @@ function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
   const contract = delayedHookContractFromPayload(value);
   const triggerSelector = contract?.triggerSelector ?? hookTriggerSelectorFromPayload(value);
   const kind = triggerSelector?.triggerKind ?? legacyKind(value) ?? "delayed_trigger";
+  const rewardOperations = rewardPayloadsFromDelayedPrecommit(value)
+    .map((reward, index) =>
+      adaptHookResolutionPayload(reward, `${operationId}:reward:${index + 1}`)
+    );
+  const payload = clonePayload(value);
+  if (rewardOperations.length > 0) {
+    payload.rewardOperations = rewardOperations;
+  }
 
   return {
     operationId,
@@ -1390,12 +1398,18 @@ function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
       : isRecord(value) && typeof value.hookBudgetCost === "number"
         ? { hookBudgetCost: value.hookBudgetCost }
         : {}),
+    ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
     legacyKind: kind,
-    payload: clonePayload(value),
+    payload,
   };
 }
 
-function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
+function adaptRouteEdit(
+  value: unknown,
+  operationId: string,
+  convertedEssence?: number,
+  visibility: OperationVisibility = "visible",
+): JourneyOperation {
   const kind = legacyKind(value);
   const payload = clonePayload(value);
   const timing = isRecord(value) && typeof value.timing === "string" ? value.timing : "";
@@ -1423,7 +1437,7 @@ function adaptRouteEdit(value: unknown, operationId: string, convertedEssence?: 
     operationKind: "route_edit",
     role: "route_edit",
     editKind,
-    visibility: "visible",
+    visibility,
     timing: {
       timingKind: "route",
       scope: isRecord(value) ? routeScopeFromPayload(value) : "current_dreamscape",
@@ -1472,6 +1486,40 @@ function rewardPayloadsFromDelayedPrecommit(value: unknown): unknown[] {
   }
 
   return Array.isArray(value.reward) ? value.reward : [value.reward];
+}
+
+function isRouteEditPayload(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const kind = legacyKind(value) ?? "";
+
+  return kind.startsWith("route_") || typeof value.routeOperationKind === "string";
+}
+
+function adaptHookResolutionPayload(
+  value: unknown,
+  operationId: string,
+): JourneyOperation {
+  if (isRouteEditPayload(value)) {
+    return adaptRouteEdit(value, operationId, undefined, "precommitted");
+  }
+
+  if (
+    isRecord(value) &&
+    (
+      legacyKind(value) === "bane_gain" ||
+      (
+        legacyKind(value) === "dreamwell_modifier" &&
+        value.cardRole === "penalty"
+      )
+    )
+  ) {
+    return adaptBurden(value, operationId, undefined, "precommitted");
+  }
+
+  return adaptEffect(value, operationId, undefined, "precommitted");
 }
 
 function hookTriggerSelectorFromPayload(value: unknown): HookTriggerSelector | undefined {
@@ -1541,9 +1589,7 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     .map((reward, index) => {
       const nestedOperationId = `${operationId}:reward:${index + 1}`;
 
-      return isRecord(reward) && reward.kind === "dreamwell_modifier" && reward.cardRole === "penalty"
-        ? adaptBurden(reward, nestedOperationId, undefined, "precommitted")
-        : adaptEffect(reward, nestedOperationId, undefined, "precommitted");
+      return adaptHookResolutionPayload(reward, nestedOperationId);
     });
   const payload = clonePayload(value);
   delete payload.reward;
