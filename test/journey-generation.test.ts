@@ -1868,6 +1868,188 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("generates Shop Courtesy as reroll, purchase, and pre-shop resource modifiers in normal timed windows", async () => {
+    const seen = {
+      freeRerolls: false,
+      freePurchase: false,
+      preShopRestore: false,
+    };
+
+    for (let index = 0; index < 30; index += 1) {
+      const journeyContext = await context(`m14-shop-courtesy-${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "mid",
+        forcedShapeId: "timed_window_menu",
+      });
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of manifest.options.flatMap((journeyOption) =>
+        journeyOption.operations
+      )) {
+        if (
+          operation.operationKind !== "reward" ||
+          operation.rewardKind !== "shop_economy_modifier"
+        ) {
+          continue;
+        }
+
+        const payload = operation.payload;
+        seen.freeRerolls ||= payload.economyOperationKind === "free_rerolls";
+        seen.freePurchase ||= payload.economyOperationKind === "free_next_purchases" ||
+          payload.economyOperationKind === "first_purchase_free";
+        seen.preShopRestore ||=
+          payload.economyOperationKind === "next_shop_essence_restore" &&
+          manifest.options.some((option) =>
+            option.operations.some(
+              (nested) =>
+                nested.operationKind === "reward" &&
+                nested.rewardKind === "resource" &&
+                nested.payload.kind === "resource_restore_to_maximum" &&
+                nested.payload.shopEconomyTiming === "before_next_shop",
+            )
+          );
+      }
+
+      if (seen.freeRerolls && seen.freePurchase && seen.preShopRestore) {
+        return;
+      }
+    }
+
+    expect(seen).toEqual({
+      freeRerolls: true,
+      freePurchase: true,
+      preShopRestore: true,
+    });
+  });
+
+  it("generates Spoiled Victory as next-victory reward replacement statuses without granting the replacement immediately", async () => {
+    const seen = new Set<string>();
+
+    for (let index = 0; index < 20; index += 1) {
+      const journeyContext = await context(`m14-spoiled-victory-${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "late",
+        forcedShapeId: "random_allocation",
+      });
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const optionEntry of manifest.options) {
+        const statusOperations = optionEntry.operations.filter(
+          (operation) =>
+            operation.operationKind === "status" &&
+            operation.payload.ruleMutationKind ===
+              "next_victory_reward_replacement",
+        );
+
+        for (const operation of statusOperations) {
+          seen.add(String(operation.payload.replacementKind));
+          expect(operation.payload).toMatchObject({
+            statusScope: "reward",
+            duration: "one_time",
+            rewardTrigger: "next_victory",
+            replacedRewardKind: "card_rewards",
+          });
+          expect(
+            optionEntry.operations.some(
+              (nested) =>
+                nested.operationKind === "reward" &&
+                (nested.rewardKind === "dreamsign_draft" ||
+                  nested.rewardKind === "resource"),
+            ),
+          ).toBe(false);
+          expect(
+            optionEntry.operations.some(
+              (nested) => nested.operationKind === "route_edit",
+            ),
+          ).toBe(false);
+        }
+      }
+
+      if (
+        seen.has("dreamsign_draft") &&
+        seen.has("resource") &&
+        seen.has("route_reward")
+      ) {
+        return;
+      }
+    }
+
+    expect([...seen].sort()).toEqual([
+      "dreamsign_draft",
+      "resource",
+      "route_reward",
+    ]);
+  });
+
+  it("generates Sealed Hands as persistent prohibition status costs paired with compensating rewards", async () => {
+    const seen = new Set<string>();
+
+    for (let index = 0; index < 40; index += 1) {
+      const journeyContext = await context(`m14-sealed-hands-${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "late",
+        forcedShapeId: "single_offer",
+      });
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const optionEntry of manifest.options) {
+        const prohibition = optionEntry.operations.find(
+          (operation) =>
+            operation.operationKind === "status" &&
+            operation.role === "burden" &&
+            operation.payload.ruleMutationKind === "persistent_prohibition",
+        );
+
+        if (!prohibition) {
+          continue;
+        }
+
+        seen.add(String(prohibition.payload.prohibitionKind));
+        expect(prohibition.payload).toMatchObject({
+          statusScope: "quest",
+          duration: "persistent",
+          polarity: "negative",
+        });
+        expect(
+          optionEntry.operations.some(
+            (operation) =>
+              operation.role === "reward" &&
+              (operation.operationKind === "reward" ||
+                operation.operationKind === "route_edit" ||
+                operation.operationKind === "status"),
+          ),
+        ).toBe(true);
+        expect(optionEntry.effectConvertedEssence).toBeGreaterThanOrEqual(300);
+      }
+
+      if (
+        seen.has("resource_gain") &&
+        seen.has("deck_modification") &&
+        seen.has("card_transfiguration")
+      ) {
+        return;
+      }
+    }
+
+    expect([...seen].sort()).toEqual([
+      "card_transfiguration",
+      "deck_modification",
+      "resource_gain",
+    ]);
+  });
+
   it("rejects incoherent route and status payload contracts with stable rule IDs", async () => {
     const journeyContext = await context("route-status-validation");
     const routePayload = {
@@ -1985,6 +2167,39 @@ describe("generateNextJourney", () => {
 
     expect(
       validateJourneyManifest(invalidProhibitionManifest, journeyContext),
+    ).toMatchObject({
+      ok: false,
+      rule: "incoherent_rule_mutation",
+    });
+
+    const invalidPersistentProhibition = {
+      ...(statusManifest.options[0]!.effects[0] as Record<string, unknown>),
+      kind: "status_persistent_prohibition",
+      statusName: "Broken Seal",
+      statusScope: "battle",
+      duration: "next_battle",
+      ruleMutationKind: "persistent_prohibition",
+      polarity: "negative",
+      prohibitionKind: "resource_gain",
+      prohibitedAction: "gain_essence",
+      resource: "essence",
+    };
+    const invalidPersistentProhibitionManifest: JourneyManifest = {
+      ...statusManifest,
+      options: [
+        refreshOptionOperations({
+          ...statusManifest.options[0]!,
+          effects: [invalidPersistentProhibition],
+        }),
+        ...statusManifest.options.slice(1),
+      ],
+    };
+
+    expect(
+      validateJourneyManifest(
+        invalidPersistentProhibitionManifest,
+        journeyContext,
+      ),
     ).toMatchObject({
       ok: false,
       rule: "incoherent_rule_mutation",
@@ -4447,7 +4662,16 @@ describe("generateNextJourney", () => {
 
   it("can procedurally build Eight Windows as take-any-number predicate drafts plus random event card gain", async () => {
     const content = await loadContent(process.cwd());
-    const evidence = Array.from({ length: 200 }, (_, index) => {
+    let evidence:
+      | {
+        manifest: JourneyManifest;
+        journeyContext: ReturnType<typeof contextFromContent>;
+        hasPredicateDraft: boolean;
+        hasRandomEventGain: boolean;
+      }
+      | undefined;
+
+    for (let index = 0; index < 200; index += 1) {
       const journeyContext = contextFromContent(
         content,
         `eight-windows-procedural-${index}`,
@@ -4475,8 +4699,16 @@ describe("generateNextJourney", () => {
           operation.payload.count === 2,
       );
 
-      return { manifest, journeyContext, hasPredicateDraft, hasRandomEventGain };
-    }).find((entry) => entry.hasPredicateDraft && entry.hasRandomEventGain);
+      if (hasPredicateDraft && hasRandomEventGain) {
+        evidence = {
+          manifest,
+          journeyContext,
+          hasPredicateDraft,
+          hasRandomEventGain,
+        };
+        break;
+      }
+    }
 
     expect(evidence).toBeDefined();
     expect(evidence?.manifest.shapeId).toBe("take_any_number");

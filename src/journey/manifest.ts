@@ -114,7 +114,11 @@ export type OperationValueMetadata = {
       | "dreamwell_count"
       | "dreamwell_card_role"
       | "dreamwell_phase_selector"
-      | "dreamwell_player_visibility";
+      | "dreamwell_player_visibility"
+      | "status_scope"
+      | "status_rule_mutation"
+      | "status_prohibition"
+      | "status_reward_replacement";
     label: string;
     description: string;
     amount?: number;

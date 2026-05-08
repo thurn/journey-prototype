@@ -1061,52 +1061,78 @@ function shopWindowOptions(window: TimedWindow, drawContext: DrawContext): Timed
   };
   const candidates: TimedWindowEntry[] = [
     {
-      key: "reroll-discount",
-      text: `${window.phrase}, rerolls cost 1 fewer omen.`,
+      key: "free-rerolls",
+      text: `${window.phrase}, Shop rerolls are free.`,
       effects: [
         {
           ...shopPayload({
-            kind: "reroll_discount",
+            kind: "free_rerolls",
             scope: "future_shops",
             duration: window.duration,
-            amount: 1,
+            amount: 0,
             count: window.count,
           }),
           ...metadata(window, {
             timedWindowScope: "shop",
             affectedObjectClass: "shop_rerolls",
-            windowModifier: "omen_discount",
-            amount: 1,
+            windowModifier: "free_rerolls",
+            amount: window.count,
             polarity: "positive",
-            windowValue: valueForWindow(135, window),
+            windowValue: valueForWindow(145, window),
           }),
         },
       ],
-      effect: valueForWindow(135, window),
+      effect: valueForWindow(145, window),
     },
     {
-      key: "purchase-discount",
-      text: `${window.phrase}, your first purchase costs ${discount} less essence.`,
+      key: "next-purchases-free",
+      text: `The next ${window.count} items you purchase from shops are free.`,
       effects: [
         {
           ...shopPayload({
-            kind: "first_purchase_discount",
-            scope: "future_shops",
-            duration: window.duration,
-            amount: discount,
+            kind: "free_next_purchases",
+            scope: "next_purchases",
+            duration: `next ${window.count} purchases`,
             count: window.count,
+            counterKind: "purchase_count",
+            purchaseCount: window.count,
           }),
           ...metadata(window, {
             timedWindowScope: "shop",
             affectedObjectClass: "shop_purchase",
-            windowModifier: "essence_discount",
-            amount: discount,
+            windowModifier: "free_next_purchases",
+            amount: window.count,
             polarity: "positive",
-            windowValue: valueForWindow(140, window),
+            windowValue: valueForWindow(155, window),
           }),
         },
       ],
-      effect: valueForWindow(140, window),
+      effect: valueForWindow(155, window),
+    },
+    {
+      key: "first-purchase-free",
+      text: `${window.phrase}, the first item you purchase in each shop is free.`,
+      effects: [
+        {
+          ...shopPayload({
+            kind: "first_purchase_free",
+            scope: "future_shops",
+            duration: window.duration,
+            count: window.count,
+            counterKind: "purchase_count",
+            purchaseCount: 1,
+          }),
+          ...metadata(window, {
+            timedWindowScope: "shop",
+            affectedObjectClass: "shop_purchase",
+            windowModifier: "first_purchase_free",
+            amount: window.count,
+            polarity: "positive",
+            windowValue: valueForWindow(150, window),
+          }),
+        },
+      ],
+      effect: valueForWindow(150, window),
     },
     {
       key: "trade-hook",

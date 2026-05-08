@@ -11,6 +11,9 @@ export function shopPayload(args: {
   count?: number;
   siteType?: string;
   hook?: string;
+  counterKind?: "purchase_count";
+  purchaseCount?: number;
+  resource?: "essence" | "omens";
 }): Record<string, unknown> {
   return {
     kind: "shop_economy_modifier",
@@ -23,6 +26,11 @@ export function shopPayload(args: {
     ...(args.siteType ? { siteType: args.siteType } : {}),
     ...(args.hook ? { hook: args.hook } : {}),
     ...(args.hook ? { hookBudgetCost: 1 } : {}),
+    ...(args.counterKind ? { counterKind: args.counterKind } : {}),
+    ...(args.purchaseCount !== undefined
+      ? { purchaseCount: args.purchaseCount }
+      : {}),
+    ...(args.resource ? { resource: args.resource } : {}),
   };
 }
 
@@ -59,17 +67,36 @@ export function statusPayload(args: {
   kind: string;
   statusName: string;
   statusScope: "quest" | "battle" | "shop" | "dreamwell" | "reward";
-  duration: "one_time" | "next_battle" | "next_3_battles" | "persistent";
+  duration:
+    | "one_time"
+    | "next_battle"
+    | "next_3_battles"
+    | "next_3_dreamscapes"
+    | "persistent";
   ruleMutationKind: string;
   polarity?: "positive" | "negative" | "neutral";
   amount?: number;
   replacement?: string;
+  replacementKind?: "dreamsign_draft" | "resource" | "route_reward";
+  replacementPayload?: unknown;
+  replacedRewardKind?: "card_rewards" | "battle_rewards" | "essence_site_rewards";
+  rewardTrigger?: "next_victory" | "battle" | "essence_site";
+  resource?: "essence" | "omens";
   exactDeckSize?: number;
+  minDeckSize?: number;
   rerollOmenCap?: number;
   cappedAction?: "reroll";
   dreamwellRuleKind?: "first_draw_energy";
-  prohibitionKind?: "deck_cut_floor";
-  prohibitedAction?: "voluntary_deck_cut";
+  prohibitionKind?:
+    | "deck_cut_floor"
+    | "resource_gain"
+    | "deck_modification"
+    | "card_transfiguration";
+  prohibitedAction?:
+    | "voluntary_deck_cut"
+    | "gain_essence"
+    | "modify_deck"
+    | "transfigure_cards";
   deckCutFloor?: number;
   affectedPlayer?: "you" | "opponent" | "both_players";
 }): Record<string, unknown> {
@@ -86,9 +113,19 @@ export function statusPayload(args: {
         : args.duration,
     ...(args.amount !== undefined ? { amount: args.amount } : {}),
     ...(args.replacement ? { replacement: args.replacement } : {}),
+    ...(args.replacementKind ? { replacementKind: args.replacementKind } : {}),
+    ...(args.replacementPayload !== undefined
+      ? { replacementPayload: args.replacementPayload }
+      : {}),
+    ...(args.replacedRewardKind
+      ? { replacedRewardKind: args.replacedRewardKind }
+      : {}),
+    ...(args.rewardTrigger ? { rewardTrigger: args.rewardTrigger } : {}),
+    ...(args.resource ? { resource: args.resource } : {}),
     ...(args.exactDeckSize !== undefined
       ? { exactDeckSize: args.exactDeckSize }
       : {}),
+    ...(args.minDeckSize !== undefined ? { minDeckSize: args.minDeckSize } : {}),
     ...(args.rerollOmenCap !== undefined
       ? { rerollOmenCap: args.rerollOmenCap }
       : {}),

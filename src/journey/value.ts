@@ -173,6 +173,20 @@ export const ROUTE_VALUE_CONSTANTS = {
   compoundRouteMinorReward: 30,
 } as const;
 
+export const STATUS_VALUE_CONSTANTS = {
+  nextVictoryRewardReplacement: 320,
+  battleRewardReduction: -120,
+  essenceSiteRewardReduction: -135,
+  persistentProhibition: {
+    gainEssence: -310,
+    modifyDeck: -280,
+    transfigureCards: -220,
+  },
+  deckSizeFloor: -130,
+  exactDeckSizeMandate: -170,
+  largeNamedRewardCompensationBonus: 120,
+} as const;
+
 export const TIMING_AND_RANDOMNESS_VALUE_CONSTANTS = {
   delayedRewardMultiplier: 0.75,
   nextBattleMultiplier: 0.8,
@@ -312,6 +326,7 @@ export const VALUE_MODEL_VALUES = {
   transfigurations: TRANSFIGURATION_VALUE_CONSTANTS,
   cardModification: CARD_MODIFICATION_VALUE_CONSTANTS,
   route: ROUTE_VALUE_CONSTANTS,
+  statuses: STATUS_VALUE_CONSTANTS,
   timingAndRandomness: TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   banes: BANE_VALUE_CONSTANTS,
   resourceEdges: RESOURCE_EDGE_VALUE_CONSTANTS,
@@ -834,6 +849,47 @@ export function valueDreamsignOperation(
     (options.tideOverlap === true
       ? DREAMSIGN_OPERATION_VALUE_CONSTANTS.selectedTideMatchBonus
       : 0),
+  );
+}
+
+export function valueStatusRuleMutation(
+  family:
+    | "next_victory_reward_replacement"
+    | "battle_reward_reduction"
+    | "essence_site_reward_reduction"
+    | "no_essence_gain"
+    | "no_deck_modification"
+    | "no_card_transfiguration"
+    | "deck_size_floor"
+    | "exact_deck_size_mandate",
+  options: { largeNamedReward?: boolean } = {},
+): number {
+  const base = (() => {
+    switch (family) {
+      case "next_victory_reward_replacement":
+        return STATUS_VALUE_CONSTANTS.nextVictoryRewardReplacement;
+      case "battle_reward_reduction":
+        return STATUS_VALUE_CONSTANTS.battleRewardReduction;
+      case "essence_site_reward_reduction":
+        return STATUS_VALUE_CONSTANTS.essenceSiteRewardReduction;
+      case "no_essence_gain":
+        return STATUS_VALUE_CONSTANTS.persistentProhibition.gainEssence;
+      case "no_deck_modification":
+        return STATUS_VALUE_CONSTANTS.persistentProhibition.modifyDeck;
+      case "no_card_transfiguration":
+        return STATUS_VALUE_CONSTANTS.persistentProhibition.transfigureCards;
+      case "deck_size_floor":
+        return STATUS_VALUE_CONSTANTS.deckSizeFloor;
+      case "exact_deck_size_mandate":
+        return STATUS_VALUE_CONSTANTS.exactDeckSizeMandate;
+    }
+  })();
+
+  return roundToNearestFive(
+    base +
+      (base < 0 && options.largeNamedReward === true
+        ? STATUS_VALUE_CONSTANTS.largeNamedRewardCompensationBonus
+        : 0),
   );
 }
 

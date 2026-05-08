@@ -251,7 +251,7 @@ export function fillOptions(
   switch (shapeId) {
     case "random_allocation":
       return {
-        options: rewardSlots(context, drawContext, `${shapeId}:rewards`)
+        options: rewardSlots(context, drawContext, `${shapeId}:rewards`, stage)
           .slice(0, 3)
           .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {},
@@ -1278,6 +1278,7 @@ export function fillOptions(
         context,
         drawContext,
         `${shapeId}:offer-cost`,
+        { includeStatusBurdens: stage === "late" },
       )[0]!;
 
       return {

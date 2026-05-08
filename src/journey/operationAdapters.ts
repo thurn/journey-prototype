@@ -1014,6 +1014,48 @@ function dreamwellMetadataBands(value: PayloadRecord): NonNullable<OperationValu
   return bands;
 }
 
+function statusMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  if (typeof value.statusScope !== "string" && typeof value.ruleMutationKind !== "string") {
+    return [];
+  }
+
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+
+  if (typeof value.statusScope === "string") {
+    bands.push({
+      id: "status_scope",
+      label: value.statusScope,
+      description: "Status value records the rule scope affected by the status.",
+    });
+  }
+
+  if (typeof value.ruleMutationKind === "string") {
+    bands.push({
+      id: "status_rule_mutation",
+      label: value.ruleMutationKind,
+      description: "Status value records which rule is modified or prohibited.",
+    });
+  }
+
+  if (typeof value.prohibitionKind === "string") {
+    bands.push({
+      id: "status_prohibition",
+      label: value.prohibitionKind,
+      description: "Persistent prohibition status value records the prohibited action family.",
+    });
+  }
+
+  if (typeof value.replacementKind === "string") {
+    bands.push({
+      id: "status_reward_replacement",
+      label: value.replacementKind,
+      description: "Reward-replacement status value records the promised replacement reward class.",
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -1028,6 +1070,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...resourceOperationMetadataBands(payload),
       ...battleWindowMetadataBands(payload),
       ...dreamwellMetadataBands(payload),
+      ...statusMetadataBands(payload),
     ];
 
     if (bands.length > 0) {
@@ -1255,6 +1298,10 @@ function adaptBurden(
   convertedEssence?: number,
   visibility: "visible" | "precommitted" = "visible",
 ): JourneyOperation {
+  if (isStatusPayload(value)) {
+    return adaptStatusWithVisibility(value, operationId, convertedEssence, visibility);
+  }
+
   const kind = legacyKind(value);
   const burdenKind = kind === "bane_gain"
     ? isRecord(value) && value.temporary === true

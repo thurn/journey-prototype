@@ -86,8 +86,48 @@ export function validateStatusPayloadContract(payload: Record<string, unknown>):
     return fail("incoherent_rule_mutation", "Status and rule mutations require a rule mutation kind");
   }
 
-  if (payload.ruleMutationKind === "reward_replacement" && typeof payload.replacement !== "string") {
+  if (
+    (payload.ruleMutationKind === "reward_replacement" ||
+      payload.ruleMutationKind === "next_victory_reward_replacement") &&
+    typeof payload.replacement !== "string"
+  ) {
     return fail("incoherent_rule_mutation", "Reward replacement statuses require a replacement");
+  }
+
+  if (
+    payload.ruleMutationKind === "next_victory_reward_replacement" &&
+    (payload.statusScope !== "reward" ||
+      payload.duration !== "one_time" ||
+      payload.rewardTrigger !== "next_victory" ||
+      payload.replacedRewardKind !== "card_rewards" ||
+      (payload.replacementKind !== "dreamsign_draft" &&
+        payload.replacementKind !== "resource" &&
+        payload.replacementKind !== "route_reward"))
+  ) {
+    return fail("incoherent_rule_mutation", "Next-victory reward replacement statuses require a one-time card-reward replacement");
+  }
+
+  if (
+    payload.ruleMutationKind === "battle_reward_reduction" &&
+    (payload.statusScope !== "reward" ||
+      payload.rewardTrigger !== "battle" ||
+      payload.replacedRewardKind !== "battle_rewards" ||
+      typeof payload.amount !== "number" ||
+      payload.amount <= 0)
+  ) {
+    return fail("incoherent_rule_mutation", "Battle reward reductions require reward scope and a positive reduction amount");
+  }
+
+  if (
+    payload.ruleMutationKind === "essence_site_reward_reduction" &&
+    (payload.statusScope !== "reward" ||
+      payload.rewardTrigger !== "essence_site" ||
+      payload.replacedRewardKind !== "essence_site_rewards" ||
+      payload.resource !== "essence" ||
+      typeof payload.amount !== "number" ||
+      payload.amount <= 0)
+  ) {
+    return fail("incoherent_rule_mutation", "Essence-site reward reductions require essence-site scope and a positive essence reduction");
   }
 
   if (
@@ -117,10 +157,30 @@ export function validateStatusPayloadContract(payload: Record<string, unknown>):
   }
 
   if (
-    payload.ruleMutationKind === "deck_size_constraint" &&
+    (payload.ruleMutationKind === "deck_size_constraint" ||
+      payload.ruleMutationKind === "deck_size_floor" ||
+      payload.ruleMutationKind === "exact_deck_size_mandate") &&
     (typeof payload.exactDeckSize !== "number" || payload.exactDeckSize < 1)
   ) {
     return fail("incoherent_rule_mutation", "Deck-size constraints require a positive exact deck size");
+  }
+
+  if (
+    payload.ruleMutationKind === "deck_size_floor" &&
+    (payload.statusScope !== "quest" ||
+      payload.duration !== "persistent" ||
+      typeof payload.minDeckSize !== "number" ||
+      payload.minDeckSize < 1 ||
+      payload.minDeckSize !== payload.exactDeckSize)
+  ) {
+    return fail("incoherent_rule_mutation", "Deck-size floors require a persistent quest floor matching the deck size");
+  }
+
+  if (
+    payload.ruleMutationKind === "exact_deck_size_mandate" &&
+    (payload.statusScope !== "quest" || payload.duration !== "persistent")
+  ) {
+    return fail("incoherent_rule_mutation", "Exact deck-size mandates require persistent quest scope");
   }
 
   if (
@@ -134,13 +194,40 @@ export function validateStatusPayloadContract(payload: Record<string, unknown>):
 
   if (
     payload.prohibitionKind === "deck_cut_floor" &&
-    (payload.ruleMutationKind !== "deck_size_constraint" ||
+    ((
+      payload.ruleMutationKind !== "deck_size_constraint" &&
+      payload.ruleMutationKind !== "deck_size_floor"
+    ) ||
       payload.prohibitedAction !== "voluntary_deck_cut" ||
       typeof payload.deckCutFloor !== "number" ||
       payload.deckCutFloor < 1 ||
       payload.deckCutFloor !== payload.exactDeckSize)
   ) {
     return fail("incoherent_rule_mutation", "Deck-cut prohibitions require a floor matching the exact deck size");
+  }
+
+  if (
+    payload.ruleMutationKind === "persistent_prohibition" &&
+    (payload.statusScope !== "quest" ||
+      payload.duration !== "persistent" ||
+      payload.polarity !== "negative")
+  ) {
+    return fail("incoherent_rule_mutation", "Persistent prohibitions require persistent negative quest scope");
+  }
+
+  if (
+    payload.ruleMutationKind === "persistent_prohibition" &&
+    !(
+      (payload.prohibitionKind === "resource_gain" &&
+        payload.prohibitedAction === "gain_essence" &&
+        payload.resource === "essence") ||
+      (payload.prohibitionKind === "deck_modification" &&
+        payload.prohibitedAction === "modify_deck") ||
+      (payload.prohibitionKind === "card_transfiguration" &&
+        payload.prohibitedAction === "transfigure_cards")
+    )
+  ) {
+    return fail("incoherent_rule_mutation", "Persistent prohibitions require a supported prohibited action");
   }
 
   return { ok: true };

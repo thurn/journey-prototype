@@ -43,9 +43,11 @@ import {
   valueOmenGain,
   valueOmenLoss,
   valueRandomCardGain,
+  valueStatusRuleMutation,
   valueStarterCleanup,
   valueStarterReplacement,
 } from "../value.js";
+import { statusPayload } from "./environmentPayloads.js";
 import {
   baneGainPayload,
   banePurgePayload,
@@ -73,7 +75,7 @@ import {
   resourceCostCatalog,
   resourceRewardCatalog,
 } from "./resourcePayloads.js";
-import { firstRouteEditReward } from "./routeEditCatalog.js";
+import { firstRouteEditReward, routePayload } from "./routeEditCatalog.js";
 
 export type BuildArgs = {
   context: JourneyContext;
@@ -1858,6 +1860,273 @@ function shouldIncludeBaneReliefRewardSlots(label: string): boolean {
     label.endsWith(":reward");
 }
 
+function nextVictoryRewardReplacementSlots(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  label: string,
+): RewardSlot[] {
+  const dreamsignChoiceCount = pickSequentialVariant(
+    drawContext,
+    `${label}:replacement-dreamsign-choice`,
+    [2, 3] as const,
+  );
+  const essenceAmount = pickSequentialVariant(
+    drawContext,
+    `${label}:replacement-essence`,
+    [200, 220, 240] as const,
+  );
+  const dreamsignReplacement = dreamsignDraft(dreamsignChoiceCount);
+  const transfigurationSite = routePayload({
+    operation: "add_site",
+    routeScope: "next_dreamscape",
+    polarity: "positive",
+    siteDeltaValue: 110,
+    siteType: "Transfiguration",
+    timing: "next dreamscape",
+    description: "add a Transfiguration site to the next dreamscape",
+  });
+  const transfigurationReplacement = { ...transfigurationSite };
+  delete transfigurationReplacement.timing;
+  const slots: RewardSlot[] = [
+    {
+      key: "next-victory-replacement:dreamsign-draft",
+      text: `Your next victory yields ${lowerFirst(dreamsignDraftText(dreamsignChoiceCount)).replace(/\.$/u, "")} instead of card rewards.`,
+      effects: [
+        statusPayload({
+          kind: "status_reward_replacement",
+          statusName: "Spoiled Victory",
+          statusScope: "reward",
+          duration: "one_time",
+          ruleMutationKind: "next_victory_reward_replacement",
+          rewardTrigger: "next_victory",
+          replacedRewardKind: "card_rewards",
+          replacement: `${dreamsignChoiceCount}-choice Dreamsign draft`,
+          replacementKind: "dreamsign_draft",
+          replacementPayload: dreamsignReplacement,
+        }),
+      ],
+      targets: [
+        target(
+          "dreamsign",
+          DREAMSIGN_POOL_TARGET_DESCRIPTION,
+          dreamsignReplacement.predicate,
+        ),
+      ],
+      effect: valueStatusRuleMutation("next_victory_reward_replacement"),
+      uncertainty: -8,
+    },
+    {
+      key: "next-victory-replacement:essence",
+      text: `Your next victory yields ${essenceAmount} essence instead of card rewards.`,
+      effects: [
+        statusPayload({
+          kind: "status_reward_replacement",
+          statusName: "Spoiled Victory",
+          statusScope: "reward",
+          duration: "one_time",
+          ruleMutationKind: "next_victory_reward_replacement",
+          rewardTrigger: "next_victory",
+          replacedRewardKind: "card_rewards",
+          replacement: `${essenceAmount} essence`,
+          replacementKind: "resource",
+          replacementPayload: gainEssence(essenceAmount),
+          resource: "essence",
+          amount: essenceAmount,
+        }),
+      ],
+      effect: Math.max(
+        valueStatusRuleMutation("next_victory_reward_replacement"),
+        valueEssenceGain(essenceAmount, context),
+      ),
+      uncertainty: -8,
+    },
+    {
+      key: "next-victory-replacement:route",
+      text: "Your next victory adds a {Transfiguration} site to the next dreamscape instead of card rewards.",
+      effects: [
+        statusPayload({
+          kind: "status_reward_replacement",
+          statusName: "Spoiled Victory",
+          statusScope: "reward",
+          duration: "one_time",
+          ruleMutationKind: "next_victory_reward_replacement",
+          rewardTrigger: "next_victory",
+          replacedRewardKind: "card_rewards",
+          replacement: "add a Transfiguration site to the next dreamscape",
+          replacementKind: "route_reward",
+          replacementPayload: transfigurationReplacement,
+        }),
+      ],
+      effect: valueStatusRuleMutation("next_victory_reward_replacement"),
+      uncertainty: -8,
+    },
+  ];
+
+  return context.state.quest.dreamsignPoolIds.length > 0
+    ? slots
+    : slots.filter((slot) => slot.key !== "next-victory-replacement:dreamsign-draft");
+}
+
+function statusBurdenSlots(
+  drawContext: DrawContext,
+  label: string,
+): CostSlot[] {
+  const battleRewardReduction = pickSequentialVariant(
+    drawContext,
+    `${label}:battle-reward-reduction`,
+    [1, 2] as const,
+  );
+  const essenceSiteReduction = pickSequentialVariant(
+    drawContext,
+    `${label}:essence-site-reduction`,
+    [80, 100, 120] as const,
+  );
+  const deckFloor = pickSequentialVariant(
+    drawContext,
+    `${label}:deck-floor`,
+    [18, 20, 22] as const,
+  );
+  const exactDeckSize = pickSequentialVariant(
+    drawContext,
+    `${label}:exact-deck-size`,
+    [30, 32, 35] as const,
+  );
+
+  return [
+    {
+      key: "status-no-essence-gain",
+      prefix: "You can no longer gain essence.",
+      burdens: [
+        statusPayload({
+          kind: "status_persistent_prohibition",
+          statusName: "Sealed Hands",
+          statusScope: "quest",
+          duration: "persistent",
+          ruleMutationKind: "persistent_prohibition",
+          polarity: "negative",
+          prohibitionKind: "resource_gain",
+          prohibitedAction: "gain_essence",
+          resource: "essence",
+        }),
+      ],
+      burden: valueStatusRuleMutation("no_essence_gain", {
+        largeNamedReward: true,
+      }),
+    },
+    {
+      key: "status-no-deck-modification",
+      prefix: "You can no longer modify your deck.",
+      burdens: [
+        statusPayload({
+          kind: "status_persistent_prohibition",
+          statusName: "Sealed Hands",
+          statusScope: "quest",
+          duration: "persistent",
+          ruleMutationKind: "persistent_prohibition",
+          polarity: "negative",
+          prohibitionKind: "deck_modification",
+          prohibitedAction: "modify_deck",
+        }),
+      ],
+      burden: valueStatusRuleMutation("no_deck_modification", {
+        largeNamedReward: true,
+      }),
+    },
+    {
+      key: "status-no-transfiguring",
+      prefix: "You can no longer transfigure cards.",
+      burdens: [
+        statusPayload({
+          kind: "status_persistent_prohibition",
+          statusName: "Sealed Hands",
+          statusScope: "quest",
+          duration: "persistent",
+          ruleMutationKind: "persistent_prohibition",
+          polarity: "negative",
+          prohibitionKind: "card_transfiguration",
+          prohibitedAction: "transfigure_cards",
+        }),
+      ],
+      burden: valueStatusRuleMutation("no_card_transfiguration", {
+        largeNamedReward: true,
+      }),
+    },
+    {
+      key: "status-battle-reward-reduction",
+      prefix: `For the next 3 battles, Battle rewards offer ${battleRewardReduction} fewer card choice${battleRewardReduction === 1 ? "" : "s"}.`,
+      burdens: [
+        statusPayload({
+          kind: "status_reward_reduction",
+          statusName: "Thinned Battle Spoils",
+          statusScope: "reward",
+          duration: "next_3_battles",
+          ruleMutationKind: "battle_reward_reduction",
+          polarity: "negative",
+          rewardTrigger: "battle",
+          replacedRewardKind: "battle_rewards",
+          amount: battleRewardReduction,
+        }),
+      ],
+      burden: valueStatusRuleMutation("battle_reward_reduction"),
+    },
+    {
+      key: "status-essence-site-reward-reduction",
+      prefix: `For the next 3 dreamscapes, Essence sites yield ${essenceSiteReduction} less essence.`,
+      burdens: [
+        statusPayload({
+          kind: "status_reward_reduction",
+          statusName: "Dry Wells",
+          statusScope: "reward",
+          duration: "next_3_dreamscapes",
+          ruleMutationKind: "essence_site_reward_reduction",
+          polarity: "negative",
+          rewardTrigger: "essence_site",
+          replacedRewardKind: "essence_site_rewards",
+          resource: "essence",
+          amount: essenceSiteReduction,
+        }),
+      ],
+      burden: valueStatusRuleMutation("essence_site_reward_reduction"),
+    },
+    {
+      key: "status-deck-size-floor",
+      prefix: `Your deck cannot be cut below ${deckFloor} cards.`,
+      burdens: [
+        statusPayload({
+          kind: "status_structural_constraint",
+          statusName: "Deck Floor",
+          statusScope: "quest",
+          duration: "persistent",
+          ruleMutationKind: "deck_size_floor",
+          polarity: "negative",
+          exactDeckSize: deckFloor,
+          minDeckSize: deckFloor,
+          prohibitionKind: "deck_cut_floor",
+          prohibitedAction: "voluntary_deck_cut",
+          deckCutFloor: deckFloor,
+        }),
+      ],
+      burden: valueStatusRuleMutation("deck_size_floor"),
+    },
+    {
+      key: "status-exact-deck-size",
+      prefix: `Your deck must contain exactly ${exactDeckSize} cards.`,
+      burdens: [
+        statusPayload({
+          kind: "status_structural_constraint",
+          statusName: "Exact Deck",
+          statusScope: "quest",
+          duration: "persistent",
+          ruleMutationKind: "exact_deck_size_mandate",
+          polarity: "negative",
+          exactDeckSize,
+        }),
+      ],
+      burden: valueStatusRuleMutation("exact_deck_size_mandate"),
+    },
+  ];
+}
+
 export function rewardSlots(
   context: JourneyContext,
   drawContext: DrawContext,
@@ -2268,6 +2537,16 @@ export function rewardSlots(
     );
   }
 
+  if (stage === "late") {
+    slots.push(
+      ...nextVictoryRewardReplacementSlots(
+        context,
+        drawContext,
+        `${label}:next-victory-replacement`,
+      ),
+    );
+  }
+
   return shuffleDeterministic(drawContext, `${label}:reward-slots`, slots);
 }
 
@@ -2275,6 +2554,7 @@ export function costSlots(
   context: JourneyContext,
   drawContext: DrawContext,
   label: string,
+  options: { includeStatusBurdens?: boolean } = {},
 ): CostSlot[] {
   const lowEssence = Math.min(
     pickSequentialVariant(drawContext, `${label}:low-essence`, [15, 20, 25]),
@@ -2332,6 +2612,9 @@ export function costSlots(
   }
 
   slots.push(...resourceCosts);
+  if (options.includeStatusBurdens === true) {
+    slots.push(...statusBurdenSlots(drawContext, `${label}:status-burdens`));
+  }
 
   return shuffleDeterministic(drawContext, `${label}:cost-slots`, slots);
 }
