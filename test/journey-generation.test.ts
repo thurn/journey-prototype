@@ -2774,27 +2774,53 @@ describe("generateNextJourney", () => {
         }),
       ]),
     );
-    expect(generatedOptionText(manifest).join("\n")).toMatch(
-      /Return|Borrow|Promise/iu,
-    );
+    expect(
+      new Set(
+        pairedPrecommits.map((precommit) =>
+          String((precommit as { returnFamilyId: string }).returnFamilyId),
+        ),
+      ).size,
+    ).toBeGreaterThan(1);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
   });
 
-  it("values next-battle Dreamsign rewards as near-term premium rewards", async () => {
+  it("values near-term triggered rewards through typed hook contracts", async () => {
     const journeyContext = await context(
       "random:3aa6092e-d433-4819-b86c-ccf61b9f51cd",
     );
     const manifest = fillForShape("reward_after_trigger", journeyContext);
+    const delayedPrecommits = manifest.precommitted.delayed ?? [];
 
     expect(manifest.options).toHaveLength(2);
-    expect(
-      manifest.options.every((option) =>
-        /^(?:After next battle|After next victory), /u.test(option.text),
-      ),
-    ).toBe(true);
-    expect(manifest.precommitted.delayed).toHaveLength(2);
+    expect(delayedPrecommits).toHaveLength(2);
+    for (const option of manifest.options) {
+      expect(option.triggers).toEqual([
+        expect.objectContaining({
+          kind: "delayed_hook_contract",
+          triggerSelector: expect.objectContaining({
+            triggerKind: expect.stringMatching(/^(battle|victory)$/u),
+            count: 1,
+          }),
+          rewardMetadata: expect.objectContaining({
+            expectedConvertedEssence: expect.any(Number),
+          }),
+        }),
+      ]);
+      expect(option.effectConvertedEssence).toBeGreaterThan(0);
+    }
+    expect(delayedPrecommits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          duration: expect.objectContaining({ durationKind: expect.any(String) }),
+          expiration: expect.objectContaining({ policyKind: expect.any(String) }),
+          visibilityPolicy: expect.objectContaining({
+            outcomeVisibility: "visible",
+          }),
+        }),
+      ]),
+    );
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
@@ -2804,9 +2830,23 @@ describe("generateNextJourney", () => {
     const journeyContext = await context();
     const manifest = fillForShape("commit_now_future_payoff", journeyContext);
 
-    expect(manifest.options.map((option) => option.text)).toEqual(
+    expect(manifest.options.every((option) => option.triggers.length === 1)).toBe(
+      true,
+    );
+    expect(manifest.options.some((option) => option.costs.length > 0)).toBe(true);
+    expect(manifest.options.some((option) => option.burdens.length > 0)).toBe(
+      true,
+    );
+    expect(manifest.options.flatMap((option) => option.triggers)).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/now\. At the next dreamscape,/u),
+        expect.objectContaining({
+          kind: "delayed_hook_contract",
+          triggerSelector: expect.objectContaining({
+            triggerKind: "dreamscape",
+            count: 1,
+          }),
+          controlledScene: expect.objectContaining({ sceneKind: "reward" }),
+        }),
       ]),
     );
     expect(
@@ -2898,12 +2938,12 @@ describe("generateNextJourney", () => {
     }
   });
 
-  it("balances the common positive reward menu while keeping broad four-card drafts modest", async () => {
+  it("balances the common positive reward menu while keeping card drafts in modest contract bands", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("curated_reward_trio", journeyContext);
-    const draftEffect = manifest.options
+    const draftEffects = manifest.options
       .flatMap((option) => option.effects)
-      .find(
+      .filter(
         (
           effect,
         ): effect is {
@@ -2933,9 +2973,16 @@ describe("generateNextJourney", () => {
       );
 
     expect(manifest.options).toHaveLength(3);
-    expect(draftEffect).toEqual(
-      expect.objectContaining({ takeCount: 1, choiceCount: 4 }),
-    );
+    expect(draftEffects.length).toBeGreaterThan(0);
+    for (const draftEffect of draftEffects) {
+      expect(draftEffect.takeCount).toBeGreaterThanOrEqual(1);
+      expect(draftEffect.choiceCount).toBeGreaterThanOrEqual(
+        draftEffect.takeCount,
+      );
+      expect(draftEffect.choiceCount).toBeGreaterThanOrEqual(3);
+      expect(draftEffect.choiceCount).toBeLessThanOrEqual(6);
+      expect(draftEffect.takeCount).toBeLessThanOrEqual(2);
+    }
     if (dreamsignEffect) {
       expect(dreamsignEffect.choiceCount).toBeGreaterThanOrEqual(2);
       expect(dreamsignEffect.choiceCount).toBeLessThanOrEqual(3);
@@ -3183,7 +3230,7 @@ describe("generateNextJourney", () => {
         netConvertedEssence: 80,
       },
     ],
-  ])("rejects weak timed window menus for %s", async (rule, patch) => {
+  ])("rejects explicitly constructed weak timed window fixtures for %s", async (rule, patch) => {
     const journeyContext = await context();
     const manifest = fillForShape("timed_window_menu", journeyContext);
     const invalid: JourneyManifest = {
@@ -3463,10 +3510,12 @@ describe("generateNextJourney", () => {
 
     const prize = fillForShape("prize_ladder", journeyContext);
     const prizeCosts = prize.tree!.nodes.map((node) =>
-      node.branches.find((branch) => branch.label !== "Stop")!.costConvertedEssence,
+      node.branches.find((branch) => branch.costs.length > 0)!
+        .costConvertedEssence,
     );
     const prizeStopValues = prize.tree!.nodes.map((node) =>
-      node.branches.find((branch) => branch.label === "Stop")!.effectConvertedEssence,
+      node.branches.find((branch) => branch.terminal?.outcome === "end")!
+        .effectConvertedEssence,
     );
 
     expect(prizeCosts[1]).toBeGreaterThanOrEqual(prizeCosts[0]!);
@@ -3476,7 +3525,9 @@ describe("generateNextJourney", () => {
 
     const probability = fillForShape("probability_ladder", journeyContext);
     const probabilityAttempts = probability.tree!.nodes.map((node) =>
-      node.branches.find((branch) => branch.label === "Attempt")!,
+      node.branches.find(
+        (branch) => branch.costs.length > 0 && branch.odds !== undefined,
+      )!,
     );
 
     expect(
@@ -3488,7 +3539,8 @@ describe("generateNextJourney", () => {
 
     const chain = fillForShape("escalating_reward_chain", journeyContext);
     const takeValues = chain.tree!.nodes.map((node) =>
-      node.branches.find((branch) => branch.label === "Take")!.effectConvertedEssence,
+      node.branches.find((branch) => branch.costs.length > 0)!
+        .effectConvertedEssence,
     );
 
     expect(takeValues[1]).toBeGreaterThanOrEqual(takeValues[0]!);
@@ -3496,7 +3548,9 @@ describe("generateNextJourney", () => {
 
     const push = fillForShape("push_your_luck", journeyContext);
     const pushBranches = push.tree!.nodes.map((node) =>
-      node.branches.find((branch) => branch.label === "Push")!,
+      node.branches.find(
+        (branch) => branch.odds !== undefined && branch.effects.length > 0,
+      )!,
     );
 
     expect(pushBranches.map((branch) => branch.odds!.percent)).toEqual(
@@ -3527,7 +3581,7 @@ describe("generateNextJourney", () => {
       expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
         ok: true,
       });
-      expect(manifest.rewardPool?.summary).toContain("with replacement");
+      expect(manifest.rewardPool?.replacement).toBe("with_replacement");
       expect(manifest.rewardPool?.rewards.length).toBeGreaterThanOrEqual(5);
 
       summaries.add(manifest.rewardPool!.summary);
@@ -3606,7 +3660,9 @@ describe("generateNextJourney", () => {
     const manifest = fillForShape("probability_ladder", journeyContext);
     const invalid = structuredClone(manifest);
     const successBranch = invalid.tree?.nodes[0]?.branches.find(
-      (branch) => branch.label === "Success",
+      (branch) =>
+        branch.kind === "random_chance" &&
+        branch.terminal?.outcome === "claim",
     );
 
     expect(successBranch).toBeDefined();

@@ -511,17 +511,21 @@ still use realistic Dreamcaller, deck, resource, and pool context. More
 advanced history fixtures can be added later without restoring pending state as
 the default model.
 
-## Appendix: Worked CLI Examples
+## Appendix: Historical Renderer Fixtures
 
-The examples in this appendix are normative for no-color human output for the
-four new true-sequential shapes. Color-enabled output may wrap the same text in
-ANSI escape sequences, and debug flags may append debug sections, but the
-default no-color output for these forced-shape QA commands should match the
-stdout shown here exactly.
+The examples in this appendix are historical no-color renderer fixtures for the
+first true-sequential shape implementation. They preserve useful expectations
+about output layout: decision-tree headings, level ordering, branch indentation,
+and the absence of shape IDs, next commands, pending-state messages, or pick
+instructions in normal human output.
 
-The examples intentionally do not print shape IDs, next commands, pending-state
-messages, or pick instructions. The forced `--shape` flag is a QA input, not
-normal user-facing output.
+They are not normative procedural-generation examples. Exact reward amounts,
+odds, branch labels, pool contents, English phrasing, and sequence lengths in
+this appendix should not be used as tests for normal generation quality. Current
+procedural tests should assert manifest contracts, topology invariants, typed
+pool metadata, value progression, and seed diversity. Exact stdout assertions
+belong only in renderer fixtures that are explicitly labeled as such. The forced
+`--shape` flag is a QA input, not normal user-facing output.
 
 ### Prize Ladder
 
@@ -531,7 +535,7 @@ Command:
 $ journey --seed appendix-prize --stage mid --shape prize_ladder --no-color
 ```
 
-Expected stdout:
+Historical fixture stdout:
 
 ```text
 Dream Journey
@@ -561,7 +565,7 @@ Command:
 $ journey --seed appendix-probability --stage mid --shape probability_ladder --no-color
 ```
 
-Expected stdout:
+Historical fixture stdout:
 
 ```text
 Dream Journey
@@ -597,7 +601,7 @@ Command:
 $ journey --seed appendix-pool --stage mid --shape random_pool_draws --no-color
 ```
 
-Expected stdout:
+Historical fixture stdout:
 
 ```text
 Dream Journey
@@ -630,7 +634,7 @@ Command:
 $ journey --seed appendix-chain --stage late --shape escalating_reward_chain --no-color
 ```
 
-Expected stdout:
+Historical fixture stdout:
 
 ```text
 Dream Journey

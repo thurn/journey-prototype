@@ -534,21 +534,20 @@ types instead of parsing duration text.
 
 ### 14. Tests And Docs Sometimes Freeze Current Hardcoded Behavior
 
-**Status:** Concern.
+**Status:** Fixed.
 
-The docs and tests include useful evidence of intended behavior, but several
-places risk normalizing current limitations:
+Before this resolution, docs and tests included useful evidence of intended
+behavior, but several places risked normalizing current limitations:
 
-- `brainstorm_examples.md` repeatedly records examples as "Not possible to
-  generate"; it is valid as a V3 gap inventory, but should not be read as an
-  acceptable end state;
-- the sequential-overhaul appendix gives exact forced-shape stdout examples,
+- `brainstorm_examples.md` repeatedly recorded examples as "Not possible to
+  generate"; that was valid as a historical V3 gap inventory, but it could be
+  misread as an acceptable end state;
+- the sequential-overhaul appendix gave exact forced-shape stdout examples,
   useful for renderer regression but not procedural quality;
-- `journey-generation.test.ts` asserts all generated card drafts use
-  `takeCount: 1` and `choiceCount: 4` in
-  [`journey-generation.test.ts`](../test/journey-generation.test.ts#L2582);
-- older timed-window tests asserted output starts with "For the next 3
-  battles," instead of validating typed shared-window metadata;
+- `journey-generation.test.ts` asserted generated card drafts use exact
+  `takeCount` and `choiceCount` values instead of contract bands;
+- older delayed, future-payoff, random-pool, and tree tests asserted English
+  phrases, summary text, or branch labels instead of typed manifest contracts;
 - debug payload tests correctly exercise forced payload families, but those
   should remain QA coverage rather than proof of natural generation breadth.
 
@@ -562,10 +561,17 @@ becoming normal generated output.
 tests assert exact scenario quantities or phrasing that should become
 procedural.
 
-**Proposed fix to remove hardcoded content:** Rewrite procedural tests to assert
-contract invariants, diversity bands, and feature reachability while reserving
-exact text and exact quantities for explicitly labeled renderer or debug-fixture
-tests.
+**Resolution:** Procedural regression coverage now avoids freezing exact draft
+quantities, delayed-hook English phrasing, fixed future-payoff wording, random
+pool summary text, and display branch labels in normal-generation tests. Those
+tests assert typed manifest contracts, value bands, topology invariants,
+structured replacement metadata, deterministic diversity, and feature
+reachability instead. Remaining exact quantities and stdout fragments are
+explicitly scoped to renderer snapshots, synthetic invalid fixtures, or forced
+debug payload QA. The brainstorm examples are labeled as a historical gap
+inventory rather than an acceptable end state, and the sequential-overhaul
+appendix is labeled as historical renderer fixture output rather than normative
+procedural generation.
 
 ## Recommended Direction
 
@@ -589,9 +595,10 @@ tests.
    validation should not depend on display text such as `Success`, `Failure`,
    `Take`, or `replacement`.
 
-6. Adjust tests so they assert contract invariants and generated diversity
-   rather than exact quantities or English phrases, except where renderer
-   fixtures intentionally need exact copy.
+6. Keep procedural tests focused on contract invariants, feature reachability,
+   generated diversity, and value bands. Preserve exact quantities and English
+   copy only in explicitly labeled renderer snapshots, synthetic invalid
+   fixtures, or forced debug payload QA.
 
 ## Severity Table
 
@@ -610,4 +617,4 @@ tests.
 | Debug payload edge-case menus | Forced debug only | Justified fixture |
 | Repair global script/fallbacks | Yes | Concern |
 | Text and magic-kind validation | Yes | Error in validation design |
-| Tests/docs that freeze quantities/copy | N/A | Concern |
+| Tests/docs that freeze quantities/copy | N/A | Fixed |
