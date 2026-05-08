@@ -5102,4 +5102,68 @@ describe("repairOrFallbackJourney", () => {
       finalShapeId: repaired.shapeId,
     });
   });
+
+  it("repairs delayed payload families before switching topology", async () => {
+    const journeyContext = await context();
+    const base = fillForShape("now_vs_later", journeyContext);
+    const invalid: JourneyManifest = {
+      ...base,
+      precommitted: {
+        ...base.precommitted,
+        delayed: [],
+      },
+    };
+    const failed = validateJourneyManifest(invalid, journeyContext);
+
+    expect(failed).toMatchObject({
+      ok: false,
+      rule: "missing_precommitted_outcomes",
+    });
+
+    const repaired = repairOrFallbackJourney(invalid, journeyContext, failed);
+
+    expect(validateJourneyManifest(repaired, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(repaired.shapeId).toBe("now_vs_later");
+    expect(repaired.debug.repairs[0]).toMatchObject({
+      action: "repair_delayed_hook_payload_family",
+      result: "repaired",
+    });
+    expect(repaired.debug.repairs.map((entry) => entry.action)).not.toContain(
+      "replace_delayed_hook",
+    );
+  });
+
+  it("uses shape repair preferences when there is no typed failure-specific repair", async () => {
+    const journeyContext = await context();
+    const base = fillForShape("curated_reward_trio", journeyContext);
+    const invalid: JourneyManifest = {
+      ...base,
+      options: base.options.map((option) => ({
+        ...option,
+        effects: [],
+        effectConvertedEssence: 0,
+        burdenConvertedEssence: -80,
+        netConvertedEssence: -80,
+      })),
+    };
+    const failed = validateJourneyManifest(invalid, journeyContext);
+
+    expect(failed).toMatchObject({
+      ok: false,
+      rule: "negative_only_positive_scene",
+    });
+
+    const repaired = repairOrFallbackJourney(invalid, journeyContext, failed);
+
+    expect(validateJourneyManifest(repaired, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(repaired.shapeId).toBe("curated_reward_trio");
+    expect(repaired.debug.repairs[0]).toMatchObject({
+      action: "replace_nonpositive_option",
+      result: "repaired",
+    });
+  });
 });

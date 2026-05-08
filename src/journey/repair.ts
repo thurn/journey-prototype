@@ -9,7 +9,11 @@ import type {
   RepairOutcomeStatus,
 } from "./manifest.js";
 import { adaptJourneyOptionOperations } from "./operationAdapters.js";
-import { JOURNEY_SHAPES, type JourneyShapeId } from "./shapes.js";
+import {
+  JOURNEY_SHAPES,
+  getShapeDefinition,
+  type JourneyShapeId,
+} from "./shapes.js";
 import {
   buildValidationReport,
   validateJourneyManifest,
@@ -17,18 +21,257 @@ import {
 } from "./validate/index.js";
 import { evaluateOptionValue } from "./value.js";
 
-const REPAIR_ACTIONS = [
-  "swap_effect",
-  "adjust_quantity",
-  "adjust_cost_or_burden",
-  "reveal_hidden_target_or_outcome",
-  "simplify_fill",
-  "convert_route_addition",
-  "choose_another_target",
-  "replace_delayed_hook",
-  "switch_shape",
-  "fallback",
-] as const;
+type RepairActionKind =
+  | "adjust_cost_or_burden"
+  | "adjust_quantity"
+  | "reveal_hidden_target_or_outcome"
+  | "repair_payload_family"
+  | "simplify_fill"
+  | "switch_to_shape"
+  | "switch_shape"
+  | "fallback";
+
+type RepairAction = {
+  readonly action: string;
+  readonly kind: RepairActionKind;
+  readonly targetShapeId?: JourneyShapeId;
+};
+
+const COST_FAILURE_RULES = new Set([
+  "unpayable_immediate_cost",
+  "prices_are_nonnegative_and_affordable_for_stage",
+]);
+
+const TARGET_FAILURE_RULES = new Set([
+  "unresolved_reference",
+  "named_card_target_unavailable",
+  "dreamsign_loss_without_dreamsign",
+  "bane_current_state_target_unavailable",
+  "invalid_target_selector",
+  "unresolved_target_selector",
+]);
+
+const ROUTE_FAILURE_RULES = new Set([
+  "route_addition_standalone_positive_reward",
+  "unsupported_route_operation",
+  "unsupported_route_scope",
+  "invalid_route_polarity",
+  "invalid_route_site_type",
+  "incoherent_route_mutation",
+  "route_precommitted_outcomes",
+  "route_precommitted_payloads",
+]);
+
+const DELAYED_HOOK_FAILURE_RULES = new Set([
+  "invalid_hook_trigger",
+  "invalid_hook_duration",
+  "invalid_hook_expiration",
+  "invalid_hook_visibility",
+  "invalid_delayed_hook_contract",
+  "delayed_precommitted_outcomes",
+]);
+
+const RANDOM_FAILURE_RULES = new Set([
+  "invalid_random_envelope",
+  "unsupported_random_envelope",
+  "risk_or_skip_envelope",
+  "single_wager_envelope",
+  "random_precommitted_outcomes",
+]);
+
+const TREE_FAILURE_RULES = new Set([
+  "decision_tree_invariants",
+  "tree_has_complete_visible_levels",
+  "push_failure_must_end",
+  "pool_is_visible",
+  "draw_replacement_policy_is_visible",
+]);
+
+const ROOT_TOPOLOGY_FAILURE_RULES = new Set([
+  "root_option_count_within_bounds",
+  "invalid_option",
+  "root_option_payloads",
+  "duplicate_root_option_mechanics",
+  "offer_refusal_invariants",
+  "repeatable_menu_leave_option",
+  "repeatable_menu_limiting_structure",
+  "semantic_operations",
+]);
+
+function actionKey(action: RepairAction): string {
+  return `${action.kind}:${action.action}:${action.targetShapeId ?? ""}`;
+}
+
+function uniqueRepairActions(actions: readonly RepairAction[]): RepairAction[] {
+  const seen = new Set<string>();
+  const unique: RepairAction[] = [];
+
+  for (const action of actions) {
+    const key = actionKey(action);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(action);
+  }
+
+  return unique;
+}
+
+function typedFailureRepairActions(failed: ValidationResult): RepairAction[] {
+  if (failed.ok) {
+    return [];
+  }
+
+  if (failed.rule === "missing_precommitted_outcomes") {
+    if (failed.message.includes("Delayed")) {
+      return [
+        {
+          action: "repair_delayed_hook_payload_family",
+          kind: "repair_payload_family",
+        },
+      ];
+    }
+
+    if (failed.message.includes("Route")) {
+      return [
+        { action: "repair_route_payload_family", kind: "repair_payload_family" },
+      ];
+    }
+
+    if (failed.message.includes("Random")) {
+      return [
+        { action: "repair_random_payload_family", kind: "repair_payload_family" },
+      ];
+    }
+  }
+
+  if (COST_FAILURE_RULES.has(failed.rule)) {
+    return [
+      {
+        action: "clamp_unpayable_cost_or_burden",
+        kind: "adjust_cost_or_burden",
+      },
+      { action: "repair_cost_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (TARGET_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "choose_resolvable_payload_target", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (ROUTE_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_route_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (DELAYED_HOOK_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_delayed_hook_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (RANDOM_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_random_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (TREE_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_decision_tree_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (ROOT_TOPOLOGY_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "restore_shape_topology", kind: "simplify_fill" },
+    ];
+  }
+
+  return [];
+}
+
+function repairPreferenceAction(preference: string): RepairAction {
+  if (preference === "fall_back_to_reward_after_trigger") {
+    return {
+      action: preference,
+      kind: "switch_to_shape",
+      targetShapeId: "reward_after_trigger",
+    };
+  }
+
+  if (preference === "move_guaranteed_cost_to_single_offer") {
+    return {
+      action: preference,
+      kind: "switch_to_shape",
+      targetShapeId: "single_offer",
+    };
+  }
+
+  if (preference === "replace_with_simple_reward") {
+    return {
+      action: preference,
+      kind: "switch_to_shape",
+      targetShapeId: "single_reward",
+    };
+  }
+
+  if (
+    preference.includes("cost") ||
+    preference.includes("price") ||
+    preference.includes("stake")
+  ) {
+    return { action: preference, kind: "adjust_cost_or_burden" };
+  }
+
+  if (preference.includes("hidden") || preference.includes("visible")) {
+    return { action: preference, kind: "reveal_hidden_target_or_outcome" };
+  }
+
+  if (
+    preference.includes("collapse") ||
+    preference.includes("reduce_to") ||
+    preference.includes("simplify")
+  ) {
+    return { action: preference, kind: "simplify_fill" };
+  }
+
+  return { action: preference, kind: "repair_payload_family" };
+}
+
+function shapeRepairActions(manifest: JourneyManifest): RepairAction[] {
+  const definition = getShapeDefinition(manifest.shapeId);
+  const sameShapeRepairs = definition.repairPreferences
+    .map(repairPreferenceAction)
+    .filter((action) => action.kind !== "switch_to_shape");
+  const topologySwitches = definition.repairPreferences
+    .map(repairPreferenceAction)
+    .filter((action) => action.kind === "switch_to_shape");
+
+  return [
+    ...sameShapeRepairs,
+    ...topologySwitches,
+  ];
+}
+
+function repairPlan(
+  manifest: JourneyManifest,
+  failed: ValidationResult,
+): RepairAction[] {
+  return uniqueRepairActions([
+    ...typedFailureRepairActions(failed),
+    ...shapeRepairActions(manifest),
+    { action: "simplify_fill", kind: "simplify_fill" },
+    { action: "switch_shape", kind: "switch_shape" },
+    { action: "fallback", kind: "fallback" },
+  ]);
+}
 
 function drawContextFor(manifest: JourneyManifest) {
   return {
@@ -73,23 +316,26 @@ function nextShape(manifest: JourneyManifest): JourneyShapeId {
 }
 
 function repairStatusForAction(
-  action: string,
+  action: RepairAction,
   result: "repaired" | "fallback" | "failed",
 ): Exclude<
   RepairOutcomeStatus,
   "accepted_immediately" | "forced_shape_failed" | "unrepaired"
 > {
-  if (result === "fallback" || action === "fallback") {
+  if (result === "fallback" || action.kind === "fallback") {
     return "fallback";
   }
 
-  if (action === "adjust_cost_or_burden" || action === "adjust_quantity") {
+  if (
+    action.kind === "adjust_cost_or_burden" ||
+    action.kind === "adjust_quantity"
+  ) {
     return "adjusted";
   }
 
   if (
-    action === "reveal_hidden_target_or_outcome" ||
-    action === "choose_another_target"
+    action.kind === "reveal_hidden_target_or_outcome" ||
+    action.action.includes("target")
   ) {
     return "narrowed";
   }
@@ -157,7 +403,7 @@ function recordAttempt(
   validation: ValidationResult,
   validationReport: JourneyManifest["debug"]["validation"],
   attempt: number,
-  action: string,
+  action: RepairAction,
   result: "repaired" | "fallback" | "failed",
 ): JourneyManifest {
   const actionCategory = repairStatusForAction(action, result);
@@ -173,7 +419,7 @@ function recordAttempt(
           attempt,
           failedRule: failed.ok ? "unknown" : failed.rule,
           actionCategory,
-          action,
+          action: action.action,
           result,
           ...(!validation.ok
             ? {
@@ -291,40 +537,36 @@ export function repairOrFallbackJourney(
   options: { forcedShape?: boolean } = {},
 ): JourneyManifest {
   let current = manifest;
+  const actions = repairPlan(manifest, failed);
 
-  for (let index = 0; index < REPAIR_ACTIONS.length; index += 1) {
+  for (let index = 0; index < actions.length; index += 1) {
     const attempt = index + 1;
-    const action = REPAIR_ACTIONS[index]!;
+    const action = actions[index]!;
     let candidate = current;
 
-    if (action === "adjust_cost_or_burden" || action === "adjust_quantity") {
+    if (
+      action.kind === "adjust_cost_or_burden" ||
+      action.kind === "adjust_quantity"
+    ) {
       candidate = withPayableCosts(current, context);
-    } else if (action === "reveal_hidden_target_or_outcome") {
+    } else if (action.kind === "reveal_hidden_target_or_outcome") {
       candidate = revealHidden(current) as JourneyManifest;
-    } else if (action === "simplify_fill") {
+    } else if (
+      action.kind === "repair_payload_family" ||
+      action.kind === "simplify_fill"
+    ) {
       candidate = buildReplacement(current, context, current.shapeId);
-    } else if (action === "convert_route_addition") {
-      candidate =
-        current.shapeId === "alter_dreamscapes"
-          ? buildReplacement(current, context, "alter_dreamscapes")
-          : current;
-    } else if (action === "choose_another_target") {
-      candidate = buildReplacement(current, context, current.shapeId);
-    } else if (action === "replace_delayed_hook") {
-      candidate = [
-        "now_vs_later",
-        "reward_after_trigger",
-        "paired_return",
-        "commit_now_future_payoff",
-      ].includes(current.shapeId)
-        ? buildReplacement(current, context, "single_reward")
-        : current;
-    } else if (action === "switch_shape") {
+    } else if (action.kind === "switch_to_shape") {
+      if (options.forcedShape || !action.targetShapeId) {
+        continue;
+      }
+      candidate = buildReplacement(current, context, action.targetShapeId);
+    } else if (action.kind === "switch_shape") {
       if (options.forcedShape) {
         continue;
       }
       candidate = buildReplacement(current, context, nextShape(current));
-    } else if (action === "fallback") {
+    } else if (action.kind === "fallback") {
       if (options.forcedShape) {
         continue;
       }
@@ -333,7 +575,7 @@ export function repairOrFallbackJourney(
 
     const result = validateJourneyManifest(candidate, context);
     const validationReport = buildValidationReport(candidate, context);
-    const repairResult = action === "fallback" ? "fallback" : "repaired";
+    const repairResult = action.kind === "fallback" ? "fallback" : "repaired";
     const recorded = recordAttempt(
       current,
       candidate,

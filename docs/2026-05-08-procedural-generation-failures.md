@@ -450,7 +450,7 @@ fixtures, not as evidence of natural generation breadth.
 
 ### 12. Repair Logic Uses A Global Hardcoded Script And Shape-Specific Fallbacks
 
-**Status:** Concern.
+**Status:** Fixed.
 
 `REPAIR_ACTIONS` is a fixed global sequence in
 [`repair.ts`](../src/journey/repair.ts#L20), while shape definitions have
@@ -473,6 +473,17 @@ preferences and has named topology escape hatches.
 **Proposed fix to remove hardcoded content:** Drive repair from each shape's
 declared repair preferences and typed failure reasons, then repair payload
 families before switching topology or falling back to simpler shapes.
+
+**Resolution:** Repair planning now starts from typed validation failures where
+the failed contract identifies a payload family, then applies the current
+shape's declared `repairPreferences` before any topology switch. Same-shape
+payload-family regeneration is attempted for delayed hooks, route edits, random
+envelopes, decision trees, targets, costs, and root topology problems before
+fallback shapes are considered. The old global action script and named
+`convert_route_addition` / `replace_delayed_hook` escape hatches have been
+removed; topology changes now come only from explicit shape preferences or the
+generic unforced switch/fallback path. Forced-shape repair still fails clearly
+instead of silently switching shapes.
 
 ### 13. Validators Preserve Display Text And Magic Payload Kinds
 
