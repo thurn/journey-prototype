@@ -37,6 +37,7 @@ import {
   valueEssenceGain,
   valueOmenGain,
   valueOmenLoss,
+  valueRandomCardGain,
 } from "../value.js";
 import {
   cardExactTarget,
@@ -379,6 +380,61 @@ export const CARD_DRAFT_PROFILES = {
     targetDescription: "Event draft cards",
     predicate: { cardType: "Event" },
   },
+  discardTextCards: {
+    label: "cards with discard text",
+    targetDescription: "draft cards with discard text",
+    predicate: { renderedTextIncludes: "discard" },
+  },
+  abandonCards: {
+    label: "Abandon cards",
+    targetDescription: "draft cards with Abandon text",
+    predicate: { renderedTextIncludes: "Abandon" },
+  },
+  eventCopyingCards: {
+    label: "event-copying cards",
+    targetDescription: "draft cards that copy events",
+    predicate: { renderedTextIncludes: ["copy", "event"] },
+  },
+  energyGenerationCards: {
+    label: "energy-generation cards",
+    targetDescription: "draft cards that generate energy",
+    predicate: { renderedTextIncludes: ["Gain", "●"], minAbilityCount: 1 },
+  },
+  legendaryCards: {
+    label: "Legendary cards",
+    targetDescription: "Legendary draft cards",
+    predicate: { rarity: "Legendary" },
+  },
+  costOneCards: {
+    label: "cost-1 cards",
+    targetDescription: "draft cards with cost exactly 1",
+    predicate: { energyCost: 1 },
+  },
+  cheapCards: {
+    label: "cards costing 2 or less",
+    targetDescription: "draft cards with cost 2 or less",
+    predicate: { maxEnergyCost: 2 },
+  },
+  duplicateCards: {
+    label: "duplicate draft-pool cards",
+    targetDescription: "draft cards with multiple pool copies",
+    predicate: { minCopies: 2 },
+  },
+  multiAbilityCards: {
+    label: "cards with multiple abilities",
+    targetDescription: "draft cards with multiple abilities",
+    predicate: { hasMultipleAbilities: true },
+  },
+  starters: {
+    label: "Starter cards",
+    targetDescription: "Starter cards",
+    predicate: { starter: true },
+  },
+  allEligibleCards: {
+    label: "eligible cards",
+    targetDescription: CARD_POOL_TARGET_DESCRIPTION,
+    predicate: {},
+  },
   dissolveEvents: {
     label: "Dissolve events",
     targetDescription: "Dissolve event draft cards",
@@ -411,6 +467,8 @@ export const GENERIC_CARD_DRAFT_PROFILE = {
   targetDescription: CARD_POOL_TARGET_DESCRIPTION,
   predicate: {},
 } as const satisfies CardDraftProfile;
+
+export const CARD_PREDICATE_CATALOG = CARD_DRAFT_PROFILES;
 
 export function cardDraftPredicate(
   profile: CardDraftProfile,
@@ -507,8 +565,13 @@ export function gainOmen(amount: number) {
 export function cardDraftText(
   profile: CardDraftProfile,
   takeCount = 1,
+  copyCount = 1,
 ): string {
-  return `Draft ${takeCount} of ${CARD_DRAFT_CHOICE_COUNT} ${profile.label}.`;
+  const copyText = copyCount > 1
+    ? ` and add ${copyCount} copies`
+    : "";
+
+  return `Draft ${takeCount} of ${CARD_DRAFT_CHOICE_COUNT} ${profile.label}${copyText}.`;
 }
 
 export function dreamsignDraftText(choiceCount: number): string {
@@ -519,13 +582,57 @@ export function chosenCardText(): string {
   return "a chosen card";
 }
 
-export function draftCards(profile: CardDraftProfile) {
+export function draftCards(
+  profile: CardDraftProfile,
+  options: {
+    takeCount?: number;
+    copyCount?: number;
+    temporary?: boolean;
+  } = {},
+) {
   return {
     kind: "card_draft",
-    takeCount: 1,
+    takeCount: options.takeCount ?? 1,
     choiceCount: CARD_DRAFT_CHOICE_COUNT,
+    ...(options.copyCount !== undefined ? { copyCount: options.copyCount } : {}),
+    ...(options.temporary === true ? { temporary: true } : {}),
     predicate: cardDraftPredicate(profile),
   };
+}
+
+export function randomCardGain(
+  profile: CardDraftProfile,
+  count: number,
+  options: {
+    source?: "catalog" | "draftPool";
+    copyCount?: number;
+    temporary?: boolean;
+  } = {},
+) {
+  return {
+    kind: "card_gain",
+    selection: "hidden_random",
+    random: true,
+    count,
+    source: options.source ?? "catalog",
+    ...(options.copyCount !== undefined ? { copyCount: options.copyCount } : {}),
+    ...(options.temporary === true ? { temporary: true, duration: BATTLE_WINDOW_DURATION } : {}),
+    predicate: {
+      source: options.source ?? "catalog",
+      ...profile.predicate,
+    },
+  };
+}
+
+export function randomCardGainText(
+  profile: CardDraftProfile,
+  count: number,
+  temporary = false,
+): string {
+  const countText = count === 1 ? "1" : String(count);
+  const temporaryText = temporary ? " temporary" : "";
+
+  return `Gain ${countText}${temporaryText} random ${profile.label}.`;
 }
 
 export function dreamsignDraft(choiceCount: number) {
@@ -813,6 +920,12 @@ export function commonPositiveOptions(
       CARD_DRAFT_PROFILES.lowCostCharacters,
       CARD_DRAFT_PROFILES.reclaimEvents,
       CARD_DRAFT_PROFILES.dissolveEvents,
+      CARD_DRAFT_PROFILES.discardTextCards,
+      CARD_DRAFT_PROFILES.abandonCards,
+      CARD_DRAFT_PROFILES.eventCopyingCards,
+      CARD_DRAFT_PROFILES.energyGenerationCards,
+      CARD_DRAFT_PROFILES.duplicateCards,
+      CARD_DRAFT_PROFILES.multiAbilityCards,
     ],
   );
   const cardDraft = draftCards(cardDraftProfile);
@@ -958,7 +1071,7 @@ export function routeReplacementReward(
     text: reward.text,
     effects: [],
     routeEffects: [reward.payload],
-    effect: reward.effect,
+    effect: Math.max(320, reward.effect),
   };
 }
 
@@ -1023,6 +1136,15 @@ export function rewardSlots(
       CARD_DRAFT_PROFILES.dissolveEvents,
       CARD_DRAFT_PROFILES.fastCharacters,
       CARD_DRAFT_PROFILES.materializedCharacters,
+      CARD_DRAFT_PROFILES.discardTextCards,
+      CARD_DRAFT_PROFILES.abandonCards,
+      CARD_DRAFT_PROFILES.eventCopyingCards,
+      CARD_DRAFT_PROFILES.energyGenerationCards,
+      CARD_DRAFT_PROFILES.legendaryCards,
+      CARD_DRAFT_PROFILES.costOneCards,
+      CARD_DRAFT_PROFILES.cheapCards,
+      CARD_DRAFT_PROFILES.duplicateCards,
+      CARD_DRAFT_PROFILES.multiAbilityCards,
     ],
   );
   const cardDraft = draftCards(cardProfile);
@@ -1035,9 +1157,47 @@ export function rewardSlots(
       CARD_DRAFT_PROFILES.warriors,
       CARD_DRAFT_PROFILES.spiritAnimals,
       CARD_DRAFT_PROFILES.events,
+      CARD_DRAFT_PROFILES.fastCharacters,
+      CARD_DRAFT_PROFILES.allEligibleCards,
     ],
   );
   const secondCardDraft = draftCards(secondCardProfile);
+  const multiDraftProfile = pickLegalCardDraftProfile(
+    context,
+    drawContext,
+    `${label}:multi-card-profile`,
+    [
+      CARD_DRAFT_PROFILES.events,
+      CARD_DRAFT_PROFILES.characters,
+      CARD_DRAFT_PROFILES.cheapCards,
+      CARD_DRAFT_PROFILES.allEligibleCards,
+    ],
+  );
+  const multiCardDraft = draftCards(multiDraftProfile, { takeCount: 2 });
+  const copyDraftProfile = pickLegalCardDraftProfile(
+    context,
+    drawContext,
+    `${label}:copy-card-profile`,
+    [
+      CARD_DRAFT_PROFILES.eventCopyingCards,
+      CARD_DRAFT_PROFILES.energyGenerationCards,
+      CARD_DRAFT_PROFILES.discardTextCards,
+      CARD_DRAFT_PROFILES.events,
+    ],
+  );
+  const copyCardDraft = draftCards(copyDraftProfile, { copyCount: 2 });
+  const randomGainProfile = pickLegalCardDraftProfile(
+    context,
+    drawContext,
+    `${label}:random-card-profile`,
+    [
+      CARD_DRAFT_PROFILES.events,
+      CARD_DRAFT_PROFILES.discardTextCards,
+      CARD_DRAFT_PROFILES.energyGenerationCards,
+      CARD_DRAFT_PROFILES.allEligibleCards,
+    ],
+  );
+  const randomCardReward = randomCardGain(randomGainProfile, 2);
   const dreamsignChoiceCount = pickSequentialVariant(
     drawContext,
     `${label}:dreamsign-choice`,
@@ -1106,6 +1266,42 @@ export function rewardSlots(
       effect: Math.max(320, valueCardDraft(secondCardDraft) + 185),
     },
     {
+      key: `multi-draft:${multiDraftProfile.label}`,
+      text: `${cardDraftText(multiDraftProfile, 2)} Gain 2 omens.`,
+      effects: [multiCardDraft, gainOmen(2)],
+      targets: [
+        target(
+          "card",
+          multiDraftProfile.targetDescription,
+          multiCardDraft.predicate,
+        ),
+      ],
+      effect: Math.max(320, valueCardDraft(multiCardDraft) + valueOmenGain(2)),
+    },
+    {
+      key: `copy-draft:${copyDraftProfile.label}`,
+      text: cardDraftText(copyDraftProfile, 1, 2),
+      effects: [copyCardDraft],
+      targets: [
+        target(
+          "card",
+          copyDraftProfile.targetDescription,
+          copyCardDraft.predicate,
+        ),
+      ],
+      effect: Math.max(320, valueCardDraft(copyCardDraft)),
+    },
+    {
+      key: `random-card-gain:${randomGainProfile.label}`,
+      text: randomCardGainText(randomGainProfile, 2),
+      effects: [randomCardReward],
+      targets: [
+        target("card", randomGainProfile.targetDescription, randomCardReward.predicate),
+      ],
+      effect: Math.max(320, valueRandomCardGain(randomCardReward)),
+      uncertainty: -10,
+    },
+    {
       key: "random-transfiguration",
       text: `Apply {${transfiguration} Transfiguration} to a random card in your deck. Gain 3 omens.`,
       effects: [
@@ -1119,7 +1315,6 @@ export function rewardSlots(
       targets: [target("card", "a random card in deck", { source: "deck" })],
       effect: 320,
     },
-    routeReplacementReward(false, drawContext, "reward-slots:route-replacement"),
   ];
 
   if (namedCard) {

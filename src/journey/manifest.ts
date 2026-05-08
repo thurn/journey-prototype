@@ -85,7 +85,13 @@ export type OperationValueMetadata = {
       | "all_remaining"
       | "random_range"
       | "cap_change"
-      | "multi_omen";
+      | "multi_omen"
+      | "predicate_specificity"
+      | "choice_breadth"
+      | "take_count"
+      | "copy_count"
+      | "random_hidden_target"
+      | "temporary_gain";
     label: string;
     description: string;
     amount?: number;

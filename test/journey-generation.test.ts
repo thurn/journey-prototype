@@ -7,6 +7,13 @@ import {
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
 import { compatibleCardOperations } from "../src/journey/fillers/cardOperationCatalog.js";
+import {
+  CARD_DRAFT_PROFILES,
+  cardDraftText,
+  draftCards,
+  randomCardGain,
+  target,
+} from "../src/journey/fillers/shared.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
 import {
   cardExactTarget,
@@ -3144,8 +3151,10 @@ describe("generateNextJourney", () => {
       );
 
       for (const draft of cardDrafts) {
-        expect(draft.takeCount, shape.id).toBe(1);
+        expect(draft.takeCount, shape.id).toBeGreaterThanOrEqual(1);
+        expect(draft.takeCount, shape.id).toBeLessThanOrEqual(2);
         expect(draft.choiceCount, shape.id).toBe(4);
+        expect(draft.choiceCount, shape.id).toBeGreaterThanOrEqual(draft.takeCount);
         expect(draft.predicate, shape.id).toEqual(
           expect.objectContaining({ source: "draftPool" }),
         );
@@ -3153,11 +3162,190 @@ describe("generateNextJourney", () => {
           Boolean(draft.predicate?.cardType) ||
             Boolean(draft.predicate?.subtype) ||
             Boolean(draft.predicate?.isFast) ||
-            Boolean(draft.predicate?.renderedTextIncludes),
+            Boolean(draft.predicate?.renderedTextIncludes) ||
+            Boolean(draft.predicate?.rarity) ||
+            Boolean(draft.predicate?.energyCost) ||
+            Boolean(draft.predicate?.maxEnergyCost) ||
+            Boolean(draft.predicate?.minCopies) ||
+            Boolean(draft.predicate?.hasMultipleAbilities) ||
+            Object.keys(draft.predicate ?? {}).length === 1,
           shape.id,
         ).toBe(true);
       }
     }
+  });
+
+  it("rejects card predicate drafts when the source pool cannot fill the visible choices", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_reward", journeyContext);
+    const impossibleDraft = draftCards(CARD_DRAFT_PROFILES.legendaryCards);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        refreshOptionOperations({
+          ...manifest.options[0]!,
+          text: cardDraftText(CARD_DRAFT_PROFILES.legendaryCards),
+          effects: [
+            {
+              ...impossibleDraft,
+              choiceCount: 999,
+              predicate: {
+                source: "draftPool",
+              },
+            },
+          ],
+          targets: [],
+        }),
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "card_draft_predicate_pool_too_small",
+    });
+  });
+
+  it("attaches structured card draft value metadata for breadth, take count, copies, and predicate specificity", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_reward", journeyContext);
+    const copiedDraft = draftCards(CARD_DRAFT_PROFILES.discardTextCards, {
+      copyCount: 2,
+    });
+    const optionWithDraft = refreshOptionOperations({
+      ...manifest.options[0]!,
+      text: cardDraftText(CARD_DRAFT_PROFILES.discardTextCards, 1, 2),
+      effects: [copiedDraft],
+      targets: [
+        target(
+          "card",
+          CARD_DRAFT_PROFILES.discardTextCards.targetDescription,
+          copiedDraft.predicate,
+        ),
+      ],
+    });
+    const draftOperation = optionWithDraft.operations.find(
+      (operation) =>
+        operation.operationKind === "reward" &&
+        operation.rewardKind === "card_draft",
+    );
+
+    expect(draftOperation?.value?.bands?.map((band) => band.id)).toEqual(
+      expect.arrayContaining([
+        "choice_breadth",
+        "take_count",
+        "copy_count",
+        "predicate_specificity",
+      ]),
+    );
+  });
+
+  it("attaches structured random card gain metadata for hidden target risk and count", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("single_reward", journeyContext);
+    const randomGain = randomCardGain(CARD_DRAFT_PROFILES.events, 2);
+    const optionWithGain = refreshOptionOperations({
+      ...manifest.options[0]!,
+      text: "Gain 2 random events.",
+      effects: [randomGain],
+      targets: [
+        target("card", CARD_DRAFT_PROFILES.events.targetDescription, randomGain.predicate),
+      ],
+      uncertaintyConvertedEssence: -10,
+    });
+    const gainOperation = optionWithGain.operations.find(
+      (operation) =>
+        operation.operationKind === "reward" &&
+        operation.rewardKind === "card_gain",
+    );
+
+    expect(gainOperation?.targetSelector).toMatchObject({
+      selectorKind: "card",
+      selection: "hidden_random",
+      source: "catalog",
+      predicate: expect.objectContaining({
+        cardType: "Event",
+        source: "catalog",
+      }),
+    });
+    expect(gainOperation?.value?.bands?.map((band) => band.id)).toEqual(
+      expect.arrayContaining([
+        "random_hidden_target",
+      ]),
+    );
+    expect(gainOperation?.value?.uncertaintyConvertedEssence).toBeLessThan(0);
+  });
+
+  it("can procedurally build Three Masks as a draft trio over character, event, and fast-card predicates", async () => {
+    const content = await loadContent(process.cwd());
+    const evidence = Array.from({ length: 160 }, (_, index) => {
+      const journeyContext = contextFromContent(
+        content,
+        `three-masks-procedural-${index}`,
+      );
+      const manifest = fillForShape("same_reward_different_costs", journeyContext);
+      const predicates = manifest.options
+        .flatMap((journeyOption) => journeyOption.operations)
+        .filter(
+          (operation) =>
+            operation.operationKind === "reward" &&
+            operation.rewardKind === "card_draft",
+        )
+        .map((operation) => operation.payload.predicate as Record<string, unknown> | undefined)
+        .filter((predicate): predicate is Record<string, unknown> => Boolean(predicate));
+      const hasCharacter = predicates.some((predicate) => predicate.cardType === "Character");
+      const hasEvent = predicates.some((predicate) => predicate.cardType === "Event");
+      const hasFast = predicates.some((predicate) => predicate.isFast === true);
+
+      return { manifest, journeyContext, hasCharacter, hasEvent, hasFast };
+    }).find((entry) => entry.hasCharacter && entry.hasEvent && entry.hasFast);
+
+    expect(evidence).toBeDefined();
+    expect(evidence?.manifest.debug.debugPayload).toBeUndefined();
+    expect(validateJourneyManifest(evidence!.manifest, evidence!.journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("can procedurally build Eight Windows as take-any-number predicate drafts plus random event card gain", async () => {
+    const content = await loadContent(process.cwd());
+    const evidence = Array.from({ length: 200 }, (_, index) => {
+      const journeyContext = contextFromContent(
+        content,
+        `eight-windows-procedural-${index}`,
+      );
+      const manifest = fillForShape("take_any_number", journeyContext);
+      const rewardOperations = manifest.options.flatMap((journeyOption) =>
+        journeyOption.operations.filter(
+          (operation) => operation.operationKind === "reward",
+        ),
+      );
+      const hasPredicateDraft = rewardOperations.some(
+        (operation) =>
+          operation.rewardKind === "card_draft" &&
+          typeof operation.payload.predicate === "object" &&
+          operation.payload.predicate !== null &&
+          "renderedTextIncludes" in operation.payload.predicate,
+      );
+      const hasRandomEventGain = rewardOperations.some(
+        (operation) =>
+          operation.rewardKind === "card_gain" &&
+          operation.targetSelector?.selection === "hidden_random" &&
+          typeof operation.payload.predicate === "object" &&
+          operation.payload.predicate !== null &&
+          (operation.payload.predicate as Record<string, unknown>).cardType === "Event" &&
+          operation.payload.count === 2,
+      );
+
+      return { manifest, journeyContext, hasPredicateDraft, hasRandomEventGain };
+    }).find((entry) => entry.hasPredicateDraft && entry.hasRandomEventGain);
+
+    expect(evidence).toBeDefined();
+    expect(evidence?.manifest.shapeId).toBe("take_any_number");
+    expect(evidence?.manifest.options.at(-1)?.pickBehavior).toBe("leave");
+    expect(validateJourneyManifest(evidence!.manifest, evidence!.journeyContext)).toEqual({
+      ok: true,
+    });
   });
 
   it("fills timed window menus from a shared procedural temporary-window catalog", async () => {

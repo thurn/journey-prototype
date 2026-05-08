@@ -23,6 +23,7 @@ import {
   valueDreamsignDraft,
   valueOmenGain,
   valueOmenLoss,
+  valueRandomCardGain,
 } from "../value.js";
 import {
   CARD_DRAFT_PROFILES,
@@ -52,6 +53,8 @@ import {
   optionFromResolvedShapeFill,
   pickLegalCardDraftProfile,
   pickSequentialVariant,
+  randomCardGain,
+  randomCardGainText,
   renumberOptions,
   type ResolvedShapeFill,
   rewardSlotOption,
@@ -371,6 +374,16 @@ export function fillOptions(
           CARD_DRAFT_PROFILES.reclaimEvents,
           CARD_DRAFT_PROFILES.dissolveEvents,
           CARD_DRAFT_PROFILES.fastCharacters,
+          CARD_DRAFT_PROFILES.discardTextCards,
+          CARD_DRAFT_PROFILES.abandonCards,
+          CARD_DRAFT_PROFILES.eventCopyingCards,
+          CARD_DRAFT_PROFILES.energyGenerationCards,
+          CARD_DRAFT_PROFILES.legendaryCards,
+          CARD_DRAFT_PROFILES.costOneCards,
+          CARD_DRAFT_PROFILES.cheapCards,
+          CARD_DRAFT_PROFILES.duplicateCards,
+          CARD_DRAFT_PROFILES.multiAbilityCards,
+          CARD_DRAFT_PROFILES.allEligibleCards,
         ],
       ).map((profile, index, shuffled) =>
         legalCardDraftProfile(context, shuffled.slice(index, index + 1)),
@@ -543,11 +556,50 @@ export function fillOptions(
       };
     }
     case "take_any_number": {
-      const rewards = rewardSlots(
+      const fallbackRewards = rewardSlots(
         context,
         drawContext,
         `${shapeId}:cache-rewards`,
       ).filter((reward) => reward.routeEffects === undefined);
+      const draftProfile = pickLegalCardDraftProfile(
+        context,
+        drawContext,
+        `${shapeId}:predicate-draft`,
+        [
+          CARD_DRAFT_PROFILES.discardTextCards,
+          CARD_DRAFT_PROFILES.eventCopyingCards,
+          CARD_DRAFT_PROFILES.energyGenerationCards,
+          CARD_DRAFT_PROFILES.multiAbilityCards,
+        ],
+      );
+      const cardDraft = draftCards(draftProfile);
+      const randomGain = randomCardGain(CARD_DRAFT_PROFILES.events, 2);
+      const rewards = [
+        {
+          key: `predicate-draft:${draftProfile.label}`,
+          text: cardDraftText(draftProfile),
+          effects: [cardDraft],
+          targets: [
+            target("card", draftProfile.targetDescription, cardDraft.predicate),
+          ],
+          effect: Math.max(320, valueCardDraft(cardDraft)),
+        },
+        {
+          key: "random-event-card-gain",
+          text: randomCardGainText(CARD_DRAFT_PROFILES.events, 2),
+          effects: [randomGain],
+          targets: [
+            target(
+              "card",
+              CARD_DRAFT_PROFILES.events.targetDescription,
+              randomGain.predicate,
+            ),
+          ],
+          effect: Math.max(320, valueRandomCardGain(randomGain)),
+          uncertainty: -10,
+        },
+        ...fallbackRewards,
+      ];
       const costSlot = costSlots(
         context,
         drawContext,
@@ -569,6 +621,7 @@ export function fillOptions(
             targets: rewards[0]!.targets ?? [],
             cost: costSlot.cost,
             effect: rewards[0]!.effect,
+            uncertainty: rewards[0]!.uncertainty,
           }),
           option({
             number: 2,
@@ -578,6 +631,7 @@ export function fillOptions(
             targets: (rewards[1] ?? rewards[0])!.targets ?? [],
             burden: burdenSlot.burden,
             effect: (rewards[1] ?? rewards[0])!.effect,
+            uncertainty: (rewards[1] ?? rewards[0])!.uncertainty,
           }),
           option({
             number: 3,
@@ -615,6 +669,11 @@ export function fillOptions(
           CARD_DRAFT_PROFILES.events,
           CARD_DRAFT_PROFILES.lowCostCharacters,
           CARD_DRAFT_PROFILES.dissolveEvents,
+          CARD_DRAFT_PROFILES.discardTextCards,
+          CARD_DRAFT_PROFILES.abandonCards,
+          CARD_DRAFT_PROFILES.eventCopyingCards,
+          CARD_DRAFT_PROFILES.energyGenerationCards,
+          CARD_DRAFT_PROFILES.multiAbilityCards,
         ],
       );
       const mirror = pickSequentialVariant(drawContext, `${shapeId}:mirror`, [

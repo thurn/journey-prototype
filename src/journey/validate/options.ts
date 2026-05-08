@@ -1,5 +1,10 @@
 import type { JourneyContext } from "../../quest/context.js";
-import { resolveDreamsignTargets, resolveTargetSelector } from "../effects.js";
+import {
+  resolveCardTargets,
+  resolveDreamsignTargets,
+  resolveTargetSelector,
+  type CardTargetPredicate,
+} from "../effects.js";
 import type { GeneratedObjectDefinition, JourneyOption } from "../manifest.js";
 import { validateCosts } from "./costs.js";
 import { dreamsignPredicateFromPayload, validateDreamsignPayload } from "./dreamsignPayloads.js";
@@ -12,6 +17,84 @@ import {
   validateTargetSelector,
 } from "./targetSelectors.js";
 import { validateNormalOutputText } from "./text.js";
+
+function validateCardPayload(
+  payload: Record<string, unknown>,
+  context: JourneyContext,
+  optionNumber: number,
+): ValidationResult {
+  if (payload.kind === "card_draft") {
+    const takeCount = typeof payload.takeCount === "number" ? payload.takeCount : 1;
+    const choiceCount = typeof payload.choiceCount === "number" ? payload.choiceCount : 0;
+    const copyCount = typeof payload.copyCount === "number" ? payload.copyCount : 1;
+    const predicate = (payload.predicate ?? {}) as CardTargetPredicate;
+    const matches = resolveCardTargets(context.content, context.state.quest, predicate);
+
+    if (takeCount < 1 || choiceCount < 1 || copyCount < 1) {
+      return fail(
+        "invalid_card_draft_counts",
+        `Option ${optionNumber} card draft requires positive take, choice, and copy counts`,
+      );
+    }
+
+    if (takeCount > choiceCount) {
+      return fail(
+        "invalid_card_draft_counts",
+        `Option ${optionNumber} card draft cannot take more cards than it shows`,
+      );
+    }
+
+    if (matches.length < choiceCount) {
+      return fail(
+        "card_draft_predicate_pool_too_small",
+        `Option ${optionNumber} card draft requires ${choiceCount} eligible cards but only ${matches.length} match`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "predicate",
+            referenceKind: "content",
+            ...(predicate.source ? { source: predicate.source } : {}),
+            predicate,
+            required: true,
+          }),
+        },
+      );
+    }
+  }
+
+  if (payload.kind === "card_gain" && payload.selection === "hidden_random") {
+    const count = typeof payload.count === "number" ? payload.count : 1;
+    const copyCount = typeof payload.copyCount === "number" ? payload.copyCount : 1;
+    const predicate = (payload.predicate ?? {}) as CardTargetPredicate;
+    const matches = resolveCardTargets(context.content, context.state.quest, predicate);
+
+    if (count < 1 || copyCount < 1) {
+      return fail(
+        "invalid_random_card_gain_counts",
+        `Option ${optionNumber} random card gain requires positive card and copy counts`,
+      );
+    }
+
+    if (matches.length < count) {
+      return fail(
+        "random_card_gain_pool_too_small",
+        `Option ${optionNumber} random card gain requires ${count} eligible cards but only ${matches.length} match`,
+        {
+          targetResolution: resolveTargetSelector(context.content, context.state.quest, {
+            selectorKind: "card",
+            selection: "hidden_random",
+            referenceKind: "content",
+            ...(predicate.source ? { source: predicate.source } : {}),
+            predicate,
+            required: true,
+          }),
+        },
+      );
+    }
+  }
+
+  return { ok: true };
+}
 
 export function validateOption(
   option: JourneyOption,
@@ -114,6 +197,12 @@ export function validateOption(
 
   for (const effect of option.effects) {
     if (isRecord(effect)) {
+      const cardResult = validateCardPayload(effect, context, option.number);
+
+      if (!cardResult.ok) {
+        return cardResult;
+      }
+
       const result = validateDreamsignPayload(effect, context, option.number);
 
       if (!result.ok) {

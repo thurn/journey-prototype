@@ -7,6 +7,7 @@ import {
   valueCardDraft,
   valueDreamsignDraft,
   valueEssenceGain,
+  valueRandomCardGain,
   VALUE_MODEL_CONTRIBUTION,
   VALUE_MODEL_VERSION,
 } from "../src/journey/value.js";
@@ -173,6 +174,39 @@ describe("evaluateOptionValue", () => {
     expect(broadCharacters).toBe(25);
     expect(warriorCharacters).toBeGreaterThan(broadCharacters);
     expect(namedCards).toBeGreaterThan(warriorCharacters);
+  });
+
+  it("separates card draft breadth, take count, copy count, random gains, and temporary gains", () => {
+    const oneOfFour = valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      predicate: { cardType: "Event" },
+    });
+    const twoOfFour = valueCardDraft({
+      takeCount: 2,
+      choiceCount: 4,
+      predicate: { cardType: "Event" },
+    });
+    const copiedPick = valueCardDraft({
+      takeCount: 1,
+      choiceCount: 4,
+      copyCount: 2,
+      predicate: { cardType: "Event" },
+    });
+    const randomEvents = valueRandomCardGain({
+      count: 2,
+      predicate: { cardType: "Event" },
+    });
+    const temporaryRandomEvents = valueRandomCardGain({
+      count: 2,
+      predicate: { cardType: "Event" },
+      temporary: true,
+    });
+
+    expect(twoOfFour).toBeGreaterThan(oneOfFour);
+    expect(copiedPick).toBeGreaterThan(oneOfFour);
+    expect(randomEvents).toBeGreaterThan(oneOfFour);
+    expect(temporaryRandomEvents).toBeLessThan(randomEvents);
   });
 });
 

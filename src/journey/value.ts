@@ -44,6 +44,7 @@ export const CARD_VALUE_CONSTANTS = {
     choices16: 21,
   },
   additionalDraftPickBonus: 35,
+  draftCopyBonus: 28,
   draftSpecificityValues: {
     broadCardType: 0,
     subtype: 15,
@@ -51,16 +52,20 @@ export const CARD_VALUE_CONSTANTS = {
     energyBound: 10,
     fast: 10,
     textMatch: 20,
+    duplicateInSource: 20,
+    multipleAbilities: 20,
     namedOrId: 40,
     maximum: 60,
   },
   randomCard: 55,
   tideOrPredicateMatchBonus: 15,
   hiddenRandomPenalty: -10,
+  temporaryGainMultiplier: 0.55,
   namedVisibleByRarity: {
     common: 75,
     uncommon: 95,
     rare: 120,
+    legendary: 145,
   },
 } as const;
 
@@ -473,7 +478,7 @@ function capAwareEssenceAmount(amount: number, context?: JourneyContext): number
   return Math.max(0, Math.min(amount, resources.maxEssence - resources.essence));
 }
 
-function preciseDraftQualifierValue(predicate: unknown): number {
+export function cardPredicateSpecificityValue(predicate: unknown): number {
   if (typeof predicate !== "object" || predicate === null || Array.isArray(predicate)) {
     return 0;
   }
@@ -499,12 +504,24 @@ function preciseDraftQualifierValue(predicate: unknown): number {
     specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.energyBound;
   }
 
+  if (typeof record.energyCost === "number") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.energyBound;
+  }
+
   if (record.isFast === true) {
     specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.fast;
   }
 
   if (typeof record.renderedTextIncludes === "string" || Array.isArray(record.renderedTextIncludes)) {
     specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.textMatch;
+  }
+
+  if (typeof record.minCopies === "number" || typeof record.maxCopies === "number") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.duplicateInSource;
+  }
+
+  if (typeof record.minAbilityCount === "number" || typeof record.hasMultipleAbilities === "boolean") {
+    specificity += CARD_VALUE_CONSTANTS.draftSpecificityValues.multipleAbilities;
   }
 
   if (Array.isArray(record.names) || Array.isArray(record.ids)) {
@@ -534,14 +551,44 @@ export function valueCardDraft(input: {
   takeCount: number;
   choiceCount: number;
   predicate?: unknown;
+  copyCount?: number;
+  temporary?: boolean;
 }): number {
   const firstCard = CARD_VALUE_CONSTANTS.draftBase;
   const additionalCards = Math.max(0, input.takeCount - 1) *
     CARD_VALUE_CONSTANTS.additionalDraftPickBonus;
+  const additionalCopies = Math.max(0, (input.copyCount ?? 1) - 1) *
+    CARD_VALUE_CONSTANTS.draftCopyBonus;
   const breadth = choiceCurveValue(input.choiceCount, CARD_VALUE_CONSTANTS.draftChoiceValues);
-  const qualifier = preciseDraftQualifierValue(input.predicate);
+  const qualifier = cardPredicateSpecificityValue(input.predicate);
+  const rawValue = firstCard + additionalCards + additionalCopies + breadth + qualifier;
+  const durationMultiplier = input.temporary === true
+    ? CARD_VALUE_CONSTANTS.temporaryGainMultiplier
+    : 1;
 
-  return roundToNearestFive(firstCard + additionalCards + breadth + qualifier);
+  return roundToNearestFive(rawValue * durationMultiplier);
+}
+
+export function valueRandomCardGain(input: {
+  count: number;
+  predicate?: unknown;
+  copyCount?: number;
+  temporary?: boolean;
+}): number {
+  const cards = Math.max(1, input.count);
+  const firstCard = CARD_VALUE_CONSTANTS.randomCard;
+  const additionalCards = Math.max(0, cards - 1) *
+    CARD_VALUE_CONSTANTS.additionalDraftPickBonus;
+  const additionalCopies = Math.max(0, (input.copyCount ?? 1) - 1) *
+    CARD_VALUE_CONSTANTS.draftCopyBonus;
+  const qualifier = cardPredicateSpecificityValue(input.predicate);
+  const hiddenTargetRisk = CARD_VALUE_CONSTANTS.hiddenRandomPenalty;
+  const rawValue = firstCard + additionalCards + additionalCopies + qualifier + hiddenTargetRisk;
+  const durationMultiplier = input.temporary === true
+    ? CARD_VALUE_CONSTANTS.temporaryGainMultiplier
+    : 1;
+
+  return roundToNearestFive(rawValue * durationMultiplier);
 }
 
 export function valueDreamsignDraft(input: {

@@ -22,6 +22,10 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 import { DEFAULT_BANE_NAME } from "./effects.js";
+import {
+  CARD_VALUE_CONSTANTS,
+  cardPredicateSpecificityValue,
+} from "./value.js";
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -349,13 +353,19 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
   if (isRecord(value.predicate)) {
     const source = sourceFromPredicate(value.predicate);
 
-    if (value.kind === "card_draft" || source === "draftPool" || source === "deck") {
+    if (
+      value.kind === "card_draft" ||
+      value.kind === "card_gain" ||
+      source === "draftPool" ||
+      source === "deck"
+    ) {
       return {
         selectorKind: "card",
-        selection: "predicate",
+        selection: value.selection === "hidden_random" ? "hidden_random" : "predicate",
         referenceKind: "content",
         ...(source === "catalog" || source === "deck" || source === "draftPool" ? { source } : {}),
         predicate: value.predicate,
+        required: true,
       };
     }
 
@@ -550,8 +560,112 @@ function resourceSemanticsFromPayload(value: unknown): ResourceAmountSemantics |
   };
 }
 
-function valueMetadata(convertedEssence?: number): OperationValueMetadata | undefined {
-  return convertedEssence === undefined ? undefined : { convertedEssence };
+function numberField(value: PayloadRecord, key: string): number | undefined {
+  return typeof value[key] === "number" ? value[key] : undefined;
+}
+
+function booleanField(value: PayloadRecord, key: string): boolean | undefined {
+  return typeof value[key] === "boolean" ? value[key] : undefined;
+}
+
+function cardPredicateMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const kind = legacyKind(value);
+
+  if (kind !== "card_draft" && kind !== "card_gain") {
+    return bands;
+  }
+
+  const predicate = value.predicate;
+  const predicateSpecificity = cardPredicateSpecificityValue(predicate);
+
+  if (typeof value.choiceCount === "number") {
+    bands.push({
+      id: "choice_breadth",
+      label: "choice breadth",
+      description: "card value separates visible draft breadth from cards taken.",
+      amount: value.choiceCount,
+    });
+  }
+
+  if (typeof value.takeCount === "number") {
+    bands.push({
+      id: "take_count",
+      label: "take count",
+      description: "card value separates selected-card count from visible choice breadth.",
+      amount: value.takeCount,
+    });
+  }
+
+  if (typeof value.copyCount === "number" && value.copyCount > 1) {
+    bands.push({
+      id: "copy_count",
+      label: "copy count",
+      description: "card value accounts for added copies of each selected card.",
+      amount: value.copyCount,
+    });
+  }
+
+  if (predicateSpecificity > 0) {
+    bands.push({
+      id: "predicate_specificity",
+      label: "predicate specificity",
+      description: "card value accounts for structured card predicates such as subtype, text, rarity, cost, duplicates, or abilities.",
+      amount: predicateSpecificity,
+    });
+  }
+
+  if (value.selection === "hidden_random" || value.random === true) {
+    bands.push({
+      id: "random_hidden_target",
+      label: "random hidden target",
+      description: "card value applies hidden-target uncertainty to random gains.",
+      amount: CARD_VALUE_CONSTANTS.hiddenRandomPenalty,
+    });
+  }
+
+  if (value.temporary === true) {
+    bands.push({
+      id: "temporary_gain",
+      label: "temporary gain",
+      description: "card value is discounted for temporary card gains.",
+    });
+  }
+
+  return bands;
+}
+
+function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
+  const metadata: OperationValueMetadata = {
+    ...(convertedEssence === undefined ? {} : { convertedEssence }),
+  };
+
+  if (payload) {
+    const bands = cardPredicateMetadataBands(payload);
+
+    if (bands.length > 0) {
+      metadata.bands = bands;
+    }
+
+    const expectedConvertedEssence = numberField(payload, "expectedConvertedEssence");
+    const riskPremiumConvertedEssence = numberField(payload, "riskPremiumConvertedEssence");
+
+    if (expectedConvertedEssence !== undefined) {
+      metadata.expectedConvertedEssence = expectedConvertedEssence;
+    }
+
+    if (riskPremiumConvertedEssence !== undefined) {
+      metadata.riskPremiumConvertedEssence = riskPremiumConvertedEssence;
+      metadata.uncertaintyConvertedEssence = riskPremiumConvertedEssence;
+    } else if (
+      (payload.selection === "hidden_random" || booleanField(payload, "random") === true) &&
+      convertedEssence !== undefined
+    ) {
+      metadata.uncertaintyConvertedEssence = CARD_VALUE_CONSTANTS.hiddenRandomPenalty;
+    }
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
 function randomValueMetadata(value: unknown): OperationValueMetadata | undefined {
@@ -577,6 +691,7 @@ function randomValueMetadata(value: unknown): OperationValueMetadata | undefined
 function adaptCost(value: unknown, operationId: string, convertedEssence?: number): JourneyOperation {
   const kind = legacyKind(value);
   const resource = kind === "omens" ? "omens" : "essence";
+  const metadata = valueMetadata(convertedEssence);
 
   return {
     operationId,
@@ -588,7 +703,7 @@ function adaptCost(value: unknown, operationId: string, convertedEssence?: numbe
     timing: { timingKind: "immediate" },
     visibility: "visible",
     ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
-    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(metadata ? { value: metadata } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
   };
@@ -681,6 +796,7 @@ function adaptReward(
 ): RewardOperation {
   const kind = legacyKind(value);
   const targetSelector = targetSelectorFromPayload(value);
+  const metadata = valueMetadata(convertedEssence, isRecord(value) ? value : undefined);
 
   return {
     operationId,
@@ -691,7 +807,7 @@ function adaptReward(
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : {}),
     ...(targetSelector ? { targetSelector } : {}),
     ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
-    ...(valueMetadata(convertedEssence) ? { value: valueMetadata(convertedEssence) } : {}),
+    ...(metadata ? { value: metadata } : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload: clonePayload(value),
   };

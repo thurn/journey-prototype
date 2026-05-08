@@ -49,6 +49,10 @@ export type CardTargetPredicate = {
   renderedTextIncludes?: readonly string[] | string;
   tideOverlap?: readonly TideId[] | "selected";
   starter?: boolean;
+  minCopies?: number;
+  maxCopies?: number;
+  minAbilityCount?: number;
+  hasMultipleAbilities?: boolean;
 };
 
 export type DreamsignTargetPredicate = {
@@ -614,6 +618,24 @@ function renderedTextMatches(
   return requiredText.every((text) => renderedText.includes(text.toLowerCase()));
 }
 
+function abilityCount(card: CardContent): number {
+  const renderedText = String(card.raw["rendered-text"] ?? card.raw.renderedText ?? "");
+  const markerMatches = [...renderedText.matchAll(/▸\s*([^:]+):/gu)];
+
+  if (markerMatches.length === 0) {
+    return renderedText.trim().length > 0 ? 1 : 0;
+  }
+
+  return markerMatches.reduce((total, match) => {
+    const labels = match[1]
+      ?.split(",")
+      .map((label) => label.trim())
+      .filter((label) => label.length > 0);
+
+    return total + Math.max(1, labels?.length ?? 1);
+  }, 0);
+}
+
 function numericCostMatches(card: CardContent, predicate: CardTargetPredicate): boolean {
   if (predicate.energyCost !== undefined && card.energyCost !== predicate.energyCost) {
     return false;
@@ -628,6 +650,58 @@ function numericCostMatches(card: CardContent, predicate: CardTargetPredicate): 
   }
 
   if (predicate.maxEnergyCost !== undefined && card.energyCost > predicate.maxEnergyCost) {
+    return false;
+  }
+
+  return true;
+}
+
+function cardCopiesInSource(
+  card: CardContent,
+  quest: QuestState,
+  predicate: CardTargetPredicate,
+): number {
+  if (predicate.source === "deck" || predicate.starter === true) {
+    return quest.deck.entries.find((entry) => entry.cardId === card.id)?.copies ?? 0;
+  }
+
+  if (predicate.source === "draftPool") {
+    return quest.draftPool.find((entry) => entry.cardId === card.id)?.copies ?? 0;
+  }
+
+  return 1;
+}
+
+function copyCountMatches(
+  card: CardContent,
+  quest: QuestState,
+  predicate: CardTargetPredicate,
+): boolean {
+  const copies = cardCopiesInSource(card, quest, predicate);
+
+  if (predicate.minCopies !== undefined && copies < predicate.minCopies) {
+    return false;
+  }
+
+  if (predicate.maxCopies !== undefined && copies > predicate.maxCopies) {
+    return false;
+  }
+
+  return true;
+}
+
+function abilityCountMatches(card: CardContent, predicate: CardTargetPredicate): boolean {
+  const count = abilityCount(card);
+
+  if (predicate.minAbilityCount !== undefined && count < predicate.minAbilityCount) {
+    return false;
+  }
+
+  if (predicate.hasMultipleAbilities === true && count < 2) {
+    return false;
+  }
+
+  if (predicate.hasMultipleAbilities === false && count >= 2) {
     return false;
   }
 
@@ -683,6 +757,8 @@ export function resolveCardTargets(
     .filter((card) => renderedTextMatches(card, predicate.renderedTextIncludes))
     .filter((card) => !predicate.starter || card.rarity === "Starter")
     .filter((card) => tideOverlap === null || hasTideOverlap(card.tides, tideOverlap))
+    .filter((card) => copyCountMatches(card, quest, predicate))
+    .filter((card) => abilityCountMatches(card, predicate))
     .sort((left, right) => {
       const cardNumberComparison = left.cardNumber - right.cardNumber;
 
