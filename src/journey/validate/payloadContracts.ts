@@ -443,6 +443,31 @@ export function validatePairedReturnContractPayload(payload: Record<string, unkn
     return fail("invalid_paired_return_reference", "Paired return scenes must reference the created object, status, cost, or promise");
   }
 
+  if (
+    typeof payload.returnScene.referencesAnchor === "string" &&
+    payload.returnScene.referencesAnchor !== payload.anchor
+  ) {
+    return fail("invalid_paired_return_reference", "Paired return scenes must reference the created anchor");
+  }
+
+  if (payload.futureCost === undefined || payload.returnReward === undefined) {
+    return fail("invalid_paired_return_contract", "Paired returns require structured futureCost and returnReward payloads");
+  }
+
+  if (
+    payload.returnScene.futureCost !== undefined &&
+    stableStringify(payload.returnScene.futureCost) !== stableStringify(payload.futureCost)
+  ) {
+    return fail("invalid_paired_return_contract", "Paired return futureCost must match returnScene", { field: "futureCost" });
+  }
+
+  if (
+    payload.returnScene.returnReward !== undefined &&
+    stableStringify(payload.returnScene.returnReward) !== stableStringify(payload.returnReward)
+  ) {
+    return fail("invalid_paired_return_contract", "Paired return returnReward must match returnScene", { field: "returnReward" });
+  }
+
   const triggerResult = validateHookTriggerSelector(payload.returnScene.triggerSelector);
   if (!triggerResult.ok) {
     return triggerResult;

@@ -4,7 +4,7 @@ export const pairedReturnPlugin = defineShapePlugin({
   definition: {
       id: "paired_return",
       topology: "delayed_hook",
-      rootOptionCount: { min: 2, max: 2 },
+      rootOptionCount: { min: 2, max: 3 },
       supportedTags: ["callback", "delayed", "memory", "reward", "choice"],
       validationRules: [
         ...commonValidationRules,

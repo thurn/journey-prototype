@@ -1694,12 +1694,27 @@ export function fillOptions(
         optionNumber: 2,
         reward: rewards[1] ?? rewards[0]!,
       });
+      const thirdReturn = pairedReturnHookFill({
+        context,
+        drawContext,
+        shapeId,
+        optionNumber: 3,
+        reward: rewards[2] ?? rewards[1] ?? rewards[0]!,
+      });
 
       return {
-        options: [firstReturn.option, secondReturn.option],
+        options: [firstReturn.option, secondReturn.option, thirdReturn.option],
         precommitted: {
-          delayed: [firstReturn.precommit, secondReturn.precommit],
-          pairedReturn: [firstReturn.precommit, secondReturn.precommit],
+          delayed: [
+            firstReturn.precommit,
+            secondReturn.precommit,
+            thirdReturn.precommit,
+          ],
+          pairedReturn: [
+            firstReturn.precommit,
+            secondReturn.precommit,
+            thirdReturn.precommit,
+          ],
         },
       };
     }

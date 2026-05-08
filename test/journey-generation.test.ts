@@ -3966,7 +3966,9 @@ describe("generateNextJourney", () => {
     for (const shapeId of delayedChoiceShapeIds) {
       const manifest = fillForShape(shapeId, journeyContext);
       const expectedOptionCount =
-        shapeId === "commit_now_future_payoff" ? 3 : 2;
+        shapeId === "commit_now_future_payoff" || shapeId === "paired_return"
+          ? 3
+          : 2;
 
       expect(manifest.options, shapeId).toHaveLength(expectedOptionCount);
       expect(
@@ -4113,10 +4115,10 @@ describe("generateNextJourney", () => {
           operation.payload.kind === "paired_return_contract",
       ) ?? [];
 
-    expect(pairedPrecommits).toHaveLength(2);
-    expect(delayedPrecommits).toHaveLength(2);
-    expect(pairedOperations).toHaveLength(2);
-    expect(delayedOperations).toHaveLength(2);
+    expect(pairedPrecommits).toHaveLength(3);
+    expect(delayedPrecommits).toHaveLength(3);
+    expect(pairedOperations).toHaveLength(3);
+    expect(delayedOperations).toHaveLength(3);
 
     for (const precommit of pairedPrecommits) {
       expect(precommit).toMatchObject({
@@ -4141,6 +4143,7 @@ describe("generateNextJourney", () => {
             label: expect.any(String),
           }),
           referencesCreatedId: expect.any(String),
+          referencesAnchor: expect.any(String),
           resolution: expect.any(String),
           expiration: expect.objectContaining({
             policyKind: expect.any(String),
@@ -4150,7 +4153,11 @@ describe("generateNextJourney", () => {
             durationKind: expect.any(String),
             label: expect.any(String),
           }),
+          futureCost: expect.anything(),
+          returnReward: expect.anything(),
         }),
+        futureCost: expect.anything(),
+        returnReward: expect.anything(),
         visibilityPolicy: expect.objectContaining({
           outcomeVisibility: "visible",
         }),
@@ -4165,13 +4172,25 @@ describe("generateNextJourney", () => {
       expect(
         (
           precommit as {
-            returnScene: { referencesCreatedId: string };
+            returnScene: {
+              referencesCreatedId: string;
+              referencesAnchor: string;
+            };
             created: { referenceId: string };
+            anchor: string;
           }
         ).returnScene.referencesCreatedId,
       ).toBe(
         (precommit as { created: { referenceId: string } }).created.referenceId,
       );
+      expect(
+        (
+          precommit as {
+            returnScene: { referencesAnchor: string };
+            anchor: string;
+          }
+        ).returnScene.referencesAnchor,
+      ).toBe((precommit as { anchor: string }).anchor);
       expect(optionHookIds.has((precommit as { hookId: string }).hookId)).toBe(
         true,
       );
@@ -4212,6 +4231,138 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
+  });
+
+  it("reaches paired-return sealing, borrowing, and future trade families organically", async () => {
+    const content = await loadContent(process.cwd());
+    const manifests = Array.from({ length: 48 }, (_, index) => {
+      const journeyContext = contextFromContent(
+        content,
+        `organic-paired-return-m16-${index}`,
+        "late",
+      );
+      const manifest = fillForShapeAtStage("paired_return", journeyContext, "late");
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    });
+    const contracts = manifests.flatMap((manifest) =>
+      manifest.precommitted.pairedReturn ?? []
+    ) as Record<string, unknown>[];
+    const familyIds = new Set(
+      contracts
+        .map((contract) => contract.returnFamilyId)
+        .filter((familyId): familyId is string => typeof familyId === "string"),
+    );
+    const payloadKinds = (value: unknown): string[] => {
+      if (Array.isArray(value)) {
+        return value.flatMap(payloadKinds);
+      }
+
+      if (typeof value !== "object" || value === null) {
+        return [];
+      }
+
+      const record = value as Record<string, unknown>;
+      return [
+        typeof record.kind === "string" ? record.kind : undefined,
+        ...Object.values(record).flatMap(payloadKinds),
+      ].filter((kind): kind is string => kind !== undefined);
+    };
+    const returnRewardKinds = new Set(
+      contracts.flatMap((contract) => payloadKinds(contract.returnReward)),
+    );
+    const futureCostKinds = new Set(
+      contracts.flatMap((contract) => payloadKinds(contract.futureCost)),
+    );
+    const sealedDreamsignRow = manifests.some((manifest) => {
+      const row = (manifest.precommitted.pairedReturn ?? []) as Record<string, unknown>[];
+
+      return row.length === 3 &&
+        row.every((contract) => {
+          const created = contract.created as Record<string, unknown>;
+          const returnScene = contract.returnScene as Record<string, unknown>;
+
+          return created.referenceKind === "sealed_object" &&
+            created.objectKind === "dreamsign" &&
+            returnScene.returnSceneKind === "sealed_object_return" &&
+            returnScene.referencesCreatedId === created.referenceId &&
+            returnScene.referencesAnchor === contract.anchor;
+        }) &&
+        row.some((contract) => payloadKinds(contract.returnReward).includes("gain_essence")) &&
+        row.some((contract) =>
+          payloadKinds(contract.returnReward).some((kind) =>
+            kind === "card_purge" || kind === "card_duplicate"
+          )
+        );
+    });
+    const borrowedDreamsignContract = contracts.find((contract) => {
+      const created = contract.created as Record<string, unknown>;
+
+      return contract.returnFamilyId === "borrowed_dreamsign" &&
+        created.referenceKind === "borrowed_object" &&
+        created.objectKind === "dreamsign";
+    });
+    const borrowedDraftContract = contracts.find((contract) =>
+      contract.returnFamilyId === "borrowed_card_draft" &&
+      payloadKinds(contract.futureCost).includes("card_purge")
+    );
+    const keyTicketTradeRewards = contracts.filter((contract) => {
+      const created = contract.created as Record<string, unknown>;
+
+      return contract.returnFamilyId === "future_named_object_trade" &&
+        ["Gold Key", "Parchment", "Opal"].includes(String(created.dreamsignName));
+    });
+    const keyTicketRewardKinds = new Set(
+      keyTicketTradeRewards.flatMap((contract) =>
+        payloadKinds(contract.returnReward)
+      ),
+    );
+
+    expect(Array.from(familyIds)).toEqual(
+      expect.arrayContaining([
+        "sealed_dreamsign",
+        "sealed_card",
+        "borrowed_dreamsign",
+        "borrowed_card_draft",
+        "future_named_object_trade",
+        "return_for_resource",
+        "return_for_card_operation",
+        "return_for_route_edit",
+      ]),
+    );
+    expect(Array.from(returnRewardKinds)).toEqual(
+      expect.arrayContaining([
+        "gain_essence",
+        "card_purge",
+        "card_duplicate",
+        "dreamsign_gain",
+        "route_add_site",
+        "bane_chosen_purge",
+        "generated_object_grant",
+      ]),
+    );
+    expect(Array.from(futureCostKinds)).toEqual(
+      expect.arrayContaining([
+        "dreamsign_loss",
+        "bane_gain",
+        "card_purge",
+        "dreamsign_trade_hook",
+      ]),
+    );
+    expect(sealedDreamsignRow).toBe(true);
+    expect(payloadKinds(borrowedDreamsignContract?.futureCost)).toEqual(
+      expect.arrayContaining(["dreamsign_loss"]),
+    );
+    expect(payloadKinds(borrowedDraftContract?.futureCost)).toEqual(
+      expect.arrayContaining(["card_purge"]),
+    );
+    expect(Array.from(keyTicketRewardKinds)).toEqual(
+      expect.arrayContaining(["gain_essence", "card_duplicate", "route_add_site"]),
+    );
   });
 
   it("values near-term triggered rewards through typed hook contracts", async () => {

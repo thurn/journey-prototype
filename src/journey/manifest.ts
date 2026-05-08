@@ -207,10 +207,15 @@ export type PairedReturnContract = {
     returnSceneKind: "sealed_object_return" | "borrowed_object_return" | "future_trade";
     triggerSelector: HookTriggerSelector;
     referencesCreatedId: string;
+    referencesAnchor?: string;
     resolution: string;
     expiration: HookExpirationPolicy;
     duration: BoundedDuration;
+    futureCost?: unknown | unknown[];
+    returnReward?: unknown | unknown[];
   };
+  futureCost?: unknown | unknown[];
+  returnReward?: unknown | unknown[];
   visibilityPolicy: HookVisibilityPolicy;
 };
 

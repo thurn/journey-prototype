@@ -600,10 +600,19 @@ export function pairedReturnContract(args: {
   anchor: string;
   created: Record<string, unknown>;
   returnScene: Record<string, unknown>;
+  futureCost?: unknown | unknown[];
+  returnReward?: unknown | unknown[];
   visibilityPolicy?: Record<string, unknown>;
   reward: unknown | unknown[];
 }): Record<string, unknown> {
-  const returnScene = args.returnScene;
+  const futureCost = args.futureCost ?? [];
+  const returnReward = args.returnReward ?? args.reward;
+  const returnScene: Record<string, unknown> = {
+    ...args.returnScene,
+    referencesAnchor: args.anchor,
+    futureCost,
+    returnReward,
+  };
 
   return {
     kind: "paired_return_contract",
@@ -613,6 +622,8 @@ export function pairedReturnContract(args: {
     anchor: args.anchor,
     created: args.created,
     returnScene,
+    futureCost,
+    returnReward,
     trigger: String(
       (returnScene.triggerSelector as Record<string, unknown> | undefined)
         ?.label ?? "committed return",
@@ -629,7 +640,7 @@ export function pairedReturnContract(args: {
     visibilityPolicy:
       args.visibilityPolicy ??
       hookVisibility("visible", "The return scene is shown before choosing."),
-    reward: args.reward,
+    reward: returnReward,
     hookBudgetCost: 1,
   };
 }
