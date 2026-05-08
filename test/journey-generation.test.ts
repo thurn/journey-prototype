@@ -39,7 +39,11 @@ import {
   dreamsignExactTarget,
   namedDreamsignShopRowCandidateGroups,
 } from "../src/journey/fillers/dreamsignPayloads.js";
-import { routeEditCatalog } from "../src/journey/fillers/routeEditCatalog.js";
+import {
+  routeEditCatalog,
+  routeEditMenuRewards,
+  type RouteEditMenuVariantId,
+} from "../src/journey/fillers/routeEditCatalog.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type {
   GeneratedObjectDefinition,
@@ -57,6 +61,7 @@ import {
   buildValidationReport,
   validateJourneyManifest,
 } from "../src/journey/validate/index.js";
+import { validateRouteEffects } from "../src/journey/validate/payloadContracts.js";
 import {
   valueStarterCleanup,
   valueUsefulNonStarterCardSacrifice,
@@ -638,8 +643,8 @@ describe("generateNextJourney", () => {
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v12",
-      effectCatalogVersion: "effects:v6",
-      valueModelVersion: "value:v8",
+      effectCatalogVersion: "effects:v7",
+      valueModelVersion: "value:v9",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
       validationContractVersion: "validation:v1",
@@ -6834,7 +6839,7 @@ describe("validateJourneyManifest", () => {
     expect(stableStringify(journeyContext.state.quest.route)).toBe(routeBefore);
     expect(
       manifest.options.flatMap((option) => option.routeEffects),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(manifest.precommitted.routeEdits).toEqual(
       manifest.options.flatMap((option) => option.routeEffects),
     );
@@ -6883,7 +6888,7 @@ describe("validateJourneyManifest", () => {
       ),
     );
 
-    expect(normalPayloads).toHaveLength(24);
+    expect(normalPayloads).toHaveLength(36);
     expect(normalOperations.size).toBeGreaterThanOrEqual(3);
     expect(normalScopes.size).toBeGreaterThanOrEqual(2);
     expect(normalSites.size).toBeGreaterThanOrEqual(5);
@@ -6891,11 +6896,125 @@ describe("validateJourneyManifest", () => {
       normalPayloads.every(
         (payload) =>
           typeof payload.siteDeltaValue === "number" &&
-          payload.routePolarity === "positive" &&
           typeof payload.timing === "string" &&
           typeof payload.description === "string",
       ),
     ).toBe(true);
+  });
+
+  it("builds broader three-option route menus from controlled route variants", async () => {
+    const drawContext = {
+      seed: "route-menu-variants",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const payloadsFor = (variantId: RouteEditMenuVariantId) =>
+      routeEditMenuRewards({
+        drawContext,
+        label: `route-menu:${variantId}`,
+        variantId,
+      }).rewards.map((reward) => reward.payload);
+    const currentMapInk = payloadsFor("shared-current-draft-replacement");
+    const mapFold = payloadsFor("map-fold");
+    const atlasLocksmith = payloadsFor("atlas-locksmith");
+    const atlasNeedle = routeEditMenuRewards({
+      drawContext,
+      label: "route-menu:atlas-needle",
+      variantId: "atlas-needle",
+    });
+    const negativeSitePruning = payloadsFor("negative-site-pruning");
+
+    for (const payloadGroup of [
+      currentMapInk,
+      mapFold,
+      atlasLocksmith,
+      atlasNeedle.rewards.map((reward) => reward.payload),
+      negativeSitePruning,
+    ]) {
+      expect(validateRouteEffects(payloadGroup)).toEqual({ ok: true });
+    }
+
+    expect(currentMapInk).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          routeOperationKind: "replace_site",
+          routeScope: "current_dreamscape",
+          fromSite: "Draft",
+          toSite: "Purge",
+        }),
+        expect.objectContaining({
+          routeOperationKind: "replace_site",
+          routeScope: "current_dreamscape",
+          fromSite: "Draft",
+          toSite: "Transfiguration",
+        }),
+        expect.objectContaining({
+          routeOperationKind: "replace_site",
+          routeScope: "current_dreamscape",
+          fromSite: "Draft",
+          toSite: "Dreamsign Offering",
+        }),
+      ]),
+    );
+    expect(mapFold).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          routeOperationKind: "add_site",
+          routeScope: "current_dreamscape",
+          siteType: "Dreamsign Offering",
+        }),
+        expect.objectContaining({
+          routeOperationKind: "add_site",
+          routeScope: "next_dreamscape",
+          siteType: "Transfiguration",
+        }),
+        expect.objectContaining({
+          routeOperationKind: "probability_adjustment",
+          routeScope: "future_dreamscapes",
+          siteType: "Shop",
+          probabilityDeltaPercent: 30,
+        }),
+      ]),
+    );
+    expect(atlasLocksmith).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fromSite: "Essence",
+          toSite: "Transfiguration",
+        }),
+        expect.objectContaining({
+          siteType: "Dreamsign Offering",
+        }),
+      ]),
+    );
+    expect(atlasNeedle.sharedProperty).toBe("compound current_dreamscape route edits");
+    expect(atlasNeedle.rewards.map((reward) => reward.companion)).toEqual([
+      undefined,
+      "small_omen_reward",
+      "bane_burden",
+    ]);
+    expect(atlasNeedle.rewards[0]!.payload).toMatchObject({
+      routeOperationKind: "replace_site",
+      fromSite: "Draft",
+      toSite: "Dreamsign Draft",
+    });
+    expect(negativeSitePruning).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          routeOperationKind: "remove_site",
+          routeScope: "full_atlas",
+          siteType: "Shop",
+          allMatchingSiteType: true,
+          routePolarity: "negative",
+        }),
+        expect.objectContaining({
+          routeOperationKind: "purge_site",
+          routeScope: "current_dreamscape",
+          siteType: "Essence",
+          routePolarity: "negative",
+        }),
+      ]),
+    );
   });
 
   it.each([

@@ -1,4 +1,5 @@
 import { drawInt, shuffleDeterministic, type DrawContext } from "../../util/rng.js";
+import { SITE_TYPES } from "../effects.js";
 
 export type RouteOperationKind =
   | "add_site"
@@ -15,15 +16,13 @@ export type RouteScope =
 
 export type RoutePolarity = "positive" | "negative" | "neutral";
 
-type RouteSite =
-  | "Battle"
-  | "Draft"
-  | "Shop"
-  | "Specialty Shop"
-  | "Purge"
-  | "Transfiguration"
-  | "Dreamsign Offering"
-  | "Dream Journey";
+export type RouteSite = (typeof SITE_TYPES)[number];
+
+export type RouteMenuCompanion =
+  | "small_essence_reward"
+  | "small_omen_reward"
+  | "bane_burden"
+  | "card_operation";
 
 type RouteEditCandidate = {
   operation: RouteOperationKind;
@@ -34,6 +33,19 @@ type RouteEditCandidate = {
   fromSite?: RouteSite;
   toSite?: RouteSite;
   probabilityDirection?: 1 | -1;
+  allMatchingSiteType?: boolean;
+};
+
+type RouteMenuSpec = {
+  operation: RouteOperationKind;
+  routeScope: RouteScope;
+  siteType?: RouteSite;
+  fromSite?: RouteSite;
+  toSite?: RouteSite;
+  probabilityDirection?: 1 | -1;
+  probabilityDeltaPercent?: number;
+  allMatchingSiteType?: boolean;
+  companion?: RouteMenuCompanion;
 };
 
 export type RouteEditReward = {
@@ -41,6 +53,21 @@ export type RouteEditReward = {
   text: string;
   payload: Record<string, unknown>;
   effect: number;
+  companion?: RouteMenuCompanion;
+};
+
+export type RouteEditMenuVariantId =
+  | "shared-current-draft-replacement"
+  | "map-fold"
+  | "atlas-locksmith"
+  | "atlas-needle"
+  | "route-and-card-services"
+  | "negative-site-pruning";
+
+export type RouteEditMenuSelection = {
+  variantId: RouteEditMenuVariantId;
+  sharedProperty: string;
+  rewards: RouteEditReward[];
 };
 
 const STATIC_ROUTE_DRAW_CONTEXT: DrawContext = {
@@ -52,12 +79,15 @@ const STATIC_ROUTE_DRAW_CONTEXT: DrawContext = {
 const ROUTE_SITE_VALUES: Record<RouteSite, number> = {
   Battle: -15,
   Draft: -10,
+  Essence: 70,
   Shop: 45,
   "Specialty Shop": 65,
   Purge: 95,
   Transfiguration: 110,
   "Dreamsign Offering": 120,
+  "Dreamsign Draft": 145,
   "Dream Journey": 100,
+  Duplication: 105,
 };
 
 const ROUTE_SCOPES: readonly RouteScope[] = [
@@ -75,12 +105,15 @@ const MUTABLE_ROUTE_SCOPES: readonly RouteScope[] = [
 
 const ROUTE_SITES = Object.keys(ROUTE_SITE_VALUES) as RouteSite[];
 const HIGH_AGENCY_SITES: readonly RouteSite[] = [
+  "Essence",
   "Shop",
   "Specialty Shop",
   "Purge",
   "Transfiguration",
   "Dreamsign Offering",
+  "Dreamsign Draft",
   "Dream Journey",
+  "Duplication",
 ];
 
 const ROUTE_SCOPE_MULTIPLIERS: Record<RouteScope, number> = {
@@ -103,6 +136,10 @@ const ROUTE_SCOPE_NOUN: Record<RouteScope, string> = {
   future_dreamscapes: "future dreamscapes",
   full_atlas: "the full atlas",
 };
+
+function articleForSite(siteType: RouteSite | undefined): "a" | "an" {
+  return siteType?.match(/^[AEIOU]/u) ? "an" : "a";
+}
 
 function polarityForDelta(delta: number): RoutePolarity {
   if (delta >= 30) {
@@ -165,30 +202,41 @@ function routeEditCandidates(): RouteEditCandidate[] {
         baseSiteDeltaValue: scopedValue(-siteValue, routeScope),
         siteType,
       });
+
+      candidates.push({
+        operation: "remove_site",
+        routeScope,
+        polarity: polarityForDelta(-siteValue * 2),
+        baseSiteDeltaValue: scopedValue(-siteValue * 2, routeScope),
+        siteType,
+        allMatchingSiteType: true,
+      });
     }
   }
 
-  for (const routeScope of ["future_dreamscapes", "full_atlas"] satisfies RouteScope[]) {
+  for (const routeScope of ["current_dreamscape", "future_dreamscapes", "full_atlas"] satisfies RouteScope[]) {
     for (const siteType of ROUTE_SITES) {
       const siteValue = ROUTE_SITE_VALUES[siteType];
       const positiveDirection: 1 | -1 = siteValue >= 0 ? 1 : -1;
 
-      candidates.push({
-        operation: "probability_adjustment",
-        routeScope,
-        polarity: "positive",
-        baseSiteDeltaValue: scopedValue(Math.max(30, Math.abs(siteValue)), routeScope),
-        siteType,
-        probabilityDirection: positiveDirection,
-      });
-      candidates.push({
-        operation: "probability_adjustment",
-        routeScope,
-        polarity: "negative",
-        baseSiteDeltaValue: -scopedValue(Math.max(30, Math.abs(siteValue)), routeScope),
-        siteType,
-        probabilityDirection: positiveDirection === 1 ? -1 : 1,
-      });
+      if (routeScope !== "current_dreamscape") {
+        candidates.push({
+          operation: "probability_adjustment",
+          routeScope,
+          polarity: "positive",
+          baseSiteDeltaValue: scopedValue(Math.max(30, Math.abs(siteValue)), routeScope),
+          siteType,
+          probabilityDirection: positiveDirection,
+        });
+        candidates.push({
+          operation: "probability_adjustment",
+          routeScope,
+          polarity: "negative",
+          baseSiteDeltaValue: -scopedValue(Math.max(30, Math.abs(siteValue)), routeScope),
+          siteType,
+          probabilityDirection: positiveDirection === 1 ? -1 : 1,
+        });
+      }
       candidates.push({
         operation: "purge_site",
         routeScope,
@@ -211,6 +259,7 @@ function routeEffectKey(candidate: RouteEditCandidate): string {
     candidate.toSite,
     candidate.siteType,
     candidate.probabilityDirection,
+    candidate.allMatchingSiteType ? "all" : undefined,
   ]
     .filter((entry) => entry !== undefined)
     .join(":")
@@ -235,11 +284,15 @@ function routeEditDescription(candidate: RouteEditCandidate, probabilityDeltaPer
 
   switch (candidate.operation) {
     case "add_site":
-      return `add a ${candidate.siteType} site to ${scope}`;
+      return `add ${articleForSite(candidate.siteType)} ${candidate.siteType} site to ${scope}`;
     case "remove_site":
-      return `remove a ${candidate.siteType} site from ${scope}`;
+      if (candidate.allMatchingSiteType) {
+        return `remove all ${candidate.siteType} sites from ${scope}`;
+      }
+
+      return `remove ${articleForSite(candidate.siteType)} ${candidate.siteType} site from ${scope}`;
     case "replace_site":
-      return `replace a ${candidate.fromSite} site in ${scope} with a ${candidate.toSite} site`;
+      return `replace ${articleForSite(candidate.fromSite)} ${candidate.fromSite} site in ${scope} with ${articleForSite(candidate.toSite)} ${candidate.toSite} site`;
     case "purge_site":
       return `purge ${candidate.siteType} sites from ${scope}`;
     case "probability_adjustment": {
@@ -265,6 +318,7 @@ export function routePayload(args: {
   fromSite?: string;
   toSite?: string;
   probabilityDeltaPercent?: number;
+  allMatchingSiteType?: boolean;
   timing: string;
   description: string;
 }): Record<string, unknown> {
@@ -283,6 +337,7 @@ export function routePayload(args: {
     ...(args.probabilityDeltaPercent !== undefined
       ? { probabilityDeltaPercent: args.probabilityDeltaPercent }
       : {}),
+    ...(args.allMatchingSiteType ? { allMatchingSiteType: true } : {}),
   };
 }
 
@@ -290,10 +345,14 @@ function routeEditRewardFromCandidate(
   candidate: RouteEditCandidate,
   drawContext: DrawContext,
   label: string,
+  options: {
+    probabilityDeltaPercent?: number;
+    companion?: RouteMenuCompanion;
+  } = {},
 ): RouteEditReward {
   const siteDeltaValue = boundedSiteDeltaValue(candidate, drawContext, label);
   const probabilityDeltaPercent = candidate.operation === "probability_adjustment"
-    ? candidate.probabilityDirection! *
+    ? options.probabilityDeltaPercent ?? candidate.probabilityDirection! *
       [15, 20, 25, 30][drawInt(drawContext, `${label}:probability-delta`, 0, 3)]!
     : undefined;
   const description = routeEditDescription(candidate, probabilityDeltaPercent);
@@ -306,6 +365,7 @@ function routeEditRewardFromCandidate(
     ...(candidate.fromSite ? { fromSite: candidate.fromSite } : {}),
     ...(candidate.toSite ? { toSite: candidate.toSite } : {}),
     ...(probabilityDeltaPercent !== undefined ? { probabilityDeltaPercent } : {}),
+    ...(candidate.allMatchingSiteType ? { allMatchingSiteType: true } : {}),
     timing: ROUTE_TIMING[candidate.routeScope],
     description,
   });
@@ -315,8 +375,127 @@ function routeEditRewardFromCandidate(
     text: routeEditText(candidate, probabilityDeltaPercent),
     payload,
     effect: siteDeltaValue,
+    ...(options.companion ? { companion: options.companion } : {}),
   };
 }
+
+function routeCandidate(args: {
+  operation: RouteOperationKind;
+  routeScope: RouteScope;
+  siteType?: RouteSite;
+  fromSite?: RouteSite;
+  toSite?: RouteSite;
+  probabilityDirection?: 1 | -1;
+  allMatchingSiteType?: boolean;
+}): RouteEditCandidate {
+  if (args.operation === "replace_site") {
+    const fromValue = ROUTE_SITE_VALUES[args.fromSite!];
+    const toValue = ROUTE_SITE_VALUES[args.toSite!];
+    const rawDelta = toValue - fromValue;
+
+    return {
+      operation: args.operation,
+      routeScope: args.routeScope,
+      polarity: polarityForDelta(rawDelta),
+      baseSiteDeltaValue: scopedValue(rawDelta, args.routeScope),
+      fromSite: args.fromSite,
+      toSite: args.toSite,
+    };
+  }
+
+  if (args.operation === "probability_adjustment") {
+    const siteValue = ROUTE_SITE_VALUES[args.siteType!];
+    const direction = args.probabilityDirection ?? (siteValue >= 0 ? 1 : -1);
+    const magnitude = scopedValue(Math.max(30, Math.abs(siteValue)), args.routeScope);
+
+    return {
+      operation: args.operation,
+      routeScope: args.routeScope,
+      polarity: direction === (siteValue >= 0 ? 1 : -1) ? "positive" : "negative",
+      baseSiteDeltaValue: direction === (siteValue >= 0 ? 1 : -1) ? magnitude : -magnitude,
+      siteType: args.siteType,
+      probabilityDirection: direction,
+    };
+  }
+
+  const siteValue = ROUTE_SITE_VALUES[args.siteType!];
+  const multiplier = args.allMatchingSiteType ? 2 : 1;
+  const signedValue = args.operation === "add_site" ? siteValue : -siteValue * multiplier;
+
+  return {
+    operation: args.operation,
+    routeScope: args.routeScope,
+    polarity: polarityForDelta(signedValue),
+    baseSiteDeltaValue: scopedValue(signedValue, args.routeScope),
+    siteType: args.siteType,
+    ...(args.allMatchingSiteType ? { allMatchingSiteType: true } : {}),
+  };
+}
+
+const ROUTE_MENU_VARIANTS = Object.freeze([
+  {
+    variantId: "shared-current-draft-replacement",
+    sharedProperty: "current_dreamscape replace_site from Draft",
+    specs: [
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Purge" },
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Transfiguration" },
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Dreamsign Offering" },
+    ],
+  },
+  {
+    variantId: "map-fold",
+    sharedProperty: "three route timing scopes",
+    specs: [
+      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dreamsign Offering" },
+      { operation: "add_site", routeScope: "next_dreamscape", siteType: "Transfiguration" },
+      { operation: "probability_adjustment", routeScope: "future_dreamscapes", siteType: "Shop", probabilityDirection: 1, probabilityDeltaPercent: 30 },
+    ],
+  },
+  {
+    variantId: "atlas-locksmith",
+    sharedProperty: "current_dreamscape valuable site access",
+    specs: [
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Purge" },
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Essence", toSite: "Transfiguration" },
+      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dreamsign Offering" },
+    ],
+  },
+  {
+    variantId: "atlas-needle",
+    sharedProperty: "compound current_dreamscape route edits",
+    specs: [
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Dreamsign Draft" },
+      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Shop", toSite: "Purge", companion: "small_omen_reward" },
+      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dream Journey", companion: "bane_burden" },
+    ],
+  },
+  {
+    variantId: "route-and-card-services",
+    sharedProperty: "route edits with minor service payloads",
+    specs: [
+      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Purge", companion: "card_operation" },
+      { operation: "replace_site", routeScope: "next_dreamscape", fromSite: "Battle", toSite: "Essence", companion: "small_essence_reward" },
+      { operation: "add_site", routeScope: "next_dreamscape", siteType: "Duplication" },
+    ],
+  },
+  {
+    variantId: "negative-site-pruning",
+    sharedProperty: "negative all-site-type removal costs",
+    specs: [
+      { operation: "remove_site", routeScope: "full_atlas", siteType: "Shop", allMatchingSiteType: true },
+      { operation: "purge_site", routeScope: "current_dreamscape", siteType: "Essence" },
+      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dream Journey", companion: "bane_burden" },
+    ],
+  },
+] satisfies readonly {
+  variantId: RouteEditMenuVariantId;
+  sharedProperty: string;
+  specs: readonly RouteMenuSpec[];
+}[]);
+
+const PRODUCTION_ROUTE_MENU_VARIANTS = ROUTE_MENU_VARIANTS.filter(
+  (variant) => variant.variantId !== "negative-site-pruning",
+);
 
 export function routeEditCatalog(): RouteEditReward[] {
   return routeEditCandidates().map((candidate, index) =>
@@ -354,6 +533,43 @@ export function routeEditRewards(args: {
         `${args.label}:${index}:${routeEffectKey(candidate)}`,
       )
     );
+}
+
+export function routeEditMenuRewards(args: {
+  drawContext: DrawContext;
+  label: string;
+  variantId?: RouteEditMenuVariantId;
+}): RouteEditMenuSelection {
+  const variants = args.variantId
+    ? ROUTE_MENU_VARIANTS.filter((variant) => variant.variantId === args.variantId)
+    : PRODUCTION_ROUTE_MENU_VARIANTS;
+  const selected = variants[
+    args.variantId
+      ? 0
+      : drawInt(args.drawContext, `${args.label}:variant`, 0, variants.length - 1)
+  ];
+
+  if (!selected) {
+    throw new Error(`Unknown route edit menu variant: ${args.variantId}`);
+  }
+
+  return {
+    variantId: selected.variantId,
+    sharedProperty: selected.sharedProperty,
+    rewards: (selected.specs as readonly RouteMenuSpec[]).map((spec, index) =>
+      routeEditRewardFromCandidate(
+        routeCandidate(spec),
+        args.drawContext,
+        `${args.label}:${selected.variantId}:${index}`,
+        {
+          ...(spec.probabilityDeltaPercent !== undefined
+            ? { probabilityDeltaPercent: spec.probabilityDeltaPercent }
+            : {}),
+          ...(spec.companion ? { companion: spec.companion } : {}),
+        },
+      )
+    ),
+  };
 }
 
 export function firstRouteEditReward(args: {

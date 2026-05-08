@@ -82,9 +82,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v8");
+    expect(VALUE_MODEL_VERSION).toBe("value:v9");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v8",
+      version: "value:v9",
       values: {
         essence: {
           gainUnit: 1,
@@ -94,6 +94,11 @@ describe("evaluateOptionValue", () => {
             late: 60,
           },
           maxEssenceMultiplier: 2,
+        },
+        route: {
+          removeAllValuableSites: -90,
+          burdenedDreamJourneyRoute: 35,
+          compoundRouteMinorReward: 30,
         },
         omens: {
           gainEach: 65,

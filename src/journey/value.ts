@@ -3,7 +3,7 @@ import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v8" = "value:v8";
+export const VALUE_MODEL_VERSION: "value:v9" = "value:v9";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -156,6 +156,9 @@ export const ROUTE_VALUE_CONSTANTS = {
   addCurrentValuableSite: 60,
   replaceLowValueWithValuableSite: 95,
   futureRouteEdit: 50,
+  removeAllValuableSites: -90,
+  burdenedDreamJourneyRoute: 35,
+  compoundRouteMinorReward: 30,
 } as const;
 
 export const TIMING_AND_RANDOMNESS_VALUE_CONSTANTS = {

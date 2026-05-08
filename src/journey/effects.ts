@@ -16,7 +16,7 @@ import type {
   TargetSelector,
 } from "./manifest.js";
 
-export const EFFECT_CATALOG_VERSION: "effects:v6" = "effects:v6";
+export const EFFECT_CATALOG_VERSION: "effects:v7" = "effects:v7";
 
 export type EffectEntry = {
   readonly id: string;
@@ -132,12 +132,15 @@ export const ALLOWED_TRANSFIGURATIONS = Object.freeze([
 export const SITE_TYPES = Object.freeze([
   "Battle",
   "Draft",
+  "Essence",
   "Shop",
   "Specialty Shop",
   "Purge",
   "Transfiguration",
   "Dreamsign Offering",
+  "Dreamsign Draft",
   "Dream Journey",
+  "Duplication",
 ] as const);
 
 export const TIMING_TRIGGERS = Object.freeze([

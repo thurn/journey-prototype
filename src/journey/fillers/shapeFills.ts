@@ -83,7 +83,7 @@ import {
   pairedReturnHookFill,
 } from "./hookPayloads.js";
 import { randomVisibility } from "./randomPayloads.js";
-import { routeEditRewards } from "./routeEditCatalog.js";
+import { routeEditMenuRewards, routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
 type ShopRowPrice = {
@@ -1827,34 +1827,79 @@ export function fillOptions(
       };
     }
     case "alter_dreamscapes": {
-      const routeRewards = routeEditRewards({
+      const routeMenu = routeEditMenuRewards({
         drawContext,
         label: `${shapeId}:routes`,
-        count: 2,
-        polarities: ["positive"],
-      }).map((reward) => ({
-        key: reward.key,
-        text: reward.text,
-        effects: [],
-        routeEffects: [reward.payload],
-        effect: reward.effect,
-      }));
+      });
       const routeBane = baneBurdenSlot(
         drawContext,
         `${shapeId}:route-bane`,
       );
-      const routeOptions = routeRewards.map((reward, index) =>
-        index === 1
-          ? option({
-              number: index + 1,
-              text: `${routeBane.prefix} ${reward.text}`,
-              burdens: routeBane.burdens,
-              routeEffects: reward.routeEffects,
-              burden: routeBane.burden,
-              effect: reward.effect,
-            })
-          : rewardSlotOption(index + 1, reward)
+      const companionCardOperation = compatibleCardOperations(drawContext, {
+        topology: "one_operation_many_targets",
+        targetClasses: ["deck_card"],
+        targetModes: [cardOperationTargetModeForClass("deck_card")],
+        valueBands: ["standard"],
+        timings: ["immediate"],
+        context,
+        stage,
+        label: `${shapeId}:route-card-operation`,
+        count: 1,
+      })[0]!;
+      const companionCardTarget = target(
+        "card",
+        chosenCardText(),
+        { source: "deck" },
+        {
+          selection: "chosen_after_commitment",
+          cardOperationTargetMode: "chosen",
+        },
       );
+      const routeOptions = routeMenu.rewards.map((reward, index) => {
+        const effects: unknown[] = [];
+        const targets: unknown[] = [];
+        let text = reward.text;
+        let effect = reward.effect;
+        let burden = 0;
+        let burdens: unknown[] = [];
+
+        if (reward.companion === "small_essence_reward") {
+          const amount = 45;
+
+          text = `${text} Gain ${amount} essence.`;
+          effects.push(gainEssence(amount));
+          effect += amount;
+        } else if (reward.companion === "small_omen_reward") {
+          const amount = 1;
+
+          text = `${text} Gain ${amount} omen.`;
+          effects.push(gainOmen(amount));
+          effect += valueOmenGain(amount);
+        } else if (reward.companion === "bane_burden") {
+          text = `${routeBane.prefix} ${text}`;
+          burdens = routeBane.burdens;
+          burden = routeBane.burden;
+        } else if (reward.companion === "card_operation") {
+          text = `${text} ${renderChosenCardOperationText(companionCardOperation)}`;
+          effects.push(companionCardOperation.effect);
+          targets.push(companionCardTarget);
+          effect += companionCardOperation.value;
+        }
+
+        return option({
+          number: index + 1,
+          text,
+          effects,
+          burdens,
+          targets,
+          routeEffects: [reward.payload],
+          burden,
+          effect,
+          uncertainty: reward.companion === "card_operation"
+            ? companionCardOperation.uncertainty
+            : undefined,
+        });
+      });
 
       return {
         options: routeOptions,

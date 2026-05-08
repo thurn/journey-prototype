@@ -14,6 +14,7 @@ import {
   resolveDreamsignReference,
   resolveDreamsignTargets,
   resolveTargetSelector,
+  SITE_TYPES,
   STANDARD_TRANSFIGURATIONS,
   validateNamedReferences,
 } from "../src/journey/effects.js";
@@ -148,9 +149,17 @@ function quest(overrides: Partial<QuestState> = {}): QuestState {
 
 describe("EFFECT_CATALOG", () => {
   it("exports the pinned version and required mechanical families", () => {
-    expect(EFFECT_CATALOG_VERSION).toBe("effects:v6");
+    expect(EFFECT_CATALOG_VERSION).toBe("effects:v7");
     expect(DEFAULT_BANE_NAME).toBe("Nightmare");
     expect(BANE_NAMES).toContain("Nightmare");
+    expect(SITE_TYPES).toEqual(
+      expect.arrayContaining([
+        "Essence",
+        "Dreamsign Offering",
+        "Dreamsign Draft",
+        "Duplication",
+      ]),
+    );
 
     const ids = new Set(EFFECT_CATALOG.map((entry) => entry.id));
 
