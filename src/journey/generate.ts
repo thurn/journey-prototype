@@ -1,7 +1,7 @@
 import type { JourneyContext } from "../quest/context.js";
 import type { PickHistoryEntry } from "../state/schema.js";
 import { weightedChoice, deterministicTieJitter, type DrawContext } from "../util/rng.js";
-import { buildConservativeJourneyForShape } from "./fillers.js";
+import { buildConservativeJourneyForShape, withDistinctnessFingerprint } from "./fillers.js";
 import { attachTargetResolutionMetadata } from "./effects.js";
 import type { JourneyManifest, JourneyOption, JourneyStage, SequenceState } from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
@@ -23,6 +23,7 @@ export type GenerationInput = {
   forcedShapeId?: JourneyShapeDefinition["id"] | string;
   forcedStage?: JourneyStage;
   forcedDebugPayload?: DebugPayloadSelection;
+  distinctnessAttempt?: number;
 };
 
 export type SequenceAdvanceInput = {
@@ -311,6 +312,7 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     seed: context.state.quest.seed,
     contentVersion: context.contentVersion,
     rootJourneyIndex: context.state.generator.rootJourneyIndex,
+    ...(input.distinctnessAttempt ? { selectionAttempt: input.distinctnessAttempt } : {}),
   };
   const stage = input.forcedStage ?? stageForDreamscape(context.state.quest.resources.dreamscape);
   const selectedTags = desiredTagsFor(context, stage);
@@ -358,11 +360,11 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     : repairOrFallbackJourney(resolvedManifest, context, validation, {
         forcedShape: input.forcedShapeId !== undefined,
       });
-  const resolvedFinalManifest = withValidationReport(attachTargetResolutionMetadata(
+  const resolvedFinalManifest = withDistinctnessFingerprint(withValidationReport(attachTargetResolutionMetadata(
     finalManifest,
     context.content,
     context.state.quest,
-  ), context);
+  ), context));
 
   if (input.forcedShapeId && resolvedFinalManifest.shapeId !== input.forcedShapeId) {
     throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`);

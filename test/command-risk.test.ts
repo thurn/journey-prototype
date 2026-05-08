@@ -102,6 +102,119 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("emits 100 unique meaningful distinctness fingerprints for each fixed stage batch", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const stages = ["early", "mid", "late"] as const;
+      const results = [];
+
+      for (const stage of stages) {
+        results.push(await handleJourney(options({
+          json: true,
+          seed: "variety",
+          stage,
+          count: 100,
+        })));
+      }
+
+      for (const [index, result] of results.entries()) {
+        expect(result.exitCode).toBe(ExitCode.Success);
+        expect(result.stderr).toBe("");
+        expect(result.stdout).not.toMatch(ANSI_PATTERN);
+
+        const payload = JSON.parse(result.stdout);
+        const fingerprints = payload.journeys.map((entry: {
+          manifest: {
+            distinctness: {
+              value: string;
+              components: string[];
+              explanation: Record<string, unknown>;
+              equivalenceBands: unknown[];
+            };
+            debug: {
+              semanticFingerprint: { value: string };
+            };
+          };
+        }) => entry.manifest.distinctness.value);
+        const firstDistinctness = payload.journeys[0].manifest.distinctness;
+
+        expect(payload.journeys).toHaveLength(100);
+        expect(new Set(fingerprints).size, stages[index]).toBe(100);
+        expect(payload.journeys.every((entry: {
+          manifest: {
+            distinctness: { value: string };
+            debug: { semanticFingerprint: { value: string } };
+          };
+        }) =>
+          entry.manifest.distinctness.value === entry.manifest.debug.semanticFingerprint.value
+        )).toBe(true);
+        expect(firstDistinctness.components).toEqual(expect.arrayContaining([
+          `stage:${stages[index]}`,
+          expect.stringMatching(/^shape:/u),
+          expect.stringMatching(/^topology:/u),
+          expect.stringMatching(/^payloadFamilies:/u),
+          expect.stringMatching(/^operationVerbs:/u),
+          expect.stringMatching(/^targetClasses:/u),
+          expect.stringMatching(/^timingClasses:/u),
+          expect.stringMatching(/^visibilityPolicies:/u),
+          expect.stringMatching(/^majorRewardFamilies:/u),
+          expect.stringMatching(/^motifs:/u),
+          expect.stringMatching(/^curatedVariantIds:/u),
+        ]));
+        expect(firstDistinctness.explanation).toMatchObject({
+          shapeId: expect.any(String),
+          topology: expect.any(String),
+          stage: stages[index],
+          payloadFamilies: expect.any(Array),
+          operationVerbs: expect.any(Array),
+          targetClasses: expect.any(Array),
+          namedObjectIdentities: expect.any(Array),
+          generatedObjectArchetypes: expect.any(Array),
+          timingClasses: expect.any(Array),
+          triggerClasses: expect.any(Array),
+          routeScopes: expect.any(Array),
+          statusScopes: expect.any(Array),
+          randomEnvelopeTypes: expect.any(Array),
+          revealEnvelopeTypes: expect.any(Array),
+          visibilityPolicies: expect.any(Array),
+          majorCostFamilies: expect.any(Array),
+          majorRewardFamilies: expect.any(Array),
+          majorBurdenFamilies: expect.any(Array),
+          motifs: expect.any(Array),
+          curatedVariantIds: expect.any(Array),
+          semanticValueBands: expect.any(Array),
+        });
+        expect(firstDistinctness.equivalenceBands).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            field: expect.stringMatching(/^(essence_amount|omen_count|chance_percentage|duration_count|choice_count)$/u),
+            band: expect.any(String),
+            description: expect.any(String),
+          }),
+        ]));
+      }
+
+      const replay = await handleJourney(options({
+        json: true,
+        seed: "variety",
+        stage: "early",
+        count: 100,
+      }));
+
+      expect(replay.exitCode).toBe(ExitCode.Success);
+      expect(replay.stdout).toBe(results[0]!.stdout);
+
+      const normal = await handleJourney(options({
+        seed: "variety",
+        stage: "early",
+        count: 1,
+      }));
+
+      expect(normal.exitCode).toBe(ExitCode.Success);
+      expect(normal.stdout).not.toContain("Semantic fingerprint");
+      expect(normal.stdout).not.toContain("Fingerprint components");
+      await expectMissingState(statePath);
+    });
+  }, 180_000);
+
   it("seeded stage and forced shape produce a complete tree", async () => {
     await withTempState(async ({ statePath, options }) => {
       const result = await handleJourney(options({

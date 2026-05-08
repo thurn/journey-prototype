@@ -648,6 +648,47 @@ export type ValidationReport = {
   rules: ValidationRuleOutcome[];
 };
 
+export type SemanticEquivalenceBand = {
+  field:
+    | "essence_amount"
+    | "omen_count"
+    | "chance_percentage"
+    | "duration_count"
+    | "choice_count";
+  band: string;
+  description: string;
+};
+
+export type DistinctnessFingerprint = {
+  algorithm: "semantic-fingerprint:v1";
+  value: string;
+  components: string[];
+  explanation: {
+    shapeId: JourneyShapeId;
+    topology: string;
+    stage: JourneyStage;
+    payloadFamilies: string[];
+    operationVerbs: string[];
+    targetClasses: string[];
+    namedObjectIdentities: string[];
+    generatedObjectArchetypes: string[];
+    timingClasses: string[];
+    triggerClasses: string[];
+    routeScopes: string[];
+    statusScopes: string[];
+    randomEnvelopeTypes: string[];
+    revealEnvelopeTypes: string[];
+    visibilityPolicies: string[];
+    majorCostFamilies: string[];
+    majorRewardFamilies: string[];
+    majorBurdenFamilies: string[];
+    motifs: string[];
+    curatedVariantIds: string[];
+    semanticValueBands: string[];
+  };
+  equivalenceBands: SemanticEquivalenceBand[];
+};
+
 export type RepairOutcomeStatus =
   | "accepted_immediately"
   | "adjusted"
@@ -691,11 +732,7 @@ export type JourneyDebug = {
   }[];
   validation: ValidationReport;
   repair: RepairOutcomeMetadata;
-  semanticFingerprint: {
-    algorithm: "semantic-fingerprint:v1";
-    value: string;
-    components: string[];
-  };
+  semanticFingerprint: DistinctnessFingerprint;
   previousPick?: {
     journeyId: string;
     shapeId: JourneyShapeId;
@@ -817,6 +854,7 @@ export type JourneyManifest = {
   dreamscape: number;
   selectedTags: string[];
   options: JourneyOption[];
+  distinctness: DistinctnessFingerprint;
   generatedObjects: GeneratedObjectDefinition[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;

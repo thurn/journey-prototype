@@ -600,6 +600,35 @@ function operationDebugLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
+function fingerprintDebugLines(manifest: JourneyManifest): string[] {
+  const fingerprint = manifest.distinctness ?? manifest.debug.semanticFingerprint;
+  const components = fingerprint.components ?? [];
+  const equivalenceBands = fingerprint.equivalenceBands ?? [];
+  const lines = [
+    `Semantic fingerprint: ${fingerprint.value} (${fingerprint.algorithm}).`,
+    "Fingerprint components:",
+  ];
+
+  if (components.length === 0) {
+    lines.push("  none");
+  } else {
+    for (const component of components) {
+      lines.push(`  ${component}`);
+    }
+  }
+
+  lines.push("Equivalence bands:");
+  if (equivalenceBands.length === 0) {
+    lines.push("  none");
+  } else {
+    for (const band of equivalenceBands) {
+      lines.push(`  ${band.field}:${band.band} - ${band.description}`);
+    }
+  }
+
+  return lines;
+}
+
 function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
   if (manifest.generatedObjects.length === 0) {
     return [];
@@ -697,9 +726,7 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     lines.push("", "Precommitted outcomes:", ...outcomes);
   }
 
-  lines.push(
-    `Semantic fingerprint: ${manifest.debug.semanticFingerprint.value} (${manifest.debug.semanticFingerprint.algorithm}).`,
-  );
+  lines.push(...fingerprintDebugLines(manifest));
 
   lines.push(...operationDebugLines(manifest));
   lines.push(...generatedObjectDebugLines(manifest));

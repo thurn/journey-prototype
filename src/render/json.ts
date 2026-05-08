@@ -39,6 +39,7 @@ function manifestJson(manifest: JourneyManifest) {
     stage: manifest.stage,
     dreamscape: manifest.dreamscape,
     selectedTags: manifest.selectedTags,
+    distinctness: manifest.distinctness,
     sequence: manifest.sequence,
     generatedObjects: manifest.generatedObjects,
     options: manifest.options.map(optionJson),

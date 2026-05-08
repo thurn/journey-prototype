@@ -5,6 +5,7 @@ export type DrawContext = {
   contentVersion: string;
   rootJourneyIndex: number;
   sequenceStep?: number;
+  selectionAttempt?: number;
 };
 
 function drawUnit(context: DrawContext, label: string): number {
@@ -13,6 +14,7 @@ function drawUnit(context: DrawContext, label: string): number {
     `content:${context.contentVersion}`,
     `root:${context.rootJourneyIndex}`,
     `step:${context.sequenceStep ?? "root"}`,
+    ...(context.selectionAttempt === undefined ? [] : [`attempt:${context.selectionAttempt}`]),
     `label:${label}`,
   ].join("\0");
   const digest = sha256Hex(material);

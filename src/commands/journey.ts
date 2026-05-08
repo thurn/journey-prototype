@@ -64,6 +64,8 @@ type GeneratedJourney = {
   manifest: ReturnType<typeof generateNextJourney>;
 };
 
+const DISTINCTNESS_RETRY_LIMIT = 200;
+
 export async function handleJourney(
   options: CommonCommandOptions,
   command: "journey" | "run" = "journey",
@@ -87,7 +89,9 @@ export async function handleJourney(
       throw new Error("Journey batch count must be between 1 and 1000");
     }
 
-    const generated: GeneratedJourney[] = Array.from({ length: count }, (_, index) => {
+    const generated: GeneratedJourney[] = [];
+    const seenDistinctness = new Set<string>();
+    for (let index = 0; index < count; index += 1) {
       const rootJourneyIndex = index + 1;
       const stage = stageForInvocation(
         options,
@@ -95,32 +99,48 @@ export async function handleJourney(
         loadedContent.contentVersion,
         rootJourneyIndex,
       );
-      const state = createInitialJourneyState({
-        seed,
-        content: loadedContent.content,
-        contentVersion: loadedContent.contentVersion,
-      });
-
-      state.generator.rootJourneyIndex = rootJourneyIndex;
-      state.quest.resources.dreamscape = dreamscapeForStage(stage);
-
       const forcedDebugPayload = validateDebugPayloadSelection({
         familyId: options.debugPayloadFamily,
         variantId: options.debugPayloadVariant,
         shapeId: options.shape,
         stage,
       });
+      const shouldAvoidDuplicate = count > 1 && options.shape === undefined && forcedDebugPayload === undefined;
+      let selected: GeneratedJourney | undefined;
 
-      const context = buildContext(options, loadedContent, state);
-      const manifest = generateNextJourney({
-        context,
-        forcedShapeId: options.shape,
-        forcedStage: stage,
-        forcedDebugPayload,
-      });
+      for (let attempt = 0; attempt < DISTINCTNESS_RETRY_LIMIT; attempt += 1) {
+        const state = createInitialJourneyState({
+          seed,
+          content: loadedContent.content,
+          contentVersion: loadedContent.contentVersion,
+        });
 
-      return { state, manifest };
-    });
+        state.generator.rootJourneyIndex = rootJourneyIndex;
+        state.quest.resources.dreamscape = dreamscapeForStage(stage);
+
+        const context = buildContext(options, loadedContent, state);
+        const manifest = generateNextJourney({
+          context,
+          forcedShapeId: options.shape,
+          forcedStage: stage,
+          forcedDebugPayload,
+          distinctnessAttempt: attempt,
+        });
+
+        selected = { state, manifest };
+
+        if (!shouldAvoidDuplicate || !seenDistinctness.has(manifest.distinctness.value)) {
+          break;
+        }
+      }
+
+      if (!selected) {
+        throw new Error("Journey generation did not produce a manifest");
+      }
+
+      seenDistinctness.add(selected.manifest.distinctness.value);
+      generated.push(selected);
+    }
     const first = generated[0]!;
 
     return {

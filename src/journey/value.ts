@@ -330,6 +330,104 @@ function roundToNearestFive(value: number): number {
   return Math.round(value / 5) * 5;
 }
 
+export function semanticEssenceAmountBand(amount: number, role: "cost" | "reward" | "burden" = "reward"): string {
+  const magnitude = Math.abs(amount);
+  const prefix = role === "cost" ? "essence-cost" : role === "burden" ? "essence-burden" : "essence-reward";
+
+  if (magnitude === 0) {
+    return `${prefix}:none`;
+  }
+
+  if (magnitude <= 25) {
+    return `${prefix}:low`;
+  }
+
+  if (magnitude <= 100) {
+    return `${prefix}:medium`;
+  }
+
+  if (magnitude <= 250) {
+    return `${prefix}:high`;
+  }
+
+  return `${prefix}:major`;
+}
+
+export function semanticOmenCountBand(count: number, role: "cost" | "reward" | "burden" = "reward"): string {
+  const magnitude = Math.abs(count);
+  const prefix = role === "cost" ? "omen-cost" : role === "burden" ? "omen-burden" : "omen-reward";
+
+  if (magnitude === 0) {
+    return `${prefix}:none`;
+  }
+
+  if (magnitude === 1) {
+    return `${prefix}:single`;
+  }
+
+  if (magnitude <= 3) {
+    return `${prefix}:multi`;
+  }
+
+  return `${prefix}:major`;
+}
+
+export function semanticChanceBand(percent: number): string {
+  if (percent <= 0) {
+    return "chance:none";
+  }
+
+  if (percent <= 25) {
+    return "chance:unlikely";
+  }
+
+  if (percent <= 50) {
+    return "chance:even";
+  }
+
+  if (percent <= 75) {
+    return "chance:likely";
+  }
+
+  if (percent < 100) {
+    return "chance:near-certain";
+  }
+
+  return "chance:guaranteed";
+}
+
+export function semanticDurationBand(count: number | undefined, durationKind = "duration"): string {
+  if (count === undefined || !Number.isFinite(count)) {
+    return `${durationKind}:unspecified`;
+  }
+
+  if (count <= 1) {
+    return `${durationKind}:next`;
+  }
+
+  if (count <= 3) {
+    return `${durationKind}:short-window`;
+  }
+
+  return `${durationKind}:long-window`;
+}
+
+export function semanticChoiceCountBand(count: number): string {
+  if (count <= 1) {
+    return "choice-count:single";
+  }
+
+  if (count <= 3) {
+    return "choice-count:narrow";
+  }
+
+  if (count <= 6) {
+    return "choice-count:menu";
+  }
+
+  return "choice-count:broad";
+}
+
 function choiceCurveValue(
   choiceCount: number,
   curve: Readonly<Record<string, number>>,
