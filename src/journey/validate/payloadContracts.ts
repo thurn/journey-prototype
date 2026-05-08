@@ -150,6 +150,7 @@ export const HOOK_TRIGGER_KINDS = new Set([
   "battle",
   "victory",
   "each_battle",
+  "dreamscape",
   "site_visit",
   "named_card_play",
   "dreamsign_trigger",

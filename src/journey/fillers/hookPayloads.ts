@@ -11,20 +11,31 @@ import { shopPayload, statusPayload } from "./environmentPayloads.js";
 import { catalogRewardCards, namedCardPayload } from "./namedCardPayloads.js";
 import {
   GENERIC_CARD_DRAFT_PROFILE,
+  type RewardSlot,
   cost,
   draftCards,
   gainEssence,
   gainOmen,
+  lowerFirst,
   option,
   selectedDreamsignTargets,
   target,
 } from "./shared.js";
+
+type DelayedTimingSlot = {
+  key: string;
+  text: string;
+  kind: string;
+  multiplier: number;
+  uncertainty: number;
+};
 
 export function hookTrigger(args: {
   triggerKind:
     | "battle"
     | "victory"
     | "each_battle"
+    | "dreamscape"
     | "site_visit"
     | "named_card_play"
     | "dreamsign_trigger"
@@ -129,6 +140,145 @@ export function delayedHookContract(args: {
       ),
     reward: args.reward,
     hookBudgetCost: args.hookBudgetCost ?? 0,
+  };
+}
+
+function normalizedHookId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "");
+}
+
+function timingTriggerSelector(timing: DelayedTimingSlot): Record<string, unknown> {
+  if (timing.key === "next-battle") {
+    return hookTrigger({
+      triggerKind: "battle",
+      label: timing.text.toLowerCase(),
+      count: 1,
+    });
+  }
+
+  if (timing.key === "next-victory") {
+    return hookTrigger({
+      triggerKind: "victory",
+      label: timing.text.toLowerCase(),
+      count: 1,
+    });
+  }
+
+  if (timing.key === "two-dreamscapes") {
+    return hookTrigger({
+      triggerKind: "dreamscape",
+      label: timing.text.toLowerCase(),
+      count: 2,
+    });
+  }
+
+  return hookTrigger({
+    triggerKind: "dreamscape",
+    label: timing.text.toLowerCase(),
+    count: 1,
+  });
+}
+
+function timingDuration(timing: DelayedTimingSlot): Record<string, unknown> {
+  if (timing.key === "next-battle") {
+    return boundedDuration("dreamscape_count", "within 2 dreamscapes", 2);
+  }
+
+  if (timing.key === "next-victory") {
+    return boundedDuration("battle_count", "next 2 battles", 2);
+  }
+
+  if (timing.key === "two-dreamscapes") {
+    return boundedDuration("dreamscape_count", "within 2 dreamscapes", 2);
+  }
+
+  return boundedDuration("dreamscape_count", "next dreamscape", 1);
+}
+
+function timingExpiration(timing: DelayedTimingSlot): Record<string, unknown> {
+  if (timing.key === "next-victory") {
+    return expiration(
+      "forfeit_reward",
+      "If the next 2 battles are not victories, discard this hook with no reward.",
+    );
+  }
+
+  if (timing.key === "next-battle") {
+    return expiration(
+      "forfeit_reward",
+      "If no battle occurs within 2 dreamscapes, discard this hook with no reward.",
+    );
+  }
+
+  return expiration(
+    "forfeit_reward",
+    `If ${timing.text.toLowerCase()} does not resolve, discard this hook with no reward.`,
+  );
+}
+
+export function delayedRewardHookFill(args: {
+  shapeId: string;
+  optionNumber: number;
+  timing: DelayedTimingSlot;
+  reward: RewardSlot;
+  optionText?: string;
+  costs?: unknown[];
+  burdens?: unknown[];
+  cost?: number;
+  burden?: number;
+  effect?: number;
+  uncertainty?: number;
+  hookBudgetCost?: number;
+}): { option: JourneyOption; precommit: Record<string, unknown> } {
+  const optionEffect = args.effect ?? Math.round(args.reward.effect * args.timing.multiplier);
+  const rewardLabel = lowerFirst(args.reward.text).replace(/\.$/u, "");
+  const precommit = {
+    ...delayedHookContract({
+      hookId: normalizedHookId(
+        `${args.shapeId}-${args.optionNumber}-${args.timing.key}-${args.reward.key}`,
+      ),
+      optionNumber: args.optionNumber,
+      triggerSelector: timingTriggerSelector(args.timing),
+      trackedCondition: `Track ${args.timing.text.toLowerCase()} for option ${args.optionNumber}.`,
+      resolution: `${args.timing.text}, ${rewardLabel}.`,
+      expiration: timingExpiration(args.timing),
+      duration: timingDuration(args.timing),
+      controlledScene: controlledScene("reward", rewardLabel),
+      visibilityPolicy: hookVisibility(
+        "visible",
+        "The delayed trigger, expiration window, and committed reward are shown before choosing.",
+      ),
+      reward: args.reward.effects,
+      hookBudgetCost: args.hookBudgetCost ?? 1,
+    }),
+    sourceShapeId: args.shapeId,
+    timingKey: args.timing.key,
+    rewardMetadata: {
+      rewardKey: args.reward.key,
+      baseConvertedEssence: args.reward.effect,
+      expectedConvertedEssence: optionEffect,
+      timingMultiplier: args.timing.multiplier,
+    },
+  };
+
+  return {
+    option: option({
+      number: args.optionNumber,
+      text:
+        args.optionText ??
+        `${args.timing.text}, ${lowerFirst(args.reward.text)}`,
+      costs: args.costs ?? [],
+      burdens: args.burdens ?? [],
+      triggers: [precommit],
+      effects: args.reward.effects,
+      targets: args.reward.targets ?? [],
+      routeEffects: args.reward.routeEffects ?? [],
+      cost: args.cost,
+      burden: args.burden,
+      effect: optionEffect,
+      uncertainty: args.uncertainty ?? args.timing.uncertainty,
+    }),
+    precommit,
   };
 }
 

@@ -53,6 +53,7 @@ import {
   timingSlots,
   treeBuilderTools,
 } from "./shared.js";
+import { delayedRewardHookFill } from "./hookPayloads.js";
 
 export function fillOptions(
   shapeId: JourneyShapeId,
@@ -1041,18 +1042,17 @@ export function fillOptions(
           reward.effect * (timing.key === "two-dreamscapes" ? 2.6 : 1.45),
         ),
       };
-      const delayedOption = delayedRewardOption(2, timing, delayedReward);
+      const delayedHook = delayedRewardHookFill({
+        shapeId,
+        optionNumber: 2,
+        timing,
+        reward: delayedReward,
+      });
 
       return {
-        options: [rewardSlotOption(1, immediateReward), delayedOption],
+        options: [rewardSlotOption(1, immediateReward), delayedHook.option],
         precommitted: {
-          delayed: [
-            {
-              optionNumber: 2,
-              trigger: timing.text.toLowerCase(),
-              reward: delayedReward.effects,
-            },
-          ],
+          delayed: [delayedHook.precommit],
         },
       };
     }
@@ -1067,25 +1067,23 @@ export function fillOptions(
       );
       const firstTiming = timings[0]!;
       const secondTiming = timings[1] ?? timings[0]!;
+      const firstHook = delayedRewardHookFill({
+        shapeId,
+        optionNumber: 1,
+        timing: firstTiming,
+        reward: rewards[0]!,
+      });
+      const secondHook = delayedRewardHookFill({
+        shapeId,
+        optionNumber: 2,
+        timing: secondTiming,
+        reward: rewards[1] ?? rewards[0]!,
+      });
 
       return {
-        options: [
-          delayedRewardOption(1, firstTiming, rewards[0]!),
-          delayedRewardOption(2, secondTiming, rewards[1] ?? rewards[0]!),
-        ],
+        options: [firstHook.option, secondHook.option],
         precommitted: {
-          delayed: [
-            {
-              optionNumber: 1,
-              trigger: firstTiming.text.toLowerCase(),
-              reward: rewards[0]!.effects,
-            },
-            {
-              optionNumber: 2,
-              trigger: secondTiming.text.toLowerCase(),
-              reward: (rewards[1] ?? rewards[0]!).effects,
-            },
-          ],
+          delayed: [firstHook.precommit, secondHook.precommit],
         },
       };
     }
@@ -1433,29 +1431,26 @@ export function fillOptions(
           ),
         };
       });
+      const futureHooks = futureRewards.map((reward, index) =>
+        delayedRewardHookFill({
+          shapeId,
+          optionNumber: index + 1,
+          timing,
+          reward,
+          optionText: `${commitments[index]!.prefix.replace(/\.$/u, "")} now. ${timing.text}, ${lowerFirst(reward.text)}`,
+          costs: commitments[index]!.costs ?? [],
+          burdens: commitments[index]!.burdens ?? [],
+          cost: commitments[index]!.cost,
+          burden: commitments[index]!.burden,
+          effect: reward.effect,
+          uncertainty: timing.uncertainty,
+        })
+      );
 
       return {
-        options: futureRewards.map((reward, index) =>
-          option({
-            number: index + 1,
-            text: `${commitments[index]!.prefix.replace(/\.$/u, "")} now. ${timing.text}, ${lowerFirst(reward.text)}`,
-            costs: commitments[index]!.costs ?? [],
-            burdens: commitments[index]!.burdens ?? [],
-            triggers: [{ kind: timing.kind }],
-            effects: reward.effects,
-            targets: reward.targets ?? [],
-            cost: commitments[index]!.cost,
-            burden: commitments[index]!.burden,
-            effect: reward.effect,
-            uncertainty: timing.uncertainty,
-          }),
-        ),
+        options: futureHooks.map((entry) => entry.option),
         precommitted: {
-          delayed: futureRewards.map((reward, index) => ({
-            optionNumber: index + 1,
-            trigger: timing.text.toLowerCase(),
-            reward: reward.effects,
-          })),
+          delayed: futureHooks.map((entry) => entry.precommit),
         },
       };
     }

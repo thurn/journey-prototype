@@ -86,6 +86,7 @@ export type HookTriggerSelector = {
     | "battle"
     | "victory"
     | "each_battle"
+    | "dreamscape"
     | "site_visit"
     | "named_card_play"
     | "dreamsign_trigger"

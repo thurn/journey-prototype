@@ -2476,6 +2476,107 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("fills generic delayed reward shapes with typed trackable hook contracts", async () => {
+    const journeyContext = await context("generic-delayed-hooks");
+    const delayedShapeIds: JourneyShapeId[] = [
+      "now_vs_later",
+      "reward_after_trigger",
+      "commit_now_future_payoff",
+    ];
+
+    for (const shapeId of delayedShapeIds) {
+      const manifest = fillForShape(shapeId, journeyContext);
+      const delayedPrecommits = manifest.precommitted.delayed ?? [];
+      const optionHookIds = new Set(
+        manifest.options
+          .flatMap((option) => option.triggers)
+          .map((trigger) =>
+            typeof trigger === "object" &&
+            trigger !== null &&
+            !Array.isArray(trigger) &&
+            "hookId" in trigger
+              ? trigger.hookId
+              : undefined,
+          )
+          .filter((hookId): hookId is string => typeof hookId === "string"),
+      );
+      const delayedOperations =
+        manifest.precommitted.operations?.filter(
+          (operation) =>
+            operation.operationKind === "delayed_hook" &&
+            operation.role === "delayed_hook",
+        ) ?? [];
+
+      expect(delayedPrecommits.length, shapeId).toBeGreaterThan(0);
+      expect(delayedOperations, shapeId).toHaveLength(delayedPrecommits.length);
+
+      for (const precommit of delayedPrecommits) {
+        expect(precommit, shapeId).toMatchObject({
+          kind: "delayed_hook_contract",
+          hookId: expect.any(String),
+          optionNumber: expect.any(Number),
+          triggerSelector: expect.objectContaining({
+            triggerKind: expect.any(String),
+            label: expect.any(String),
+          }),
+          trackedCondition: expect.any(String),
+          resolution: expect.any(String),
+          expiration: expect.objectContaining({
+            policyKind: expect.any(String),
+            label: expect.any(String),
+          }),
+          duration: expect.objectContaining({
+            durationKind: expect.any(String),
+            label: expect.any(String),
+          }),
+          controlledScene: expect.objectContaining({
+            sceneKind: "reward",
+            label: expect.any(String),
+          }),
+          visibilityPolicy: expect.objectContaining({
+            outcomeVisibility: "visible",
+            disclosure: expect.any(String),
+          }),
+          hookBudgetCost: 1,
+          rewardMetadata: expect.objectContaining({
+            rewardKey: expect.any(String),
+            expectedConvertedEssence: expect.any(Number),
+          }),
+        });
+        expect(
+          optionHookIds.has((precommit as { hookId: string }).hookId),
+          shapeId,
+        ).toBe(true);
+      }
+
+      for (const operation of delayedOperations) {
+        expect(operation, shapeId).toMatchObject({
+          triggerSelector: expect.objectContaining({
+            triggerKind: expect.any(String),
+          }),
+          duration: expect.objectContaining({
+            durationKind: expect.any(String),
+          }),
+          expiration: expect.objectContaining({
+            policyKind: expect.any(String),
+          }),
+          controlledScene: expect.objectContaining({
+            sceneKind: "reward",
+          }),
+          visibilityPolicy: expect.objectContaining({
+            outcomeVisibility: "visible",
+          }),
+          hookBudgetCost: 1,
+          rewardOperations: expect.any(Array),
+        });
+      }
+
+      expect(validateJourneyManifest(manifest, journeyContext), shapeId).toEqual({
+        ok: true,
+      });
+    }
+  });
+
   it("values next-battle Dreamsign rewards as near-term premium rewards", async () => {
     const journeyContext = await context(
       "random:3aa6092e-d433-4819-b86c-ccf61b9f51cd",

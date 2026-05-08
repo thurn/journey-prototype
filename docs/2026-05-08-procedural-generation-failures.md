@@ -92,7 +92,7 @@ fixture definitions so QA commands and compatibility tests remain valid.
 
 ### 2. Generic Delayed Shapes Use Text Promises Instead Of Hook Contracts
 
-**Status:** Error.
+**Status:** Fixed.
 
 The V3 contract expects delayed and return shapes to create trackable hooks, not
 loose text promises. The richer hook model exists in
@@ -120,10 +120,15 @@ to render, but not structured enough to behave like procedural hook generation.
 system, because the code already has the richer contract and V3 explicitly calls
 for trackable hooks.
 
-**Proposed fix to remove hardcoded content:** Route all delayed reward shapes
-through a shared delayed-hook builder that constructs trigger selectors,
-durations, expiration policies, controlled scenes, rewards, and visibility
-metadata from typed inputs.
+**Resolution:** Generic delayed reward shapes now route through a shared
+delayed-hook builder. Normal `now_vs_later`, `reward_after_trigger`, and
+`commit_now_future_payoff` fills create `delayed_hook_contract` payloads with
+stable hook IDs, trigger selectors, bounded durations, expiration policies,
+controlled reward scenes, visibility policy, hook-budget cost, and reward value
+metadata. The same contract is attached to the visible option trigger and the
+precommitted delayed outcome, so deterministic replay, rendering, validation,
+and semantic operations all derive from the manifest contract instead of a text
+promise.
 
 ### 3. Generic Paired Return Bypasses The Paired-Return Contract
 
