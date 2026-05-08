@@ -1,16 +1,32 @@
 import type { JourneyContext } from "../quest/context.js";
 import type { PickHistoryEntry } from "../state/schema.js";
-import { weightedChoice, deterministicTieJitter, type DrawContext } from "../util/rng.js";
-import { buildConservativeJourneyForShape, withDistinctnessFingerprint } from "./fillers.js";
+import {
+  weightedChoice,
+  deterministicTieJitter,
+  type DrawContext,
+} from "../util/rng.js";
+import {
+  buildConservativeJourneyForShape,
+  withDistinctnessFingerprint,
+} from "./fillers/index.js";
 import { attachTargetResolutionMetadata } from "./effects.js";
-import type { JourneyManifest, JourneyOption, JourneyStage, SequenceState } from "./manifest.js";
+import type {
+  JourneyManifest,
+  JourneyOption,
+  JourneyStage,
+  SequenceState,
+} from "./manifest.js";
 import { JOURNEY_SHAPES, type JourneyShapeDefinition } from "./shapes.js";
 import {
   markJourneyAcceptedImmediately,
   markJourneyForcedShapeFailure,
   repairOrFallbackJourney,
 } from "./repair.js";
-import { buildValidationReport, validateJourneyManifest, type ValidationResult } from "./validate.js";
+import {
+  buildValidationReport,
+  validateJourneyManifest,
+  type ValidationResult,
+} from "./validate.js";
 import { evaluateOptionValue } from "./value.js";
 import {
   validateDebugPayloadCompatibility,
@@ -35,19 +51,19 @@ export type SequenceAdvanceInput = {
 export type SequenceAdvanceResult =
   | { kind: "advanced"; manifest: JourneyManifest }
   | {
-    kind: "complete";
-    journeyId: string;
-    rootJourneyIndex: number;
-    sequence: SequenceState;
-    shouldGenerateNextRoot: true;
-  }
+      kind: "complete";
+      journeyId: string;
+      rootJourneyIndex: number;
+      sequence: SequenceState;
+      shouldGenerateNextRoot: true;
+    }
   | {
-    kind: "left";
-    journeyId: string;
-    rootJourneyIndex: number;
-    sequence: SequenceState;
-    shouldGenerateNextRoot: true;
-  };
+      kind: "left";
+      journeyId: string;
+      rootJourneyIndex: number;
+      sequence: SequenceState;
+      shouldGenerateNextRoot: true;
+    };
 
 function journeyId(rootJourneyIndex: number): string {
   return `J-${String(rootJourneyIndex).padStart(6, "0")}`;
@@ -65,14 +81,22 @@ function stageForDreamscape(dreamscape: number): JourneyStage {
   return "late";
 }
 
-function desiredTagsFor(context: JourneyContext, stage: JourneyStage): string[] {
-  const tags = new Set<string>(stage === "early"
-    ? ["build", "cleanup", "reward", "immediate", "broad"]
-    : stage === "mid"
-      ? ["refine", "risk", "delayed", "economy", "reward"]
-      : ["convert", "sacrifice", "gamble", "route", "reward"]);
+function desiredTagsFor(
+  context: JourneyContext,
+  stage: JourneyStage,
+): string[] {
+  const tags = new Set<string>(
+    stage === "early"
+      ? ["build", "cleanup", "reward", "immediate", "broad"]
+      : stage === "mid"
+        ? ["refine", "risk", "delayed", "economy", "reward"]
+        : ["convert", "sacrifice", "gamble", "route", "reward"],
+  );
 
-  if (context.state.quest.resources.essence < context.state.quest.resources.maxEssence * 0.25) {
+  if (
+    context.state.quest.resources.essence <
+    context.state.quest.resources.maxEssence * 0.25
+  ) {
     tags.add("resource");
   }
 
@@ -87,7 +111,10 @@ function desiredTagsFor(context: JourneyContext, stage: JourneyStage): string[] 
   return [...tags].sort((left, right) => left.localeCompare(right, "en-US"));
 }
 
-function overlapFraction(left: readonly string[], right: readonly string[]): number {
+function overlapFraction(
+  left: readonly string[],
+  right: readonly string[],
+): number {
   if (right.length === 0) {
     return 0;
   }
@@ -98,29 +125,44 @@ function overlapFraction(left: readonly string[], right: readonly string[]): num
   return matches / right.length;
 }
 
-function broadRunNeedFit(shape: JourneyShapeDefinition, context: JourneyContext): number {
+function broadRunNeedFit(
+  shape: JourneyShapeDefinition,
+  context: JourneyContext,
+): number {
   let score = 0;
   let possible = 0;
 
   possible += 1;
-  if (context.state.quest.deck.summary.starterCards > 0 && shape.supportedTags.includes("cleanup")) {
+  if (
+    context.state.quest.deck.summary.starterCards > 0 &&
+    shape.supportedTags.includes("cleanup")
+  ) {
     score += 1;
   }
 
   possible += 1;
-  if (context.state.quest.activeDreamsigns.length === 0 && shape.supportedTags.includes("dreamsign")) {
+  if (
+    context.state.quest.activeDreamsigns.length === 0 &&
+    shape.supportedTags.includes("dreamsign")
+  ) {
     score += 1;
   }
 
   possible += 1;
-  if (context.state.quest.resources.essence < 100 && shape.supportedTags.includes("reward")) {
+  if (
+    context.state.quest.resources.essence < 100 &&
+    shape.supportedTags.includes("reward")
+  ) {
     score += 1;
   }
 
   return score / possible;
 }
 
-function targetAvailability(shape: JourneyShapeDefinition, context: JourneyContext): number {
+function targetAvailability(
+  shape: JourneyShapeDefinition,
+  context: JourneyContext,
+): number {
   const hasCards = context.state.quest.draftPool.length > 0;
   const hasDreamsigns = context.state.quest.dreamsignPoolIds.length > 0;
 
@@ -135,13 +177,21 @@ function targetAvailability(shape: JourneyShapeDefinition, context: JourneyConte
   return 1;
 }
 
-function exactShapeRepetitionPenalty(shape: JourneyShapeDefinition, context: JourneyContext, previousPick?: PickHistoryEntry): number {
-  const latest = previousPick ?? context.state.history[context.state.history.length - 1];
+function exactShapeRepetitionPenalty(
+  shape: JourneyShapeDefinition,
+  context: JourneyContext,
+  previousPick?: PickHistoryEntry,
+): number {
+  const latest =
+    previousPick ?? context.state.history[context.state.history.length - 1];
 
   return latest?.shapeId === shape.id ? 1 : 0;
 }
 
-function tagRepetitionPenalty(shape: JourneyShapeDefinition, context: JourneyContext): number {
+function tagRepetitionPenalty(
+  shape: JourneyShapeDefinition,
+  context: JourneyContext,
+): number {
   const recent = context.state.history.slice(-3);
 
   if (recent.length === 0) {
@@ -149,9 +199,13 @@ function tagRepetitionPenalty(shape: JourneyShapeDefinition, context: JourneyCon
   }
 
   return recent.some((entry) => {
-    const previous = JOURNEY_SHAPES.find((shapeDefinition) => shapeDefinition.id === entry.shapeId);
+    const previous = JOURNEY_SHAPES.find(
+      (shapeDefinition) => shapeDefinition.id === entry.shapeId,
+    );
 
-    return previous?.supportedTags.some((tag) => shape.supportedTags.includes(tag));
+    return previous?.supportedTags.some((tag) =>
+      shape.supportedTags.includes(tag),
+    );
   })
     ? 1
     : 0;
@@ -236,7 +290,9 @@ function selectShape(
   );
 }
 
-function previousPickDebug(previousPick: PickHistoryEntry | undefined): JourneyManifest["debug"]["previousPick"] | undefined {
+function previousPickDebug(
+  previousPick: PickHistoryEntry | undefined,
+): JourneyManifest["debug"]["previousPick"] | undefined {
   if (!previousPick) {
     return undefined;
   }
@@ -246,8 +302,12 @@ function previousPickDebug(previousPick: PickHistoryEntry | undefined): JourneyM
     shapeId: previousPick.shapeId,
     selectedOptionNumber: previousPick.selectedOptionNumber,
     effectSimulation: "not_applied",
-    ...(previousPick.sequenceStep !== undefined ? { sequenceStep: previousPick.sequenceStep } : {}),
-    ...(previousPick.sequenceStatus !== undefined ? { sequenceStatus: previousPick.sequenceStatus } : {}),
+    ...(previousPick.sequenceStep !== undefined
+      ? { sequenceStep: previousPick.sequenceStep }
+      : {}),
+    ...(previousPick.sequenceStatus !== undefined
+      ? { sequenceStatus: previousPick.sequenceStatus }
+      : {}),
   };
 }
 
@@ -263,7 +323,10 @@ function freezeSerializable<T>(value: T): T {
   if (typeof value === "object" && value !== null) {
     return Object.freeze(
       Object.fromEntries(
-        Object.entries(value).map(([key, nested]) => [key, freezeSerializable(nested)]),
+        Object.entries(value).map(([key, nested]) => [
+          key,
+          freezeSerializable(nested),
+        ]),
       ),
     ) as T;
   }
@@ -271,11 +334,16 @@ function freezeSerializable<T>(value: T): T {
   return value;
 }
 
-function isJourneyShapeId(value: string): value is JourneyShapeDefinition["id"] {
+function isJourneyShapeId(
+  value: string,
+): value is JourneyShapeDefinition["id"] {
   return JOURNEY_SHAPES.some((shape) => shape.id === value);
 }
 
-function withValidationReport(manifest: JourneyManifest, context: JourneyContext): JourneyManifest {
+function withValidationReport(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): JourneyManifest {
   return {
     ...manifest,
     debug: {
@@ -295,7 +363,9 @@ function forcedFailureMessage(
   }
 
   const payload = manifest.debug.debugPayload?.qaId ?? "adapter/current";
-  const targetResolution = manifest.debug.validation.firstFailure?.checked.find((entry) => entry.targetResolution)?.targetResolution;
+  const targetResolution = manifest.debug.validation.firstFailure?.checked.find(
+    (entry) => entry.targetResolution,
+  )?.targetResolution;
   const targetContext = targetResolution
     ? `${targetResolution.selectorKind} ${targetResolution.sourcePool} candidates=${targetResolution.candidateCount}`
     : "none";
@@ -312,11 +382,20 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     seed: context.state.quest.seed,
     contentVersion: context.contentVersion,
     rootJourneyIndex: context.state.generator.rootJourneyIndex,
-    ...(input.distinctnessAttempt ? { selectionAttempt: input.distinctnessAttempt } : {}),
+    ...(input.distinctnessAttempt
+      ? { selectionAttempt: input.distinctnessAttempt }
+      : {}),
   };
-  const stage = input.forcedStage ?? stageForDreamscape(context.state.quest.resources.dreamscape);
+  const stage =
+    input.forcedStage ??
+    stageForDreamscape(context.state.quest.resources.dreamscape);
   const selectedTags = desiredTagsFor(context, stage);
-  const shapeScores = scoreShapes(context, drawContext, selectedTags, previousPick);
+  const shapeScores = scoreShapes(
+    context,
+    drawContext,
+    selectedTags,
+    previousPick,
+  );
   let selectedShapeId: JourneyShapeDefinition["id"];
   if (input.forcedShapeId) {
     if (!isJourneyShapeId(input.forcedShapeId)) {
@@ -324,7 +403,10 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     }
 
     selectedShapeId = input.forcedShapeId;
-  } else if (input.forcedDebugPayload && input.forcedDebugPayload.supportedShapes !== "all") {
+  } else if (
+    input.forcedDebugPayload &&
+    input.forcedDebugPayload.supportedShapes !== "all"
+  ) {
     selectedShapeId = input.forcedDebugPayload.supportedShapes[0]!;
   } else {
     selectedShapeId = selectShape(drawContext, shapeScores);
@@ -349,25 +431,41 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     previousPick: previousPickDebug(previousPick),
     debugPayload: input.forcedDebugPayload,
   });
-  const resolvedManifest = withValidationReport(attachTargetResolutionMetadata(
-    manifest,
-    context.content,
-    context.state.quest,
-  ), context);
+  const resolvedManifest = withValidationReport(
+    attachTargetResolutionMetadata(
+      manifest,
+      context.content,
+      context.state.quest,
+    ),
+    context,
+  );
   const validation = validateJourneyManifest(resolvedManifest, context);
   const finalManifest = validation.ok
-    ? markJourneyAcceptedImmediately(resolvedManifest, input.forcedShapeId !== undefined)
+    ? markJourneyAcceptedImmediately(
+        resolvedManifest,
+        input.forcedShapeId !== undefined,
+      )
     : repairOrFallbackJourney(resolvedManifest, context, validation, {
         forcedShape: input.forcedShapeId !== undefined,
       });
-  const resolvedFinalManifest = withDistinctnessFingerprint(withValidationReport(attachTargetResolutionMetadata(
-    finalManifest,
-    context.content,
-    context.state.quest,
-  ), context));
+  const resolvedFinalManifest = withDistinctnessFingerprint(
+    withValidationReport(
+      attachTargetResolutionMetadata(
+        finalManifest,
+        context.content,
+        context.state.quest,
+      ),
+      context,
+    ),
+  );
 
-  if (input.forcedShapeId && resolvedFinalManifest.shapeId !== input.forcedShapeId) {
-    throw new Error(`Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`);
+  if (
+    input.forcedShapeId &&
+    resolvedFinalManifest.shapeId !== input.forcedShapeId
+  ) {
+    throw new Error(
+      `Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`,
+    );
   }
 
   if (input.forcedDebugPayload) {
@@ -378,12 +476,24 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     });
   }
 
-  const finalValidation = validateJourneyManifest(resolvedFinalManifest, context);
+  const finalValidation = validateJourneyManifest(
+    resolvedFinalManifest,
+    context,
+  );
 
   if (!finalValidation.ok && input.forcedShapeId) {
-    const failedManifest = markJourneyForcedShapeFailure(resolvedFinalManifest, finalValidation);
+    const failedManifest = markJourneyForcedShapeFailure(
+      resolvedFinalManifest,
+      finalValidation,
+    );
 
-    throw new Error(forcedFailureMessage(input.forcedShapeId, failedManifest, finalValidation));
+    throw new Error(
+      forcedFailureMessage(
+        input.forcedShapeId,
+        failedManifest,
+        finalValidation,
+      ),
+    );
   }
 
   return freezeSerializable(resolvedFinalManifest);
@@ -403,17 +513,23 @@ function cloneOptions(options: readonly JourneyOption[]): JourneyOption[] {
   }));
 }
 
-export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdvanceResult {
+export function advanceSequenceJourney(
+  input: SequenceAdvanceInput,
+): SequenceAdvanceResult {
   const { context, manifest, selectedOptionNumber } = input;
 
   if (!manifest.sequence || manifest.sequence.status !== "active") {
     throw new Error("Cannot advance a manifest without an active sequence");
   }
 
-  const selectedOption = manifest.options.find((option) => option.number === selectedOptionNumber);
+  const selectedOption = manifest.options.find(
+    (option) => option.number === selectedOptionNumber,
+  );
 
   if (!selectedOption) {
-    throw new Error(`Option ${selectedOptionNumber} is not available in ${manifest.journeyId}`);
+    throw new Error(
+      `Option ${selectedOptionNumber} is not available in ${manifest.journeyId}`,
+    );
   }
 
   if (selectedOption.pickBehavior === "complete_sequence") {
@@ -437,7 +553,9 @@ export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdv
   }
 
   if (selectedOption.pickBehavior !== "advance_sequence") {
-    throw new Error(`Option ${selectedOptionNumber} does not advance a sequence`);
+    throw new Error(
+      `Option ${selectedOptionNumber} does not advance a sequence`,
+    );
   }
 
   const nextStep = manifest.sequence.step + 1;
@@ -453,7 +571,8 @@ export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdv
     };
   }
 
-  const nextMenu = manifest.precommitted.sequenceMenus?.[sequenceMenuKey(nextStep)];
+  const nextMenu =
+    manifest.precommitted.sequenceMenus?.[sequenceMenuKey(nextStep)];
 
   if (!nextMenu) {
     throw new Error(`Missing precommitted sequence menu for step ${nextStep}`);
@@ -479,7 +598,9 @@ export function advanceSequenceJourney(input: SequenceAdvanceInput): SequenceAdv
   const validation = validateJourneyManifest(reportedAdvanced, context);
 
   if (!validation.ok) {
-    throw new Error(`Advanced sequence manifest failed validation: ${validation.rule}`);
+    throw new Error(
+      `Advanced sequence manifest failed validation: ${validation.rule}`,
+    );
   }
 
   return {

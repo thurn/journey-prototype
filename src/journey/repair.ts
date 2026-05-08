@@ -2,7 +2,7 @@ import type { JourneyContext } from "../quest/context.js";
 import {
   buildConservativeJourneyForShape,
   fallbackShapeIds,
-} from "./fillers.js";
+} from "./fillers/index.js";
 import type {
   JourneyManifest,
   RepairOutcomeMetadata,
@@ -61,17 +61,24 @@ function buildReplacement(
 
 function nextShape(manifest: JourneyManifest): JourneyShapeId {
   const selectedIds = manifest.debug.shapeScores.map((entry) => entry.shapeId);
-  const orderedIds = selectedIds.length > 0
-    ? selectedIds
-    : JOURNEY_SHAPES.map((shape) => shape.id);
+  const orderedIds =
+    selectedIds.length > 0
+      ? selectedIds
+      : JOURNEY_SHAPES.map((shape) => shape.id);
 
-  return orderedIds.find((shapeId) => shapeId !== manifest.shapeId) ?? "single_reward";
+  return (
+    orderedIds.find((shapeId) => shapeId !== manifest.shapeId) ??
+    "single_reward"
+  );
 }
 
 function repairStatusForAction(
   action: string,
   result: "repaired" | "fallback" | "failed",
-): Exclude<RepairOutcomeStatus, "accepted_immediately" | "forced_shape_failed" | "unrepaired"> {
+): Exclude<
+  RepairOutcomeStatus,
+  "accepted_immediately" | "forced_shape_failed" | "unrepaired"
+> {
   if (result === "fallback" || action === "fallback") {
     return "fallback";
   }
@@ -80,7 +87,10 @@ function repairStatusForAction(
     return "adjusted";
   }
 
-  if (action === "reveal_hidden_target_or_outcome" || action === "choose_another_target") {
+  if (
+    action === "reveal_hidden_target_or_outcome" ||
+    action === "choose_another_target"
+  ) {
     return "narrowed";
   }
 
@@ -94,15 +104,23 @@ function repairMetadata(
   failed?: ValidationResult,
 ): RepairOutcomeMetadata {
   const firstFailure = manifest.debug.validation.firstFailure;
-  const checkedWithTarget = firstFailure?.checked.find((entry) => entry.targetResolution);
+  const checkedWithTarget = firstFailure?.checked.find(
+    (entry) => entry.targetResolution,
+  );
 
   return {
     status,
     forcedShape,
     finalShapeId: manifest.shapeId,
-    ...(!failed?.ok && failed ? { failedRule: failed.rule, message: failed.message } : {}),
-    ...(manifest.debug.debugPayload ? { payloadFamily: manifest.debug.debugPayload.familyId } : { payloadFamily: "adapter" }),
-    ...(checkedWithTarget?.targetResolution ? { targetResolution: checkedWithTarget.targetResolution } : {}),
+    ...(!failed?.ok && failed
+      ? { failedRule: failed.rule, message: failed.message }
+      : {}),
+    ...(manifest.debug.debugPayload
+      ? { payloadFamily: manifest.debug.debugPayload.familyId }
+      : { payloadFamily: "adapter" }),
+    ...(checkedWithTarget?.targetResolution
+      ? { targetResolution: checkedWithTarget.targetResolution }
+      : {}),
   };
 }
 
@@ -173,7 +191,10 @@ function recordAttempt(
   };
 }
 
-function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): JourneyManifest {
+function withPayableCosts(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): JourneyManifest {
   const options = manifest.options.map((option) => {
     const adjustedCosts = option.costs.map((cost) => {
       if (typeof cost !== "object" || cost === null || Array.isArray(cost)) {
@@ -206,10 +227,16 @@ function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): J
     const adjustedOption = {
       ...option,
       costs: adjustedCosts,
-      costConvertedEssence: Math.min(option.costConvertedEssence, context.state.quest.resources.essence),
+      costConvertedEssence: Math.min(
+        option.costConvertedEssence,
+        context.state.quest.resources.essence,
+      ),
       netConvertedEssence:
         option.effectConvertedEssence -
-        Math.min(option.costConvertedEssence, context.state.quest.resources.essence) +
+        Math.min(
+          option.costConvertedEssence,
+          context.state.quest.resources.essence,
+        ) +
         option.burdenConvertedEssence +
         option.uncertaintyConvertedEssence,
     };
@@ -225,7 +252,9 @@ function withPayableCosts(manifest: JourneyManifest, context: JourneyContext): J
     options,
     debug: {
       ...manifest.debug,
-      optionValues: options.map((option) => evaluateOptionValue(option, context)),
+      optionValues: options.map((option) =>
+        evaluateOptionValue(option, context),
+      ),
     },
   };
 }
@@ -275,13 +304,19 @@ export function repairOrFallbackJourney(
     } else if (action === "simplify_fill") {
       candidate = buildReplacement(current, context, current.shapeId);
     } else if (action === "convert_route_addition") {
-      candidate = current.shapeId === "alter_dreamscapes"
-        ? buildReplacement(current, context, "alter_dreamscapes")
-        : current;
+      candidate =
+        current.shapeId === "alter_dreamscapes"
+          ? buildReplacement(current, context, "alter_dreamscapes")
+          : current;
     } else if (action === "choose_another_target") {
       candidate = buildReplacement(current, context, current.shapeId);
     } else if (action === "replace_delayed_hook") {
-      candidate = ["now_vs_later", "reward_after_trigger", "paired_return", "commit_now_future_payoff"].includes(current.shapeId)
+      candidate = [
+        "now_vs_later",
+        "reward_after_trigger",
+        "paired_return",
+        "commit_now_future_payoff",
+      ].includes(current.shapeId)
         ? buildReplacement(current, context, "single_reward")
         : current;
     } else if (action === "switch_shape") {
