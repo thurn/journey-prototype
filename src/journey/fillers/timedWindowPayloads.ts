@@ -4,7 +4,8 @@ import {
   type DrawContext,
 } from "../../util/rng.js";
 import type { JourneyOption } from "../manifest.js";
-import { dreamwellPayload, routePayload, shopPayload } from "./environmentPayloads.js";
+import { dreamwellPayload, shopPayload } from "./environmentPayloads.js";
+import { routePayload } from "./routeEditCatalog.js";
 import {
   BATTLE_WINDOW_DURATION,
   option,

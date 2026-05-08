@@ -33,6 +33,7 @@ import {
   valueOmenGain,
   valueOmenLoss,
 } from "../value.js";
+import { firstRouteEditReward } from "./routeEditCatalog.js";
 
 export type BuildArgs = {
   context: JourneyContext;
@@ -709,45 +710,45 @@ export function paidDraft(
   });
 }
 
-export function routeEdit(number: number, future = false): JourneyOption {
-  const timing = future
-    ? "in the next dreamscape"
-    : "in the current dreamscape";
+export function routeEdit(
+  number: number,
+  future = false,
+  drawContext?: DrawContext,
+): JourneyOption {
+  const reward = firstRouteEditReward({
+    future,
+    drawContext,
+    label: `route-edit-option:${number}:${future ? "future" : "current"}`,
+    polarities: ["positive"],
+  });
 
   return option({
     number,
-    text: `Replace a Shop site ${timing} with a Purge site.`,
-    routeEffects: [
-      {
-        kind: future ? "future_route_replacement" : "current_route_replacement",
-        fromSite: "Shop",
-        toSite: "Purge",
-        timing: future ? "next dreamscape" : "current dreamscape",
-        source: "simulated_manifest_only",
-      },
-    ],
-    effect: future ? 50 : 95,
+    text: reward.text,
+    routeEffects: [reward.payload],
+    effect: reward.effect,
   });
 }
 
-export function routeReplacementReward(future = false): RewardSlot {
-  const timing = future
-    ? "in the next dreamscape"
-    : "in the current dreamscape";
-  const routeEffect = {
-    kind: future ? "future_route_replacement" : "current_route_replacement",
-    fromSite: future ? "Draft" : "Shop",
-    toSite: future ? "Dreamsign Offering" : "Purge",
-    timing: future ? "next dreamscape" : "current dreamscape",
-    source: "simulated_manifest_only",
-  };
+export function routeReplacementReward(
+  future = false,
+  drawContext?: DrawContext,
+  label?: string,
+): RewardSlot {
+  const reward = firstRouteEditReward({
+    future,
+    drawContext,
+    label: label ?? `route-replacement:${future ? "future" : "current"}`,
+    operationKinds: ["replace_site"],
+    polarities: ["positive"],
+  });
 
   return {
-    key: future ? "future-route-replacement" : "current-route-replacement",
-    text: `Replace a ${routeEffect.fromSite} site ${timing} with a ${routeEffect.toSite} site.`,
+    key: reward.key,
+    text: reward.text,
     effects: [],
-    routeEffects: [routeEffect],
-    effect: future ? 305 : 295,
+    routeEffects: [reward.payload],
+    effect: reward.effect,
   };
 }
 
@@ -883,7 +884,7 @@ export function rewardSlots(
       targets: [target("card", "a random card in deck", { source: "deck" })],
       effect: 320,
     },
-    routeReplacementReward(false),
+    routeReplacementReward(false, drawContext, "reward-slots:route-replacement"),
   ];
 
   if (context.state.quest.dreamsignPoolIds.length > 0) {

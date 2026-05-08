@@ -302,7 +302,7 @@ fixed probability-ladder rewards and increasing push-your-luck risk.
 
 ### 8. Route Edits Are Fixed Site-Pair Scenarios
 
-**Status:** Concern.
+**Status:** Fixed.
 
 Route generation hardcodes specific site edits:
 
@@ -326,6 +326,16 @@ catalog or route legality model rather than fixed shape branches.
 with a route-edit catalog that samples operation kind, scope, source site,
 destination site, polarity, timing, and site-delta value from legal route
 transitions.
+
+**Resolution:** Normal route-edit generation now uses a reusable legal
+transition catalog. The catalog composes additions, removals, replacements,
+purges, and probability adjustments across controlled route scopes and site
+types, deriving source and destination sites, polarity, timing, probability
+deltas, descriptions, and site-delta values from stage-legible site value rules.
+`alter_dreamscapes` and shared route reward helpers sample catalog entries
+instead of selecting from fixed Shop/Purge and Draft/Transfiguration branches,
+while the forced `route/route-edits` debug payload remains a deterministic QA
+fixture for exact adapter coverage.
 
 ### 9. Risk And Wager Shapes Use Parallel Hardcoded Random Contracts
 

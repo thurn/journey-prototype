@@ -51,7 +51,6 @@ import {
   renumberOptions,
   rewardSlotOption,
   rewardSlots,
-  routeReplacementReward,
   target,
   timingSlots,
   treeBuilderTools,
@@ -60,6 +59,7 @@ import {
   delayedRewardHookFill,
   pairedReturnHookFill,
 } from "./hookPayloads.js";
+import { routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
 export function fillOptions(
@@ -1243,52 +1243,24 @@ export function fillOptions(
       };
     }
     case "alter_dreamscapes": {
-      const routeRewards = shuffleDeterministic(
+      const routeRewards = routeEditRewards({
         drawContext,
-        `${shapeId}:routes`,
-        [
-          routeReplacementReward(false),
-          routeReplacementReward(true),
-          {
-            ...routeReplacementReward(false),
-            key: "current-transfiguration-route",
-            text: "Replace a Draft site in the current dreamscape with a Transfiguration site.",
-            routeEffects: [
-              {
-                kind: "current_route_replacement",
-                fromSite: "Draft",
-                toSite: "Transfiguration",
-                timing: "current dreamscape",
-                source: "simulated_manifest_only",
-              },
-            ],
-            effect: 300,
-          },
-          {
-            ...routeReplacementReward(true),
-            key: "future-transfiguration-route",
-            text: "Replace a Draft site in the next dreamscape with a Transfiguration site.",
-            routeEffects: [
-              {
-                kind: "future_route_replacement",
-                fromSite: "Draft",
-                toSite: "Transfiguration",
-                timing: "next dreamscape",
-                source: "simulated_manifest_only",
-              },
-            ],
-            effect: 305,
-          },
-        ],
-      );
+        label: `${shapeId}:routes`,
+        count: 2,
+        polarities: ["positive"],
+      }).map((reward) => ({
+        key: reward.key,
+        text: reward.text,
+        effects: [],
+        routeEffects: [reward.payload],
+        effect: reward.effect,
+      }));
 
       return {
         options: routeRewards
-          .slice(0, 2)
           .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {
           routeEdits: routeRewards
-            .slice(0, 2)
             .flatMap((reward) => reward.routeEffects ?? []),
         },
       };

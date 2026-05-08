@@ -1,44 +1,6 @@
 import type { JourneyOption } from "../manifest.js";
+import { routePayload } from "./routeEditCatalog.js";
 import { BATTLE_WINDOW_DURATION, cost, gainEssence, option } from "./shared.js";
-
-export function routePayload(args: {
-  operation:
-    | "add_site"
-    | "remove_site"
-    | "replace_site"
-    | "purge_site"
-    | "probability_adjustment";
-  routeScope:
-    | "current_dreamscape"
-    | "next_dreamscape"
-    | "future_dreamscapes"
-    | "full_atlas";
-  polarity: "positive" | "negative" | "neutral";
-  siteDeltaValue: number;
-  siteType?: string;
-  fromSite?: string;
-  toSite?: string;
-  probabilityDeltaPercent?: number;
-  timing: string;
-  description: string;
-}): Record<string, unknown> {
-  return {
-    kind: `route_${args.operation}`,
-    routeOperationKind: args.operation,
-    routeScope: args.routeScope,
-    routePolarity: args.polarity,
-    siteDeltaValue: args.siteDeltaValue,
-    timing: args.timing,
-    source: "simulated_manifest_only",
-    description: args.description,
-    ...(args.siteType ? { siteType: args.siteType } : {}),
-    ...(args.fromSite ? { fromSite: args.fromSite } : {}),
-    ...(args.toSite ? { toSite: args.toSite } : {}),
-    ...(args.probabilityDeltaPercent !== undefined
-      ? { probabilityDeltaPercent: args.probabilityDeltaPercent }
-      : {}),
-  };
-}
 
 export function routeEditOptions(): JourneyOption[] {
   const replace = routePayload({

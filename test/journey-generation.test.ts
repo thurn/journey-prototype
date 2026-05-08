@@ -8,6 +8,7 @@ import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
 import { compatibleCardOperations } from "../src/journey/fillers/cardOperationCatalog.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
+import { routeEditCatalog } from "../src/journey/fillers/routeEditCatalog.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type {
   GeneratedObjectDefinition,
@@ -4752,6 +4753,60 @@ describe("validateJourneyManifest", () => {
       ok: false,
       rule: "missing_precommitted_outcomes",
     });
+  });
+
+  it("fills normal route edits from a reusable legal transition catalog", async () => {
+    const catalog = routeEditCatalog();
+    const catalogPayloads = catalog.map((entry) => entry.payload);
+
+    expect(new Set(catalogPayloads.map((payload) => payload.routeOperationKind))).toEqual(
+      new Set([
+        "add_site",
+        "remove_site",
+        "replace_site",
+        "purge_site",
+        "probability_adjustment",
+      ]),
+    );
+    expect(new Set(catalogPayloads.map((payload) => payload.routePolarity))).toEqual(
+      new Set(["positive", "negative", "neutral"]),
+    );
+
+    const manifests = await Promise.all(
+      Array.from({ length: 12 }, async (_, index) =>
+        fillForShape("alter_dreamscapes", await context(`route-catalog-${index}`))
+      ),
+    );
+    const normalPayloads = manifests.flatMap((manifest) =>
+      manifest.precommitted.routeEdits ?? []
+    ) as Record<string, unknown>[];
+    const normalOperations = new Set(
+      normalPayloads.map((payload) => payload.routeOperationKind),
+    );
+    const normalScopes = new Set(
+      normalPayloads.map((payload) => payload.routeScope),
+    );
+    const normalSites = new Set(
+      normalPayloads.flatMap((payload) =>
+        [payload.siteType, payload.fromSite, payload.toSite].filter(
+          (entry): entry is string => typeof entry === "string",
+        )
+      ),
+    );
+
+    expect(normalPayloads).toHaveLength(24);
+    expect(normalOperations.size).toBeGreaterThanOrEqual(3);
+    expect(normalScopes.size).toBeGreaterThanOrEqual(2);
+    expect(normalSites.size).toBeGreaterThanOrEqual(5);
+    expect(
+      normalPayloads.every(
+        (payload) =>
+          typeof payload.siteDeltaValue === "number" &&
+          payload.routePolarity === "positive" &&
+          typeof payload.timing === "string" &&
+          typeof payload.description === "string",
+      ),
+    ).toBe(true);
   });
 
   it.each([
