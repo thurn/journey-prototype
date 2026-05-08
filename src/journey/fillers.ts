@@ -4012,7 +4012,7 @@ function semanticFingerprintFor(args: {
   precommitted: PrecommittedOutcomes;
 }): DistinctnessFingerprint {
   const shape = getShapeDefinition(args.shapeId);
-  const payloadFamilies = new Set<string>([args.debugPayload?.familyId ?? "adapter"]);
+  const payloadFamilies = new Set<string>(args.debugPayload ? [args.debugPayload.familyId] : []);
   const operationVerbs = new Set<string>();
   const targetClasses = new Set<string>();
   const namedObjectIdentities = new Set<string>();
@@ -4031,7 +4031,7 @@ function semanticFingerprintFor(args: {
     `shape:${args.shapeId}`,
     ...args.selectedTags.map((tag) => `stage-texture:${tag}`),
   ]);
-  const curatedVariantIds = new Set<string>([args.debugPayload?.qaId ?? "adapter/current"]);
+  const curatedVariantIds = new Set<string>(args.debugPayload ? [args.debugPayload.qaId] : []);
   const semanticValueBands = new Set<string>();
   const equivalenceBands = new Map<string, SemanticEquivalenceBand>();
   const addBand = (band: SemanticEquivalenceBand) => {
@@ -4041,6 +4041,124 @@ function semanticFingerprintFor(args: {
   const addString = (target: Set<string>, prefix: string, value: unknown) => {
     if (typeof value === "string" && value.length > 0) {
       target.add(`${prefix}:${value}`);
+    }
+  };
+  const payloadFamilyForKind = (kind: unknown): string | undefined => {
+    if (typeof kind !== "string") {
+      return undefined;
+    }
+
+    if (
+      kind === "gain_essence" ||
+      kind === "gain_omens" ||
+      kind === "essence" ||
+      kind === "omens" ||
+      kind === "essence_loss" ||
+      kind === "omen_loss" ||
+      kind.startsWith("resource_")
+    ) {
+      return "resource";
+    }
+
+    if (kind.startsWith("card_") || kind.startsWith("starter_") || kind === "transfiguration") {
+      return "card";
+    }
+
+    if (kind.startsWith("dreamsign_")) {
+      return "dreamsign";
+    }
+
+    if (kind.startsWith("bane_")) {
+      return "bane";
+    }
+
+    if (
+      kind.startsWith("route_") ||
+      kind.includes("_route_") ||
+      kind === "current_route_replacement" ||
+      kind === "future_route_replacement"
+    ) {
+      return "route";
+    }
+
+    if (kind.startsWith("shop_")) {
+      return "shop";
+    }
+
+    if (kind.startsWith("dreamwell_") || kind === "battle_window_modifier") {
+      return "dreamwell";
+    }
+
+    if (kind.startsWith("status_") || kind.includes("_rule") || kind === "reward_replacement") {
+      return "status";
+    }
+
+    if (kind.startsWith("generated_object_")) {
+      return "generated_object";
+    }
+
+    if (
+      kind.startsWith("random_") ||
+      kind.startsWith("reveal_") ||
+      kind.startsWith("chance_") ||
+      kind === "visible_pool" ||
+      kind === "choose_one_revealed_reward" ||
+      kind === "choose_one_random_revealed_reward" ||
+      kind === "gain_one_random_reward" ||
+      kind === "roll_twice_keep_one" ||
+      kind === "repeated_pool_draws" ||
+      kind === "wager" ||
+      kind === "probability_ladder" ||
+      kind === "push_choice" ||
+      kind === "resolved_random_series"
+    ) {
+      return "random";
+    }
+
+    if (kind === "complete_decision_tree") {
+      return "decision_tree";
+    }
+
+    if (
+      kind.includes("trigger") ||
+      kind.includes("delayed") ||
+      kind === "future_shop" ||
+      kind === "future_dream_journey" ||
+      kind === "paired_return"
+    ) {
+      return "hook";
+    }
+
+    return undefined;
+  };
+  const normalizedVariantId = (family: string, variant: string): string =>
+    `${family}/${variant.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "")}`;
+  const addPayloadClassification = (family: string | undefined, variant: unknown) => {
+    if (!family) {
+      return;
+    }
+
+    payloadFamilies.add(family);
+
+    if (typeof variant === "string" && variant.length > 0) {
+      curatedVariantIds.add(normalizedVariantId(family, variant));
+    }
+  };
+  const addPayloadKindClassification = (kind: unknown) => {
+    addPayloadClassification(payloadFamilyForKind(kind), kind);
+  };
+  const addTargetFamily = (selectorKind: unknown) => {
+    if (
+      selectorKind === "card" ||
+      selectorKind === "dreamsign" ||
+      selectorKind === "dreamcaller" ||
+      selectorKind === "bane" ||
+      selectorKind === "status" ||
+      selectorKind === "generated_object"
+    ) {
+      payloadFamilies.add(selectorKind);
+    } else if (selectorKind === "route_site") {
+      payloadFamilies.add("route");
     }
   };
   const addIdentity = (kind: string, id: unknown, name: unknown) => {
@@ -4104,6 +4222,7 @@ function semanticFingerprintFor(args: {
     }
   };
   const addPayloadSemantics = (payload: Record<string, unknown>, role: "cost" | "reward" | "burden" | "neutral") => {
+    addPayloadKindClassification(payload.kind);
     addIdentity("card", payload.cardId, payload.cardName);
     addIdentity("card", payload.resultCardId, payload.resultCardName);
     addIdentity("dreamsign", payload.dreamsignId, payload.dreamsignName);
@@ -4174,34 +4293,46 @@ function semanticFingerprintFor(args: {
   const inspectOperation = (operation: JourneyOperation) => {
     operationVerbs.add(operationVerb(operation));
     visibilityPolicies.add(`operation:${operation.visibility}`);
+    addPayloadKindClassification(operation.legacyKind);
 
     if (operation.operationKind === "reward") {
       majorRewardFamilies.add(operation.rewardKind);
+      addPayloadClassification(payloadFamilyForKind(operation.rewardKind), operation.rewardKind);
     }
 
     if (operation.operationKind === "cost") {
       majorCostFamilies.add(operation.resource);
+      addPayloadClassification("resource", `cost-${operation.resource}`);
       addResourceBand(operation.resource, operation.amount, "cost");
     }
 
     if (operation.operationKind === "burden") {
       majorBurdenFamilies.add(operation.burdenKind);
+      addPayloadClassification(payloadFamilyForKind(operation.burdenKind), operation.burdenKind);
     }
 
     if (operation.operationKind === "status") {
+      addPayloadClassification("status", operation.statusKind);
       statusScopes.add(operation.statusKind);
     }
 
     if (operation.operationKind === "route_edit") {
+      addPayloadClassification("route", operation.editKind);
       routeScopes.add(operation.timing?.timingKind === "route" ? operation.timing.scope : "route");
     }
 
+    if (operation.operationKind === "paired_return") {
+      addPayloadClassification("return", operation.contract?.returnScene.returnSceneKind ?? "paired_return");
+    }
+
     if (operation.operationKind === "random_envelope") {
+      addPayloadClassification("random", operation.envelopeKind);
       randomEnvelopeTypes.add(operation.envelopeKind);
       addChanceBand(operation.odds?.percent);
     }
 
     if (operation.operationKind === "reveal_envelope") {
+      addPayloadClassification("random", operation.envelopeKind);
       revealEnvelopeTypes.add(operation.envelopeKind);
       addChanceBand(operation.odds?.percent);
     }
@@ -4217,6 +4348,7 @@ function semanticFingerprintFor(args: {
     }
 
     if (operation.targetSelector) {
+      addTargetFamily(operation.targetSelector.selectorKind);
       targetClasses.add(operation.targetSelector.selectorKind);
       if ("selection" in operation.targetSelector) {
         targetClasses.add(`${operation.targetSelector.selectorKind}:${operation.targetSelector.selection}`);
@@ -4243,11 +4375,13 @@ function semanticFingerprintFor(args: {
     if (operation.operationKind === "generated_object") {
       const generatedObject = operation.generatedObject;
 
+      addPayloadClassification("generated_object", generatedObject.generatedObjectKind);
       generatedObjectArchetypes.add(`${generatedObject.generatedObjectKind}:${generatedObject.objectType}`);
       addIdentity("generated_object", generatedObject.generatedObjectId, generatedObject.name);
     }
 
     if (operation.operationKind === "delayed_hook") {
+      addPayloadClassification("hook", operation.hookKind);
       addString(triggerClasses, "hook", operation.hookKind);
       if (operation.triggerSelector) {
         triggerClasses.add(operation.triggerSelector.triggerKind);
@@ -4286,6 +4420,7 @@ function semanticFingerprintFor(args: {
     if (typeof payload === "object" && payload !== null && !Array.isArray(payload)) {
       const record = payload as Record<string, unknown>;
       addString(operationVerbs, role, record.kind);
+      addPayloadKindClassification(record.kind);
       addPayloadSemantics(record, role);
     }
   };
@@ -4323,6 +4458,7 @@ function semanticFingerprintFor(args: {
   }
 
   for (const generatedObject of args.generatedObjects ?? []) {
+    addPayloadClassification("generated_object", generatedObject.generatedObjectKind);
     generatedObjectArchetypes.add(`${generatedObject.generatedObjectKind}:${generatedObject.objectType}`);
     addIdentity("generated_object", generatedObject.generatedObjectId, generatedObject.name);
     generatedObject.tags.forEach((tag) => motifs.add(`generated-tag:${tag}`));
@@ -4332,6 +4468,7 @@ function semanticFingerprintFor(args: {
   }
 
   for (const outcome of args.precommitted.random ?? []) {
+    addPayloadKindClassification(outcome.kind);
     randomEnvelopeTypes.add(outcome.kind);
     addChanceBand(
       typeof outcome.odds === "object" &&

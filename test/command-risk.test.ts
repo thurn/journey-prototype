@@ -127,7 +127,10 @@ describe("stateless command risk transitions", () => {
             distinctness: {
               value: string;
               components: string[];
-              explanation: Record<string, unknown>;
+              explanation: {
+                payloadFamilies: string[];
+                curatedVariantIds: string[];
+              } & Record<string, unknown>;
               equivalenceBands: unknown[];
             };
             debug: {
@@ -136,9 +139,31 @@ describe("stateless command risk transitions", () => {
           };
         }) => entry.manifest.distinctness.value);
         const firstDistinctness = payload.journeys[0].manifest.distinctness;
+        const payloadFamilies = new Set(payload.journeys.flatMap((entry: {
+          manifest: {
+            distinctness: {
+              explanation: {
+                payloadFamilies: string[];
+              };
+            };
+          };
+        }) => entry.manifest.distinctness.explanation.payloadFamilies));
+        const curatedVariantIds = new Set(payload.journeys.flatMap((entry: {
+          manifest: {
+            distinctness: {
+              explanation: {
+                curatedVariantIds: string[];
+              };
+            };
+          };
+        }) => entry.manifest.distinctness.explanation.curatedVariantIds));
 
         expect(payload.journeys).toHaveLength(100);
         expect(new Set(fingerprints).size, stages[index]).toBe(100);
+        expect(payloadFamilies.size, stages[index]).toBeGreaterThan(1);
+        expect(curatedVariantIds.size, stages[index]).toBeGreaterThan(1);
+        expect([...payloadFamilies], stages[index]).not.toEqual(["adapter"]);
+        expect([...curatedVariantIds], stages[index]).not.toEqual(["adapter/current"]);
         expect(payload.journeys.every((entry: {
           manifest: {
             distinctness: { value: string };
@@ -192,15 +217,24 @@ describe("stateless command risk transitions", () => {
         ]));
       }
 
-      const replay = await handleJourney(options({
-        json: true,
-        seed: "variety",
-        stage: "early",
-        count: 100,
-      }));
+      for (const stage of stages) {
+        const firstReplaySample = await handleJourney(options({
+          json: true,
+          seed: `variety-replay-${stage}`,
+          stage,
+          count: 10,
+        }));
+        const secondReplaySample = await handleJourney(options({
+          json: true,
+          seed: `variety-replay-${stage}`,
+          stage,
+          count: 10,
+        }));
 
-      expect(replay.exitCode).toBe(ExitCode.Success);
-      expect(replay.stdout).toBe(results[0]!.stdout);
+        expect(firstReplaySample.exitCode).toBe(ExitCode.Success);
+        expect(secondReplaySample.exitCode).toBe(ExitCode.Success);
+        expect(secondReplaySample.stdout).toBe(firstReplaySample.stdout);
+      }
 
       const normal = await handleJourney(options({
         seed: "variety",
