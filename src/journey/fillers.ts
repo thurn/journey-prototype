@@ -53,7 +53,7 @@ import {
   VALUE_MODEL_VERSION,
   type ValueBreakdown,
 } from "./value.js";
-import { drawInt, shuffleDeterministic, type DrawContext } from "../util/rng.js";
+import { drawInt, shuffleDeterministic, weightedChoice, type DrawContext } from "../util/rng.js";
 import { sha256Hex } from "../util/hash.js";
 import { stableStringify } from "../util/stableJson.js";
 import { decisionTreeForShape, odds, type TreeBuilderTools } from "./filler/treeBuilders.js";
@@ -2021,6 +2021,59 @@ function generatedObjectVariant(debugPayload: DebugPayloadSelection | undefined)
     default:
       return undefined;
   }
+}
+
+const NATURAL_GENERATED_OBJECT_SHAPE_IDS = new Set<JourneyShapeId>([
+  "random_allocation",
+  "same_cost_different_rewards",
+  "same_reward_different_costs",
+  "service_menu",
+  "shop_row",
+  "curated_reward_trio",
+  "one_target_many_operations",
+  "mirrored_operations",
+  "one_operation_many_targets",
+]);
+
+const HIGH_WEIRDNESS_GENERATED_OBJECT_SHAPE_IDS = new Set<JourneyShapeId>([
+  "random_allocation",
+  "one_target_many_operations",
+  "mirrored_operations",
+  "one_operation_many_targets",
+]);
+
+function naturalGeneratedObjectKind(args: {
+  debugPayload?: DebugPayloadSelection;
+  drawContext: DrawContext;
+  shapeId: JourneyShapeId;
+  stage: JourneyStage;
+}): GeneratedObjectDefinition["generatedObjectKind"] | undefined {
+  if (args.debugPayload || !NATURAL_GENERATED_OBJECT_SHAPE_IDS.has(args.shapeId)) {
+    return undefined;
+  }
+
+  const stageChance = args.stage === "early" ? 1 : args.stage === "mid" ? 3 : 7;
+  const weirdnessBonus = HIGH_WEIRDNESS_GENERATED_OBJECT_SHAPE_IDS.has(args.shapeId)
+    ? args.stage === "early" ? 2 : args.stage === "mid" ? 4 : 6
+    : 0;
+  const chance = stageChance + weirdnessBonus;
+  const roll = drawInt(
+    args.drawContext,
+    `generated-object:${args.stage}:${args.shapeId}:gate`,
+    1,
+    100,
+  );
+
+  if (roll > chance) {
+    return undefined;
+  }
+
+  return weightedChoice(args.drawContext, `generated-object:${args.stage}:${args.shapeId}:kind`, [
+    { item: "card" as const, weight: args.stage === "early" ? 4 : 3 },
+    { item: "dreamsign" as const, weight: args.stage === "late" ? 4 : 2 },
+    { item: "status" as const, weight: args.stage === "mid" ? 4 : 2 },
+    { item: "transfiguration" as const, weight: args.stage === "late" ? 4 : 1 },
+  ]);
 }
 
 function randomVisibility(
@@ -4364,7 +4417,7 @@ export function buildConservativeJourneyForShape(args: BuildArgs): JourneyManife
   const selectedDreamsigns = selectedDreamsignTargets(args.context, args.drawContext).slice(0, 3);
   const shape = getShapeDefinition(args.shapeId);
   const filled = fillOptions(args.shapeId, args.context, args.drawContext);
-  const generatedKind = generatedObjectVariant(args.debugPayload);
+  const generatedKind = generatedObjectVariant(args.debugPayload) ?? naturalGeneratedObjectKind(args);
   const generatedObjects = generatedKind ? [generatedObjectDefinition(generatedKind)] : [];
   const randomRevealRollWager = isRandomRevealRollWagerPayload(args.debugPayload)
     ? randomRevealRollWagerFill(args.context, args.drawContext)

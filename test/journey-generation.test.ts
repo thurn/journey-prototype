@@ -4,7 +4,7 @@ import type { DebugPayloadSelection } from "../src/journey/debugPayloads.js";
 import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers.js";
 import { generateNextJourney } from "../src/journey/generate.js";
-import type { JourneyManifest } from "../src/journey/manifest.js";
+import type { GeneratedObjectDefinition, JourneyManifest, JourneyOperation } from "../src/journey/manifest.js";
 import {
   adaptJourneyOptionOperations,
   adaptPrecommittedOperations,
@@ -105,6 +105,44 @@ function fillForShape(shapeId: JourneyShapeId, journeyContext: Awaited<ReturnTyp
       score: 100 - index,
     })),
   });
+}
+
+function generatedObjectDefinition(overrides: Partial<GeneratedObjectDefinition> = {}): GeneratedObjectDefinition {
+  return {
+    generatedObjectKind: "card",
+    generatedObjectId: "generated-card-test-lantern",
+    name: "Test Lantern",
+    objectType: "Event Card",
+    rulesText: "0 energy Event. Fast. Gain 1 omen, then draw 1 card.",
+    tags: ["journey-only", "card", "event"],
+    references: { rules: ["Fast", "omens", "card"] },
+    lifetime: "journey_only",
+    valueEstimate: {
+      convertedEssence: 120,
+      confidence: "medium",
+      basis: "Test manifest-local generated object value.",
+    },
+    validation: {
+      source: "generated_manifest_local",
+      status: "validated",
+      ruleIds: ["test_generated_object"],
+    },
+    payload: { kind: "generated_card" },
+    ...overrides,
+  } as GeneratedObjectDefinition;
+}
+
+function generatedObjectOperation(generatedObject: GeneratedObjectDefinition): JourneyOperation {
+  return {
+    operationId: `test:generated-object:${generatedObject.generatedObjectId}`,
+    operationKind: "generated_object",
+    role: "generated_object",
+    visibility: "debug",
+    generatedObject,
+    payload: {
+      source: "operation_local_definition",
+    },
+  };
 }
 
 function generatedOptionText(manifest: JourneyManifest): string[] {
@@ -641,6 +679,50 @@ describe("generateNextJourney", () => {
       expect(manifest.precommitted.delayed).toHaveLength(1);
       expect(validateJourneyManifest(manifest, journeyContext)).toEqual({ ok: true });
     }
+  });
+
+  it("selects generated objects naturally rarely, with late high-weirdness weighting", async () => {
+    const content = await loadContent(process.cwd());
+    const countGenerated = (stage: "early" | "late") =>
+      Array.from({ length: 80 }, (_, index) => {
+        const journeyContext = contextFromContent(
+          content,
+          `natural-generated-${stage}-${index}`,
+          stage,
+        );
+        const manifest = buildConservativeJourneyForShape({
+          context: journeyContext,
+          drawContext: {
+            seed: journeyContext.state.quest.seed,
+            contentVersion: journeyContext.contentVersion,
+            rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+          },
+          journeyId: "J-000001",
+          shapeId: "one_target_many_operations",
+          stage,
+          selectedTags: stage === "late"
+            ? ["convert", "gamble", "reward", "route", "sacrifice"]
+            : ["build", "cleanup", "immediate", "reward"],
+          shapeScores: JOURNEY_SHAPES.map((shape, shapeIndex) => ({
+            shapeId: shape.id,
+            score: 100 - shapeIndex,
+          })),
+        });
+
+        expect(validateJourneyManifest(manifest, journeyContext), `${stage}:${index}`).toEqual({
+          ok: true,
+        });
+
+        return manifest;
+      }).filter((manifest) => manifest.generatedObjects.length > 0).length;
+
+    const earlyGenerated = countGenerated("early");
+    const lateGenerated = countGenerated("late");
+
+    expect(earlyGenerated).toBeGreaterThan(0);
+    expect(earlyGenerated).toBeLessThan(10);
+    expect(lateGenerated).toBeGreaterThan(earlyGenerated);
+    expect(lateGenerated).toBeLessThan(30);
   });
 
   it("exposes resource edge-case value-band semantics in operations and value debug", async () => {
@@ -2710,6 +2792,139 @@ describe("validateJourneyManifest", () => {
         }),
       ]),
     );
+  });
+
+  it("validates generated-object selectors against operation-local definitions", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const localDefinition = generatedObjectDefinition({
+      generatedObjectId: "generated-card-operation-local",
+      name: "Operation Local Lantern",
+    });
+    const withLocalDefinition = attachTargetResolutionMetadata(
+      {
+        ...manifest,
+        generatedObjects: [],
+        options: [
+          {
+            ...manifest.options[0]!,
+            operations: [
+              generatedObjectOperation(localDefinition),
+              {
+                operationId: "test:target-operation-local",
+                operationKind: "target",
+                role: "target",
+                visibility: "debug",
+                targetSelector: {
+                  selectorKind: "generated_object",
+                  selection: "exact",
+                  referenceKind: "manifest_generated",
+                  generatedObjectReferenceKind: "definition",
+                  generatedObjectKind: "card",
+                  generatedObjectId: "generated-card-operation-local",
+                  name: "Operation Local Lantern",
+                  required: true,
+                },
+                payload: {},
+              },
+            ],
+          },
+          ...manifest.options.slice(1),
+        ],
+      },
+      journeyContext.content,
+      journeyContext.state.quest,
+    );
+
+    expect(validateJourneyManifest(withLocalDefinition, journeyContext)).toEqual({ ok: true });
+    expect(withLocalDefinition.options[0]?.operations[1]?.targetResolution).toMatchObject({
+      selectorKind: "generated_object",
+      sourcePool: "manifest_generated",
+      candidateCount: 1,
+      selected: [{ id: "generated-card-operation-local", name: "Operation Local Lantern", kind: "card" }],
+    });
+  });
+
+  it("rejects bad generated-object IDs and names in required selectors", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const definition = generatedObjectDefinition();
+    const withSelector = (selector: NonNullable<JourneyOperation["targetSelector"]>): JourneyManifest => ({
+      ...manifest,
+      generatedObjects: [definition],
+      options: [
+        {
+          ...manifest.options[0]!,
+          operations: [
+            {
+              operationId: "test:bad-generated-object-selector",
+              operationKind: "target",
+              role: "target",
+              visibility: "debug",
+              targetSelector: selector,
+              payload: {},
+            },
+          ],
+        },
+        ...manifest.options.slice(1),
+      ],
+    });
+
+    const badId = withSelector({
+      selectorKind: "generated_object",
+      selection: "exact",
+      referenceKind: "manifest_generated",
+      generatedObjectReferenceKind: "definition",
+      generatedObjectKind: "card",
+      generatedObjectId: "generated-card-missing",
+      required: true,
+    });
+    const badName = withSelector({
+      selectorKind: "generated_object",
+      selection: "exact",
+      referenceKind: "manifest_generated",
+      generatedObjectReferenceKind: "definition",
+      generatedObjectKind: "card",
+      generatedObjectId: definition.generatedObjectId,
+      name: "Wrong Lantern",
+      required: true,
+    });
+
+    expect(validateJourneyManifest(badId, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "zero_legal_required_targets",
+    });
+    expect(validateJourneyManifest(badName, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "zero_legal_required_targets",
+    });
+  });
+
+  it("rejects duplicate generated-object IDs across manifest and operation-local definitions", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("heterogeneous_pair", journeyContext);
+    const definition = generatedObjectDefinition();
+    const invalid: JourneyManifest = {
+      ...manifest,
+      generatedObjects: [definition],
+      options: [
+        {
+          ...manifest.options[0]!,
+          operations: [
+            generatedObjectOperation(generatedObjectDefinition({
+              generatedObjectId: definition.generatedObjectId,
+              name: "Duplicate Test Lantern",
+            })),
+          ],
+        },
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "duplicate_generated_object_id",
+    });
   });
 
   it("rejects malformed option entries instead of throwing", async () => {

@@ -17,7 +17,7 @@ import {
   STANDARD_TRANSFIGURATIONS,
   validateNamedReferences,
 } from "../src/journey/effects.js";
-import type { TargetSelector } from "../src/journey/manifest.js";
+import type { GeneratedObjectDefinition, TargetSelector } from "../src/journey/manifest.js";
 import type { QuestState } from "../src/state/schema.js";
 
 const cards: CardContent[] = [
@@ -496,6 +496,56 @@ describe("target resolvers", () => {
       sourcePool: "deck",
       candidateCount: 2,
       selected: [],
+    });
+  });
+
+  it("matches generated-object selectors by display name", () => {
+    const generatedObject: GeneratedObjectDefinition = {
+      generatedObjectKind: "card",
+      generatedObjectId: "generated-card-rain-lantern",
+      name: "Rain Lantern",
+      objectType: "Event Card",
+      rulesText: "0 energy Event. Fast. Gain 1 omen, then draw 1 card.",
+      tags: ["journey-only", "card", "event"],
+      references: { rules: ["Fast", "omens", "card"] },
+      lifetime: "journey_only",
+      valueEstimate: {
+        convertedEssence: 120,
+        confidence: "medium",
+        basis: "Test generated object value.",
+      },
+      validation: {
+        source: "generated_manifest_local",
+        status: "validated",
+        ruleIds: ["test"],
+      },
+      payload: { kind: "generated_card" },
+    };
+    const selectorBase = {
+      selectorKind: "generated_object",
+      selection: "exact",
+      referenceKind: "manifest_generated",
+      generatedObjectReferenceKind: "definition",
+      generatedObjectKind: "card",
+      required: true,
+    } as const;
+
+    expect(resolveTargetSelector(content, quest(), {
+      ...selectorBase,
+      name: "rain lantern",
+    }, [generatedObject])).toMatchObject({
+      sourcePool: "manifest_generated",
+      candidateCount: 1,
+      selected: [{ id: "generated-card-rain-lantern", name: "Rain Lantern", kind: "card" }],
+    });
+    expect(resolveTargetSelector(content, quest(), {
+      ...selectorBase,
+      name: "Wrong Lantern",
+    }, [generatedObject])).toMatchObject({
+      sourcePool: "manifest_generated",
+      candidateCount: 0,
+      selected: [],
+      emptyReason: "no_matching_targets",
     });
   });
 });

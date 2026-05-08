@@ -581,6 +581,10 @@ function hasTideOverlap(sourceTides: readonly TideId[], wantedTides: Set<string>
   return sourceTides.some((tide) => wantedTides.has(normalizeKey(tide)));
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isFast(card: CardContent): boolean {
   return card.raw["is-fast"] === true || card.raw.isFast === true;
 }
@@ -838,6 +842,10 @@ function generatedObjectMatches(
     return false;
   }
 
+  if (selector.name && !idOrNameMatches({ id: generatedObject.generatedObjectId, name: generatedObject.name }, [selector.name])) {
+    return false;
+  }
+
   return true;
 }
 
@@ -977,10 +985,59 @@ export function resolveTargetSelector(
   });
 }
 
-function generatedObjectDefinitionsFromOperations(operations: readonly JourneyOperation[]): GeneratedObjectDefinition[] {
-  return operations.flatMap((operation) =>
-    operation.operationKind === "generated_object" ? [operation.generatedObject] : []
-  );
+function flattenOperationContracts(operations: readonly JourneyOperation[]): JourneyOperation[] {
+  return operations.flatMap((operation) => [
+    operation,
+    ...(operation.operationKind === "delayed_hook" && Array.isArray(operation.rewardOperations)
+      ? flattenOperationContracts(operation.rewardOperations)
+      : []),
+  ]);
+}
+
+function rootOperationsForGeneratedObjectResolver(manifest: JourneyManifest): JourneyOperation[] {
+  const optionOperations = Array.isArray(manifest.options)
+    ? manifest.options.flatMap((option) =>
+        isRecord(option) && Array.isArray(option.operations)
+          ? option.operations as JourneyOperation[]
+          : []
+      )
+    : [];
+  const precommittedOperations = isRecord(manifest.precommitted) && Array.isArray(manifest.precommitted.operations)
+    ? manifest.precommitted.operations as JourneyOperation[]
+    : [];
+  const rewardPoolOperations = isRecord(manifest.rewardPool) && Array.isArray(manifest.rewardPool.operations)
+    ? manifest.rewardPool.operations as JourneyOperation[]
+    : [];
+  const treeOperations = isRecord(manifest.tree) && Array.isArray(manifest.tree.nodes)
+    ? manifest.tree.nodes.flatMap((node) =>
+        isRecord(node) && Array.isArray(node.branches)
+          ? node.branches.flatMap((branch) => [
+              ...(isRecord(branch) && Array.isArray(branch.operations)
+                ? branch.operations as JourneyOperation[]
+                : []),
+              ...(isRecord(branch) && isRecord(branch.terminal) && Array.isArray(branch.terminal.operations)
+                ? branch.terminal.operations as JourneyOperation[]
+                : []),
+            ])
+          : []
+      )
+    : [];
+
+  return flattenOperationContracts([
+    ...optionOperations,
+    ...precommittedOperations,
+    ...rewardPoolOperations,
+    ...treeOperations,
+  ]);
+}
+
+export function generatedObjectResolverPool(manifest: JourneyManifest): GeneratedObjectDefinition[] {
+  return [
+    ...manifest.generatedObjects,
+    ...rootOperationsForGeneratedObjectResolver(manifest).flatMap((operation) =>
+      operation.operationKind === "generated_object" ? [operation.generatedObject] : []
+    ),
+  ];
 }
 
 function withTargetResolutionMetadata(
@@ -1006,21 +1063,7 @@ export function attachTargetResolutionMetadata(
   content: ContentBundle,
   quest: QuestState,
 ): JourneyManifest {
-  const rootOperations = [
-    ...manifest.options.flatMap((option) => option.operations),
-    ...(manifest.precommitted.operations ?? []),
-    ...(manifest.rewardPool?.operations ?? []),
-    ...(manifest.tree?.nodes.flatMap((node) =>
-      node.branches.flatMap((branch) => [
-        ...branch.operations,
-        ...(branch.terminal?.operations ?? []),
-      ])
-    ) ?? []),
-  ];
-  const generatedObjects = [
-    ...manifest.generatedObjects,
-    ...generatedObjectDefinitionsFromOperations(rootOperations),
-  ];
+  const generatedObjects = generatedObjectResolverPool(manifest);
 
   return {
     ...manifest,

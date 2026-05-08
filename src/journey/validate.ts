@@ -7,6 +7,7 @@ import {
   STATUS_SCOPES,
   isBaneName,
   isImmediateCostPayable,
+  generatedObjectResolverPool,
   resolveCardTargets,
   resolveDreamsignTargets,
   resolveTargetSelector,
@@ -69,35 +70,6 @@ function targetResolutionFromDebug(debug: Record<string, unknown> | undefined): 
 
 function payloadFamilyFor(manifest: JourneyManifest): string {
   return manifest.debug.debugPayload?.familyId ?? "adapter";
-}
-
-function generatedObjectsFor(manifest: JourneyManifest): GeneratedObjectDefinition[] {
-  const objects = [
-    ...(Array.isArray(manifest.generatedObjects) ? manifest.generatedObjects : []),
-    ...flattenOperationContracts([
-      ...(Array.isArray(manifest.options)
-        ? manifest.options.flatMap((option) =>
-            isRecord(option) && Array.isArray(option.operations) ? option.operations : []
-          )
-        : []),
-      ...(isRecord(manifest.precommitted) && Array.isArray(manifest.precommitted.operations)
-        ? manifest.precommitted.operations
-        : []),
-      ...(isRecord(manifest.rewardPool) && Array.isArray(manifest.rewardPool.operations)
-        ? manifest.rewardPool.operations
-        : []),
-      ...(manifest.tree?.nodes.flatMap((node) =>
-        node.branches.flatMap((branch) => [
-          ...(Array.isArray(branch.operations) ? branch.operations : []),
-          ...(branch.terminal && Array.isArray(branch.terminal.operations) ? branch.terminal.operations : []),
-        ])
-      ) ?? []),
-    ]).flatMap((operation) =>
-      operation.operationKind === "generated_object" ? [operation.generatedObject] : []
-    ),
-  ];
-
-  return objects;
 }
 
 function manifestCheckedPayloads(manifest: JourneyManifest): ValidationCheckedPayload[] {
@@ -925,7 +897,7 @@ function validateGeneratedObjectDefinitions(
 ): ValidationResult {
   const seen = new Set<string>();
 
-  for (const generatedObject of generatedObjectsFor(manifest)) {
+  for (const generatedObject of generatedObjectResolverPool(manifest)) {
     if (!isRecord(generatedObject)) {
       return fail("invalid_generated_object_definition", "Generated object definitions must be structured records");
     }
@@ -1791,6 +1763,7 @@ function validateOption(
 function validateTreeBranch(
   branch: NonNullable<JourneyManifest["tree"]>["nodes"][number]["branches"][number],
   context: JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   const textResult = validateNormalOutputText(branch.text);
 
@@ -1840,6 +1813,7 @@ function validateTreeBranch(
     branch.operations,
     context,
     `Tree branch ${branch.id}`,
+    generatedObjects,
   );
 
   if (!branchSelectorResult.ok) {
@@ -1851,6 +1825,7 @@ function validateTreeBranch(
       branch.terminal.operations,
       context,
       `Tree branch ${branch.id} terminal`,
+      generatedObjects,
     );
 
     if (!terminalSelectorResult.ok) {
@@ -1894,6 +1869,7 @@ function validateProbabilityLadder(manifest: JourneyManifest): ValidationResult 
 function validateDecisionTree(
   manifest: JourneyManifest,
   context: JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   if (!manifest.tree) {
     return fail("missing_decision_tree", "True sequential shapes require complete tree data");
@@ -1945,7 +1921,7 @@ function validateDecisionTree(
         return fail("missing_terminal_outcome", `${branch.id} must end or transition`);
       }
 
-      const result = validateTreeBranch(branch, context);
+      const result = validateTreeBranch(branch, context, generatedObjects);
 
       if (!result.ok) {
         return result;
@@ -2635,6 +2611,7 @@ function validateSequenceMenu(
   path: string,
   maxSteps: number | undefined,
   shapeId: JourneyManifest["shapeId"],
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   if (!Array.isArray(menu) || menu.length === 0) {
     return fail("invalid_sequence_menu", `${path} must be a non-empty JourneyOption[]`);
@@ -2650,7 +2627,7 @@ function validateSequenceMenu(
       return optionShapeResult;
     }
 
-    const result = validateOption(option, context);
+    const result = validateOption(option, context, generatedObjects);
 
     if (!result.ok) {
       return result;
@@ -2715,6 +2692,7 @@ function validateSequenceMenu(
 function validateSequenceMenus(
   manifest: JourneyManifest,
   context: JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   if (!isRecord(manifest.precommitted.sequenceMenus)) {
     return fail("invalid_sequence_menu", "Sequential precommitted menus must be a record of JourneyOption[] values");
@@ -2727,6 +2705,7 @@ function validateSequenceMenus(
       key,
       manifest.sequence?.maxSteps,
       manifest.shapeId,
+      generatedObjects,
     );
 
     if (!result.ok) {
@@ -2864,6 +2843,7 @@ function rootOptionCountResult(
 function rootOptionPayloadsResult(
   manifest: JourneyManifest,
   context: JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   for (const [index, option] of manifest.options.entries()) {
     const optionShapeResult = validateOptionShape(option, index);
@@ -2872,7 +2852,7 @@ function rootOptionPayloadsResult(
       return optionShapeResult;
     }
 
-    const result = validateOption(option, context, manifest.generatedObjects);
+    const result = validateOption(option, context, generatedObjects);
 
     if (!result.ok) {
       return result;
@@ -3038,6 +3018,7 @@ function validationRuleOutcomes(
   const precommittedChecked = checked.filter((entry) => entry.scope === "precommitted");
   const rules: ValidationRuleOutcome[] = [];
   const definition = getShapeDefinition(manifest.shapeId);
+  const generatedObjects = generatedObjectResolverPool(manifest);
   const pushRule = (
     ruleId: string,
     result: ValidationResult,
@@ -3127,7 +3108,7 @@ function validationRuleOutcomes(
     return rules;
   }
 
-  const optionResult = rootOptionPayloadsResult(manifest, context);
+  const optionResult = rootOptionPayloadsResult(manifest, context, generatedObjects);
   if (!pushRule(
     optionResult.ok ? "root_option_payloads" : optionResult.rule,
     optionResult,
@@ -3205,7 +3186,7 @@ function validationRuleOutcomes(
   }
 
   const treeResult = definition.topology === "decision_tree"
-    ? validateDecisionTree(manifest, context)
+    ? validateDecisionTree(manifest, context, generatedObjects)
     : { ok: true } as const;
   if (!pushRule(
     treeResult.ok ? "decision_tree_invariants" : treeResult.rule,
@@ -3289,7 +3270,7 @@ function validationRuleOutcomes(
   }
 
   const rewardPoolTargetResult = manifest.rewardPool
-    ? validateOperationTargetSelectors(manifest.rewardPool.operations, context, "Reward pool", manifest.generatedObjects)
+    ? validateOperationTargetSelectors(manifest.rewardPool.operations, context, "Reward pool", generatedObjects)
     : { ok: true } as const;
   if (!pushRule(
     rewardPoolTargetResult.ok ? "reward_pool_target_selectors" : rewardPoolTargetResult.rule,
@@ -3304,7 +3285,7 @@ function validationRuleOutcomes(
     manifest.precommitted.operations,
     context,
     "Precommitted outcomes",
-    manifest.generatedObjects,
+    generatedObjects,
   );
   if (!pushRule(
     precommittedTargetResult.ok ? "operation_target_selectors" : precommittedTargetResult.rule,
