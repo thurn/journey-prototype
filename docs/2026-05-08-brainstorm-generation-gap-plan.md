@@ -254,6 +254,11 @@ Acceptance criteria:
   cards.
 - Value metadata distinguishes choice breadth, take count, copy count, and
   random hidden target risk.
+- Validate that [Three Masks](brainstorm_examples.md#three-masks) is possible
+  as a procedural draft trio over character, event, and fast-card predicates.
+- Validate that [Eight Windows](brainstorm_examples.md#eight-windows) is
+  possible as predicate drafts, any-number card selection, and random event
+  card gain without hardcoding those rows.
 
 ## Milestone 5: Expand The Card Operation Catalog
 
@@ -295,6 +300,11 @@ Acceptance criteria:
   special cases.
 - Normal output can produce named card operation rows as a weighted outcome.
 - Validation catches incompatible target and operation pairs before rendering.
+- Validate that [Ink Reassignment](brainstorm_examples.md#ink-reassignment)
+  is possible as text modification, subtype change, and event keyword rewrite
+  operations chosen from the normal card-operation catalog.
+- Validate that [Split Signal](brainstorm_examples.md#split-signal) is possible
+  as merge, split, and materialized-ability conversion operations.
 
 ## Milestone 6: Add Starter Transformation And Replacement Families
 
@@ -331,6 +341,12 @@ Acceptance criteria:
 - Operations requiring multiple starters fail or repair cleanly when too few
   starters are available.
 - The value model separates cleanup rewards from card-sacrifice costs.
+- Validate that [Starter Door](brainstorm_examples.md#starter-door) is possible
+  as chosen starter transformation, random starter replacement, and all-starter
+  replacement.
+- Validate that [Locksmith Counter](brainstorm_examples.md#locksmith-counter)
+  is possible as a starter-focused purge, transfiguration, and replacement
+  menu.
 
 ## Milestone 7: Build A Dreamsign Operation Catalog
 
@@ -368,6 +384,13 @@ Acceptance criteria:
   operation menus.
 - Dreamsign pool edits validate against actual pool/catalog availability.
 - Tests cover active, pool, catalog, neutral, and random Dreamsign sources.
+- Validate that [Dreamsign Loom](brainstorm_examples.md#dreamsign-loom) is
+  possible as Dreamsign transform, duplicate, purge, and replacement-family
+  operations.
+- Validate that [Pool Compass](brainstorm_examples.md#pool-compass) is possible
+  as Dreamsign pool editing plus chosen Dreamsign copy gain.
+- Validate that [Sign Between Bells](brainstorm_examples.md#sign-between-bells)
+  is possible as named, random, and predicate-filtered Dreamsign rewards.
 
 ## Milestone 8: Add Named Dreamsign Shop And Service Rows
 
@@ -402,6 +425,10 @@ Acceptance criteria:
   rather than as three unrelated offers.
 - Omen-priced Dreamsign purchases are represented as structured cost
   operations.
+- Validate that [Curator's Shelf](brainstorm_examples.md#curators-shelf) is
+  possible as a same-price named Dreamsign shop row.
+- Validate that [Moon Market](brainstorm_examples.md#moon-market) is possible
+  as an omen-priced named Dreamsign shop row.
 
 ## Milestone 9: Expand Bane Payload Families
 
@@ -438,6 +465,12 @@ Acceptance criteria:
   tracked Banes.
 - Random Bane purge appears as a typed random or target selector, not as text
   only.
+- Validate that [Thorned Cleanup](brainstorm_examples.md#thorned-cleanup) is
+  possible as starter cleanup plus chosen, random, or named Bane purge.
+- Validate that [Thin Air](brainstorm_examples.md#thin-air) is possible as a
+  loss-choice or compound loss menu with multi-copy Bane gain.
+- Validate that [Bane Ledger](brainstorm_examples.md#bane-ledger) is possible
+  as Bane burdens attached to route edits or card operations.
 
 ## Milestone 10: Expand Resource Costs And Rewards
 
@@ -474,6 +507,15 @@ Acceptance criteria:
 - Value breakdowns include semantic value bands for these resource kinds.
 - Renderer output for resource edge cases is mechanical and stable in human and
   JSON modes.
+- Validate that [Lantern Budget](brainstorm_examples.md#lantern-budget) is
+  possible as fixed essence gain, max essence change, and set-to-percentage
+  resource operations.
+- Validate that [Hollow Treasury](brainstorm_examples.md#hollow-treasury) is
+  possible as maximum, all-remaining, and random-range resource costs attached
+  to normal rewards.
+- Validate that [Narrow Reservoir](brainstorm_examples.md#narrow-reservoir) is
+  possible as max-essence loss, max-essence gain, all-essence spend, and named
+  Dreamsign reward combinations.
 
 ## Milestone 11: Broaden Route And Site Effects
 
@@ -511,6 +553,13 @@ Acceptance criteria:
 - Route edits remain manifest-only and do not mutate simulated quest state.
 - Validation rejects unknown site types unless they are explicitly versioned or
   aliased.
+- Validate that [Current Map Ink](brainstorm_examples.md#current-map-ink) is
+  possible as a three-option current-dreamscape replacement menu with one
+  shared source site.
+- Validate that [Map Fold](brainstorm_examples.md#map-fold) is possible as
+  add-current, add-next, and future probability-adjustment route effects.
+- Validate that [Atlas Locksmith](brainstorm_examples.md#atlas-locksmith) is
+  possible after the route vocabulary decision for `Essence` sites.
 
 ## Milestone 12: Add Positive And Negative Battle Window Payloads
 
@@ -547,6 +596,14 @@ Acceptance criteria:
 - Validation checks typed duration and scope metadata instead of matching
   rendered text.
 - Human debug output makes both-player and opponent-facing effects explicit.
+- Validate that [First Breath](brainstorm_examples.md#first-breath) is possible
+  as a battle-window menu mixing opening-hand draw, next-battle draw, and
+  temporary Dreamsign grant.
+- Validate that [Broken Victory](brainstorm_examples.md#broken-victory) is
+  possible as battle point cap, both-player starting energy, and both-player
+  starting hand mutations.
+- Validate that [Trial Of Windows](brainstorm_examples.md#trial-of-windows) is
+  possible as both-player spark and each-turn draw battle-window effects.
 
 ## Milestone 13: Expand Dreamwell Window Payloads
 
@@ -575,6 +632,12 @@ Acceptance criteria:
 - Normal generation can produce both positive and negative Dreamwell windows.
 - Dreamwell options include structured payload metadata for count and card role.
 - Value scoring treats penalty Dreamwell cards as burdens, not rewards.
+- Validate that [Dreamwell Switch](brainstorm_examples.md#dreamwell-switch) is
+  possible as first-draw energy, bonus Dreamwell cards, and lowest-phase
+  upgrade effects.
+- Validate that [Bitter Dreamwell](brainstorm_examples.md#bitter-dreamwell) is
+  possible as negative Dreamwell energy, penalty cards, delayed Dreamwell
+  cards, and compensating rewards.
 
 ## Milestone 14: Add Shop, Economy, And Reward-Replacement Statuses
 
@@ -610,6 +673,14 @@ Acceptance criteria:
 - Validation rejects unsupported status scopes or incoherent persistent
   prohibitions.
 - JSON output distinguishes status operations from Dreamsign grants.
+- Validate that [Shop Courtesy](brainstorm_examples.md#shop-courtesy) is
+  possible as shop reroll, purchase, and pre-shop resource restoration
+  modifiers.
+- Validate that [Spoiled Victory](brainstorm_examples.md#spoiled-victory) is
+  possible as next-victory reward replacement for Dreamsign, resource, or route
+  rewards.
+- Validate that [Sealed Hands](brainstorm_examples.md#sealed-hands) is possible
+  as persistent prohibition statuses paired with large compensating rewards.
 
 ## Milestone 15: Expand Delayed Hook Triggers And Counters
 
@@ -647,6 +718,16 @@ Acceptance criteria:
   reachable through normal hooks.
 - Validation fails if a delayed hook lacks a trigger selector, duration,
   expiration, or controlled scene.
+- Validate that [Sleeping Contract](brainstorm_examples.md#sleeping-contract)
+  is possible as an immediate named reward plus an after-two-victories named
+  payoff.
+- Validate that [Winchime Promise](brainstorm_examples.md#winchime-promise) is
+  possible as site-visit triggers with named Dreamsign rewards.
+- Validate that [Promise Card](brainstorm_examples.md#promise-card) is possible
+  as named card and Dreamsign trigger counters with resource or duplication
+  payoffs.
+- Validate that [Waking Cache](brainstorm_examples.md#waking-cache) is possible
+  as named card rewards with delayed Bane obligations.
 
 ## Milestone 16: Expand Paired Return, Sealing, Borrowing, And Trading
 
@@ -681,6 +762,13 @@ Acceptance criteria:
   sites through structured operations.
 - The paired-return validator proves the return scene references the created
   anchor.
+- Validate that [Returning Lantern](brainstorm_examples.md#returning-lantern)
+  is possible as sealed Dreamsign rows with later recovery and varied payoffs.
+- Validate that [Borrowed Crown](brainstorm_examples.md#borrowed-crown) is
+  possible as temporary Dreamsign or draft grants with later loss and cost or
+  Bane obligations.
+- Validate that [Key Ticket](brainstorm_examples.md#key-ticket) is possible as
+  future trade hooks for resource, card, and route rewards.
 
 ## Milestone 17: Expand Random, Reveal, Wheel, And Wager Families
 
@@ -716,6 +804,15 @@ Acceptance criteria:
 - Random envelope validation rejects unknown envelope kinds and empty pools.
 - Human output reveals committed pre-rolled outcomes when the visibility policy
   says they are player-visible.
+- Validate that [Covered Cups](brainstorm_examples.md#covered-cups) is possible
+  as reveal, choose-revealed, choose-random-revealed, and random reward
+  envelopes.
+- Validate that [Bounded Wheel](brainstorm_examples.md#bounded-wheel) is
+  possible as a visible random pool with mixed resource, Dreamsign, Bane, and
+  burden outcomes plus roll-twice-keep-one.
+- Validate that [Crooked Coin](brainstorm_examples.md#crooked-coin) is
+  possible as random-cost and random-purge risk rows paired with named
+  Dreamsign rewards.
 
 ## Milestone 18: Add Symmetric Compound Fill Contracts
 
@@ -753,6 +850,13 @@ Acceptance criteria:
   different reward families.
 - Tests assert symmetry by inspecting operations and targets, not by matching
   exact rendered text.
+- Validate that [One Blessing, Three Vessels](brainstorm_examples.md#one-blessing-three-vessels)
+  is possible as one shared operation across three visible named card targets.
+- Validate that [Equal Shadow](brainstorm_examples.md#equal-shadow) is possible
+  as one shared Bane burden prefix attached to Dreamsign, card draft, and route
+  reward families.
+- Validate that [One Card, Three Masks](brainstorm_examples.md#one-card-three-masks)
+  is possible as one visible named target with three transfiguration operations.
 
 ## Milestone 19: Add New Shapes For Missing Topologies
 
@@ -796,6 +900,12 @@ Acceptance criteria:
 - New shapes are topology-driven, not named after brainstorm examples.
 - Each new shape can fill from reusable payload catalogs.
 - Existing shape IDs and CLI flags remain compatible.
+- Validate that [Bottomless Bowl](brainstorm_examples.md#bottomless-bowl) is
+  possible as a flat escalating trade menu when the new topology is added,
+  rather than only as a decision tree.
+- Validate that [Covered Cups](brainstorm_examples.md#covered-cups) is possible
+  through a reveal-choice topology if that topology becomes a new shape rather
+  than a random payload variant in an existing shape.
 
 ## Milestone 20: Add Compound Payload Composition And Coherence Rules
 
@@ -829,6 +939,15 @@ Acceptance criteria:
 - Normal generation can build mixed options without hand-authored row strings.
 - Validators catch pure burden rows outside loss-choice shapes.
 - Value reports show each component separately.
+- Validate that [Scissor Saint](brainstorm_examples.md#scissor-saint) is
+  possible as card or Dreamsign sacrifice paired with named, draft, or
+  transfiguration rewards.
+- Validate that [Molting Archive](brainstorm_examples.md#molting-archive) is
+  possible as transform-plus-reward and random-card-gain-plus-purge compound
+  options.
+- Validate that [Withered Orchard](brainstorm_examples.md#withered-orchard) is
+  possible as reward-reduction burdens paired with named Dreamsign, legendary
+  card, or starter cleanup rewards.
 
 ## Milestone 21: Expand Value Model And Comparability Rules
 
@@ -961,6 +1080,10 @@ Acceptance criteria:
   reachability.
 - Debug fixtures remain labeled as fixtures and are not counted as organic
   reachability.
+- The coverage matrix includes explicit reachability checks for named examples
+  from this plan, with each check recording the generated seed, shape, payload
+  families, and structured operations that make the example procedurally
+  possible.
 
 ## Implementation Order
 
