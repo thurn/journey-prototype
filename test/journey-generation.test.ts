@@ -4,16 +4,27 @@ import {
   DEBUG_PAYLOAD_FAMILIES,
   type DebugPayloadSelection,
 } from "../src/journey/debugPayloads.js";
-import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
+import {
+  attachTargetResolutionMetadata,
+  resolveDreamsignTargets,
+} from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
 import {
   CARD_OPERATION_DEBUG_CATALOG,
   compatibleCardOperations,
 } from "../src/journey/fillers/cardOperationCatalog.js";
 import {
+  DREAMSIGN_OPERATION_DEBUG_CATALOG,
+  DREAMSIGN_PREDICATE_PROFILES,
+  compatibleDreamsignOperations,
+  renderChosenDreamsignOperationText,
+  type DreamsignOperationFamily,
+} from "../src/journey/fillers/dreamsignOperationCatalog.js";
+import {
   CARD_DRAFT_PROFILES,
   cardDraftText,
   draftCards,
+  option,
   randomCardGain,
   starterSurgeryRewardSlots,
   target,
@@ -2859,6 +2870,268 @@ describe("generateNextJourney", () => {
     expect(CARD_OPERATION_DEBUG_CATALOG.allowedTransfigurations).toEqual(
       expect.arrayContaining(["Viridian", "Scarlet", "Silver", "Umbral", "Glass"]),
     );
+  });
+
+  it("serves Dreamsign operation menus from a normal topology-compatible catalog", async () => {
+    const journeyContext = await context("dreamsign-operation-catalog");
+    const activeDreamsignId = journeyContext.state.quest.dreamsignPoolIds[0]!;
+    journeyContext.state.quest.activeDreamsigns = [{ dreamsignId: activeDreamsignId }];
+    const drawContext: DrawContext = {
+      seed: "dreamsign-operation-catalog",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const activeOperations = compatibleDreamsignOperations(drawContext, {
+      topology: "one_target_many_operations",
+      targetSources: ["active"],
+      families: ["loss", "purge", "duplicate", "transform", "trigger_counter"],
+      context: journeyContext,
+      stage: "mid",
+      label: "test:dreamsign-active",
+      count: 6,
+    });
+    const poolOperations = compatibleDreamsignOperations(drawContext, {
+      topology: "mirrored_operations",
+      targetSources: ["pool"],
+      families: ["pool_edit", "copy_gain", "trade_hook", "random_reward"],
+      context: journeyContext,
+      stage: "mid",
+      label: "test:dreamsign-pool",
+      count: 4,
+    });
+    const catalogOperations = compatibleDreamsignOperations(drawContext, {
+      topology: "direct_menu",
+      targetSources: ["catalog"],
+      families: ["gain", "purchase", "temporary_grant", "random_reward"],
+      context: journeyContext,
+      stage: "mid",
+      label: "test:dreamsign-catalog",
+      count: 5,
+    });
+
+    expect(activeOperations.map((operation) => operation.family)).toEqual(
+      expect.arrayContaining(["loss", "purge", "duplicate", "transform"]),
+    );
+    expect(poolOperations.map((operation) => operation.family)).toEqual(
+      expect.arrayContaining(["pool_edit", "copy_gain", "trade_hook", "random_reward"]),
+    );
+    expect(catalogOperations.map((operation) => operation.family)).toEqual(
+      expect.arrayContaining(["gain", "purchase", "temporary_grant", "random_reward"]),
+    );
+    expect(
+      [...activeOperations, ...poolOperations, ...catalogOperations].every(
+        (operation) =>
+          operation.effect.dreamsignOperationFamily === operation.family &&
+          Array.isArray(operation.effect.dreamsignOperationTargetModes),
+      ),
+    ).toBe(true);
+  });
+
+  it("covers milestone Dreamsign families and structured predicates through the normal catalog", async () => {
+    const operations = DREAMSIGN_OPERATION_DEBUG_CATALOG.operations;
+    const byKey = new Map(operations.map((operation) => [operation.key, operation]));
+    const predicateKeys = DREAMSIGN_OPERATION_DEBUG_CATALOG.predicates.map(
+      (predicate) => predicate.key,
+    );
+
+    [
+      "exact-named-gain",
+      "purchase-with-essence",
+      "purchase-with-omen",
+      "lose-active",
+      "purge",
+      "duplicate",
+      "copy-gain",
+      "temporary-grant",
+      "transform-to-named",
+      "transform-to-random",
+      "pool-add",
+      "pool-remove",
+      "pool-replace",
+      "random-pool-reward",
+      "random-neutral-reward",
+      "trade-hook",
+      "trigger-counter",
+    ].forEach((key) => expect(byKey.has(key), key).toBe(true));
+
+    expect(predicateKeys).toEqual(
+      expect.arrayContaining([
+        "neutral",
+        "tidal",
+        "quest-oriented",
+        "battle-oriented",
+        "selected-tide-overlap",
+        "pool-only",
+        "active-only",
+        "catalog-wide",
+      ]),
+    );
+  });
+
+  it("resolves Dreamsign predicates for active, pool, catalog, neutral, and orientation sources", async () => {
+    const journeyContext = await context("dreamsign-predicate-sources");
+    const activeDreamsignId = journeyContext.state.quest.dreamsignPoolIds[0]!;
+    journeyContext.state.quest.activeDreamsigns = [{ dreamsignId: activeDreamsignId }];
+    const resolved = Object.fromEntries(
+      DREAMSIGN_PREDICATE_PROFILES.map((profile) => [
+        profile.key,
+        resolveDreamsignTargets(
+          journeyContext.content,
+          journeyContext.state.quest,
+          profile.predicate,
+        ),
+      ]),
+    );
+
+    expect(resolved["active-only"]).toHaveLength(1);
+    expect(resolved["pool-only"]!.length).toBeGreaterThan(0);
+    expect(resolved["catalog-wide"]!.length).toBe(journeyContext.content.dreamsigns.length);
+    expect(
+      resolved.neutral!.every((dreamsign) => dreamsign.kind === "neutral"),
+    ).toBe(true);
+    expect(
+      resolved["quest-oriented"]!.every((dreamsign) => dreamsign.orientation === "quest"),
+    ).toBe(true);
+    expect(
+      resolved["battle-oriented"]!.every((dreamsign) => dreamsign.orientation === "battle"),
+    ).toBe(true);
+    expect(resolved["quest-oriented"]!.length).toBeGreaterThan(0);
+    expect(resolved["battle-oriented"]!.length).toBeGreaterThan(0);
+  });
+
+  it("can produce named Dreamsign operation menus through normal generation", async () => {
+    const seen = new Set<string>();
+
+    for (
+      let index = 0;
+      index < 60 &&
+        !["transform", "duplicate", "pool_edit"].every((family) => seen.has(family));
+      index += 1
+    ) {
+      const journeyContext = await context(`normal-dreamsign-operation:${index}`);
+      let manifest: JourneyManifest;
+
+      try {
+        manifest = generateNextJourney({
+          context: journeyContext,
+          forcedShapeId: index % 2 === 0
+            ? "one_target_many_operations"
+            : "mirrored_operations",
+          forcedStage: "mid",
+        });
+      } catch {
+        continue;
+      }
+
+      expect(manifest.debug.debugPayload).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of manifest.options.flatMap((option) => option.operations)) {
+        if (
+          operation.operationKind === "reward" &&
+          typeof operation.payload?.dreamsignOperationFamily === "string"
+        ) {
+          seen.add(operation.payload.dreamsignOperationFamily);
+        }
+      }
+    }
+
+    expect(Array.from(seen)).toEqual(
+      expect.arrayContaining(["transform", "duplicate", "pool_edit"]),
+    );
+  });
+
+  it("validates Dreamsign Loom, Pool Compass, and Sign Between Bells capability families", async () => {
+    const journeyContext = await context("dreamsign-brainstorm-coverage");
+    const activeDreamsignId = journeyContext.state.quest.dreamsignPoolIds[0]!;
+    journeyContext.state.quest.activeDreamsigns = [{ dreamsignId: activeDreamsignId }];
+    const drawContext: DrawContext = {
+      seed: "dreamsign-brainstorm-coverage",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const dreamsignOperation = (
+      family: DreamsignOperationFamily,
+      label: string,
+    ) => compatibleDreamsignOperations(drawContext, {
+      topology: "direct_menu",
+      targetSources: ["pool", "catalog", "active"],
+      families: [family],
+      context: journeyContext,
+      stage: "mid",
+      label,
+      count: 1,
+    })[0]!;
+    const loom = [
+      dreamsignOperation("transform", "test:dreamsign-loom:transform"),
+      dreamsignOperation("duplicate", "test:dreamsign-loom:duplicate"),
+      dreamsignOperation("purge", "test:dreamsign-loom:purge"),
+      dreamsignOperation("pool_edit", "test:dreamsign-loom:pool-edit"),
+    ];
+    const compass = [
+      dreamsignOperation("pool_edit", "test:pool-compass:pool-edit"),
+      dreamsignOperation("copy_gain", "test:pool-compass:copy-gain"),
+    ];
+    const bells = [
+      dreamsignOperation("gain", "test:sign-between-bells:named"),
+      dreamsignOperation("random_reward", "test:sign-between-bells:random"),
+      dreamsignOperation("random_reward", "test:sign-between-bells:predicate"),
+    ];
+    const groupedOptions = [loom, compass, bells].map((operations, index) =>
+      option({
+        number: index + 1,
+        text: operations.map(renderChosenDreamsignOperationText).join(" "),
+        costs: operations.flatMap((operation) => operation.costs ?? []),
+        effects: operations.map((operation) => operation.effect),
+        targets: operations.flatMap((operation) => operation.targets),
+        cost: operations.reduce((total, operation) => total + (operation.cost ?? 0), 0),
+        effect: 320,
+        uncertainty: operations.reduce(
+          (total, operation) => total + (operation.uncertainty ?? 0),
+          0,
+        ),
+      }),
+    );
+    const manifest = {
+      ...fillForShape("mirrored_operations", journeyContext),
+      options: groupedOptions,
+      precommitted: refreshPrecommittedOperations({
+        random: [{ kind: "dreamsign_random_reward", source: "catalog" }],
+      }),
+    };
+    const families = groupedOptions.flatMap((journeyOption) =>
+      journeyOption.operations.flatMap((operation) =>
+        typeof operation.payload?.dreamsignOperationFamily === "string"
+          ? [operation.payload.dreamsignOperationFamily]
+          : [],
+      ),
+    );
+    const randomReward = groupedOptions
+      .flatMap((journeyOption) => journeyOption.operations)
+      .find((operation) => operation.rewardKind === "dreamsign_random_reward");
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(families).toEqual(
+      expect.arrayContaining([
+        "transform",
+        "duplicate",
+        "purge",
+        "pool_edit",
+        "copy_gain",
+        "gain",
+        "random_reward",
+      ]),
+    );
+    expect(randomReward).toMatchObject({
+      targetSelector: expect.objectContaining({
+        selectorKind: "dreamsign",
+        selection: "hidden_random",
+      }),
+    });
   });
 
   it("rejects incompatible card-operation target modes before rendering", async () => {

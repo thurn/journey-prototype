@@ -60,6 +60,7 @@ export type DreamsignTargetPredicate = {
   ids?: readonly string[];
   names?: readonly string[];
   kind?: DreamsignContent["kind"];
+  orientation?: NonNullable<DreamsignContent["orientation"]>;
   tideOverlap?: readonly TideId[] | "selected";
 };
 
@@ -821,6 +822,7 @@ export function resolveDreamsignTargets(
     .filter((dreamsign) => idOrNameMatches(dreamsign, predicate.ids))
     .filter((dreamsign) => idOrNameMatches(dreamsign, predicate.names))
     .filter((dreamsign) => predicate.kind === undefined || dreamsign.kind === predicate.kind)
+    .filter((dreamsign) => predicate.orientation === undefined || dreamsign.orientation === predicate.orientation)
     .filter((dreamsign) => tideOverlap === null || hasTideOverlap(dreamsign.tides, tideOverlap))
     .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
 }

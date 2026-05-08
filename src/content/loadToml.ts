@@ -105,6 +105,9 @@ function normalizeDreamsigns(rows: unknown[]): DreamsignContent[] {
       id: raw.id as string,
       name: raw.name as string,
       kind: raw.kind as "tidal" | "neutral",
+      ...(raw.orientation === "quest" || raw.orientation === "battle"
+        ? { orientation: raw.orientation }
+        : {}),
       renderedText: raw["rendered-text"] as string,
       tides: (raw.tides ?? []) as string[],
       raw,

@@ -95,7 +95,11 @@ export type OperationValueMetadata = {
       | "starter_cleanup_reward"
       | "starter_replacement"
       | "useful_card_sacrifice"
-      | "all_starters";
+      | "all_starters"
+      | "dreamsign_operation_family"
+      | "dreamsign_random_source"
+      | "temporary_dreamsign"
+      | "dreamsign_predicate";
     label: string;
     description: string;
     amount?: number;

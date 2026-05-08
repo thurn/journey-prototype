@@ -278,6 +278,21 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
     };
   }
 
+  if (value.kind === "dreamsign_random_reward" && isRecord(value.predicate)) {
+    const source = value.source === "catalog" || value.source === "active" || value.source === "pool"
+      ? value.source
+      : sourceFromPredicate(value.predicate);
+
+    return {
+      selectorKind: "dreamsign",
+      selection: "hidden_random",
+      referenceKind: "content",
+      ...(source === "catalog" || source === "active" || source === "pool" ? { source } : {}),
+      predicate: value.predicate,
+      required: true,
+    };
+  }
+
   if (typeof value.dreamsignName === "string" || typeof value.dreamsignId === "string") {
     const source = value.source === "catalog" || value.source === "active" || value.source === "pool"
       ? value.source
@@ -370,10 +385,16 @@ function targetSelectorFromPayload(value: unknown): TargetSelector | undefined {
       };
     }
 
-    if (value.kind === "dreamsign_draft" || source === "pool" || source === "active") {
+    if (
+      value.kind === "dreamsign_draft" ||
+      value.kind === "dreamsign_random_reward" ||
+      source === "pool" ||
+      source === "active" ||
+      source === "catalog"
+    ) {
       return {
         selectorKind: "dreamsign",
-        selection: "predicate",
+        selection: value.selection === "hidden_random" ? "hidden_random" : "predicate",
         referenceKind: "content",
         ...(source === "catalog" || source === "active" || source === "pool" ? { source } : {}),
         predicate: value.predicate,
@@ -692,6 +713,49 @@ function starterOperationMetadataBands(value: PayloadRecord): NonNullable<Operat
   return bands;
 }
 
+function dreamsignOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const kind = legacyKind(value);
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+
+  if (!kind?.startsWith("dreamsign_")) {
+    return bands;
+  }
+
+  if (typeof value.dreamsignOperationFamily === "string") {
+    bands.push({
+      id: "dreamsign_operation_family",
+      label: value.dreamsignOperationFamily,
+      description: "Dreamsign operation value tracks the selected operation family.",
+    });
+  }
+
+  if (value.selection === "hidden_random" || value.resultSelection === "hidden_random") {
+    bands.push({
+      id: "dreamsign_random_source",
+      label: "random Dreamsign source",
+      description: "Dreamsign value includes hidden-target uncertainty for random rewards or transforms.",
+    });
+  }
+
+  if (value.temporary === true) {
+    bands.push({
+      id: "temporary_dreamsign",
+      label: "temporary Dreamsign",
+      description: "Dreamsign value is discounted for temporary grants.",
+    });
+  }
+
+  if (isRecord(value.predicate)) {
+    bands.push({
+      id: "dreamsign_predicate",
+      label: "Dreamsign predicate",
+      description: "Dreamsign value records structured source, kind, tide, and orientation predicates.",
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -701,6 +765,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
     const bands = [
       ...cardPredicateMetadataBands(payload),
       ...starterOperationMetadataBands(payload),
+      ...dreamsignOperationMetadataBands(payload),
     ];
 
     if (bands.length > 0) {

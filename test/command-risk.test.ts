@@ -791,14 +791,14 @@ describe("stateless command risk transitions", () => {
         );
 
       expect(dreamsignNames(firstPayload)).toEqual([
-        "Spider Jar",
-        "Poison Bottle",
-        "Black Feather",
+        "Red Heart",
+        "Antler",
+        "Spotted Mug",
       ]);
       expect(dreamsignNames(secondPayload)).toEqual([
-        "Bezoar",
-        "Bell",
-        "Dead Rat",
+        "Dragon Egg",
+        "Ice Crystals",
+        "Skull Codex",
       ]);
       expect(firstPayload.manifest.debug.semanticFingerprint.value).not.toBe(
         secondPayload.manifest.debug.semanticFingerprint.value,

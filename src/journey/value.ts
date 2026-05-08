@@ -110,6 +110,28 @@ export const DREAMSIGN_VALUE_CONSTANTS = {
   transform: 60,
 } as const;
 
+export const DREAMSIGN_OPERATION_VALUE_CONSTANTS = {
+  gain: 145,
+  purchase: 145,
+  loss: -120,
+  purge: 80,
+  duplicate: 130,
+  copyGain: 120,
+  temporaryGrant: 95,
+  transform: 105,
+  randomTransform: 90,
+  poolAdd: 80,
+  poolRemove: 45,
+  poolReplace: 95,
+  randomReward: 120,
+  tradeHook: 90,
+  triggerCounter: 80,
+  selectedTideMatchBonus: 20,
+  randomUncertainty: -10,
+  temporaryUncertainty: -8,
+  delayedUncertainty: -8,
+} as const;
+
 export const TRANSFIGURATION_VALUE_CONSTANTS = {
   standardByType: {
     Viridian: 85,
@@ -658,6 +680,70 @@ export function valueDreamsignDraft(input: {
   return roundToNearestFive(
     DREAMSIGN_VALUE_CONSTANTS.draftBase +
     choiceCurveValue(input.choiceCount, DREAMSIGN_VALUE_CONSTANTS.draftChoiceValues),
+  );
+}
+
+export function valueDreamsignOperation(
+  family:
+    | "gain"
+    | "purchase"
+    | "loss"
+    | "purge"
+    | "duplicate"
+    | "copy_gain"
+    | "temporary_grant"
+    | "transform"
+    | "pool_edit"
+    | "random_reward"
+    | "trade_hook"
+    | "trigger_counter",
+  options: {
+    poolOperation?: "add" | "remove" | "replace";
+    random?: boolean;
+    tideOverlap?: boolean;
+    predicate?: unknown;
+  } = {},
+): number {
+  const base = (() => {
+    switch (family) {
+      case "gain":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.gain;
+      case "purchase":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.purchase;
+      case "loss":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.loss;
+      case "purge":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.purge;
+      case "duplicate":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.duplicate;
+      case "copy_gain":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.copyGain;
+      case "temporary_grant":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.temporaryGrant;
+      case "transform":
+        return options.random === true
+          ? DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomTransform
+          : DREAMSIGN_OPERATION_VALUE_CONSTANTS.transform;
+      case "pool_edit":
+        return options.poolOperation === "add"
+          ? DREAMSIGN_OPERATION_VALUE_CONSTANTS.poolAdd
+          : options.poolOperation === "remove"
+            ? DREAMSIGN_OPERATION_VALUE_CONSTANTS.poolRemove
+            : DREAMSIGN_OPERATION_VALUE_CONSTANTS.poolReplace;
+      case "random_reward":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomReward;
+      case "trade_hook":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.tradeHook;
+      case "trigger_counter":
+        return DREAMSIGN_OPERATION_VALUE_CONSTANTS.triggerCounter;
+    }
+  })();
+
+  return roundToNearestFive(
+    base +
+    (options.tideOverlap === true
+      ? DREAMSIGN_OPERATION_VALUE_CONSTANTS.selectedTideMatchBonus
+      : 0),
   );
 }
 

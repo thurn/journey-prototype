@@ -11,6 +11,10 @@ import {
   renderChosenCardOperationText,
   type CardOperationTargetClass,
 } from "./cardOperationCatalog.js";
+import {
+  compatibleDreamsignOperations,
+  renderChosenDreamsignOperationText,
+} from "./dreamsignOperationCatalog.js";
 import type {
   JourneyOption,
   JourneyRewardPool,
@@ -536,6 +540,48 @@ export function fillOptions(
       };
     }
     case "one_target_many_operations": {
+      const focus = pickSequentialVariant(drawContext, `${shapeId}:focus`, [
+        "card",
+        "dreamsign",
+      ] as const);
+
+      if (focus === "dreamsign" && context.state.quest.dreamsignPoolIds.length > 0) {
+        const sharedTarget = target(
+          "dreamsign",
+          DREAMSIGN_POOL_TARGET_DESCRIPTION,
+          { source: "pool", tideOverlap: "selected" },
+          {
+            selection: "chosen_after_commitment",
+            dreamsignOperationTargetMode: "chosen",
+          },
+        );
+        const operations = compatibleDreamsignOperations(drawContext, {
+          topology: "one_target_many_operations",
+          targetSources: ["pool"],
+          targetModes: ["chosen"],
+          families: ["transform", "duplicate", "purge", "pool_edit"],
+          context,
+          stage,
+          label: `${shapeId}:dreamsign-operations`,
+          count: 3,
+        });
+
+        return {
+          options: operations.map((operation, index) =>
+            option({
+              number: index + 1,
+              text: renderChosenDreamsignOperationText(operation),
+              costs: operation.costs ?? [],
+              effects: [operation.effect],
+              targets: [sharedTarget, ...operation.targets],
+              cost: operation.cost,
+              effect: 320,
+            }),
+          ),
+          precommitted: {},
+        };
+      }
+
       const targetProfile = pickLegalCardDraftProfile(
         context,
         drawContext,
@@ -708,7 +754,42 @@ export function fillOptions(
         "transfiguration",
         "rewrite",
         "draft",
+        "dreamsign",
       ] as const);
+
+      if (mirror === "dreamsign" && context.state.quest.dreamsignPoolIds.length > 0) {
+        const operations = compatibleDreamsignOperations(drawContext, {
+          topology: "mirrored_operations",
+          targetSources: ["pool", "catalog"],
+          targetModes: ["exact_named"],
+          families: [
+            "gain",
+            "copy_gain",
+            "pool_edit",
+            "random_reward",
+            "trigger_counter",
+          ],
+          context,
+          stage,
+          label: `${shapeId}:dreamsign-operations`,
+          count: 3,
+        });
+
+        return {
+          options: operations.map((operation, index) =>
+            option({
+              number: index + 1,
+              text: renderChosenDreamsignOperationText(operation),
+              costs: operation.costs ?? [],
+              effects: [operation.effect],
+              targets: operation.targets,
+              cost: operation.cost,
+              effect: 320,
+            }),
+          ),
+          precommitted: {},
+        };
+      }
 
       if (mirror === "rewrite") {
         const sharedTarget = target(

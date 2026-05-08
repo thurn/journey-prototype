@@ -240,6 +240,14 @@ function validateDreamsigns(
       return;
     }
 
+    if (
+      dreamsign.orientation !== undefined &&
+      dreamsign.orientation !== "quest" &&
+      dreamsign.orientation !== "battle"
+    ) {
+      errors.push(`${context}: invalid Dreamsign orientation "${String(dreamsign.orientation)}"`);
+    }
+
     if (dreamsign.kind === "neutral") {
       if (mutableDreamsign.tides === undefined) {
         mutableDreamsign.tides = [];

@@ -67,7 +67,6 @@ export function validateDreamsignPayload(
       "dreamsign_transform",
       "dreamsign_pool_edit",
       "dreamsign_trigger_counter",
-      "dreamsign_random_reward",
       "dreamsign_trade_hook",
     ].includes(kind) &&
     sourceMatches.length === 0
@@ -81,13 +80,23 @@ export function validateDreamsignPayload(
       name: "newDreamsignName",
       source: "resultSource",
     });
-    const resultMatches = resolveDreamsignTargets(context.content, context.state.quest, resultPredicate);
+    const resultMatches = payload.resultSelection === "hidden_random" &&
+      isRecord(payload.resultPredicate)
+      ? resolveDreamsignTargets(
+          context.content,
+          context.state.quest,
+          payload.resultPredicate as DreamsignTargetPredicate,
+        )
+      : resolveDreamsignTargets(context.content, context.state.quest, resultPredicate);
 
     if (resultMatches.length === 0) {
       return fail("dreamsign_transform_destination_unavailable", `Option ${optionNumber} Dreamsign transformation requires a resolvable destination`);
     }
 
-    if (sourceMatches[0]?.id === resultMatches[0]?.id) {
+    if (
+      payload.resultSelection !== "hidden_random" &&
+      sourceMatches[0]?.id === resultMatches[0]?.id
+    ) {
       return fail("dreamsign_transform_same_target", `Option ${optionNumber} Dreamsign transformation requires distinct source and destination`);
     }
   }
@@ -140,12 +149,17 @@ export function validateDreamsignPayload(
 
   if (kind === "dreamsign_random_reward") {
     const rewardPoolDreamsignIds = payload.rewardPoolDreamsignIds as unknown[];
+    const rewardPoolSource = payload.rewardPoolSource === "catalog" ||
+      payload.rewardPoolSource === "active" ||
+      payload.rewardPoolSource === "pool"
+      ? payload.rewardPoolSource
+      : "pool";
 
     if (
       !rewardPoolDreamsignIds.every((entry) =>
         typeof entry === "string" &&
         resolveDreamsignTargets(context.content, context.state.quest, {
-          source: "pool",
+          source: rewardPoolSource,
           ids: [entry],
         }).length > 0
       )

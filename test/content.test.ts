@@ -59,6 +59,12 @@ describe("loadContent", () => {
     });
     expect(content.dreamcallers[0]?.awakening).toBe("5");
     expect(content.dreamcallers[0]?.mandatoryTides.length).toBeGreaterThan(0);
+    expect(content.dreamsigns[0]).toMatchObject({
+      orientation: "battle",
+    });
+    expect(
+      content.dreamsigns.some((dreamsign) => dreamsign.orientation === "quest"),
+    ).toBe(true);
     expect(
       content.dreamsigns.find((dreamsign) => dreamsign.kind === "neutral")?.tides,
     ).toEqual([]);
@@ -137,6 +143,16 @@ describe("validateContent", () => {
         };
       },
       expected: /data\/dreamsigns\.toml dreamsign\[1\].*invalid Dreamsign kind/,
+    },
+    {
+      name: "invalid Dreamsign orientation",
+      mutate: (bundle: ContentBundle) => {
+        bundle.dreamsigns[0] = {
+          ...bundle.dreamsigns[0],
+          orientation: "route" as DreamsignContent["orientation"],
+        };
+      },
+      expected: /data\/dreamsigns\.toml dreamsign\[1\].*invalid Dreamsign orientation/,
     },
     {
       name: "malformed tide array element",

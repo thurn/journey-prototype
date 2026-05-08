@@ -521,6 +521,7 @@ export function target(
   options: {
     selection?: "exact" | "predicate" | "chosen_after_commitment" | "visible_random" | "hidden_random";
     cardOperationTargetMode?: string;
+    dreamsignOperationTargetMode?: string;
   } = {},
 ) {
   return {
@@ -530,6 +531,9 @@ export function target(
     ...(options.selection ? { selection: options.selection } : {}),
     ...(options.cardOperationTargetMode
       ? { cardOperationTargetMode: options.cardOperationTargetMode }
+      : {}),
+    ...(options.dreamsignOperationTargetMode
+      ? { dreamsignOperationTargetMode: options.dreamsignOperationTargetMode }
       : {}),
     required: true,
   };

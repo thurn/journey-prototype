@@ -3,6 +3,7 @@ id = "C706D0BA-2F41-4B14-95D8-DB168AC6246C"
 name = "Golden Acorn"
 image_name = "acorn_gold.png"
 kind = "tidal"
+orientation = "battle"
 tides = ["discard_velocity", "hand_cycling", "cost_reduction", "resource_burst", "discard_outlets"]
 rendered-text = "The second time you discard a card each turn, your next card this turn costs 2● less."
 
@@ -11,6 +12,7 @@ id = "278EC1AB-F532-4862-84AE-63DF5E49548C"
 name = "Pyramid Relic"
 image_name = "aertfact.png"
 kind = "tidal"
+orientation = "battle"
 tides = ["character_chain", "character_curve", "cost_reduction", "big_energy"]
 rendered-text = "When you play your first character in a turn, the next character you play this turn costs 2● less."
 
@@ -27,6 +29,7 @@ id = "49990864-1DB0-4C08-91AE-40A1F04223E4"
 name = "Algae"
 image_name = "algae.png"
 kind = "neutral"
+orientation = "battle"
 rendered-text = "The first character you draw each turn costs 2● less until end of turn."
 
 [[dreamsign]]
@@ -895,6 +898,7 @@ id = "CD4BB1F4-66BB-45EA-ABFE-CE0C66E4EC4F"
 name = "Bestiary"
 image_name = "book_10.png"
 kind = "neutral"
+orientation = "quest"
 rendered-text = "The first card you buy at each Shop costs 25% less essence and gains a random transfiguration."
 
 [[dreamsign]]
@@ -994,6 +998,7 @@ id = "BE59C0BA-6286-49E3-A88D-86B0977CC30A"
 name = "Pearl Shell"
 image_name = "shell.png"
 kind = "neutral"
+orientation = "quest"
 rendered-text = "At each Essence site, you are instead offered a Dreamsign."
 
 [[dreamsign]]
@@ -1122,6 +1127,7 @@ id = "7E8C86CC-788F-4648-BE84-E0935C40C31E"
 name = "Red Cheese"
 image_name = "red_cheese.png"
 kind = "neutral"
+orientation = "quest"
 rendered-text = "After winning a battle, you are offered a Dreamsign Draft instead of the battle reward pick."
 
 [[dreamsign]]

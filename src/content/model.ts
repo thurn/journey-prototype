@@ -26,6 +26,7 @@ export type DreamsignContent = {
   id: string;
   name: string;
   kind: "tidal" | "neutral";
+  orientation?: "quest" | "battle";
   renderedText: string;
   tides: TideId[];
   raw: Record<string, unknown>;
