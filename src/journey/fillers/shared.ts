@@ -28,6 +28,7 @@ import type { JourneyShapeId } from "../shapes.js";
 import { symbolsForOption } from "../symbols.js";
 import {
   commonEssenceRewardAmount,
+  DREAMSIGN_VALUE_CONSTANTS,
   LOSS_CHOICE_VALUE_CONSTANTS,
   TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   valueBaneGain,
@@ -37,6 +38,17 @@ import {
   valueOmenGain,
   valueOmenLoss,
 } from "../value.js";
+import {
+  cardExactTarget,
+  cardQualityValue,
+  namedCardPayload,
+  selectContentBackedCard,
+} from "./namedCardPayloads.js";
+import {
+  dreamsignExactTarget,
+  namedDreamsignPayload,
+  selectContentBackedDreamsign,
+} from "./dreamsignPayloads.js";
 import { firstRouteEditReward } from "./routeEditCatalog.js";
 
 export type BuildArgs = {
@@ -950,6 +962,16 @@ export function routeReplacementReward(
   };
 }
 
+function stageFromContext(context: JourneyContext): JourneyStage {
+  const dreamscape = context.state.quest.resources.dreamscape;
+
+  if (dreamscape <= 1) {
+    return "early";
+  }
+
+  return dreamscape <= 3 ? "mid" : "late";
+}
+
 export function rewardSlotOption(
   number: number,
   reward: RewardSlot,
@@ -981,6 +1003,7 @@ export function rewardSlots(
   context: JourneyContext,
   drawContext: DrawContext,
   label: string,
+  stage: JourneyStage = stageFromContext(context),
 ): RewardSlot[] {
   const essenceAmount = pickSequentialVariant(
     drawContext,
@@ -1026,6 +1049,20 @@ export function rewardSlots(
     `${label}:transfiguration`,
     ["Bronze", "Scarlet", "Viridian", "Prismatic", "Golden"],
   );
+  const namedCard = selectContentBackedCard({
+    context,
+    drawContext,
+    label,
+    stage,
+    sources: ["draftPool", "catalog"],
+  });
+  const namedDreamsign = selectContentBackedDreamsign({
+    context,
+    drawContext,
+    label,
+    stage,
+    sources: ["pool", "catalog"],
+  });
   const slots: RewardSlot[] = [
     {
       key: "essence",
@@ -1084,6 +1121,68 @@ export function rewardSlots(
     },
     routeReplacementReward(false, drawContext, "reward-slots:route-replacement"),
   ];
+
+  if (namedCard) {
+    const payload = namedCardPayload(
+      {
+        kind: "card_gain",
+        result: namedCard.card,
+        source: namedCard.source,
+        extra: {
+          targetOrigin: namedCard.targetOrigin,
+          selectionWeight: namedCard.weight,
+          weightHooks: namedCard.weightHooks,
+        },
+      },
+      context,
+    );
+
+    slots.push({
+      key: `named-card:${namedCard.card.id}`,
+      text: `Gain {${namedCard.card.name}}.`,
+      effects: [payload],
+      targets: [
+        cardExactTarget(
+          namedCard.card,
+          namedCard.source,
+          `${namedCard.card.name} as a ${namedCard.targetOrigin.replace(/_/gu, " ")}`,
+        ),
+      ],
+      effect: Math.max(320, cardQualityValue(namedCard.card)),
+    });
+  }
+
+  if (namedDreamsign) {
+    const payload = namedDreamsignPayload(
+      {
+        kind: "dreamsign_gain",
+        dreamsign: namedDreamsign.dreamsign,
+        source: namedDreamsign.source,
+        extra: {
+          targetOrigin: namedDreamsign.targetOrigin,
+          selectionWeight: namedDreamsign.weight,
+          weightHooks: namedDreamsign.weightHooks,
+        },
+      },
+      context,
+    );
+
+    slots.push({
+      key: `named-dreamsign:${namedDreamsign.dreamsign.id}`,
+      text: `Gain {${namedDreamsign.dreamsign.name}}.`,
+      effects: [payload],
+      targets: [
+        dreamsignExactTarget(namedDreamsign.dreamsign, namedDreamsign.source),
+      ],
+      effect: Math.max(
+        320,
+        DREAMSIGN_VALUE_CONSTANTS.namedGain +
+          (namedDreamsign.targetOrigin === "dreamsign_pool_candidate"
+            ? DREAMSIGN_VALUE_CONSTANTS.selectedTideMatchBonus
+            : 0),
+      ),
+    });
+  }
 
   if (context.state.quest.dreamsignPoolIds.length > 0) {
     slots.push({

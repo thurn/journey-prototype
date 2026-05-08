@@ -12,6 +12,7 @@ import {
 import type {
   JourneyOption,
   JourneyRewardPool,
+  JourneyStage,
   JourneyTree,
   PrecommittedOutcomes,
 } from "../manifest.js";
@@ -71,6 +72,7 @@ export function fillOptions(
   shapeId: JourneyShapeId,
   context: JourneyContext,
   drawContext: DrawContext,
+  stage: JourneyStage,
 ): {
   options: JourneyOption[];
   tree?: JourneyTree;

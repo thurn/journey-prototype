@@ -5,6 +5,7 @@ import type {
   JourneyManifest,
   JourneyOption,
   JourneyRewardPool,
+  JourneyStage,
   JourneyTree,
   PrecommittedOutcomes,
   ValidationCheckedPayload,
@@ -59,6 +60,7 @@ export type JourneyShapeDefinition = {
 export type ShapeFillArgs = {
   readonly context: JourneyContext;
   readonly drawContext: DrawContext;
+  readonly stage: JourneyStage;
 };
 
 export type FilledJourney = {

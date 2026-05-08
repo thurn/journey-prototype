@@ -127,6 +127,7 @@ export function buildConservativeJourneyForShape(
   const baseFilled = plugin.fill({
     context: args.context,
     drawContext: args.drawContext,
+    stage: args.stage,
   });
   const debugOverride = args.debugPayload
     ? buildDebugFixtureOverride({

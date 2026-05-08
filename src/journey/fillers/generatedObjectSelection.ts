@@ -1,6 +1,21 @@
 import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
-import type { GeneratedObjectDefinition, JourneyStage } from "../manifest.js";
+import type { GeneratedObjectDefinition, JourneyStage, TargetSelector } from "../manifest.js";
 import { getShapePlugin, type JourneyShapeId } from "../shapes.js";
+
+export function generatedObjectTargetSelector(
+  generatedObject: GeneratedObjectDefinition,
+): Extract<TargetSelector, { selectorKind: "generated_object" }> {
+  return {
+    selectorKind: "generated_object",
+    selection: "exact",
+    referenceKind: "manifest_generated",
+    generatedObjectReferenceKind: "definition",
+    generatedObjectKind: generatedObject.generatedObjectKind,
+    generatedObjectId: generatedObject.generatedObjectId,
+    name: generatedObject.name,
+    required: true,
+  };
+}
 
 export function naturalGeneratedObjectKind(args: {
   drawContext: DrawContext;

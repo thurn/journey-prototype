@@ -30,6 +30,16 @@ export type TargetSelectionMode =
 
 export type TargetReferenceKind = "content" | "controlled_vocabulary" | "manifest_generated" | "placeholder";
 
+export type TargetResolutionOrigin =
+  | "current_object"
+  | "catalog_reward"
+  | "draft_pool_candidate"
+  | "dreamsign_pool_candidate"
+  | "future_generated_object"
+  | "controlled_vocabulary"
+  | "state_pool"
+  | "catalog_reference";
+
 type TargetSelectorBase = {
   selection: TargetSelectionMode;
   referenceKind?: TargetReferenceKind;
@@ -41,11 +51,14 @@ export type TargetResolutionMetadata = {
   selectorKind: TargetSelector["selectorKind"];
   selection: TargetSelectionMode;
   sourcePool: string;
+  targetOrigin: TargetResolutionOrigin;
   candidateCount: number;
   selected: {
     id?: string;
     name: string;
     kind?: string;
+    sourcePool?: string;
+    targetOrigin?: TargetResolutionOrigin;
   }[];
   emptyReason?: string;
 };

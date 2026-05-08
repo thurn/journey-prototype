@@ -340,7 +340,7 @@ export function defineShapePlugin(
     fill:
       input.fill ??
       ((args) =>
-        legacyFillOptions(definition.id, args.context, args.drawContext)),
+        legacyFillOptions(definition.id, args.context, args.drawContext, args.stage)),
     ...(input.validators
       ? { validators: Object.freeze([...input.validators]) }
       : {}),

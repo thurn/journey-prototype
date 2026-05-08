@@ -11,6 +11,7 @@ import type {
   JourneyManifest,
   JourneyOperation,
   TargetResolutionMetadata,
+  TargetResolutionOrigin,
   TargetSelectionMode,
   TargetSelector,
 } from "./manifest.js";
@@ -763,6 +764,8 @@ export function resolveBaneTargets(
 function selectedContentMetadata(
   items: readonly ({ id: string; name: string } & Record<string, unknown>)[],
   selector: { selection: TargetSelectionMode },
+  sourcePool: string,
+  targetOrigin: TargetResolutionOrigin,
 ): TargetResolutionMetadata["selected"] {
   if (selector.selection === "hidden_random") {
     return [];
@@ -771,6 +774,8 @@ function selectedContentMetadata(
   return items.map((item) => ({
     id: item.id,
     name: item.name,
+    sourcePool,
+    targetOrigin,
     ...(typeof item.kind === "string" ? { kind: item.kind } : {}),
     ...(typeof item.cardType === "string" ? { kind: item.cardType } : {}),
   }));
@@ -779,10 +784,12 @@ function selectedContentMetadata(
 function selectedNameMetadata(
   names: readonly string[],
   selector: { selection: TargetSelectionMode },
+  sourcePool: string,
+  targetOrigin: TargetResolutionOrigin,
 ): TargetResolutionMetadata["selected"] {
   return selector.selection === "hidden_random"
     ? []
-    : names.map((name) => ({ name }));
+    : names.map((name) => ({ name, sourcePool, targetOrigin }));
 }
 
 function sourcePoolForCard(selector: Extract<TargetSelector, { selectorKind: "card" }>, predicate: CardTargetPredicate): string {
@@ -813,15 +820,59 @@ function emptyReason(sourcePool: string): string {
   }
 }
 
+function targetOriginForSourcePool(
+  selectorKind: TargetSelector["selectorKind"],
+  sourcePool: string,
+): TargetResolutionOrigin {
+  if (selectorKind === "generated_object") {
+    return "future_generated_object";
+  }
+
+  if (sourcePool === "deck" || sourcePool === "active") {
+    return "current_object";
+  }
+
+  if (sourcePool === "draftPool") {
+    return "draft_pool_candidate";
+  }
+
+  if (sourcePool === "pool") {
+    return "dreamsign_pool_candidate";
+  }
+
+  if (sourcePool === "catalog") {
+    return "catalog_reward";
+  }
+
+  if (sourcePool === "vocabulary") {
+    return "controlled_vocabulary";
+  }
+
+  if (sourcePool === "state") {
+    return "state_pool";
+  }
+
+  return "catalog_reference";
+}
+
 function metadata(args: {
   selectorKind: TargetSelector["selectorKind"];
   selection: TargetSelectionMode;
   sourcePool: string;
+  targetOrigin?: TargetResolutionOrigin;
   candidateCount: number;
   selected: TargetResolutionMetadata["selected"];
 }): TargetResolutionMetadata {
+  const targetOrigin = args.targetOrigin ?? targetOriginForSourcePool(args.selectorKind, args.sourcePool);
+
   return {
     ...args,
+    targetOrigin,
+    selected: args.selected.map((selected) => ({
+      ...selected,
+      sourcePool: selected.sourcePool ?? args.sourcePool,
+      targetOrigin: selected.targetOrigin ?? targetOrigin,
+    })),
     ...(args.candidateCount === 0 ? { emptyReason: emptyReason(args.sourcePool) } : {}),
   };
 }
@@ -860,6 +911,7 @@ export function resolveTargetSelector(
       selectorKind: "none",
       selection: "exact",
       sourcePool: "none",
+      targetOrigin: "catalog_reference",
       candidateCount: 0,
       selected: [],
     });
@@ -874,13 +926,15 @@ export function resolveTargetSelector(
     } as CardTargetPredicate;
     const sourcePool = sourcePoolForCard(selector, predicate);
     const candidates = resolveCardTargets(content, quest, predicate);
+    const targetOrigin = targetOriginForSourcePool(selector.selectorKind, sourcePool);
 
     return metadata({
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool,
+      targetOrigin,
       candidateCount: candidates.length,
-      selected: selectedContentMetadata(candidates, selector),
+      selected: selectedContentMetadata(candidates, selector, sourcePool, targetOrigin),
     });
   }
 
@@ -893,13 +947,15 @@ export function resolveTargetSelector(
     } as DreamsignTargetPredicate;
     const sourcePool = sourcePoolForDreamsign(selector, predicate);
     const candidates = resolveDreamsignTargets(content, quest, predicate);
+    const targetOrigin = targetOriginForSourcePool(selector.selectorKind, sourcePool);
 
     return metadata({
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool,
+      targetOrigin,
       candidateCount: candidates.length,
-      selected: selectedContentMetadata(candidates, selector),
+      selected: selectedContentMetadata(candidates, selector, sourcePool, targetOrigin),
     });
   }
 
@@ -914,8 +970,14 @@ export function resolveTargetSelector(
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool: selector.source ?? "catalog",
+      targetOrigin: targetOriginForSourcePool(selector.selectorKind, selector.source ?? "catalog"),
       candidateCount: candidates.length,
-      selected: selectedContentMetadata(candidates, selector),
+      selected: selectedContentMetadata(
+        candidates,
+        selector,
+        selector.source ?? "catalog",
+        targetOriginForSourcePool(selector.selectorKind, selector.source ?? "catalog"),
+      ),
     });
   }
 
@@ -932,8 +994,14 @@ export function resolveTargetSelector(
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool: selector.source ?? "vocabulary",
+      targetOrigin: targetOriginForSourcePool(selector.selectorKind, selector.source ?? "vocabulary"),
       candidateCount: candidates.length,
-      selected: selectedNameMetadata(candidates, selector),
+      selected: selectedNameMetadata(
+        candidates,
+        selector,
+        selector.source ?? "vocabulary",
+        targetOriginForSourcePool(selector.selectorKind, selector.source ?? "vocabulary"),
+      ),
     });
   }
 
@@ -945,8 +1013,14 @@ export function resolveTargetSelector(
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool: selector.scope ?? "route",
+      targetOrigin: targetOriginForSourcePool(selector.selectorKind, selector.scope ?? "route"),
       candidateCount: candidates.length,
-      selected: selectedNameMetadata(candidates, selector),
+      selected: selectedNameMetadata(
+        candidates,
+        selector,
+        selector.scope ?? "route",
+        targetOriginForSourcePool(selector.selectorKind, selector.scope ?? "route"),
+      ),
     });
   }
 
@@ -959,8 +1033,14 @@ export function resolveTargetSelector(
       selectorKind: selector.selectorKind,
       selection: selector.selection,
       sourcePool: selector.scope,
+      targetOrigin: targetOriginForSourcePool(selector.selectorKind, selector.scope),
       candidateCount: candidates.length,
-      selected: selectedNameMetadata(candidates, selector),
+      selected: selectedNameMetadata(
+        candidates,
+        selector,
+        selector.scope,
+        targetOriginForSourcePool(selector.selectorKind, selector.scope),
+      ),
     });
   }
 
@@ -971,15 +1051,24 @@ export function resolveTargetSelector(
         id: generatedObject.generatedObjectId,
         name: generatedObject.name,
         kind: generatedObject.generatedObjectKind,
+        sourcePool: "manifest_generated",
+        targetOrigin: "future_generated_object" as const,
       }))
     : selector.generatedObjectReferenceKind === "placeholder"
-      ? [{ id: selector.generatedObjectId, name: placeholderName, kind: selector.generatedObjectKind }]
+      ? [{
+          id: selector.generatedObjectId,
+          name: placeholderName,
+          kind: selector.generatedObjectKind,
+          sourcePool: "manifest_placeholder",
+          targetOrigin: "future_generated_object" as const,
+        }]
       : [];
 
   return metadata({
     selectorKind: selector.selectorKind,
     selection: selector.selection,
     sourcePool: selector.generatedObjectReferenceKind === "placeholder" ? "manifest_placeholder" : "manifest_generated",
+    targetOrigin: "future_generated_object",
     candidateCount: selected.length,
     selected,
   });

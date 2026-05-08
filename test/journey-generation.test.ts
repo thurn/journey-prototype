@@ -8,6 +8,14 @@ import { attachTargetResolutionMetadata } from "../src/journey/effects.js";
 import { buildConservativeJourneyForShape } from "../src/journey/fillers/index.js";
 import { compatibleCardOperations } from "../src/journey/fillers/cardOperationCatalog.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
+import {
+  cardExactTarget,
+  contentBackedCardCandidates,
+} from "../src/journey/fillers/namedCardPayloads.js";
+import {
+  contentBackedDreamsignCandidates,
+  dreamsignExactTarget,
+} from "../src/journey/fillers/dreamsignPayloads.js";
 import { routeEditCatalog } from "../src/journey/fillers/routeEditCatalog.js";
 import { generateNextJourney } from "../src/journey/generate.js";
 import type {
@@ -4016,6 +4024,215 @@ describe("validateJourneyManifest", () => {
         }),
       ]),
     );
+  });
+
+  it("exposes content-backed target origins for current, catalog, pool, and generated named objects", async () => {
+    const journeyContext = await context();
+    const deckCard = journeyContext.content.cards.find((card) =>
+      journeyContext.state.quest.deck.entries.some((entry) => entry.cardId === card.id)
+    )!;
+    const catalogCard = journeyContext.content.cards.find(
+      (card) => card.rarity !== "Starter" &&
+        !journeyContext.state.quest.deck.entries.some((entry) => entry.cardId === card.id),
+    )!;
+    const poolDreamsign = journeyContext.content.dreamsigns.find((dreamsign) =>
+      journeyContext.state.quest.dreamsignPoolIds.includes(dreamsign.id)
+    )!;
+    const generatedDefinition = generatedObjectDefinition();
+    const manifest = attachTargetResolutionMetadata(
+      {
+        ...fillForShape("heterogeneous_pair", journeyContext),
+        generatedObjects: [generatedDefinition],
+        options: [
+          refreshOptionOperations({
+            ...fillForShape("heterogeneous_pair", journeyContext).options[0]!,
+            targets: [
+              cardExactTarget(deckCard, "deck"),
+              cardExactTarget(catalogCard, "catalog"),
+              dreamsignExactTarget(poolDreamsign, "pool"),
+            ],
+          }),
+          {
+            ...fillForShape("heterogeneous_pair", journeyContext).options[1]!,
+            operations: [
+              {
+                operationId: "test:generated-origin",
+                operationKind: "target",
+                role: "target",
+                visibility: "visible",
+                targetSelector: {
+                  selectorKind: "generated_object",
+                  selection: "exact",
+                  referenceKind: "manifest_generated",
+                  generatedObjectReferenceKind: "definition",
+                  generatedObjectKind: generatedDefinition.generatedObjectKind,
+                  generatedObjectId: generatedDefinition.generatedObjectId,
+                  name: generatedDefinition.name,
+                  required: true,
+                },
+                payload: {},
+              },
+            ],
+          },
+        ],
+      },
+      journeyContext.content,
+      journeyContext.state.quest,
+    );
+    const resolutions = manifest.options.flatMap((option) =>
+      option.operations.flatMap((operation) =>
+        operation.targetResolution ? [operation.targetResolution] : []
+      )
+    );
+
+    expect(resolutions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourcePool: "deck",
+          targetOrigin: "current_object",
+          selected: [
+            expect.objectContaining({
+              name: deckCard.name,
+              targetOrigin: "current_object",
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          sourcePool: "catalog",
+          targetOrigin: "catalog_reward",
+          selected: [
+            expect.objectContaining({
+              name: catalogCard.name,
+              targetOrigin: "catalog_reward",
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          sourcePool: "pool",
+          targetOrigin: "dreamsign_pool_candidate",
+          selected: [
+            expect.objectContaining({
+              name: poolDreamsign.name,
+              targetOrigin: "dreamsign_pool_candidate",
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          sourcePool: "manifest_generated",
+          targetOrigin: "future_generated_object",
+          selected: [
+            expect.objectContaining({
+              name: generatedDefinition.name,
+              targetOrigin: "future_generated_object",
+            }),
+          ],
+        }),
+      ]),
+    );
+  });
+
+  it("provides reusable weighted selectors for content-backed cards and Dreamsigns", async () => {
+    const journeyContext = await context("content-backed-selectors");
+    const cards = contentBackedCardCandidates({
+      context: journeyContext,
+      stage: "mid",
+      sources: ["deck", "draftPool", "catalog"],
+      includeStarters: true,
+    });
+    const dreamsigns = contentBackedDreamsignCandidates({
+      context: journeyContext,
+      stage: "mid",
+      sources: ["active", "pool", "catalog"],
+    });
+
+    expect(cards.map((candidate) => candidate.targetOrigin)).toEqual(
+      expect.arrayContaining([
+        "current_object",
+        "draft_pool_candidate",
+        "catalog_reward",
+      ]),
+    );
+    expect(
+      cards.every((candidate) =>
+        candidate.weight > 0 &&
+        typeof candidate.weightHooks.rarity === "number" &&
+        typeof candidate.weightHooks.tideOverlap === "number" &&
+        typeof candidate.weightHooks.starterStatus === "number" &&
+        typeof candidate.weightHooks.currentDeckAvailability === "number" &&
+        typeof candidate.weightHooks.stage === "number"
+      ),
+    ).toBe(true);
+    expect(dreamsigns.map((candidate) => candidate.targetOrigin)).toEqual(
+      expect.arrayContaining([
+        "dreamsign_pool_candidate",
+        "catalog_reward",
+      ]),
+    );
+    expect(
+      dreamsigns.every((candidate) =>
+        candidate.weight > 0 &&
+        typeof candidate.weightHooks.kind === "number" &&
+        typeof candidate.weightHooks.tideOverlap === "number" &&
+        typeof candidate.weightHooks.currentAvailability === "number" &&
+        typeof candidate.weightHooks.stage === "number"
+      ),
+    ).toBe(true);
+  });
+
+  it("emits normal content-backed named card and Dreamsign gains without debug payloads", async () => {
+    const found = new Set<string>();
+    const evidence: Record<string, JourneyOperation | undefined> = {};
+
+    for (let index = 0; index < 80 && found.size < 2; index += 1) {
+      const journeyContext = await context(`normal-named-gain:${index}`);
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedShapeId: "curated_reward_trio",
+        forcedStage: "mid",
+      });
+
+      expect(manifest.debug.debugPayload).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of manifest.options.flatMap((option) => option.operations)) {
+        if (
+          operation.operationKind === "reward" &&
+          operation.rewardKind === "card_gain" &&
+          operation.targetResolution?.targetOrigin
+        ) {
+          found.add("card");
+          evidence.card = operation;
+        }
+
+        if (
+          operation.operationKind === "reward" &&
+          operation.rewardKind === "dreamsign_gain" &&
+          operation.targetResolution?.targetOrigin
+        ) {
+          found.add("dreamsign");
+          evidence.dreamsign = operation;
+        }
+      }
+    }
+
+    expect(evidence.card).toMatchObject({
+      rewardKind: "card_gain",
+      targetResolution: expect.objectContaining({
+        selectorKind: "card",
+        candidateCount: 1,
+        targetOrigin: expect.stringMatching(/catalog_reward|draft_pool_candidate/u),
+      }),
+    });
+    expect(evidence.dreamsign).toMatchObject({
+      rewardKind: "dreamsign_gain",
+      targetResolution: expect.objectContaining({
+        selectorKind: "dreamsign",
+        candidateCount: 1,
+        targetOrigin: expect.stringMatching(/catalog_reward|dreamsign_pool_candidate/u),
+      }),
+    });
   });
 
   it("reports empty required target pools with stable debug metadata", async () => {
