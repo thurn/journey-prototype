@@ -31,7 +31,12 @@ export function dreamwellPayload(args: {
   scope: "next_battle" | "battle_window" | "future_dreamwell";
   duration: string;
   amount?: number;
-  cardRole?: "positive" | "penalty" | "upgrade";
+  count?: number;
+  cardRole?: "positive" | "bonus" | "penalty" | "upgrade" | "delayed" | "replacement";
+  phaseSelector?: "first_draw" | "lowest_phase" | "any_phase" | "future_dreamwell" | "penalty_card";
+  polarity?: "positive" | "negative" | "neutral" | "mixed";
+  playerVisibility?: "visible_to_you" | "visible_to_both_players" | "hidden_until_draw";
+  replacement?: string;
   timing?: string;
 }): Record<string, unknown> {
   return {
@@ -40,8 +45,13 @@ export function dreamwellPayload(args: {
     dreamwellScope: args.scope,
     duration: args.duration,
     timing: args.timing ?? args.duration,
+    count: args.count ?? 1,
+    polarity: args.polarity ?? "positive",
+    playerVisibility: args.playerVisibility ?? "visible_to_you",
     ...(args.amount !== undefined ? { amount: args.amount } : {}),
     ...(args.cardRole ? { cardRole: args.cardRole } : {}),
+    ...(args.phaseSelector ? { phaseSelector: args.phaseSelector } : {}),
+    ...(args.replacement ? { replacement: args.replacement } : {}),
   };
 }
 

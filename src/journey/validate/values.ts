@@ -113,6 +113,18 @@ export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationRe
       sharedWindowKeys.add(`${window.scope}:${window.duration}`);
     }
 
+    const invalidDreamwellReward = option.operations.some((operation) =>
+      isNegativeDreamwellPayload(operation.payload) &&
+      operation.role !== "burden"
+    );
+
+    if (invalidDreamwellReward) {
+      return fail(
+        "timed_window_dreamwell_penalty_must_be_burden",
+        "Penalty Dreamwell cards and negative Dreamwell windows must be modeled as burdens",
+      );
+    }
+
     const hasResourceReward = option.operations.some((operation) =>
       operation.operationKind === "reward" &&
       operation.rewardKind === "resource"
@@ -189,6 +201,13 @@ function timedWindowDescriptor(operation: JourneyOperation): TimedWindowDescript
     scope: declaredScope,
     duration: `${declaredDuration.durationKind}:${declaredDuration.count}`,
   };
+}
+
+function isNegativeDreamwellPayload(record: Record<string, unknown>): boolean {
+  return record.kind === "dreamwell_modifier" &&
+    ((record.cardRole === "penalty" && record.polarity !== "positive") ||
+      record.polarity === "negative" ||
+      (typeof record.windowValue === "number" && record.windowValue < 0));
 }
 
 function isMeaningfulDurationForScope(scope: string, duration: Record<string, unknown>): boolean {

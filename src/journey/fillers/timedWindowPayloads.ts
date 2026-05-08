@@ -13,6 +13,17 @@ import {
   pickSequentialVariant,
   selectedDreamsignTargets,
 } from "./shared.js";
+import {
+  cardExactTarget,
+  namedCardPayload,
+  selectContentBackedCard,
+} from "./namedCardPayloads.js";
+import {
+  dreamsignExactTarget,
+  namedDreamsignPayload,
+  selectContentBackedDreamsign,
+} from "./dreamsignPayloads.js";
+import { DREAMWELL_VALUE_CONSTANTS } from "../value.js";
 
 type TimedWindowScope =
   | "battle"
@@ -33,8 +44,11 @@ type TimedWindowEntry = {
   key: string;
   text: string;
   effects?: unknown[];
+  burdens?: unknown[];
+  targets?: unknown[];
   routeEffects?: unknown[];
   effect: number;
+  burden?: number;
   uncertainty?: number;
 };
 
@@ -78,6 +92,12 @@ function metadata(
 
 function valueForWindow(baseValue: number, window: TimedWindow, amount = 1): number {
   return baseValue + (window.count - 2) * 10 + (amount - 1) * 25;
+}
+
+function burdenValueForDreamwellWindow(baseValue: number, window: TimedWindow, amount = 1): number {
+  const windowValue = valueForWindow(baseValue, window, amount);
+
+  return Math.max(150, Math.min(170, windowValue));
 }
 
 function signedValue(baseValue: number, polarity: TimedWindowPayloadMetadata["polarity"]): number {
@@ -589,104 +609,396 @@ function battleObjectWindowOptions(
   );
 }
 
-function dreamwellWindowOptions(window: TimedWindow, drawContext: DrawContext): TimedWindowEntry[] {
+function stageFromContext(context: JourneyContext): "early" | "mid" | "late" {
+  const dreamscape = context.state.quest.resources.dreamscape;
+
+  if (dreamscape <= 1) {
+    return "early";
+  }
+
+  return dreamscape <= 3 ? "mid" : "late";
+}
+
+function dreamwellModifier(
+  window: TimedWindow,
+  args: {
+    kind: string;
+    scope?: "battle_window" | "future_dreamwell";
+    amount?: number;
+    count?: number;
+    cardRole?: "positive" | "bonus" | "penalty" | "upgrade" | "delayed" | "replacement";
+    phaseSelector: "first_draw" | "lowest_phase" | "any_phase" | "future_dreamwell" | "penalty_card";
+    polarity: "positive" | "negative";
+    affectedObjectClass: string;
+    windowModifier: string;
+    value: number;
+    timing?: string;
+    replacement?: string;
+  },
+): Record<string, unknown> {
+  return {
+    ...dreamwellPayload({
+      kind: args.kind,
+      scope: args.scope ?? "battle_window",
+      duration: window.duration,
+      amount: args.amount,
+      count: args.count,
+      cardRole: args.cardRole,
+      phaseSelector: args.phaseSelector,
+      polarity: args.polarity,
+      playerVisibility: args.polarity === "negative"
+        ? "visible_to_both_players"
+        : "visible_to_you",
+      timing: args.timing,
+      replacement: args.replacement,
+    }),
+    ...metadata(window, {
+      timedWindowScope: "dreamwell",
+      affectedObjectClass: args.affectedObjectClass,
+      windowModifier: args.windowModifier,
+      amount: args.amount ?? args.count ?? 1,
+      polarity: args.polarity,
+      windowValue: signedValue(args.value, args.polarity),
+    }),
+  };
+}
+
+function dreamwellCompensationRewards(
+  context: JourneyContext,
+  drawContext: DrawContext,
+): {
+  dreamsign?: TimedWindowEntry;
+  card?: TimedWindowEntry;
+  legendaryCard?: TimedWindowEntry;
+} {
+  const stage = stageFromContext(context);
+  const dreamsign = selectContentBackedDreamsign({
+    context,
+    drawContext,
+    label: "timed-window:dreamwell-compensation",
+    stage,
+    sources: ["pool", "catalog"],
+  });
+  const card = selectContentBackedCard({
+    context,
+    drawContext,
+    label: "timed-window:dreamwell-compensation",
+    stage,
+    sources: ["draftPool", "catalog"],
+  });
+  const legendaryCard = selectContentBackedCard({
+    context,
+    drawContext,
+    label: "timed-window:dreamwell-legendary-compensation",
+    stage,
+    sources: ["draftPool", "catalog"],
+    predicate: { rarity: "Legendary" },
+  });
+
+  return {
+    dreamsign: dreamsign
+      ? {
+          key: `named-dreamsign:${dreamsign.dreamsign.id}`,
+          text: `Gain {${dreamsign.dreamsign.name}}.`,
+          effects: [
+            namedDreamsignPayload(
+              {
+                kind: "dreamsign_gain",
+                dreamsign: dreamsign.dreamsign,
+                source: dreamsign.source,
+                extra: {
+                  targetOrigin: dreamsign.targetOrigin,
+                  selectionWeight: dreamsign.weight,
+                  weightHooks: dreamsign.weightHooks,
+                },
+              },
+              context,
+            ),
+          ],
+          targets: [dreamsignExactTarget(dreamsign.dreamsign, dreamsign.source)],
+          effect: DREAMWELL_VALUE_CONSTANTS.compensatingNamedReward,
+        }
+      : undefined,
+    card: card
+      ? {
+          key: `named-card:${card.card.id}`,
+          text: `Gain {${card.card.name}}.`,
+          effects: [
+            namedCardPayload(
+              {
+                kind: "card_gain",
+                result: card.card,
+                source: card.source,
+                extra: {
+                  targetOrigin: card.targetOrigin,
+                  selectionWeight: card.weight,
+                  weightHooks: card.weightHooks,
+                },
+              },
+              context,
+            ),
+          ],
+          targets: [
+            cardExactTarget(
+              card.card,
+              card.source,
+              `${card.card.name} as a ${card.targetOrigin.replace(/_/gu, " ")}`,
+            ),
+          ],
+          effect: DREAMWELL_VALUE_CONSTANTS.compensatingNamedReward,
+        }
+      : undefined,
+    legendaryCard: legendaryCard
+      ? {
+          key: `legendary-card:${legendaryCard.card.id}`,
+          text: `Gain {${legendaryCard.card.name}}.`,
+          effects: [
+            namedCardPayload(
+              {
+                kind: "card_gain",
+                result: legendaryCard.card,
+                source: legendaryCard.source,
+                extra: {
+                  targetOrigin: legendaryCard.targetOrigin,
+                  selectionWeight: legendaryCard.weight,
+                  weightHooks: legendaryCard.weightHooks,
+                  rewardPredicate: { rarity: "Legendary" },
+                },
+              },
+              context,
+            ),
+          ],
+          targets: [
+            cardExactTarget(
+              legendaryCard.card,
+              legendaryCard.source,
+              `${legendaryCard.card.name} as a Legendary ${legendaryCard.targetOrigin.replace(/_/gu, " ")}`,
+            ),
+          ],
+          effect: DREAMWELL_VALUE_CONSTANTS.compensatingNamedReward,
+        }
+      : undefined,
+  };
+}
+
+function burdenedDreamwellEntry(args: {
+  key: string;
+  textPrefix: string;
+  burden: Record<string, unknown>;
+  burdenValue: number;
+  reward?: TimedWindowEntry;
+}): TimedWindowEntry | undefined {
+  if (!args.reward) {
+    return undefined;
+  }
+
+  return {
+    key: args.key,
+    text: `${args.textPrefix} ${args.reward.text}`,
+    effects: args.reward.effects,
+    burdens: [args.burden],
+    targets: args.reward.targets,
+    effect: args.reward.effect,
+    burden: -args.burdenValue,
+    uncertainty: -10,
+  };
+}
+
+function dreamwellWindowOptions(
+  context: JourneyContext,
+  window: TimedWindow,
+  drawContext: DrawContext,
+): TimedWindowEntry[] {
+  const bonusCardCount = pickSequentialVariant(
+    drawContext,
+    "timed-window:dreamwell:bonus-card-count",
+    [1, 2] as const,
+  );
+  const penaltyCardCount = pickSequentialVariant(
+    drawContext,
+    "timed-window:dreamwell:penalty-card-count",
+    [1, 2, 3] as const,
+  );
+  const delayedCardCount = pickSequentialVariant(
+    drawContext,
+    "timed-window:dreamwell:delayed-card-count",
+    [1, 2] as const,
+  );
+  const compensation = dreamwellCompensationRewards(context, drawContext);
+  const firstDrawEnergyValue = valueForWindow(
+    DREAMWELL_VALUE_CONSTANTS.firstDrawEnergy,
+    window,
+  );
+  const bonusCardsValue = valueForWindow(
+    DREAMWELL_VALUE_CONSTANTS.bonusCards,
+    window,
+    bonusCardCount,
+  );
+  const lowestPhaseUpgradeValue = valueForWindow(
+    DREAMWELL_VALUE_CONSTANTS.lowestPhaseUpgrade,
+    window,
+  );
+  const ignorePenaltyValue = valueForWindow(
+    DREAMWELL_VALUE_CONSTANTS.ignorePenalty,
+    window,
+  );
+  const replacementValue = valueForWindow(
+    DREAMWELL_VALUE_CONSTANTS.futureCardReplacement,
+    window,
+  );
+  const firstDrawPenaltyValue = burdenValueForDreamwellWindow(
+    DREAMWELL_VALUE_CONSTANTS.firstDrawEnergyPenalty,
+    window,
+  );
+  const penaltyCardsValue = burdenValueForDreamwellWindow(
+    DREAMWELL_VALUE_CONSTANTS.penaltyCards,
+    window,
+    penaltyCardCount,
+  );
+  const delayedCardsValue = burdenValueForDreamwellWindow(
+    DREAMWELL_VALUE_CONSTANTS.delayedPenaltyCards,
+    window,
+    delayedCardCount,
+  );
   const candidates: TimedWindowEntry[] = [
     {
       key: "first-draw-energy",
       text: `${window.phrase}, your first Dreamwell draw produces 1 additional energy.`,
       effects: [
-        {
-          ...dreamwellPayload({
-            kind: "first_draw_energy",
-            scope: "battle_window",
-            duration: window.duration,
-            amount: 1,
-          }),
-          ...metadata(window, {
-            timedWindowScope: "dreamwell",
-            affectedObjectClass: "dreamwell_draw",
-            windowModifier: "first_draw_energy",
-            amount: 1,
-            polarity: "positive",
-            windowValue: valueForWindow(135, window),
-          }),
-        },
+        dreamwellModifier(window, {
+          kind: "first_draw_energy",
+          amount: 1,
+          count: 1,
+          phaseSelector: "first_draw",
+          polarity: "positive",
+          affectedObjectClass: "dreamwell_draw",
+          windowModifier: "first_draw_energy",
+          value: firstDrawEnergyValue,
+        }),
       ],
-      effect: valueForWindow(135, window),
+      effect: firstDrawEnergyValue,
     },
     {
-      key: "positive-card",
-      text: `${window.phrase}, the Dreamwell includes 1 additional positive card.`,
+      key: "bonus-cards",
+      text: `${window.phrase}, shuffle ${bonusCardCount} bonus Dreamwell card${bonusCardCount === 1 ? "" : "s"} into your Dreamwell.`,
       effects: [
-        {
-          ...dreamwellPayload({
-            kind: "positive_card",
-            scope: "battle_window",
-            duration: window.duration,
-            amount: 1,
-            cardRole: "positive",
-          }),
-          ...metadata(window, {
-            timedWindowScope: "dreamwell",
-            affectedObjectClass: "dreamwell_card_pool",
-            windowModifier: "add_positive_card",
-            amount: 1,
-            polarity: "positive",
-            windowValue: valueForWindow(145, window),
-          }),
-        },
+        dreamwellModifier(window, {
+          kind: "bonus_cards",
+          count: bonusCardCount,
+          cardRole: "bonus",
+          phaseSelector: "any_phase",
+          polarity: "positive",
+          affectedObjectClass: "dreamwell_card_pool",
+          windowModifier: "add_bonus_cards",
+          value: bonusCardsValue,
+        }),
       ],
-      effect: valueForWindow(145, window),
+      effect: bonusCardsValue,
     },
     {
-      key: "upgrade-card",
-      text: `${window.phrase}, upgrade the first Dreamwell card you draw each battle.`,
+      key: "lowest-phase-upgrade",
+      text: `${window.phrase}, upgrade your lowest-phase Dreamwell card each battle.`,
       effects: [
-        {
-          ...dreamwellPayload({
-            kind: "upgrade_first_card",
-            scope: "battle_window",
-            duration: window.duration,
-            amount: 1,
-            cardRole: "upgrade",
-          }),
-          ...metadata(window, {
-            timedWindowScope: "dreamwell",
-            affectedObjectClass: "dreamwell_card",
-            windowModifier: "upgrade_first_card",
-            amount: 1,
-            polarity: "positive",
-            windowValue: valueForWindow(140, window),
-          }),
-        },
+        dreamwellModifier(window, {
+          kind: "upgrade_lowest_phase_card",
+          count: 1,
+          cardRole: "upgrade",
+          phaseSelector: "lowest_phase",
+          polarity: "positive",
+          affectedObjectClass: "dreamwell_card",
+          windowModifier: "upgrade_lowest_phase_card",
+          value: lowestPhaseUpgradeValue,
+        }),
       ],
-      effect: valueForWindow(140, window),
+      effect: lowestPhaseUpgradeValue,
     },
     {
       key: "skip-penalty",
       text: `${window.phrase}, ignore the first Dreamwell penalty card offered each battle.`,
       effects: [
-        {
-          ...dreamwellPayload({
-            kind: "ignore_first_penalty",
-            scope: "battle_window",
-            duration: window.duration,
-            amount: 1,
-            cardRole: "penalty",
-          }),
-          ...metadata(window, {
-            timedWindowScope: "dreamwell",
-            affectedObjectClass: "dreamwell_penalty",
-            windowModifier: "ignore_first_penalty",
-            amount: 1,
-            polarity: "positive",
-            windowValue: valueForWindow(135, window),
-          }),
-        },
+        dreamwellModifier(window, {
+          kind: "ignore_first_penalty",
+          count: 1,
+          cardRole: "penalty",
+          phaseSelector: "penalty_card",
+          polarity: "positive",
+          affectedObjectClass: "dreamwell_penalty",
+          windowModifier: "ignore_first_penalty",
+          value: ignorePenaltyValue,
+        }),
       ],
-      effect: valueForWindow(135, window),
+      effect: ignorePenaltyValue,
     },
-  ];
+    {
+      key: "future-card-replacement",
+      text: `${window.phrase}, replace the next penalty Dreamwell card you would draw with a bonus Dreamwell card.`,
+      effects: [
+        dreamwellModifier(window, {
+          kind: "future_card_replacement",
+          scope: "future_dreamwell",
+          count: 1,
+          cardRole: "replacement",
+          phaseSelector: "future_dreamwell",
+          polarity: "positive",
+          affectedObjectClass: "dreamwell_card",
+          windowModifier: "replace_penalty_with_bonus",
+          value: replacementValue,
+          replacement: "penalty_to_bonus",
+        }),
+      ],
+      effect: replacementValue,
+    },
+    burdenedDreamwellEntry({
+      key: "first-draw-less-energy",
+      textPrefix: `${window.phrase}, your first Dreamwell draw produces 1 less energy.`,
+      burden: dreamwellModifier(window, {
+        kind: "first_draw_less_energy",
+        amount: -1,
+        count: 1,
+        phaseSelector: "first_draw",
+        polarity: "negative",
+        affectedObjectClass: "dreamwell_draw",
+        windowModifier: "first_draw_less_energy",
+        value: firstDrawPenaltyValue,
+      }),
+      burdenValue: firstDrawPenaltyValue,
+      reward: compensation.dreamsign ?? compensation.card,
+    }),
+    burdenedDreamwellEntry({
+      key: "penalty-cards",
+      textPrefix: `${window.phrase}, shuffle ${penaltyCardCount} penalty Dreamwell card${penaltyCardCount === 1 ? "" : "s"} into your Dreamwell.`,
+      burden: dreamwellModifier(window, {
+        kind: "penalty_cards",
+        count: penaltyCardCount,
+        cardRole: "penalty",
+        phaseSelector: "any_phase",
+        polarity: "negative",
+        affectedObjectClass: "dreamwell_card_pool",
+        windowModifier: "add_penalty_cards",
+        value: penaltyCardsValue,
+      }),
+      burdenValue: penaltyCardsValue,
+      reward: compensation.legendaryCard ?? compensation.card ?? compensation.dreamsign,
+    }),
+    burdenedDreamwellEntry({
+      key: "delayed-penalty-cards",
+      textPrefix: `${window.phrase}, shuffle ${delayedCardCount} delayed Dreamwell card${delayedCardCount === 1 ? "" : "s"} into your future Dreamwell.`,
+      burden: dreamwellModifier(window, {
+        kind: "delayed_penalty_cards",
+        scope: "future_dreamwell",
+        count: delayedCardCount,
+        cardRole: "delayed",
+        phaseSelector: "future_dreamwell",
+        polarity: "negative",
+        affectedObjectClass: "dreamwell_card_pool",
+        windowModifier: "add_delayed_cards",
+        value: delayedCardsValue,
+        timing: `after ${window.duration}`,
+      }),
+      burdenValue: delayedCardsValue,
+      reward: compensation.dreamsign ?? compensation.card,
+    }),
+  ].filter((entry): entry is TimedWindowEntry => entry !== undefined);
 
   return shuffleDeterministic(drawContext, "timed-window:dreamwell-options", candidates);
 }
@@ -1041,7 +1353,7 @@ function timedWindow(
     const count = pickSequentialVariant(
       drawContext,
       `${shapeId}:battle-window-count`,
-      [2, 3, 4] as const,
+      scope === "dreamwell" ? [2, 3, 5] as const : [2, 3, 4] as const,
     );
     const duration = count === 3 ? BATTLE_WINDOW_DURATION : `next ${count} battles`;
 
@@ -1096,7 +1408,7 @@ export function timedWindowMenuFill(args: {
     : window.scope === "battle_object"
       ? battleObjectWindowOptions(args.context, window, args.drawContext)
     : window.scope === "dreamwell"
-      ? dreamwellWindowOptions(window, args.drawContext)
+      ? dreamwellWindowOptions(args.context, window, args.drawContext)
       : window.scope === "shop"
         ? shopWindowOptions(window, args.drawContext)
         : window.scope === "route"
@@ -1111,8 +1423,11 @@ export function timedWindowMenuFill(args: {
         number: index + 1,
         text: entry.text,
         effects: entry.effects,
+        burdens: entry.burdens,
+        targets: entry.targets,
         routeEffects: entry.routeEffects,
         effect: entry.effect,
+        burden: entry.burden,
         uncertainty: entry.uncertainty ?? -10,
       }),
     ),

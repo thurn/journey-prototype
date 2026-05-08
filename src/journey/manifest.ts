@@ -110,7 +110,11 @@ export type OperationValueMetadata = {
       | "bane_replacement_relief"
       | "battle_window_operation"
       | "battle_window_player"
-      | "battle_window_polarity";
+      | "battle_window_polarity"
+      | "dreamwell_count"
+      | "dreamwell_card_role"
+      | "dreamwell_phase_selector"
+      | "dreamwell_player_visibility";
     label: string;
     description: string;
     amount?: number;

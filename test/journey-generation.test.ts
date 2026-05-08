@@ -4789,6 +4789,121 @@ describe("generateNextJourney", () => {
     expect(evidence.trialOfWindows).toBeDefined();
   });
 
+  it("reaches Milestone 13 Dreamwell window payload families through normal timed-window fills", async () => {
+    const content = await loadContent(process.cwd());
+    const normalDreamwellManifest = (seed: string) => {
+      const journeyContext = contextFromContent(content, seed, "mid");
+      const manifest = fillForShapeAtStage("timed_window_menu", journeyContext, "mid");
+
+      expect(manifest.debug.debugPayload, seed).toBeUndefined();
+      expect(validateJourneyManifest(manifest, journeyContext), seed).toEqual({
+        ok: true,
+      });
+
+      return manifest;
+    };
+    const switchManifest = normalDreamwellManifest("m13-167");
+    const bitterManifest = normalDreamwellManifest("m13-768");
+    const replacementManifest = normalDreamwellManifest("m13-757");
+    const ignorePenaltyManifest = normalDreamwellManifest("m13-760");
+    const payloads = [
+      ...switchManifest.options,
+      ...bitterManifest.options,
+      ...replacementManifest.options,
+      ...ignorePenaltyManifest.options,
+    ].flatMap((option) => option.operations.map((operation) => operation.payload));
+    const operations = [
+      ...switchManifest.options,
+      ...bitterManifest.options,
+      ...replacementManifest.options,
+      ...ignorePenaltyManifest.options,
+    ].flatMap((option) => option.operations);
+    const hasDreamwellPayload = (
+      operationKind: string,
+      predicate: (payload: Record<string, unknown>) => boolean = () => true,
+    ) =>
+      payloads.some(
+        (payload) =>
+          payload.kind === "dreamwell_modifier" &&
+          payload.dreamwellOperationKind === operationKind &&
+          predicate(payload),
+      );
+
+    expect(hasDreamwellPayload("first_draw_energy", (payload) =>
+      payload.amount === 1 &&
+      payload.count === 1 &&
+      payload.phaseSelector === "first_draw" &&
+      payload.polarity === "positive"
+    )).toBe(true);
+    expect(hasDreamwellPayload("bonus_cards", (payload) =>
+      payload.count === 2 &&
+      payload.cardRole === "bonus" &&
+      payload.phaseSelector === "any_phase"
+    )).toBe(true);
+    expect(hasDreamwellPayload("upgrade_lowest_phase_card", (payload) =>
+      payload.cardRole === "upgrade" &&
+      payload.phaseSelector === "lowest_phase"
+    )).toBe(true);
+    expect(hasDreamwellPayload("ignore_first_penalty", (payload) =>
+      payload.cardRole === "penalty" &&
+      payload.phaseSelector === "penalty_card"
+    )).toBe(true);
+    expect(hasDreamwellPayload("future_card_replacement", (payload) =>
+      payload.cardRole === "replacement" &&
+      payload.replacement === "penalty_to_bonus" &&
+      payload.dreamwellScope === "future_dreamwell"
+    )).toBe(true);
+    expect(hasDreamwellPayload("first_draw_less_energy", (payload) =>
+      payload.amount === -1 &&
+      payload.polarity === "negative" &&
+      payload.playerVisibility === "visible_to_both_players"
+    )).toBe(true);
+    expect(hasDreamwellPayload("penalty_cards", (payload) =>
+      payload.count === 3 &&
+      payload.cardRole === "penalty" &&
+      payload.polarity === "negative"
+    )).toBe(true);
+    expect(hasDreamwellPayload("delayed_penalty_cards", (payload) =>
+      payload.cardRole === "delayed" &&
+      payload.dreamwellScope === "future_dreamwell" &&
+      payload.polarity === "negative"
+    )).toBe(true);
+
+    expect(
+      operations.filter(
+        (operation) =>
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "dreamwell_modifier",
+      ).length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      operations.some(
+        (operation) =>
+          operation.operationKind === "reward" &&
+          (operation.rewardKind === "dreamsign_gain" ||
+            operation.rewardKind === "card_gain"),
+      ),
+    ).toBe(true);
+    expect(
+      operations.some((operation) =>
+        operation.payload.kind === "dreamwell_modifier" &&
+        Array.isArray(operation.value?.bands) &&
+        operation.value.bands.some((band) => band.id === "dreamwell_count") &&
+        operation.value.bands.some((band) => band.id === "dreamwell_card_role")
+      ),
+    ).toBe(true);
+    expect(
+      bitterManifest.options.every((option) =>
+        option.burdenConvertedEssence < 0 &&
+        option.operations.some(
+          (operation) =>
+            operation.operationKind === "burden" &&
+            operation.burdenKind === "dreamwell_modifier",
+        )
+      ),
+    ).toBe(true);
+  });
+
   it("does not emit a higher-cost duplicate card draft reward when typed draft predicates fall back", async () => {
     const journeyContext = await context(
       "random:f3c7440a-d810-4c24-a0da-3fa0a45a0882",

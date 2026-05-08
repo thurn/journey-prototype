@@ -970,6 +970,50 @@ function battleWindowMetadataBands(value: PayloadRecord): NonNullable<OperationV
   return bands;
 }
 
+function dreamwellMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const kind = legacyKind(value);
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+
+  if (kind !== "dreamwell_modifier") {
+    return bands;
+  }
+
+  if (typeof value.count === "number") {
+    bands.push({
+      id: "dreamwell_count",
+      label: `count:${value.count}`,
+      description: "Dreamwell value tracks how many Dreamwell cards or draws are affected.",
+      amount: value.count,
+    });
+  }
+
+  if (typeof value.cardRole === "string") {
+    bands.push({
+      id: "dreamwell_card_role",
+      label: value.cardRole,
+      description: "Dreamwell value records whether affected cards are bonus, penalty, upgrade, delayed, or replacement cards.",
+    });
+  }
+
+  if (typeof value.phaseSelector === "string") {
+    bands.push({
+      id: "dreamwell_phase_selector",
+      label: value.phaseSelector,
+      description: "Dreamwell value records which Dreamwell phase or draw selector is affected.",
+    });
+  }
+
+  if (typeof value.playerVisibility === "string") {
+    bands.push({
+      id: "dreamwell_player_visibility",
+      label: value.playerVisibility,
+      description: "Dreamwell value records who can see the Dreamwell modifier before it resolves.",
+    });
+  }
+
+  return bands;
+}
+
 function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): OperationValueMetadata | undefined {
   const metadata: OperationValueMetadata = {
     ...(convertedEssence === undefined ? {} : { convertedEssence }),
@@ -983,6 +1027,7 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...baneOperationMetadataBands(payload),
       ...resourceOperationMetadataBands(payload),
       ...battleWindowMetadataBands(payload),
+      ...dreamwellMetadataBands(payload),
     ];
 
     if (bands.length > 0) {
@@ -1193,6 +1238,12 @@ function adaptEffect(
 ): JourneyOperation {
   return isRecord(value) && isRandomEnvelopePayloadKind(legacyKind(value))
     ? adaptRandomEnvelope(value, operationId, visibility)
+    : isRecord(value) &&
+        legacyKind(value) === "dreamwell_modifier" &&
+        ((value.cardRole === "penalty" && value.polarity !== "positive") ||
+          value.polarity === "negative" ||
+          (typeof value.windowValue === "number" && value.windowValue < 0))
+    ? adaptBurden(value, operationId, convertedEssence, visibility)
     : isStatusPayload(value)
     ? adaptStatusWithVisibility(value, operationId, convertedEssence, visibility)
     : adaptReward(value, operationId, convertedEssence, visibility);

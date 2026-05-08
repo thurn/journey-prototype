@@ -152,6 +152,18 @@ export const CARD_MODIFICATION_VALUE_CONSTANTS = {
   lowerCostOrAddFastOrReclaim: 70,
 } as const;
 
+export const DREAMWELL_VALUE_CONSTANTS = {
+  firstDrawEnergy: 155,
+  bonusCards: 145,
+  lowestPhaseUpgrade: 150,
+  ignorePenalty: 145,
+  futureCardReplacement: 150,
+  firstDrawEnergyPenalty: 135,
+  penaltyCards: 95,
+  delayedPenaltyCards: 110,
+  compensatingNamedReward: 340,
+} as const;
+
 export const ROUTE_VALUE_CONSTANTS = {
   addCurrentValuableSite: 60,
   replaceLowValueWithValuableSite: 95,
