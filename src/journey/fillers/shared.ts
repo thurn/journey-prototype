@@ -67,6 +67,82 @@ export type OptionArgs = {
   pickBehavior?: PickBehavior;
 };
 
+export type FillPlanPayloadRole =
+  | "cost"
+  | "reward"
+  | "burden"
+  | "target"
+  | "trigger"
+  | "route"
+  | "random";
+
+export type FillPlanPayloadSpec = {
+  role: FillPlanPayloadRole;
+  key?: string;
+  family?: string;
+  payloads: readonly unknown[];
+};
+
+export type FillPlanTextPart = {
+  source:
+    | "cost"
+    | "reward"
+    | "burden"
+    | "operation_payload"
+    | "target_metadata"
+    | "timing"
+    | "random_envelope";
+  text: string;
+};
+
+export type FillPlanVisibleObject = {
+  objectKind:
+    | "card"
+    | "dreamsign"
+    | "bane"
+    | "route_site"
+    | "generated_object";
+  id?: string;
+  name?: string;
+  source?: string;
+};
+
+export type FillPlanTiming = {
+  key: string;
+  label: string;
+  payload?: unknown;
+};
+
+export type FillPlanValueEstimate = {
+  cost?: number;
+  effect?: number;
+  burden?: number;
+  uncertainty?: number;
+};
+
+export type ResolvedShapeFillOption = {
+  number: number;
+  textParts: readonly FillPlanTextPart[];
+  payloadSpecs: readonly FillPlanPayloadSpec[];
+  targetSelectors?: readonly unknown[];
+  visibleObjects?: readonly FillPlanVisibleObject[];
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  burdens?: readonly unknown[];
+  triggers?: readonly unknown[];
+  routeEffects?: readonly unknown[];
+  timings?: readonly FillPlanTiming[];
+  randomEnvelopes?: readonly unknown[];
+  valueEstimate: FillPlanValueEstimate;
+  pickBehavior?: PickBehavior;
+};
+
+export type ResolvedShapeFill = {
+  fillKind: string;
+  sharedPayloadSpecs?: readonly FillPlanPayloadSpec[];
+  options: readonly ResolvedShapeFillOption[];
+};
+
 export type SequentialReward = {
   text: string;
   effects: unknown[];
@@ -179,6 +255,33 @@ export function option(args: OptionArgs): JourneyOption {
     ...withOperations,
     symbols: symbolsForOption(withOperations),
   };
+}
+
+function renderFillPlanText(parts: readonly FillPlanTextPart[]): string {
+  return parts
+    .map((part) => part.text.trim())
+    .filter((part) => part.length > 0)
+    .join(" ");
+}
+
+export function optionFromResolvedShapeFill(
+  fill: ResolvedShapeFillOption,
+): JourneyOption {
+  return option({
+    number: fill.number,
+    text: renderFillPlanText(fill.textParts),
+    costs: [...(fill.costs ?? [])],
+    effects: [...(fill.effects ?? [])],
+    burdens: [...(fill.burdens ?? [])],
+    targets: [...(fill.targetSelectors ?? [])],
+    triggers: [...(fill.triggers ?? [])],
+    routeEffects: [...(fill.routeEffects ?? [])],
+    cost: fill.valueEstimate.cost,
+    effect: fill.valueEstimate.effect,
+    burden: fill.valueEstimate.burden,
+    uncertainty: fill.valueEstimate.uncertainty,
+    pickBehavior: fill.pickBehavior,
+  });
 }
 
 export function selectedCardTargets(

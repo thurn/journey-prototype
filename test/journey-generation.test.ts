@@ -2481,6 +2481,61 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("adapts fill-planned shop rows into typed cost and reward operations", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("shop_row", journeyContext);
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(
+      manifest.options.map((journeyOption) => {
+        const costOperation = journeyOption.operations.find(
+          (operation) => operation.operationKind === "cost",
+        );
+        const rewardOperation = journeyOption.operations.find(
+          (operation) => operation.operationKind === "reward",
+        );
+
+        expect(costOperation).toBeDefined();
+        expect(rewardOperation).toBeDefined();
+
+        return costOperation?.operationKind === "cost"
+          ? costOperation.amount
+          : undefined;
+      }),
+    ).toEqual([15, 20, 25]);
+  });
+
+  it("adapts a shared operation fill plan across several target selectors", async () => {
+    const journeyContext = await context();
+    const manifest = fillForShape("one_operation_many_targets", journeyContext);
+    const rewardPayloads = manifest.options.map((journeyOption) => {
+      const rewardOperation = journeyOption.operations.find(
+        (operation) => operation.operationKind === "reward",
+      );
+
+      expect(rewardOperation).toBeDefined();
+      return stableStringify(rewardOperation?.payload);
+    });
+    const targetDescriptions = manifest.options.map((journeyOption) => {
+      const targetOperation = journeyOption.operations.find(
+        (operation) => operation.operationKind === "target",
+      );
+
+      expect(targetOperation).toBeDefined();
+      return targetOperation?.operationKind === "target"
+        ? targetOperation.targetSelector.description
+        : undefined;
+    });
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(new Set(rewardPayloads).size).toBe(1);
+    expect(new Set(targetDescriptions).size).toBe(3);
+  });
+
   it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {
     const drawContext: DrawContext = {
       seed: "card-operation-catalog",

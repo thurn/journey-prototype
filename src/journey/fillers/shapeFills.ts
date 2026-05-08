@@ -48,9 +48,11 @@ import {
   legalCardDraftProfile,
   lowerFirst,
   option,
+  optionFromResolvedShapeFill,
   pickLegalCardDraftProfile,
   pickSequentialVariant,
   renumberOptions,
+  type ResolvedShapeFill,
   rewardSlotOption,
   rewardSlots,
   target,
@@ -407,25 +409,60 @@ export function fillOptions(
           .map((reward, index) => rewardSlotOption(index + 1, reward)),
         precommitted: {},
       };
-    case "shop_row":
-      return {
-        options: rewardSlots(context, drawContext, `${shapeId}:goods`)
-          .filter((reward) => reward.routeEffects === undefined)
-          .slice(0, 3)
-          .map((reward, index) =>
-            costedRewardOption(
-              index + 1,
+    case "shop_row": {
+      const prices = [15, 20, 25] as const;
+      const rewards = rewardSlots(
+        context,
+        drawContext,
+        `${shapeId}:goods`,
+      )
+        .filter((reward) => reward.routeEffects === undefined)
+        .slice(0, 3);
+      const shopFill = {
+        fillKind: "shop_row",
+        options: rewards.map((reward, index) => {
+          const price = prices[index]!;
+          const priceCost = cost("essence", price);
+
+          return {
+            number: index + 1,
+            textParts: [
+              { source: "cost", text: `Pay ${price} essence.` },
+              { source: "reward", text: reward.text },
+            ],
+            payloadSpecs: [
               {
+                role: "cost",
                 key: "shop-price",
-                prefix: `Pay ${[15, 20, 25][index]!} essence.`,
-                costs: [cost("essence", [15, 20, 25][index]!)],
-                cost: [15, 20, 25][index]!,
+                payloads: [priceCost],
               },
-              reward,
-            ),
-          ),
+              {
+                role: "reward",
+                key: reward.key,
+                payloads: reward.effects,
+              },
+            ],
+            costs: [priceCost],
+            effects: reward.effects,
+            targetSelectors: reward.targets ?? [],
+            triggers: reward.triggers ?? [],
+            routeEffects: reward.routeEffects ?? [],
+            valueEstimate: {
+              cost: price,
+              effect: reward.effect,
+              uncertainty: reward.uncertainty,
+            },
+          };
+        }),
+      } satisfies ResolvedShapeFill;
+
+      return {
+        options: shopFill.options.map((fill) =>
+          optionFromResolvedShapeFill(fill),
+        ),
         precommitted: {},
       };
+    }
     case "curated_reward_trio": {
       const rewards = rewardSlots(
         context,
@@ -703,17 +740,54 @@ export function fillOptions(
         label: `${shapeId}:operation`,
         count: 1,
       })[0]!;
-
-      return {
-        options: targetEntries.map((entry, index) =>
-          option({
-            number: index + 1,
-            text: operation.renderText(entry.text),
-            effects: [operation.effect],
-            targets: [entry.target],
+      const targetFill = {
+        fillKind: "one_operation_many_targets",
+        sharedPayloadSpecs: [
+          {
+            role: "reward",
+            key: operation.key,
+            family: operation.family,
+            payloads: [operation.effect],
+          },
+        ],
+        options: targetEntries.map((entry, index) => ({
+          number: index + 1,
+          textParts: [
+            {
+              source: "operation_payload",
+              text: operation.renderText(entry.text),
+            },
+          ],
+          payloadSpecs: [
+            {
+              role: "reward",
+              key: operation.key,
+              family: operation.family,
+              payloads: [operation.effect],
+            },
+            {
+              role: "target",
+              payloads: [entry.target],
+            },
+          ],
+          effects: [operation.effect],
+          targetSelectors: [entry.target],
+          timings: [
+            {
+              key: operation.timing,
+              label: operation.timing,
+            },
+          ],
+          valueEstimate: {
             effect: operation.value,
             uncertainty: operation.uncertainty,
-          }),
+          },
+        })),
+      } satisfies ResolvedShapeFill;
+
+      return {
+        options: targetFill.options.map((fill) =>
+          optionFromResolvedShapeFill(fill),
         ),
         precommitted: {},
       };
