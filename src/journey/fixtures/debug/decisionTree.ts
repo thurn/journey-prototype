@@ -4,10 +4,10 @@ import type {
   JourneyTree,
   PrecommittedOutcomes,
   RandomPrecommittedOutcome,
-} from "../manifest.js";
-import { adaptRewardPoolOperations } from "../operationAdapters.js";
-import { type JourneyShapeId } from "../shapes.js";
-import { randomVisibility } from "./randomPayloads.js";
+} from "../../manifest.js";
+import { adaptRewardPoolOperations } from "../../operationAdapters.js";
+import { type JourneyShapeId } from "../../shapes.js";
+import { randomVisibility } from "./random.js";
 
 export function completeDecisionTreeRewardPool(
   tree: JourneyTree,

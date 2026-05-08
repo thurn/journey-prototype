@@ -1,6 +1,6 @@
-import type { JourneyContext } from "../../quest/context.js";
-import type { JourneyOption } from "../manifest.js";
-import { gainEssence, gainOmen, option } from "./shared.js";
+import type { JourneyContext } from "../../../quest/context.js";
+import type { JourneyOption } from "../../manifest.js";
+import { gainEssence, gainOmen, option } from "../../fillers/shared.js";
 
 export function resourcePayload(args: {
   kind: string;

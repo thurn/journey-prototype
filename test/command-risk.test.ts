@@ -458,6 +458,43 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("keeps forced debug fixture builders out of production filler exports", async () => {
+    const productionModules = {
+      card: await import("../src/journey/fillers/namedCardPayloads.js"),
+      dreamsign: await import("../src/journey/fillers/dreamsignPayloads.js"),
+      environment: await import("../src/journey/fillers/environmentPayloads.js"),
+      bane: await import("../src/journey/fillers/banePayloads.js"),
+      hook: await import("../src/journey/fillers/hookPayloads.js"),
+      random: await import("../src/journey/fillers/randomPayloads.js"),
+    };
+    const fixtureOnlyExports = [
+      "resourceEdgeCaseOptions",
+      "namedCardOperationOptions",
+      "starterCleanupReplacementOptions",
+      "namedDreamsignShopRowOptions",
+      "dreamsignTransformDuplicatePoolOptions",
+      "baneGainPurgeTransformOptions",
+      "routeEditOptions",
+      "shopEconomyOptions",
+      "dreamwellWindowOptions",
+      "statusRewardReplacementOptions",
+      "delayedTriggerMatrixOptions",
+      "pairedReturnSealBorrowTradeOptions",
+      "randomRevealRollWagerFill",
+    ];
+
+    for (const [moduleName, moduleExports] of Object.entries(
+      productionModules,
+    )) {
+      for (const exportName of fixtureOnlyExports) {
+        expect(
+          moduleExports,
+          `${moduleName} should not export ${exportName}`,
+        ).not.toHaveProperty(exportName);
+      }
+    }
+  });
+
   it("forces the current adapter payload with shape, stage, count, and JSON", async () => {
     await withTempState(async ({ statePath, options }) => {
       const result = await handleJourney(options({
