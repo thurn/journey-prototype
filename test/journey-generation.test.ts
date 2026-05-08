@@ -2774,6 +2774,35 @@ describe("generateNextJourney", () => {
     });
   });
 
+  it("keeps transfiguration same-reward menus to one shared reward payload", async () => {
+    const journeyContext = await context("transfig-unit-5");
+    const manifest = fillForShape(
+      "same_reward_different_costs",
+      journeyContext,
+    );
+
+    expect(manifest.options.map((option) => option.text).join("\n")).toContain(
+      "Transfiguration",
+    );
+    expect(
+      new Set(manifest.options.map((option) => stableStringify(option.effects)))
+        .size,
+    ).toBe(1);
+    expect(
+      new Set(
+        manifest.options.map((option) =>
+          stableStringify({
+            burdens: option.burdens,
+            costs: option.costs,
+          }),
+        ),
+      ).size,
+    ).toBe(3);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
   it("keeps choose-your-loss essence payments comparable to non-essence losses", async () => {
     const journeyContext = await context();
     const manifest = fillForShape("choose_your_loss", journeyContext);

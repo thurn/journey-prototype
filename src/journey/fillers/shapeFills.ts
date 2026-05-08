@@ -126,6 +126,22 @@ export function fillOptions(
           targetProfile.targetDescription,
           cardDraftPredicate(targetProfile),
         );
+        const sharedOmenBonus = pickSequentialVariant(
+          drawContext,
+          `${shapeId}:same-reward-transfiguration-omen-bonus`,
+          [3, 4, 5],
+        );
+        const sharedReward = {
+          text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}. Gain ${sharedOmenBonus} omens.`,
+          effects: [
+            {
+              kind: "transfiguration",
+              transfigurationName: transfiguration,
+            },
+            gainOmen(sharedOmenBonus),
+          ],
+          effect: 100 + valueOmenGain(sharedOmenBonus),
+        };
         const costs = [
           {
             prefix: `Pay ${Math.min(15, context.state.quest.resources.essence)} essence.`,
@@ -136,34 +152,22 @@ export function fillOptions(
               ),
             ],
             cost: Math.min(15, context.state.quest.resources.essence),
-            bonus: gainOmen(3),
-            bonusText: " Gain 3 omens.",
-            bonusValue: valueOmenGain(3),
           },
           context.state.quest.resources.omens >= 1
             ? {
                 prefix: "Lose 1 omen.",
                 costs: [cost("omens", 1)],
                 cost: Math.abs(valueOmenLoss(1)),
-                bonus: gainOmen(4),
-                bonusText: " Gain 4 omens.",
-                bonusValue: valueOmenGain(4),
               }
             : {
                 prefix: `Pay ${payablePrice} essence.`,
                 costs: [cost("essence", payablePrice)],
                 cost: payablePrice,
-                bonus: gainOmen(4),
-                bonusText: " Gain 4 omens.",
-                bonusValue: valueOmenGain(4),
               },
           {
             prefix: "Gain 1 Nightmare.",
             burdens: [nightmare(1)],
             burden: valueBaneGain("Nightmare", 1),
-            bonus: gainOmen(5),
-            bonusText: " Gain 5 omens.",
-            bonusValue: valueOmenGain(5),
           },
         ];
 
@@ -171,20 +175,14 @@ export function fillOptions(
           options: costs.map((entry, index) =>
             option({
               number: index + 1,
-              text: `${entry.prefix} Apply {${transfiguration} Transfiguration} to ${chosenCardText()}.${entry.bonusText}`,
+              text: `${entry.prefix} ${sharedReward.text}`,
               costs: entry.costs ?? [],
               burdens: entry.burdens ?? [],
-              effects: [
-                {
-                  kind: "transfiguration",
-                  transfigurationName: transfiguration,
-                },
-                entry.bonus,
-              ],
+              effects: sharedReward.effects,
               targets: [targetRecord],
               cost: entry.cost,
               burden: entry.burden,
-              effect: 100 + entry.bonusValue,
+              effect: sharedReward.effect,
             }),
           ),
           precommitted: {},

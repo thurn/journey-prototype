@@ -189,7 +189,7 @@ inline.
 
 ### 5. `same_reward_different_costs` Sometimes Changes The Reward
 
-**Status:** Error.
+**Status:** Fixed.
 
 The `same_reward_different_costs` transfiguration branch adds different omen
 bonuses depending on the selected cost path:
@@ -198,19 +198,20 @@ bonuses depending on the selected cost path:
 - lose or pay another cost and gain 4 omens;
 - gain a Nightmare and gain 5 omens.
 
-This is implemented in
+This was implemented in
 [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L129). The shape name and
-contract imply one shared reward with different costs, but this branch changes
-both the cost and the reward. That is not just hardcoding; it violates the
+contract imply one shared reward with different costs, but this branch changed
+both the cost and the reward. That was not just hardcoding; it violated the
 topology that shape-first generation is supposed to preserve.
 
 **Compelling justification:** None apparent. If the intent is "different
 costs scale the same reward upward," that is a different shape or should be
 explicitly modeled as a value-compensated reward variant.
 
-**Proposed fix to remove hardcoded content:** Generate one reward payload first
-and then attach only cost variants, or reclassify this branch into an explicit
-cost-scaled-reward shape with structured reward deltas.
+**Resolution:** The transfiguration branch now generates one shared
+transfiguration-plus-omen reward payload first and then attaches only cost
+variants. Regression coverage checks that the option effects stay identical
+while the costs differ.
 
 ### 6. Timed-Window Menus Are Fixed Battle-Window Scenarios
 
