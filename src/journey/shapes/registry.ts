@@ -27,7 +27,7 @@ import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome.js";
 import { singleRewardPlugin } from "./single_reward.js";
 import { singleWagerPlugin } from "./single_wager.js";
-import { takeAnyNumberPlugin } from "./take_any_number.js";
+import { takeAnyNumberPlugin } from "./take_any_number/index.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu.js";
 import { revealChoiceMenuPlugin } from "./reveal_choice_menu.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
