@@ -20,6 +20,7 @@ import type {
   JourneyManifest,
   JourneyOption,
   JourneyStage,
+  JourneySymmetryContractDebug,
   ManifestReferences,
   PickBehavior,
 } from "../manifest.js";
@@ -253,6 +254,21 @@ export type BaneBurdenSlot = {
   burdens: [ReturnType<typeof baneBurden>];
   burden: number;
 };
+
+export function symmetryContract(
+  args: JourneySymmetryContractDebug,
+): JourneySymmetryContractDebug {
+  return {
+    ...args,
+    optionNumbers: [...args.optionNumbers],
+    ...(args.sharedPayloadKeys
+      ? { sharedPayloadKeys: [...args.sharedPayloadKeys] }
+      : {}),
+    ...(args.variedPayloadKeys
+      ? { variedPayloadKeys: [...args.variedPayloadKeys] }
+      : {}),
+  };
+}
 
 export function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) =>

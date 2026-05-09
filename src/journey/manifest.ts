@@ -825,6 +825,7 @@ export type JourneyDebug = {
   selectedShapeId: JourneyShapeId;
   selectedTags: string[];
   optionValues: ValueBreakdown[];
+  symmetryContracts?: JourneySymmetryContractDebug[];
   repairs: {
     attempt: number;
     failedRule: string;
@@ -848,6 +849,25 @@ export type JourneyDebug = {
   debugPayload?: DebugPayloadSelection & {
     source: "forced";
   };
+};
+
+export type JourneySymmetryContractDebug = {
+  contractKind:
+    | "shared_cost_different_rewards"
+    | "shared_burden_different_rewards"
+    | "shared_operation_named_targets"
+    | "shared_target_operations"
+    | "shared_source_site_destinations"
+    | "shared_timing_different_rewards"
+    | "shared_future_trigger_outcomes"
+    | "shared_cleanup_followup_rewards";
+  sharedProperty: string;
+  variedProperty: string;
+  sharedFirst: boolean;
+  optionNumbers: number[];
+  sharedPayloadKeys?: string[];
+  variedPayloadKeys?: string[];
+  weight?: number;
 };
 
 export type ManifestReferences = {

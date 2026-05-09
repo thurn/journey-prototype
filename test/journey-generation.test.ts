@@ -200,6 +200,30 @@ function fillForShapeAtStage(
   });
 }
 
+async function findValidForcedShapeManifest(
+  shapeId: JourneyShapeId,
+  seedPrefix: string,
+  predicate: (manifest: JourneyManifest) => boolean,
+  attempts = 120,
+): Promise<{
+  manifest: JourneyManifest;
+  journeyContext: Awaited<ReturnType<typeof context>>;
+}> {
+  for (let index = 0; index < attempts; index += 1) {
+    const journeyContext = await context(`${seedPrefix}-${index}`);
+    const manifest = fillForShape(shapeId, journeyContext);
+
+    if (
+      validateJourneyManifest(manifest, journeyContext).ok &&
+      predicate(manifest)
+    ) {
+      return { manifest, journeyContext };
+    }
+  }
+
+  throw new Error(`No valid ${shapeId} manifest matched ${seedPrefix}`);
+}
+
 function generatedObjectDefinition(
   overrides: Partial<GeneratedObjectDefinition> = {},
 ): GeneratedObjectDefinition {
@@ -3492,6 +3516,140 @@ describe("generateNextJourney", () => {
     });
     expect(new Set(rewardPayloads).size).toBe(1);
     expect(new Set(targetDescriptions).size).toBe(3);
+  });
+
+  it("validates One Blessing, Three Vessels as one transfiguration across visible named card targets", async () => {
+    const { manifest, journeyContext } = await findValidForcedShapeManifest(
+      "one_operation_many_targets",
+      "m18-one-blessing",
+      (candidate) =>
+        candidate.debug.symmetryContracts?.some(
+          (contract) =>
+            contract.contractKind === "shared_operation_named_targets" &&
+            contract.variedProperty === "visible named card target",
+        ) === true,
+    );
+    const rewardOperations = manifest.options.map((journeyOption) =>
+      journeyOption.operations.find((operation) =>
+        operation.operationKind === "reward"
+      )
+    );
+    const targetOperations = manifest.options.map((journeyOption) =>
+      journeyOption.operations.find((operation) =>
+        operation.operationKind === "target"
+      )
+    );
+    const transfigurations = rewardOperations.map((operation) =>
+      operation?.operationKind === "reward"
+        ? (operation.payload as Record<string, unknown>).transfigurationName
+        : undefined
+    );
+    const targetNames = targetOperations.flatMap((operation) =>
+      operation?.operationKind === "target"
+        ? operation.targetSelector.selectorKind === "card"
+          ? operation.targetSelector.names ?? []
+          : []
+        : []
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(new Set(transfigurations).size).toBe(1);
+    expect(transfigurations[0]).toEqual(expect.any(String));
+    expect(targetNames).toHaveLength(3);
+    expect(new Set(targetNames).size).toBe(3);
+  });
+
+  it("validates Equal Shadow as one shared Bane burden over Dreamsign, card draft, and route rewards", async () => {
+    const { manifest, journeyContext } = await findValidForcedShapeManifest(
+      "same_cost_different_rewards",
+      "m18-equal-shadow",
+      (candidate) =>
+        candidate.debug.symmetryContracts?.some(
+          (contract) =>
+            contract.contractKind === "shared_burden_different_rewards",
+        ) === true,
+    );
+    const burdenNames = manifest.options.flatMap((journeyOption) =>
+      journeyOption.operations.flatMap((operation) =>
+        operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_gain"
+          ? operation.targetSelector?.selectorKind === "bane"
+            ? operation.targetSelector.names ?? []
+            : []
+          : []
+      )
+    );
+    const rewardKinds = new Set(
+      manifest.options.flatMap((journeyOption) =>
+        journeyOption.operations.flatMap((operation) =>
+          operation.operationKind === "reward" ? [operation.rewardKind] : []
+        )
+      ),
+    );
+    const routeEditKinds = new Set(
+      manifest.options.flatMap((journeyOption) =>
+        journeyOption.operations.flatMap((operation) =>
+          operation.operationKind === "route_edit" ? [operation.editKind] : []
+        )
+      ),
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(burdenNames).toHaveLength(3);
+    expect(new Set(burdenNames).size).toBe(1);
+    expect([...rewardKinds]).toEqual(
+      expect.arrayContaining(["dreamsign_gain", "card_draft"]),
+    );
+    expect(routeEditKinds).toContain("add_site");
+  });
+
+  it("validates One Card, Three Masks as one visible named target with three transfiguration operations", async () => {
+    const { manifest, journeyContext } = await findValidForcedShapeManifest(
+      "one_target_many_operations",
+      "m18-one-card-three-masks",
+      (candidate) =>
+        candidate.debug.symmetryContracts?.some(
+          (contract) =>
+            contract.contractKind === "shared_target_operations" &&
+            contract.variedProperty === "transfiguration operation",
+        ) === true,
+    );
+    const rewardOperations = manifest.options.map((journeyOption) =>
+      journeyOption.operations.find((operation) =>
+        operation.operationKind === "reward"
+      )
+    );
+    const targetNames = manifest.options.flatMap((journeyOption) =>
+      journeyOption.operations.flatMap((operation) =>
+        operation.operationKind === "target" &&
+          operation.targetSelector.selectorKind === "card"
+          ? operation.targetSelector.names ?? []
+          : []
+      )
+    );
+    const transfigurations = rewardOperations.map((operation) =>
+      operation?.operationKind === "reward"
+        ? (operation.payload as Record<string, unknown>).transfigurationName
+        : undefined
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(targetNames).toHaveLength(3);
+    expect(new Set(targetNames).size).toBe(1);
+    expect(new Set(transfigurations).size).toBe(3);
+    expect(transfigurations).toEqual(
+      expect.arrayContaining([
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+      ]),
+    );
   });
 
   it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {

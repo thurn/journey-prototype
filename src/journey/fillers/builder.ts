@@ -222,6 +222,9 @@ export function buildConservativeJourneyForShape(
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),
   );
+  const symmetryContracts = "symmetryContracts" in filled
+    ? filled.symmetryContracts
+    : undefined;
   const semanticFingerprint = semanticFingerprintFor({
     shapeId: args.shapeId,
     stage: args.stage,
@@ -262,6 +265,9 @@ export function buildConservativeJourneyForShape(
       selectedShapeId: args.shapeId,
       selectedTags: args.selectedTags,
       optionValues,
+      ...(symmetryContracts && symmetryContracts.length > 0
+        ? { symmetryContracts: [...symmetryContracts] }
+        : {}),
       repairs: [],
       semanticFingerprint,
       validation: {

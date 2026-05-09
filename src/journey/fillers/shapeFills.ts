@@ -2,6 +2,7 @@ import type { JourneyContext } from "../../quest/context.js";
 import {
   drawInt,
   shuffleDeterministic,
+  weightedChoice,
   type DrawContext,
 } from "../../util/rng.js";
 import { decisionTreeForShape, odds } from "./treeBuilders.js";
@@ -18,13 +19,19 @@ import {
 import {
   dreamsignExactTarget,
   namedDreamsignPayload,
+  selectContentBackedDreamsign,
   selectNamedDreamsignShopRow,
   type NamedDreamsignShopRowSelection,
 } from "./dreamsignPayloads.js";
+import {
+  cardExactTarget,
+  contentBackedCardCandidates,
+} from "./namedCardPayloads.js";
 import type {
   JourneyOption,
   JourneyRewardPool,
   JourneyStage,
+  JourneySymmetryContractDebug,
   JourneyTree,
   PrecommittedOutcomes,
 } from "../manifest.js";
@@ -38,6 +45,7 @@ import {
   valueOmenGain,
   valueOmenLoss,
   valueRandomCardGain,
+  valueStarterCleanup,
 } from "../value.js";
 import {
   CARD_DRAFT_PROFILES,
@@ -73,7 +81,9 @@ import {
   type ResolvedShapeFill,
   rewardSlotOption,
   rewardSlots,
+  starterCleanup,
   starterSurgeryRewardSlots,
+  symmetryContract,
   target,
   timingSlots,
   treeBuilderTools,
@@ -243,6 +253,224 @@ function namedDreamsignShopRowFill(args: {
   } satisfies ResolvedShapeFill;
 }
 
+function namedDeckCardTargetEntries(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  count: number;
+}): {
+  targetClass: CardOperationTargetClass;
+  text: string;
+  target: ReturnType<typeof cardExactTarget>;
+  key: string;
+}[] {
+  const candidates = contentBackedCardCandidates({
+    context: args.context,
+    stage: "mid",
+    sources: ["deck"],
+    includeStarters: true,
+  });
+  const uniqueByCardId = candidates.filter(
+    (candidate, index, entries) =>
+      entries.findIndex((entry) => entry.card.id === candidate.card.id) === index,
+  );
+
+  return shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:named-deck-targets`,
+    uniqueByCardId,
+  )
+    .slice(0, args.count)
+    .map((candidate) => ({
+      targetClass: "deck_card",
+      text: `{${candidate.card.name}}`,
+      target: cardExactTarget(
+        candidate.card,
+        "deck",
+        `${candidate.card.name} in current deck`,
+      ),
+      key: candidate.card.id,
+    }));
+}
+
+function sharedBaneBurdenRewardFill(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+}): {
+  options: JourneyOption[];
+  symmetryContracts: JourneySymmetryContractDebug[];
+} | undefined {
+  const sharedBane = baneBurdenSlot(args.drawContext, `${args.label}:shared-bane`, 1);
+  const dreamsign = selectContentBackedDreamsign({
+    context: args.context,
+    drawContext: args.drawContext,
+    label: `${args.label}:dreamsign`,
+    stage: args.stage,
+    sources: ["pool", "catalog"],
+  });
+
+  if (!dreamsign) {
+    return undefined;
+  }
+
+  const draftProfile = pickLegalCardDraftProfile(
+    args.context,
+    args.drawContext,
+    `${args.label}:card-draft`,
+    [
+      CARD_DRAFT_PROFILES.characters,
+      CARD_DRAFT_PROFILES.events,
+      CARD_DRAFT_PROFILES.allEligibleCards,
+    ],
+  );
+  const cardDraft = draftCards(draftProfile);
+  const routeReward = routeEditRewards({
+    drawContext: args.drawContext,
+    label: `${args.label}:route`,
+    count: 1,
+    operationKinds: ["add_site"],
+    scopes: ["current_dreamscape"],
+    polarities: ["positive"],
+  })[0]!;
+  const dreamsignPayload = namedDreamsignPayload(
+    {
+      kind: "dreamsign_gain",
+      dreamsign: dreamsign.dreamsign,
+      source: dreamsign.source,
+      extra: {
+        targetOrigin: dreamsign.targetOrigin,
+        selectionWeight: dreamsign.weight,
+        weightHooks: dreamsign.weightHooks,
+      },
+    },
+    args.context,
+  );
+  const rewards = [
+    {
+      key: `named-dreamsign:${dreamsign.dreamsign.id}`,
+      text: `Gain {${dreamsign.dreamsign.name}}.`,
+      effects: [dreamsignPayload],
+      targets: [dreamsignExactTarget(dreamsign.dreamsign, dreamsign.source)],
+      routeEffects: [],
+      effect: Math.max(320, valueDreamsignOperation("gain", {
+        tideOverlap: dreamsign.weightHooks.tideOverlap > 0,
+      })),
+    },
+    {
+      key: `card-draft:${draftProfile.label}`,
+      text: cardDraftText(draftProfile),
+      effects: [cardDraft],
+      targets: [
+        target("card", draftProfile.targetDescription, cardDraft.predicate),
+      ],
+      routeEffects: [],
+      effect: Math.max(320, valueCardDraft(cardDraft)),
+    },
+    {
+      key: routeReward.key,
+      text: routeReward.text,
+      effects: [],
+      targets: [],
+      routeEffects: [routeReward.payload],
+      effect: Math.max(320, routeReward.effect),
+    },
+  ];
+  const options = rewards.map((reward, index) =>
+    option({
+      number: index + 1,
+      text: `${sharedBane.prefix} ${reward.text}`,
+      burdens: sharedBane.burdens,
+      effects: reward.effects,
+      targets: reward.targets,
+      routeEffects: reward.routeEffects,
+      burden: sharedBane.burden,
+      effect: reward.effect,
+    })
+  );
+
+  return {
+    options,
+    symmetryContracts: [
+      symmetryContract({
+        contractKind: "shared_burden_different_rewards",
+        sharedProperty: `${sharedBane.baneName} Bane burden`,
+        variedProperty: "Dreamsign, card draft, and route reward families",
+        sharedFirst: true,
+        optionNumbers: options.map((entry) => entry.number),
+        sharedPayloadKeys: [sharedBane.key],
+        variedPayloadKeys: rewards.map((reward) => reward.key),
+        weight: 1,
+      }),
+    ],
+  };
+}
+
+function sharedStarterCleanupRewardFill(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+}): {
+  options: JourneyOption[];
+  symmetryContracts: JourneySymmetryContractDebug[];
+} | undefined {
+  if (args.context.state.quest.deck.summary.starterCards < 1) {
+    return undefined;
+  }
+
+  const cleanup = starterCleanup(1);
+  const cleanupTarget = target("card", "Starter cards in deck", {
+    source: "deck",
+    starter: true,
+  });
+  const rewards = rewardSlots(
+    args.context,
+    args.drawContext,
+    `${args.label}:followups`,
+    args.stage,
+  )
+    .filter((reward) =>
+      reward.routeEffects === undefined &&
+      !reward.key.startsWith("starter-cleanup")
+    )
+    .slice(0, 3);
+
+  if (rewards.length < 3) {
+    return undefined;
+  }
+
+  const options = rewards.map((reward, index) =>
+    option({
+      number: index + 1,
+      text: `Purge up to 1 chosen Starter card. ${reward.text}`,
+      effects: [cleanup, ...reward.effects],
+      targets: [cleanupTarget, ...(reward.targets ?? [])],
+      triggers: reward.triggers ?? [],
+      burden: 0,
+      effect: valueStarterCleanup({ count: 1, stage: args.stage }) + reward.effect,
+      uncertainty: reward.uncertainty,
+    })
+  );
+
+  return {
+    options,
+    symmetryContracts: [
+      symmetryContract({
+        contractKind: "shared_cleanup_followup_rewards",
+        sharedProperty: "starter cleanup prerequisite",
+        variedProperty: "follow-up reward family",
+        sharedFirst: true,
+        optionNumbers: options.map((entry) => entry.number),
+        sharedPayloadKeys: ["starter-cleanup:chosen-up-to-1"],
+        variedPayloadKeys: rewards.map((reward) => reward.key),
+        weight: 1,
+      }),
+    ],
+  };
+}
+
 export function fillOptions(
   shapeId: JourneyShapeId,
   context: JourneyContext,
@@ -253,6 +481,7 @@ export function fillOptions(
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;
   precommitted: PrecommittedOutcomes;
+  symmetryContracts?: JourneySymmetryContractDebug[];
 } {
   const payablePrice = Math.min(30, context.state.quest.resources.essence);
   const premiumPrice = Math.min(45, context.state.quest.resources.essence);
@@ -266,6 +495,36 @@ export function fillOptions(
         precommitted: {},
       };
     case "same_cost_different_rewards": {
+      const contractVariant = weightedChoice(
+        drawContext,
+        `${shapeId}:symmetric-contract`,
+        [
+          { item: "shared_cost", weight: 4 },
+          { item: "shared_bane_burden", weight: 1 },
+        ] as const,
+      );
+
+      if (contractVariant === "shared_bane_burden") {
+        const sharedBaneFill = sharedBaneBurdenRewardFill({
+          context,
+          drawContext,
+          label: shapeId,
+          stage,
+        });
+
+        if (sharedBaneFill) {
+          return {
+            options: sharedBaneFill.options,
+            precommitted: {
+              routeEdits: sharedBaneFill.options.flatMap(
+                (journeyOption) => journeyOption.routeEffects,
+              ),
+            },
+            symmetryContracts: sharedBaneFill.symmetryContracts,
+          };
+        }
+      }
+
       const sharedCost = costSlots(
         context,
         drawContext,
@@ -284,6 +543,18 @@ export function fillOptions(
             costedRewardOption(index + 1, sharedCost, reward),
           ),
         precommitted: {},
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "shared_cost_different_rewards",
+            sharedProperty: sharedCost.key,
+            variedProperty: "reward family",
+            sharedFirst: true,
+            optionNumbers: [1, 2, 3],
+            sharedPayloadKeys: [sharedCost.key],
+            variedPayloadKeys: rewards.slice(0, 3).map((reward) => reward.key),
+            weight: 4,
+          }),
+        ],
       };
     }
     case "same_reward_different_costs": {
@@ -595,11 +866,32 @@ export function fillOptions(
         `${shapeId}:starter-services`,
         stage,
       ).filter((reward) => reward.effect >= 140);
-      const serviceFamily = pickSequentialVariant(
+      const serviceFamily = weightedChoice(
         drawContext,
         `${shapeId}:service-family`,
-        ["starter_surgery", "general", "general"] as const,
+        [
+          { item: "starter_cleanup_prefix", weight: 1 },
+          { item: "starter_surgery", weight: 2 },
+          { item: "general", weight: 5 },
+        ] as const,
       );
+      const cleanupPrefixFill = serviceFamily === "starter_cleanup_prefix"
+        ? sharedStarterCleanupRewardFill({
+            context,
+            drawContext,
+            label: shapeId,
+            stage,
+          })
+        : undefined;
+
+      if (cleanupPrefixFill) {
+        return {
+          options: cleanupPrefixFill.options,
+          precommitted: {},
+          symmetryContracts: cleanupPrefixFill.symmetryContracts,
+        };
+      }
+
       const rewards =
         serviceFamily === "starter_surgery" && starterRewards.length >= 3
           ? starterRewards
@@ -734,10 +1026,18 @@ export function fillOptions(
       };
     }
     case "one_target_many_operations": {
-      const focus = pickSequentialVariant(drawContext, `${shapeId}:focus`, [
-        "card",
-        "dreamsign",
-      ] as const);
+      const focus = weightedChoice(
+        drawContext,
+        `${shapeId}:focus`,
+        [
+          { item: "card", weight: 4 },
+          { item: "named_card", weight: 1 },
+          {
+            item: "dreamsign",
+            weight: context.state.quest.dreamsignPoolIds.length > 0 ? 2 : 0,
+          },
+        ] as const,
+      );
 
       if (focus === "dreamsign" && context.state.quest.dreamsignPoolIds.length > 0) {
         const sharedTarget = target(
@@ -774,6 +1074,56 @@ export function fillOptions(
           ),
           precommitted: {},
         };
+      }
+
+      if (focus === "named_card") {
+        const sharedTargetEntry = namedDeckCardTargetEntries({
+          context,
+          drawContext,
+          label: shapeId,
+          count: 1,
+        })[0];
+
+        if (sharedTargetEntry) {
+          const operations = compatibleCardOperations(drawContext, {
+            topology: "one_target_many_operations",
+            targetClasses: ["deck_card"],
+            targetModes: ["exact_named"],
+            families: ["transfiguration"],
+            valueBands: ["standard"],
+            timings: ["immediate"],
+            context,
+            stage,
+            label: `${shapeId}:named-target-transfigurations`,
+            count: 3,
+          });
+
+          return {
+            options: operations.map((operation, index) =>
+              option({
+                number: index + 1,
+                text: operation.renderText(sharedTargetEntry.text),
+                effects: [operation.effect],
+                targets: [sharedTargetEntry.target],
+                effect: 140,
+                uncertainty: operation.uncertainty,
+              }),
+            ),
+            precommitted: {},
+            symmetryContracts: [
+              symmetryContract({
+                contractKind: "shared_target_operations",
+                sharedProperty: sharedTargetEntry.key,
+                variedProperty: "transfiguration operation",
+                sharedFirst: true,
+                optionNumbers: [1, 2, 3],
+                sharedPayloadKeys: [sharedTargetEntry.key],
+                variedPayloadKeys: operations.map((operation) => operation.key),
+                weight: 1,
+              }),
+            ],
+          };
+        }
       }
 
       const targetProfile = pickLegalCardDraftProfile(
@@ -1094,6 +1444,65 @@ export function fillOptions(
       };
     }
     case "one_operation_many_targets": {
+      const targetContract = weightedChoice(
+        drawContext,
+        `${shapeId}:target-contract`,
+        [
+          { item: "generic_target_classes", weight: 4 },
+          { item: "named_card_targets", weight: 1 },
+        ] as const,
+      );
+
+      if (targetContract === "named_card_targets") {
+        const targetEntries = namedDeckCardTargetEntries({
+          context,
+          drawContext,
+          label: shapeId,
+          count: 3,
+        });
+
+        if (targetEntries.length >= 3) {
+          const operation = compatibleCardOperations(drawContext, {
+            topology: "one_operation_many_targets",
+            targetClasses: ["deck_card"],
+            targetModes: ["exact_named"],
+            families: ["transfiguration"],
+            valueBands: ["standard"],
+            timings: ["immediate"],
+            context,
+            stage,
+            label: `${shapeId}:named-target-operation`,
+            count: 1,
+          })[0]!;
+
+          return {
+            options: targetEntries.map((entry, index) =>
+              option({
+                number: index + 1,
+                text: operation.renderText(entry.text),
+                effects: [operation.effect],
+                targets: [entry.target],
+                effect: operation.value,
+                uncertainty: operation.uncertainty,
+              }),
+            ),
+            precommitted: {},
+            symmetryContracts: [
+              symmetryContract({
+                contractKind: "shared_operation_named_targets",
+                sharedProperty: operation.key,
+                variedProperty: "visible named card target",
+                sharedFirst: true,
+                optionNumbers: [1, 2, 3],
+                sharedPayloadKeys: [operation.key],
+                variedPayloadKeys: targetEntries.map((entry) => entry.key),
+                weight: 1,
+              }),
+            ],
+          };
+        }
+      }
+
       const targetEntries = shuffleDeterministic(
         drawContext,
         `${shapeId}:target-order`,
@@ -1198,6 +1607,18 @@ export function fillOptions(
           optionFromResolvedShapeFill(fill),
         ),
         precommitted: {},
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "shared_operation_named_targets",
+            sharedProperty: operation.key,
+            variedProperty: "target selector class",
+            sharedFirst: true,
+            optionNumbers: targetFill.options.map((fill) => fill.number),
+            sharedPayloadKeys: [operation.key],
+            variedPayloadKeys: targetEntries.map((entry) => entry.targetClass),
+            weight: 4,
+          }),
+        ],
       };
     }
     case "choose_your_loss": {
@@ -1592,7 +2013,11 @@ export function fillOptions(
       const hookFamily = pickSequentialVariant(
         drawContext,
         `${shapeId}:hook-family`,
-        ["expanded_pair", "site_visit_pair", "counter_pair"] as const,
+        [
+          "expanded_pair",
+          "site_visit_pair",
+          "counter_pair",
+        ] as const,
       );
       const selectedHooks = hookFamily === "site_visit_pair"
         ? [
@@ -1683,6 +2108,7 @@ export function fillOptions(
         precommitted: timedWindow.routeEdits.length > 0
           ? { routeEdits: timedWindow.routeEdits }
           : {},
+        symmetryContracts: timedWindow.symmetryContracts,
       };
     }
     case "resolved_random_series": {
@@ -1838,6 +2264,18 @@ export function fillOptions(
           precommitted: {
             delayed: hooks.map((entry) => entry.precommit),
           },
+          symmetryContracts: [
+            symmetryContract({
+              contractKind: "shared_future_trigger_outcomes",
+              sharedProperty: "after next battle",
+              variedProperty: "delayed Bane outcome",
+              sharedFirst: true,
+              optionNumbers: [1, 2, 3],
+              sharedPayloadKeys: ["battle:next"],
+              variedPayloadKeys: delayedBaneHooks.map((entry) => entry.key),
+              weight: 1,
+            }),
+          ],
         };
       }
 
@@ -1895,6 +2333,18 @@ export function fillOptions(
         precommitted: {
           delayed: futureHooks.map((entry) => entry.precommit),
         },
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "shared_timing_different_rewards",
+            sharedProperty: timing.key,
+            variedProperty: "future reward and commitment",
+            sharedFirst: true,
+            optionNumbers: [1, 2, 3],
+            sharedPayloadKeys: [timing.key],
+            variedPayloadKeys: futureRewards.map((reward) => reward.key),
+            weight: 1,
+          }),
+        ],
       };
     }
     case "alter_dreamscapes": {
@@ -1978,6 +2428,18 @@ export function fillOptions(
           routeEdits: routeOptions
             .flatMap((reward) => reward.routeEffects ?? []),
         },
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "shared_source_site_destinations",
+            sharedProperty: routeMenu.sharedProperty,
+            variedProperty: "route destination or companion payload",
+            sharedFirst: true,
+            optionNumbers: routeOptions.map((entry) => entry.number),
+            sharedPayloadKeys: [routeMenu.variantId],
+            variedPayloadKeys: routeMenu.rewards.map((reward) => reward.key),
+            weight: 1,
+          }),
+        ],
       };
     }
   }

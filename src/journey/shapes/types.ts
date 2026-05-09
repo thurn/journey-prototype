@@ -6,6 +6,7 @@ import type {
   JourneyOption,
   JourneyRewardPool,
   JourneyStage,
+  JourneySymmetryContractDebug,
   JourneyTree,
   PrecommittedOutcomes,
   ValidationCheckedPayload,
@@ -68,6 +69,7 @@ export type FilledJourney = {
   readonly tree?: JourneyTree;
   readonly rewardPool?: JourneyRewardPool;
   readonly precommitted: PrecommittedOutcomes;
+  readonly symmetryContracts?: readonly JourneySymmetryContractDebug[];
 };
 
 export type ShapeRepairActionKind =

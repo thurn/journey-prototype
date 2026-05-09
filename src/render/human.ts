@@ -790,6 +790,22 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   lines.push(...fingerprintDebugLines(manifest));
   lines.push(...reachabilityDebugLines(manifest));
 
+  if (manifest.debug.symmetryContracts?.length) {
+    lines.push("", "Symmetry contracts:");
+    for (const contract of manifest.debug.symmetryContracts) {
+      const sharedKeys = contract.sharedPayloadKeys?.length
+        ? ` shared=${contract.sharedPayloadKeys.join(",")}`
+        : "";
+      const variedKeys = contract.variedPayloadKeys?.length
+        ? ` varied=${contract.variedPayloadKeys.join(",")}`
+        : "";
+
+      lines.push(
+        `${contract.contractKind}: shared ${contract.sharedProperty}; varied ${contract.variedProperty}; options ${contract.optionNumbers.join(",")}.${sharedKeys}${variedKeys}`,
+      );
+    }
+  }
+
   lines.push(...operationDebugLines(manifest));
   lines.push(...generatedObjectDebugLines(manifest));
   lines.push(...validationDebugLines(manifest));

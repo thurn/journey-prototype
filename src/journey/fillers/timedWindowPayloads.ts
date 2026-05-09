@@ -3,7 +3,7 @@ import {
   shuffleDeterministic,
   type DrawContext,
 } from "../../util/rng.js";
-import type { JourneyOption } from "../manifest.js";
+import type { JourneyOption, JourneySymmetryContractDebug } from "../manifest.js";
 import { dreamwellPayload, shopPayload } from "./environmentPayloads.js";
 import { resourcePayload } from "./resourcePayloads.js";
 import { routePayload } from "./routeEditCatalog.js";
@@ -12,6 +12,7 @@ import {
   option,
   pickSequentialVariant,
   selectedDreamsignTargets,
+  symmetryContract,
 } from "./shared.js";
 import {
   cardExactTarget,
@@ -1427,6 +1428,7 @@ export function timedWindowMenuFill(args: {
 }): {
   options: JourneyOption[];
   routeEdits: unknown[];
+  symmetryContracts: JourneySymmetryContractDebug[];
 } {
   const window = timedWindow(args.drawContext, args.shapeId);
   const entries = window.scope === "battle"
@@ -1458,5 +1460,17 @@ export function timedWindowMenuFill(args: {
       }),
     ),
     routeEdits: selected.flatMap((entry) => entry.routeEffects ?? []),
+    symmetryContracts: [
+      symmetryContract({
+        contractKind: "shared_timing_different_rewards",
+        sharedProperty: `${window.scope}:${window.duration}`,
+        variedProperty: "window reward modifier",
+        sharedFirst: true,
+        optionNumbers: selected.map((_, index) => index + 1),
+        sharedPayloadKeys: [window.duration],
+        variedPayloadKeys: selected.map((entry) => entry.key),
+        weight: 1,
+      }),
+    ],
   };
 }
