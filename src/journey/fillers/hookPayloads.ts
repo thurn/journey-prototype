@@ -4,7 +4,7 @@ import {
   shuffleDeterministic,
   type DrawContext,
 } from "../../util/rng.js";
-import { BANE_NAMES, type BaneName } from "../effects.js";
+import { BANE_NAMES, SITE_TYPES, type BaneName } from "../effects.js";
 import type { JourneyOption } from "../manifest.js";
 import type { JourneyShapeId } from "../shapes.js";
 import {
@@ -227,6 +227,12 @@ const FUTURE_JOURNEY_OPTION_HOOK_BANDS = {
     { optionCount: 3, effect: 175 },
   ],
 } as const satisfies Record<HookStage, readonly FutureJourneyOptionHookProfile[]>;
+
+const SITE_VISIT_HOOK_SITES = Object.freeze(
+  SITE_TYPES.filter((siteType) =>
+    siteType !== "Battle" && siteType !== "Dream Journey"
+  ),
+);
 
 const DELAYED_BANE_HOOK_MIN_EFFECT = 135;
 
@@ -766,6 +772,13 @@ function expandedDelayedHookCandidates(args: {
     `${args.label}:future-journey-option-profile`,
     FUTURE_JOURNEY_OPTION_HOOK_BANDS[stage] as readonly FutureJourneyOptionHookProfile[],
   )[0]!;
+  const siteVisitTargets = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:site-visit-targets`,
+    SITE_VISIT_HOOK_SITES,
+  );
+  const firstSiteVisitTarget = siteVisitTargets[0]!;
+  const secondSiteVisitTarget = siteVisitTargets[1] ?? firstSiteVisitTarget;
   const routeReward = routeEditRewards({
     drawContext: args.drawContext,
     label: `${args.label}:future-dream-journey-route`,
@@ -854,45 +867,65 @@ function expandedDelayedHookCandidates(args: {
       uncertainty: -12,
     },
     {
-      key: "site-visit:purge:named-dreamsign",
-      text: `After you visit a {Purge} site, gain {${dreamsignB.name}}.`,
+      key: `site-visit:${normalizedHookId(firstSiteVisitTarget)}:named-dreamsign`,
+      text: `After you visit a {${firstSiteVisitTarget}} site, gain {${dreamsignB.name}}.`,
       triggerSelector: hookTrigger({
         triggerKind: "site_visit",
-        label: "after you visit a Purge site",
-        siteType: "Purge",
+        label: `after you visit a ${firstSiteVisitTarget} site`,
+        siteType: firstSiteVisitTarget,
       }),
-      trackedCondition: "Track the next Purge site visit.",
-      resolution: `After visiting a Purge site, gain {${dreamsignB.name}}.`,
+      trackedCondition: `Track the next ${firstSiteVisitTarget} site visit.`,
+      resolution: `After visiting a ${firstSiteVisitTarget} site, gain {${dreamsignB.name}}.`,
       expiration: expiration(
         "forfeit_reward",
-        "If no Purge site is visited within 2 dreamscapes, discard this hook.",
+        `If no ${firstSiteVisitTarget} site is visited within 2 dreamscapes, discard this hook.`,
       ),
       duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
       controlledScene: controlledScene("reward", `gain ${dreamsignB.name}`),
-      reward: namedDreamsignGrant(args.context, dreamsignB, "after Purge site visit"),
-      effects: [namedDreamsignGrant(args.context, dreamsignB, "after Purge site visit")],
+      reward: namedDreamsignGrant(
+        args.context,
+        dreamsignB,
+        `after ${firstSiteVisitTarget} site visit`,
+      ),
+      effects: [
+        namedDreamsignGrant(
+          args.context,
+          dreamsignB,
+          `after ${firstSiteVisitTarget} site visit`,
+        ),
+      ],
       targets: [dreamsignExactTarget(dreamsignB, "catalog")],
       effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.2,
       uncertainty: -10,
     },
     {
-      key: "site-visit:transfiguration:named-dreamsign",
-      text: `After you visit a {Transfiguration} site, gain {${dreamsignC.name}}.`,
+      key: `site-visit:${normalizedHookId(secondSiteVisitTarget)}:named-dreamsign`,
+      text: `After you visit a {${secondSiteVisitTarget}} site, gain {${dreamsignC.name}}.`,
       triggerSelector: hookTrigger({
         triggerKind: "site_visit",
-        label: "after you visit a Transfiguration site",
-        siteType: "Transfiguration",
+        label: `after you visit a ${secondSiteVisitTarget} site`,
+        siteType: secondSiteVisitTarget,
       }),
-      trackedCondition: "Track the next Transfiguration site visit.",
-      resolution: `After visiting a Transfiguration site, gain {${dreamsignC.name}}.`,
+      trackedCondition: `Track the next ${secondSiteVisitTarget} site visit.`,
+      resolution: `After visiting a ${secondSiteVisitTarget} site, gain {${dreamsignC.name}}.`,
       expiration: expiration(
         "forfeit_reward",
-        "If no Transfiguration site is visited within 2 dreamscapes, discard this hook.",
+        `If no ${secondSiteVisitTarget} site is visited within 2 dreamscapes, discard this hook.`,
       ),
       duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
       controlledScene: controlledScene("reward", `gain ${dreamsignC.name}`),
-      reward: namedDreamsignGrant(args.context, dreamsignC, "after Transfiguration site visit"),
-      effects: [namedDreamsignGrant(args.context, dreamsignC, "after Transfiguration site visit")],
+      reward: namedDreamsignGrant(
+        args.context,
+        dreamsignC,
+        `after ${secondSiteVisitTarget} site visit`,
+      ),
+      effects: [
+        namedDreamsignGrant(
+          args.context,
+          dreamsignC,
+          `after ${secondSiteVisitTarget} site visit`,
+        ),
+      ],
       targets: [dreamsignExactTarget(dreamsignC, "catalog")],
       effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.2,
       uncertainty: -10,

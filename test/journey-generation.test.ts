@@ -4990,13 +4990,24 @@ describe("generateNextJourney", () => {
     const delayedOperations = manifest.precommitted.operations?.filter(
       (operation) => operation.operationKind === "delayed_hook",
     ) ?? [];
+    const siteVisitOperations = delayedOperations.filter((operation) =>
+      operation.triggerSelector?.triggerKind === "site_visit"
+    );
 
-    expect(delayedOperations).toEqual(
+    expect(siteVisitOperations).toHaveLength(2);
+    expect(
+      new Set(
+        siteVisitOperations.map((operation) =>
+          operation.triggerSelector?.siteType
+        ),
+      ).size,
+    ).toBe(2);
+    expect(siteVisitOperations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           triggerSelector: expect.objectContaining({
             triggerKind: "site_visit",
-            siteType: "Purge",
+            siteType: expect.any(String),
           }),
           rewardOperations: expect.arrayContaining([
             expect.objectContaining({
@@ -5010,7 +5021,7 @@ describe("generateNextJourney", () => {
         expect.objectContaining({
           triggerSelector: expect.objectContaining({
             triggerKind: "site_visit",
-            siteType: "Transfiguration",
+            siteType: expect.any(String),
           }),
           rewardOperations: expect.arrayContaining([
             expect.objectContaining({

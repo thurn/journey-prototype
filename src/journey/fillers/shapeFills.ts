@@ -2114,14 +2114,9 @@ export function fillOptions(
         ] as const,
       );
       const selectedHooks = hookFamily === "site_visit_pair"
-        ? [
-            expandedHooks.find((entry) =>
-              entry.key === "site-visit:purge:named-dreamsign"
-            ),
-            expandedHooks.find((entry) =>
-              entry.key === "site-visit:transfiguration:named-dreamsign"
-            ),
-          ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
+        ? expandedHooks.filter((entry) =>
+            entry.triggerSelector.triggerKind === "site_visit"
+          )
         : hookFamily === "counter_pair"
           ? [
               expandedHooks.find((entry) =>
