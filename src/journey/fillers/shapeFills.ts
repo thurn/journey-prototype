@@ -173,6 +173,12 @@ const GENERAL_SHOP_ROW_PRICE_PROFILES = {
   ],
 } as const satisfies Record<JourneyStage, readonly (readonly number[])[]>;
 
+const NOW_VS_LATER_IMMEDIATE_ESSENCE_AMOUNTS = {
+  early: [80, 100],
+  mid: [100, 120],
+  late: [120, 150],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
 function shopRowPriceText(price: ShopRowPrice): string {
   const unit =
     price.currency === "omens"
@@ -2129,13 +2135,22 @@ export function fillOptions(
         drawContext,
         `${shapeId}:reward`,
       ).filter((entry) => entry.routeEffects === undefined)[0]!;
+      const immediateEssenceAmount = shuffleDeterministic(
+        drawContext,
+        `${shapeId}:immediate-essence:${stage}`,
+        NOW_VS_LATER_IMMEDIATE_ESSENCE_AMOUNTS[stage],
+      )[0]!;
       const immediateReward = {
         ...reward,
-        text: reward.key === "essence" ? "Gain 100 essence." : reward.text,
-        effects: reward.key === "essence" ? [gainEssence(100)] : reward.effects,
+        text: reward.key === "essence"
+          ? `Gain ${immediateEssenceAmount} essence.`
+          : reward.text,
+        effects: reward.key === "essence"
+          ? [gainEssence(immediateEssenceAmount)]
+          : reward.effects,
         effect:
           reward.key === "essence"
-            ? 100
+            ? immediateEssenceAmount
             : Math.max(120, Math.round(reward.effect * 0.65)),
       };
       const timing = timingSlots(drawContext, `${shapeId}:timing`).find(
