@@ -2972,6 +2972,58 @@ describe("generateNextJourney", () => {
     expect([...randomCounts].sort()).toEqual([1, 2]);
   });
 
+  it("profiles Starter surgery extra Starter gain counts", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const extraStarterCounts = new Set<number>();
+
+    for (let index = 0; index < 16; index += 1) {
+      const seed = `starter-surgery-extra-starters:${index}`;
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      const journeyContext = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const drawContext: DrawContext = {
+        seed,
+        contentVersion,
+        rootJourneyIndex: state.generator.rootJourneyIndex,
+      };
+      const slot = starterSurgeryRewardSlots(
+        journeyContext,
+        drawContext,
+        seed,
+        "early",
+      ).find((rewardSlot) => rewardSlot.key === "starter-gain-extra");
+      const effect = slot?.effects.find(
+        (payload) =>
+          typeof payload === "object" &&
+          payload !== null &&
+          "kind" in payload &&
+          payload.kind === "card_gain" &&
+          "count" in payload &&
+          typeof payload.count === "number",
+      );
+
+      if (
+        typeof effect === "object" &&
+        effect !== null &&
+        "count" in effect &&
+        typeof effect.count === "number"
+      ) {
+        extraStarterCounts.add(effect.count);
+      }
+    }
+
+    expect([...extraStarterCounts].sort()).toEqual([2, 3]);
+  });
+
   it("varies starter replacement profiles across starter surgery rewards", async () => {
     const content = await loadContent(process.cwd());
     const contentVersion = "test-content-version";

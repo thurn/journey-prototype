@@ -881,6 +881,12 @@ const STARTER_SURGERY_TRANSFIGURATION_TARGET_COUNTS = {
   Record<JourneyStage, readonly number[]>
 >;
 
+const STARTER_SURGERY_EXTRA_STARTER_COUNTS = {
+  early: [2, 3],
+  mid: [2, 3, 4],
+  late: [3, 4],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
 function starterTransfigurationTargetCount(
   drawContext: DrawContext,
   label: string,
@@ -985,6 +991,11 @@ export function starterSurgeryRewardSlots(
     stage,
     "random",
     starterCount,
+  );
+  const extraStarterCount = pickSequentialVariant(
+    drawContext,
+    `${label}:extra-starter-count`,
+    STARTER_SURGERY_EXTRA_STARTER_COUNTS[stage],
   );
   const firstStarter = starterOrder[0]!;
   const secondStarter = starterOrder[1] ?? firstStarter;
@@ -1123,11 +1134,11 @@ export function starterSurgeryRewardSlots(
     },
     {
       key: "starter-gain-extra",
-      text: "Gain 3 additional Starter cards.",
+      text: `Gain ${extraStarterCount} additional Starter cards.`,
       effects: [
         randomCardGain(
           CARD_DRAFT_PROFILES.starters,
-          3,
+          extraStarterCount,
           { source: "catalog" },
         ),
       ],
@@ -1139,7 +1150,7 @@ export function starterSurgeryRewardSlots(
       ],
       effect: starterSurgeryMenuValue(
         valueRandomCardGain({
-          count: 3,
+          count: extraStarterCount,
           predicate: { source: "catalog", starter: true },
         }),
       ),
