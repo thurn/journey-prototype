@@ -119,7 +119,6 @@ function payloadCompatibilityFor(
     supportedTags.includes("dreamsign") ||
     id === "curated_reward_trio";
   const serviceFamilyShape = id === "service_menu";
-  const sharedPrefixShape = id === "shared_prefix_menu";
   const generatedObjectShape = [
     "same_cost_different_rewards",
     "service_menu",
@@ -168,10 +167,9 @@ function payloadCompatibilityFor(
       "bane",
       [
         ...(serviceFamilyShape ? ["bane-gain-purge-transform"] : []),
-        ...(sharedPrefixShape ? ["shared-bane-prefix"] : []),
         ...(id === "choose_your_loss" ? ["adapter-compatible-bane-losses"] : []),
       ],
-      serviceFamilyShape || sharedPrefixShape || id === "choose_your_loss"
+      serviceFamilyShape || id === "choose_your_loss"
         ? "Shape can frame Bane gain, purge, and transformation decisions."
         : "Shape lacks a controlled Bane-operation or loss-choice frame.",
     ),

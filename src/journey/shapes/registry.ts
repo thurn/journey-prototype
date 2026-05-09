@@ -21,7 +21,7 @@ import { riskOrSkipPlugin } from "./risk_or_skip.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards.js";
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs/index.js";
 import { serviceMenuPlugin } from "./service_menu.js";
-import { sharedPrefixMenuPlugin } from "./shared_prefix_menu.js";
+import { sharedPrefixMenuPlugin } from "./shared_prefix_menu/index.js";
 import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome.js";

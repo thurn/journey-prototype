@@ -210,7 +210,7 @@ function namedDeckCardTargetEntries(args: {
     }));
 }
 
-function sharedBaneBurdenRewardFill(args: {
+export function sharedBaneBurdenRewardFill(args: {
   context: JourneyContext;
   drawContext: DrawContext;
   label: string;
@@ -324,7 +324,7 @@ function sharedBaneBurdenRewardFill(args: {
   };
 }
 
-function sharedStarterCleanupRewardFill(args: {
+export function sharedStarterCleanupRewardFill(args: {
   context: JourneyContext;
   drawContext: DrawContext;
   label: string;
@@ -466,51 +466,6 @@ export function fillOptions(
           }),
         ],
       };
-    }
-    case "shared_prefix_menu": {
-      const prefixFamily = weightedChoice(
-        drawContext,
-        `${shapeId}:prefix-family`,
-        [
-          { item: "shared_bane_burden", weight: 3 },
-          { item: "starter_cleanup_prefix", weight: 2 },
-        ] as const,
-      );
-      const cleanupPrefixFill = prefixFamily === "starter_cleanup_prefix"
-        ? sharedStarterCleanupRewardFill({
-            context,
-            drawContext,
-            label: shapeId,
-            stage,
-          })
-        : undefined;
-      const prefixFill =
-        cleanupPrefixFill ??
-        sharedBaneBurdenRewardFill({
-          context,
-          drawContext,
-          label: shapeId,
-          stage,
-        });
-
-      if (prefixFill) {
-        return {
-          options: prefixFill.options,
-          precommitted: {
-            routeEdits: prefixFill.options.flatMap(
-              (journeyOption) => journeyOption.routeEffects,
-            ),
-          },
-          symmetryContracts: prefixFill.symmetryContracts,
-        };
-      }
-
-      return fillOptions(
-        "same_cost_different_rewards",
-        context,
-        drawContext,
-        stage,
-      );
     }
     case "service_menu": {
       const starterRewards = starterSurgeryRewardSlots(
