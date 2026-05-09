@@ -929,21 +929,6 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "heterogeneous_pair": {
-      const positiveOptions = shuffleDeterministic(
-        drawContext,
-        `${shapeId}:positive-pair`,
-        rewardSlots(context, drawContext, `${shapeId}:positive-menu`)
-          .filter((reward) => reward.effect >= 150)
-          .map((reward, index) => rewardSlotOption(index + 1, reward)),
-      );
-      const options = positiveOptions.slice(0, 2);
-
-      return {
-        options: renumberOptions(options),
-        precommitted: {},
-      };
-    }
     case "one_target_many_operations": {
       const focus = weightedChoice(
         drawContext,
