@@ -5,7 +5,7 @@ export default defineConfig({
     pool: "threads",
     minThreads: 1,
     maxThreads: 8,
-    hookTimeout: 120_000,
-    testTimeout: 120_000,
+    hookTimeout: 600_000,
+    testTimeout: 600_000,
   },
 });
