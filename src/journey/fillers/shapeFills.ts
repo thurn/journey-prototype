@@ -1905,56 +1905,6 @@ export function fillOptions(
         },
       };
     }
-    case "reward_after_trigger": {
-      const expandedHooks = expandedDelayedHookFills({
-        context,
-        drawContext,
-        label: `${shapeId}:expanded`,
-        stage,
-      });
-      const hookFamily = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:hook-family`,
-        [
-          "expanded_pair",
-          "site_visit_pair",
-          "counter_pair",
-        ] as const,
-      );
-      const selectedHooks = hookFamily === "site_visit_pair"
-        ? expandedHooks.filter((entry) =>
-            entry.triggerSelector.triggerKind === "site_visit"
-          )
-        : hookFamily === "counter_pair"
-          ? [
-              expandedHooks.find((entry) =>
-                entry.key.startsWith("named-card-play:") &&
-                  entry.key.includes(":essence-")
-              ),
-              expandedHooks.find((entry) =>
-                entry.key.startsWith("dreamsign-trigger:") &&
-                  entry.key.includes(":omens-")
-              ),
-            ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
-          : expandedHooks;
-      const firstHook = delayedHookFillFromExpanded({
-        shapeId,
-        optionNumber: 1,
-        fill: selectedHooks[0] ?? expandedHooks[0]!,
-      });
-      const secondHook = delayedHookFillFromExpanded({
-        shapeId,
-        optionNumber: 2,
-        fill: selectedHooks[1] ?? selectedHooks[0] ?? expandedHooks[1] ?? expandedHooks[0]!,
-      });
-
-      return {
-        options: [firstHook.option, secondHook.option],
-        precommitted: {
-          delayed: [firstHook.precommit, secondHook.precommit],
-        },
-      };
-    }
     case "paired_return": {
       const rewards = rewardSlots(
         context,
