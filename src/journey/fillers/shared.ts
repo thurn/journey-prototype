@@ -62,7 +62,6 @@ import {
   type BaneTargetContextId,
 } from "./banePayloads.js";
 import {
-  STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   cardExactTarget,
   cardQualityValue,
   namedCardPayload,
@@ -70,6 +69,8 @@ import {
   starterDeckCardCount,
   starterDeckCards,
   starterEligibleReplacementCards,
+  starterReplacementProfile,
+  starterReplacementResultPredicate,
 } from "./namedCardPayloads.js";
 import {
   dreamsignExactTarget,
@@ -848,13 +849,6 @@ function starterPayloadBase(
   };
 }
 
-function lowCostReplacementDraft() {
-  return {
-    source: "draftPool",
-    maxEnergyCost: 2,
-  };
-}
-
 function starterSurgeryMenuValue(value: number): number {
   return Math.max(320, Math.min(390, value));
 }
@@ -877,15 +871,48 @@ export function starterSurgeryRewardSlots(
     `${label}:starter-order`,
     starters,
   );
-  const namedReplacement = selectContentBackedCard({
+  const namedReplacementProfile = starterReplacementProfile({
     context,
     drawContext,
-    label: `${label}:named-replacement`,
+    label: `${label}:named-replacement-profile`,
     stage,
     sources: ["catalog"],
-    predicate: STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   });
-  const starterEligiblePool = starterEligibleReplacementCards(context);
+  const namedReplacement = namedReplacementProfile
+    ? selectContentBackedCard({
+        context,
+        drawContext,
+        label: `${label}:named-replacement`,
+        stage,
+        sources: [namedReplacementProfile.profile.source],
+        predicate: namedReplacementProfile.profile.predicate,
+      })
+    : undefined;
+  const randomReplacementProfile = starterReplacementProfile({
+    context,
+    drawContext,
+    label: `${label}:random-replacement-profile`,
+    stage,
+    sources: ["catalog"],
+  });
+  const allReplacementProfile = starterReplacementProfile({
+    context,
+    drawContext,
+    label: `${label}:all-replacement-profile`,
+    stage,
+    sources: ["catalog"],
+    minCandidates: starterCount,
+  });
+  const draftReplacementProfile = starterReplacementProfile({
+    context,
+    drawContext,
+    label: `${label}:draft-replacement-profile`,
+    stage,
+    sources: ["draftPool"],
+    minCandidates: CARD_DRAFT_CHOICE_COUNT,
+  });
+  const starterEligiblePool = randomReplacementProfile?.candidates ??
+    starterEligibleReplacementCards(context);
   const transfiguration = pickSequentialVariant(
     drawContext,
     `${label}:starter-transfiguration`,
@@ -894,7 +921,6 @@ export function starterSurgeryRewardSlots(
   const firstStarter = starterOrder[0]!;
   const secondStarter = starterOrder[1] ?? firstStarter;
   const thirdStarter = starterOrder[2] ?? secondStarter;
-  const lowCostDraftPredicate = lowCostReplacementDraft();
   const slots: RewardSlot[] = [
     {
       key: "starter-cleanup-up-to-two",
@@ -941,7 +967,7 @@ export function starterSurgeryRewardSlots(
     },
     {
       key: "starter-replacement-random",
-      text: "Purge a random Starter card and gain a random low-cost replacement.",
+      text: `Purge a random Starter card and gain a random ${randomReplacementProfile?.profile.resultText ?? "starter replacement"}.`,
       effects: [
         {
           kind: "starter_replacement",
@@ -950,11 +976,9 @@ export function starterSurgeryRewardSlots(
           targetCount: 1,
           selection: "hidden_random",
           resultSelection: "hidden_random",
-          resultPredicate: {
-            source: "catalog",
-            maxEnergyCost: 2,
-            rarity: "Common",
-          },
+          resultPredicate: randomReplacementProfile
+            ? starterReplacementResultPredicate(randomReplacementProfile.profile)
+            : { source: "catalog" },
           resultPoolSize: starterEligiblePool.length,
           cardOperationFamily: "replacement",
           cardOperationTargetModes: ["random_predicate"],
@@ -1001,14 +1025,16 @@ export function starterSurgeryRewardSlots(
     },
     {
       key: "starter-replacement-draft",
-      text: "Replace a chosen Starter card with 1 of 4 low-cost replacement cards.",
+      text: `Replace a chosen Starter card with 1 of 4 ${draftReplacementProfile?.profile.description ?? "replacement cards"}.`,
       effects: [
         {
           kind: "starter_replacement",
           replacementMode: "draft",
           takeCount: 1,
           choiceCount: CARD_DRAFT_CHOICE_COUNT,
-          resultPredicate: lowCostDraftPredicate,
+          resultPredicate: draftReplacementProfile
+            ? starterReplacementResultPredicate(draftReplacementProfile.profile)
+            : { source: "draftPool" },
           ...starterPayloadBase(context),
         },
       ],
@@ -1019,7 +1045,9 @@ export function starterSurgeryRewardSlots(
           resultValue: valueCardDraft({
             takeCount: 1,
             choiceCount: CARD_DRAFT_CHOICE_COUNT,
-            predicate: lowCostDraftPredicate,
+            predicate: draftReplacementProfile
+              ? starterReplacementResultPredicate(draftReplacementProfile.profile)
+              : { source: "draftPool" },
           }),
           stage,
         }),
@@ -1086,10 +1114,10 @@ export function starterSurgeryRewardSlots(
     });
   }
 
-  if (starterEligiblePool.length >= starterCount) {
+  if (allReplacementProfile) {
     slots.push({
       key: "starter-replacement-all",
-      text: "Purge all Starter cards and replace them with new starter-eligible cards.",
+      text: `Purge all Starter cards and replace them with ${allReplacementProfile.profile.description}.`,
       effects: [
         {
           kind: "starter_replacement",
@@ -1098,11 +1126,10 @@ export function starterSurgeryRewardSlots(
           targetCount: starterCount,
           selection: "predicate",
           resultSelection: "hidden_random",
-          resultPredicate: {
-            source: "catalog",
-            ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
-          },
-          resultPoolSize: starterEligiblePool.length,
+          resultPredicate: starterReplacementResultPredicate(
+            allReplacementProfile.profile,
+          ),
+          resultPoolSize: allReplacementProfile.candidates.length,
           cardOperationFamily: "replacement",
           cardOperationTargetModes: ["all_matching"],
           cardOperationTargetMode: "all_matching",

@@ -14,11 +14,11 @@ import {
   valueStarterReplacement,
 } from "../value.js";
 import {
-  STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
   cardQualityValue,
   selectContentBackedCard,
   starterDeckCardCount,
-  starterEligibleReplacementCards,
+  starterReplacementProfile,
+  starterReplacementResultPredicate,
 } from "./namedCardPayloads.js";
 import { BATTLE_WINDOW_DURATION, chosenCardText } from "./shared.js";
 
@@ -257,13 +257,25 @@ function namedStarterReplacementOperation(
   entry: CardOperationCatalogEntry,
   args: CardOperationMaterializerArgs,
 ): MaterializedCardOperation | undefined {
+  const replacementProfile = starterReplacementProfile({
+    context: args.context,
+    drawContext: args.drawContext,
+    label: `${args.label}:${args.entry.key}`,
+    stage: args.stage,
+    sources: ["catalog"],
+  });
+
+  if (!replacementProfile) {
+    return undefined;
+  }
+
   const result = selectContentBackedCard({
     context: args.context,
     drawContext: args.drawContext,
     label: `${args.label}:${args.entry.key}:starter-result`,
     stage: args.stage,
-    sources: ["catalog"],
-    predicate: STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
+    sources: [replacementProfile.profile.source],
+    predicate: replacementProfile.profile.predicate,
   })?.card;
 
   if (!result) {
@@ -346,25 +358,57 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     },
     value: 125,
   }),
-  baseEntry({
-    key: "starter-replacement-draft",
-    family: "replacement",
-    valueBand: "standard",
-    timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
-    targetClasses: ["starter_card"],
-    targetModes: CHOSEN_OR_NAMED,
-    renderText: (targetText) =>
-      `Replace ${targetText} with a drafted low-cost card.`,
-    effect: {
-      kind: "starter_replacement",
-      replacementMode: "draft",
-      takeCount: 1,
-      choiceCount: 4,
-      predicate: { source: "draftPool", maxEnergyCost: 2 },
+  {
+    ...baseEntry({
+      key: "starter-replacement-draft",
+      family: "replacement",
+      valueBand: "standard",
+      timing: "immediate",
+      topologies: ALL_NORMAL_TOPOLOGIES,
+      targetClasses: ["starter_card"],
+      targetModes: CHOSEN_OR_NAMED,
+      renderText: (targetText) =>
+        `Replace ${targetText} with a drafted replacement card.`,
+      effect: {
+        kind: "starter_replacement",
+        replacementMode: "draft",
+        takeCount: 1,
+        choiceCount: 4,
+      },
+      value: 120,
+    }),
+    materialize: (args) => {
+      const replacementProfile = starterReplacementProfile({
+        context: args.context,
+        drawContext: args.drawContext,
+        label: `${args.label}:${args.entry.key}`,
+        stage: args.stage,
+        sources: ["draftPool"],
+        minCandidates: 4,
+      });
+
+      if (!replacementProfile) {
+        return undefined;
+      }
+
+      return {
+        ...args.entry,
+        renderText: (targetText) =>
+          `Replace ${targetText} with 1 of 4 ${replacementProfile.profile.description}.`,
+        effect: withCompatibility(
+          starterTargetCountEffect(args, {
+            ...args.entry.effect,
+            resultPredicate: starterReplacementResultPredicate(
+              replacementProfile.profile,
+            ),
+            resultPoolSize: replacementProfile.candidates.length,
+          }),
+          args.entry.targetModes,
+          args.entry.family,
+        ),
+      };
     },
-    value: 120,
-  }),
+  },
   {
     ...baseEntry({
       key: "starter-replacement-named",
@@ -393,36 +437,44 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       targetClasses: ["starter_card"],
       targetModes: ["all_matching"],
       renderText: () =>
-        "Purge all Starter cards and replace them with new starter-eligible cards.",
+        "Purge all Starter cards and replace them with catalog replacement cards.",
       effect: {
         kind: "starter_replacement",
         replacementMode: "all",
         selection: "predicate",
         resultSelection: "hidden_random",
-        resultPredicate: {
-          source: "catalog",
-          ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
-        },
       },
       value: 170,
       uncertainty: -10,
     }),
     materialize: (args) => {
       const starterCount = starterDeckCardCount(args.context);
-      const replacementCount = starterEligibleReplacementCards(args.context).length;
+      const replacementProfile = starterReplacementProfile({
+        context: args.context,
+        drawContext: args.drawContext,
+        label: `${args.label}:${args.entry.key}`,
+        stage: args.stage,
+        sources: ["catalog"],
+        minCandidates: starterCount,
+      });
 
-      if (starterCount === 0 || replacementCount < starterCount) {
+      if (starterCount === 0 || !replacementProfile) {
         return undefined;
       }
 
       return {
         ...args.entry,
+        renderText: () =>
+          `Purge all Starter cards and replace them with ${replacementProfile.profile.description}.`,
         effect: withCompatibility(
           starterTargetCountEffect(args, {
             ...args.entry.effect,
             count: starterCount,
             targetCount: starterCount,
-            resultPoolSize: replacementCount,
+            resultPredicate: starterReplacementResultPredicate(
+              replacementProfile.profile,
+            ),
+            resultPoolSize: replacementProfile.candidates.length,
           }),
           args.entry.targetModes,
           args.entry.family,
@@ -446,7 +498,7 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       targetClasses: ["starter_card"],
       targetModes: ["random_predicate"],
       renderText: () =>
-        "Purge a random Starter card and gain a random low-cost replacement.",
+        "Purge a random Starter card and gain a random catalog replacement.",
       effect: {
         kind: "starter_replacement",
         replacementMode: "random",
@@ -454,25 +506,34 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
         targetCount: 1,
         selection: "hidden_random",
         resultSelection: "hidden_random",
-        resultPredicate: {
-          source: "catalog",
-          ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
-        },
       },
       value: valueStarterReplacement({ count: 1, resultValue: 55 }),
       uncertainty: -10,
     }),
     materialize: (args) => {
-      if (starterDeckCardCount(args.context) === 0) {
+      const replacementProfile = starterReplacementProfile({
+        context: args.context,
+        drawContext: args.drawContext,
+        label: `${args.label}:${args.entry.key}`,
+        stage: args.stage,
+        sources: ["catalog"],
+      });
+
+      if (starterDeckCardCount(args.context) === 0 || !replacementProfile) {
         return undefined;
       }
 
       return {
         ...args.entry,
+        renderText: () =>
+          `Purge a random Starter card and gain a random ${replacementProfile.profile.resultText}.`,
         effect: withCompatibility(
           starterTargetCountEffect(args, {
             ...args.entry.effect,
-            resultPoolSize: starterEligibleReplacementCards(args.context).length,
+            resultPredicate: starterReplacementResultPredicate(
+              replacementProfile.profile,
+            ),
+            resultPoolSize: replacementProfile.candidates.length,
           }),
           args.entry.targetModes,
           args.entry.family,

@@ -257,18 +257,159 @@ export function starterDeckCardCount(context: JourneyContext): number {
   return starterDeckCards(context).length;
 }
 
-export const STARTER_ELIGIBLE_REPLACEMENT_PREDICATE = {
-  maxEnergyCost: 2,
-  rarity: "Common",
-} as const satisfies Omit<CardTargetPredicate, "source">;
+export type StarterReplacementProfile = {
+  key: string;
+  source: "catalog" | "draftPool";
+  predicate: Omit<CardTargetPredicate, "source">;
+  description: string;
+  resultText: string;
+};
+
+export type StarterReplacementProfileSelection = {
+  profile: StarterReplacementProfile;
+  candidates: CardContent[];
+};
+
+const STARTER_REPLACEMENT_PROFILES = Object.freeze([
+  {
+    key: "catalog-low-cost-common",
+    source: "catalog",
+    predicate: { maxEnergyCost: 2, rarity: "Common" },
+    description: "low-cost Common catalog cards",
+    resultText: "low-cost Common replacement",
+  },
+  {
+    key: "catalog-low-cost-character",
+    source: "catalog",
+    predicate: { maxEnergyCost: 2, cardType: "Character" },
+    description: "low-cost Character catalog cards",
+    resultText: "low-cost Character replacement",
+  },
+  {
+    key: "catalog-low-cost-event",
+    source: "catalog",
+    predicate: { maxEnergyCost: 2, cardType: "Event" },
+    description: "low-cost Event catalog cards",
+    resultText: "low-cost Event replacement",
+  },
+  {
+    key: "catalog-selected-tide-common",
+    source: "catalog",
+    predicate: { rarity: "Common", tideOverlap: "selected" },
+    description: "quest-matched Common catalog cards",
+    resultText: "quest-matched Common replacement",
+  },
+  {
+    key: "draft-low-cost",
+    source: "draftPool",
+    predicate: { maxEnergyCost: 2 },
+    description: "low-cost draft-pool cards",
+    resultText: "low-cost draft-pool replacement",
+  },
+  {
+    key: "draft-selected-tide",
+    source: "draftPool",
+    predicate: { tideOverlap: "selected" },
+    description: "quest-matched draft-pool cards",
+    resultText: "quest-matched draft-pool replacement",
+  },
+] as const satisfies readonly StarterReplacementProfile[]);
+
+function starterReplacementProfileWeight(
+  profile: StarterReplacementProfile,
+  stage: JourneyStage,
+): number {
+  if (profile.source === "draftPool") {
+    return stage === "early" ? 4 : 3;
+  }
+
+  if (profile.key.includes("selected-tide")) {
+    return stage === "late" ? 4 : 3;
+  }
+
+  return stage === "early" ? 4 : 3;
+}
+
+export function starterReplacementProfile(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+  sources?: readonly StarterReplacementProfile["source"][];
+  minCandidates?: number;
+}): StarterReplacementProfileSelection | undefined {
+  const sourceFilter = new Set(args.sources ?? ["catalog", "draftPool"]);
+  const minimum = args.minCandidates ?? 1;
+  const candidates = STARTER_REPLACEMENT_PROFILES
+    .filter((profile) => sourceFilter.has(profile.source))
+    .flatMap((profile) => {
+      const matches = resolveCardTargets(
+        args.context.content,
+        args.context.state.quest,
+        {
+          source: profile.source,
+          ...profile.predicate,
+        },
+      ).filter((card) => card.rarity !== "Starter");
+
+      return matches.length >= minimum
+        ? [{
+            profile,
+            candidates: matches,
+            weight: starterReplacementProfileWeight(profile, args.stage),
+          }]
+        : [];
+    });
+
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  const selected = weightedChoice(
+    args.drawContext,
+    `${args.label}:starter-replacement-profile`,
+    candidates.map((candidate) => ({
+      item: candidate,
+      weight: candidate.weight,
+    })),
+  );
+
+  return {
+    profile: selected.profile,
+    candidates: selected.candidates,
+  };
+}
+
+export function starterReplacementResultPredicate(
+  profile: StarterReplacementProfile,
+): CardTargetPredicate {
+  return {
+    source: profile.source,
+    ...profile.predicate,
+  };
+}
 
 export function starterEligibleReplacementCards(
   context: JourneyContext,
 ): CardContent[] {
-  return resolveCardTargets(context.content, context.state.quest, {
-    source: "catalog",
-    ...STARTER_ELIGIBLE_REPLACEMENT_PREDICATE,
-  });
+  const seen = new Set<string>();
+
+  return STARTER_REPLACEMENT_PROFILES
+    .filter((profile) => profile.source === "catalog")
+    .flatMap((profile) =>
+      resolveCardTargets(context.content, context.state.quest, {
+        source: profile.source,
+        ...profile.predicate,
+      })
+    )
+    .filter((card) => {
+      if (card.rarity === "Starter" || seen.has(card.id)) {
+        return false;
+      }
+
+      seen.add(card.id);
+      return true;
+    });
 }
 
 export function catalogRewardCards(

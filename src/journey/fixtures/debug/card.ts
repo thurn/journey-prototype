@@ -21,6 +21,10 @@ import {
   selectedCardTargets,
   target,
 } from "../../fillers/shared.js";
+import {
+  starterReplacementProfile,
+  starterReplacementResultPredicate,
+} from "../../fillers/namedCardPayloads.js";
 
 export function cardQualityValue(card: CardContent): number {
   const rarityValue =
@@ -376,6 +380,17 @@ export function starterCleanupReplacementOptions(
   const thirdStarter = starters[2] ?? firstStarter;
   const firstReplacement = replacements[0] ?? firstStarter;
   const secondReplacement = replacements[1] ?? firstReplacement;
+  const draftReplacementProfile = starterReplacementProfile({
+    context,
+    drawContext,
+    label: "starter-cleanup-replacement:draft-replacement",
+    stage: "early",
+    sources: ["draftPool"],
+    minCandidates: CARD_DRAFT_CHOICE_COUNT,
+  });
+  const draftReplacementPredicate = draftReplacementProfile
+    ? starterReplacementResultPredicate(draftReplacementProfile.profile)
+    : { source: "draftPool" };
   const cleanup = namedCardPayload(
     {
       kind: "starter_cleanup",
@@ -392,7 +407,7 @@ export function starterCleanupReplacementOptions(
         replacementMode: "draft",
         takeCount: 1,
         choiceCount: CARD_DRAFT_CHOICE_COUNT,
-        predicate: { source: "draftPool", maxEnergyCost: 2 },
+        predicate: draftReplacementPredicate,
       },
     },
     context,
@@ -415,7 +430,7 @@ export function starterCleanupReplacementOptions(
       value: 150,
     },
     {
-      text: `Purge {${secondStarter.name}}. Draft 1 of 4 low-cost replacement cards.`,
+      text: `Purge {${secondStarter.name}}. Draft 1 of 4 ${draftReplacementProfile?.profile.description ?? "replacement cards"}.`,
       effect: draftReplacement,
       value: 150,
     },

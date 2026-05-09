@@ -31,122 +31,7 @@ instead of a family of nearby cases.
 These examples illustrate the same underlying smell: a specific value is
 embedded where a reusable generator could own the axis.
 
-1. Starter replacement is constrained to `maxEnergyCost: 2` and `Common` in
-   [`namedCardPayloads.ts`](../src/journey/fillers/namedCardPayloads.ts#L260).
-   That is a useful baseline, but the predicate could be a generated
-   replacement profile such as low-cost Character, non-Starter Common, matching
-   tide, or draft-pool card.
-
-   ```ts
-   export const STARTER_ELIGIBLE_REPLACEMENT_PREDICATE = {
-     maxEnergyCost: 2,
-     rarity: "Common",
-   } as const satisfies Omit<CardTargetPredicate, "source">;
-   ```
-
-2. The random reward ladder's Starter cleanup branch fixes the target predicate
-   to Starter cards and caps the cleanup count with a hardcoded progression in
-   [`treeBuilders.ts`](../src/journey/fillers/treeBuilders.ts#L447). It could
-   choose among cleanup predicates and counts based on deck state and stage.
-
-   ```ts
-   case "starter_cleanup":
-     return {
-       id: family,
-       rewards: Array.from({ length: levels }, (_, index) => {
-         const cleanupCount = Math.min(2, 1 + Math.floor(index / 2));
-         const omenCount = index;
-         const cleanup = starterCleanup(cleanupCount);
-
-         return {
-           text:
-             omenCount > 0
-               ? `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"} and gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
-               : `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"}.`,
-           targets: [
-             target("card", "Starter cards in deck", {
-               source: "deck",
-               starter: true,
-             }),
-           ],
-         };
-       }),
-     };
-   ```
-
-3. The same ladder's transfiguration branch walks a fixed ordered list of
-   `Bronze`, `Scarlet`, `Viridian`, `Golden`, and `Prismatic` in
-   [`treeBuilders.ts`](../src/journey/fillers/treeBuilders.ts#L474). This could
-   ask the card-operation catalog for compatible modifiers and target selectors.
-
-   ```ts
-   const startIndex = pickSequentialVariant(
-     drawContext,
-     `${label}:transfiguration-start`,
-     [0, 1, 2],
-   );
-   const names = ["Bronze", "Scarlet", "Viridian", "Golden", "Prismatic"];
-
-   const transfigurationName =
-     names[Math.min(names.length - 1, startIndex + index)]!;
-   const wideTarget = index >= levels - 1 && levels > 2;
-   ```
-
-4. Battle-window rewards are authored as a small fixed menu: opening-hand card,
-   turn-1 energy, Event Fast, and Fast-card Reclaim in
-   [`treeBuilders.ts`](../src/journey/fillers/treeBuilders.ts#L511). The axis
-   could be generated from window scope, affected object class, modifier,
-   amount, and duration.
-
-   ```ts
-   const windows = [
-     {
-       text: "draw 1 extra card in your opening hand",
-       effect: {
-         kind: "battle_window_modifier",
-         duration: BATTLE_WINDOW_DURATION,
-         modifier: "opening_hand_cards",
-         amount: 1,
-       },
-       value: 155,
-     },
-     {
-       text: "gain 1 extra energy on turn 1",
-       effect: {
-         kind: "battle_window_modifier",
-         duration: BATTLE_WINDOW_DURATION,
-         modifier: "turn_1_energy",
-         amount: 1,
-       },
-       value: 160,
-     },
-     {
-       text: "give all event cards in your deck Fast",
-       effect: {
-         kind: "card_rewrite",
-         keyword: "Fast",
-         duration: BATTLE_WINDOW_DURATION,
-         scope: "all_matching_cards_in_deck",
-         predicate: { cardType: "Event" },
-       },
-       value: 165,
-     },
-     {
-       text: "give all fast cards in your deck Reclaim 1",
-       effect: {
-         kind: "card_rewrite",
-         keyword: "Reclaim",
-         amount: 1,
-         duration: BATTLE_WINDOW_DURATION,
-         scope: "all_matching_cards_in_deck",
-         predicate: { isFast: true },
-       },
-       value: 170,
-     },
-   ];
-   ```
-
-5. Delayed hook entries include exact scenes such as "after next battle, add
+1. Delayed hook entries include exact scenes such as "after next battle, add
    Nightmare" with fixed Bane names, timing, and expiration text in
    [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L424). A hook
    generator could vary trigger kind, burden family, duration, expiration, and
@@ -173,7 +58,7 @@ embedded where a reusable generator could own the axis.
    }
    ```
 
-6. Another hook entry fixes "play this named card 4 times, gain 120 essence" in
+2. Another hook entry fixes "play this named card 4 times, gain 120 essence" in
    [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L592). The
    generatable axes are trigger threshold, tracked object type, payout family,
    payout amount, and window length.
@@ -200,7 +85,7 @@ embedded where a reusable generator could own the axis.
    }
    ```
 
-7. Dreamsign-trigger hooks similarly fix "trigger 3 times, gain 2 omens" in
+3. Dreamsign-trigger hooks similarly fix "trigger 3 times, gain 2 omens" in
    [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L615). This could
    be a trigger-count reward template with generated Dreamsign predicates and
    value-banded rewards.
@@ -223,7 +108,7 @@ embedded where a reusable generator could own the axis.
    }
    ```
 
-8. Route edit menus are built from named variants with exact route edits, such
+4. Route edit menus are built from named variants with exact route edits, such
    as replacing Draft with Purge, Transfiguration, or Dreamsign Offering in
    [`routeEditCatalog.ts`](../src/journey/fillers/routeEditCatalog.ts#L435).
    The topology is useful, but the site-type pairings and scopes could be
@@ -241,7 +126,7 @@ embedded where a reusable generator could own the axis.
    }
    ```
 
-9. Reveal-choice random menus fix several quantities and outcomes: pool size
+5. Reveal-choice random menus fix several quantities and outcomes: pool size
    five, reveal count three, and a one-Nightmare burden on one branch in
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L349) and
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L511). These
@@ -265,7 +150,7 @@ embedded where a reusable generator could own the axis.
    });
    ```
 
-10. Compound payload families such as `scissor_saint`, `molting_archive`, and
+6. Compound payload families such as `scissor_saint`, `molting_archive`, and
     `withered_orchard` hardcode named cards, Dreamsigns, transfigurations,
     resource amounts, and burden triggers in
     [`shared.ts`](../src/journey/fillers/shared.ts#L3388). These are close to

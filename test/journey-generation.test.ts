@@ -2916,6 +2916,64 @@ describe("generateNextJourney", () => {
     ).toBe(true);
   });
 
+  it("varies starter replacement profiles across starter surgery rewards", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const predicates = new Set<string>();
+
+    for (let index = 0; index < 8; index += 1) {
+      const seed = `starter-replacement-profile:${index}`;
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      const journeyContext = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const drawContext: DrawContext = {
+        seed,
+        contentVersion,
+        rootJourneyIndex: state.generator.rootJourneyIndex,
+      };
+
+      for (const slot of starterSurgeryRewardSlots(
+        journeyContext,
+        drawContext,
+        seed,
+        "early",
+      )) {
+        for (const effect of slot.effects) {
+          if (
+            typeof effect === "object" &&
+            effect !== null &&
+            "kind" in effect &&
+            effect.kind === "starter_replacement" &&
+            "resultPredicate" in effect
+          ) {
+            predicates.add(stableStringify(effect.resultPredicate));
+          }
+        }
+      }
+    }
+
+    const serialized = [...predicates];
+
+    expect(predicates.size).toBeGreaterThanOrEqual(4);
+    expect(serialized.some((predicate) => predicate.includes("cardType"))).toBe(
+      true,
+    );
+    expect(
+      serialized.some((predicate) => predicate.includes("tideOverlap")),
+    ).toBe(true);
+    expect(serialized.some((predicate) => predicate.includes("draftPool"))).toBe(
+      true,
+    );
+  });
+
   it("fails and repairs multi-starter operations when too few starters are available", async () => {
     const journeyContext = await context("starter-too-few");
     journeyContext.state.quest.deck.entries = journeyContext.state.quest.deck.entries.slice(0, 1);
