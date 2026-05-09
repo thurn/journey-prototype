@@ -255,27 +255,6 @@ export function fillOptions(
   const premiumPrice = Math.min(45, context.state.quest.resources.essence);
 
   switch (shapeId) {
-    case "curated_reward_trio": {
-      const rewards = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:positive-menu`,
-      ).filter((reward) => reward.effect >= 170);
-      const draftReward = rewards.find((reward) =>
-        reward.key.startsWith("draft"),
-      );
-      const orderedRewards = [
-        ...(draftReward ? [draftReward] : []),
-        ...rewards.filter((reward) => reward.key !== draftReward?.key),
-      ];
-
-      return {
-        options: orderedRewards
-          .slice(0, 3)
-          .map((reward, index) => rewardSlotOption(index + 1, reward)),
-        precommitted: {},
-      };
-    }
     case "one_target_many_operations": {
       const focus = weightedChoice(
         drawContext,

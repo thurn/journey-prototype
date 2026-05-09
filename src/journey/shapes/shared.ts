@@ -116,12 +116,9 @@ function payloadCompatibilityFor(
     supportedTags.includes("card") ||
     supportedTags.includes("target") ||
     supportedTags.includes("rewrite");
-  const hasDreamsign =
-    supportedTags.includes("dreamsign") ||
-    id === "curated_reward_trio";
+  const hasDreamsign = supportedTags.includes("dreamsign");
   const generatedObjectShape = [
     "same_cost_different_rewards",
-    "curated_reward_trio",
     "one_target_many_operations",
     "mirrored_operations",
     "one_operation_many_targets",
@@ -136,27 +133,19 @@ function payloadCompatibilityFor(
     compatibility(
       "card",
       [
-        ...(id === "curated_reward_trio"
-          ? ["starter-cleanup-replacement"]
-          : []),
         ...(hasCard && isDirectMenu
           ? ["adapter-compatible-card-operations"]
           : []),
       ],
-      hasCard || id === "curated_reward_trio"
+      hasCard
         ? "Shape can expose card targets or card-operation menu rows."
         : "Shape does not expose a legal card-target operation frame.",
     ),
     compatibility(
       "dreamsign",
-      [
-        ...(id === "curated_reward_trio"
-          ? ["dreamsign-transform-duplicate-pool"]
-          : []),
-        ...(hasDreamsign && isDirectMenu
-          ? ["adapter-compatible-dreamsign-operations"]
-          : []),
-      ],
+      hasDreamsign && isDirectMenu
+        ? ["adapter-compatible-dreamsign-operations"]
+        : [],
       hasDreamsign
         ? "Shape can expose Dreamsign targets, rewards, shops, or pool edits."
         : "Shape does not expose a legal Dreamsign target or shop frame.",
@@ -258,16 +247,7 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "generated_object",
-      generatedObjectShape
-        ? id === "curated_reward_trio"
-          ? [
-              "generated-card",
-              "generated-dreamsign",
-              "generated-status",
-              "generated-transfiguration",
-            ]
-          : ["adapter-compatible-generated-objects"]
-        : [],
+      generatedObjectShape ? ["adapter-compatible-generated-objects"] : [],
       generatedObjectShape
         ? "Shape can host manifest-local generated object grants or transforms."
         : "Shape topology has no legal manifest-local generated object host.",
