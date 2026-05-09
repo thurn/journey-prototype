@@ -3542,6 +3542,25 @@ describe("generateNextJourney", () => {
     ]);
   });
 
+  it("profiles generic shop row price ladders by stage", async () => {
+    const content = await loadContent(process.cwd());
+    const journeyContext = contextFromContent(content, "general-shop-1", "late");
+    const manifest = fillForShapeAtStage("shop_row", journeyContext, "late");
+    const costs = manifest.options.map((option) => option.costConvertedEssence);
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(costs).toEqual([20, 30, 40]);
+    expect(
+      manifest.options.map((option) =>
+        option.operations.find((operation) =>
+          operation.operationKind === "reward"
+        )?.rewardKind
+      ),
+    ).not.toEqual(["dreamsign_purchase", "dreamsign_purchase", "dreamsign_purchase"]);
+  });
+
   it("fills shared-cost named Dreamsign shop rows without forced debug payloads", async () => {
     const journeyContext = await context("shop-test-4");
     const manifest = fillForShapeAtStage("shop_row", journeyContext, "mid");

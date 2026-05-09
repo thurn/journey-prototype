@@ -158,6 +158,21 @@ const FLAT_ESCALATING_TRADE_PROFILES = {
   ],
 } as const satisfies Record<JourneyStage, readonly (readonly FlatEscalatingTradeRow[])[]>;
 
+const GENERAL_SHOP_ROW_PRICE_PROFILES = {
+  early: [
+    [10, 15, 20],
+    [15, 20, 25],
+  ],
+  mid: [
+    [15, 20, 25],
+    [20, 25, 30],
+  ],
+  late: [
+    [20, 30, 40],
+    [25, 35, 45],
+  ],
+} as const satisfies Record<JourneyStage, readonly (readonly number[])[]>;
+
 function shopRowPriceText(price: ShopRowPrice): string {
   const unit =
     price.currency === "omens"
@@ -1058,7 +1073,13 @@ export function fillOptions(
         };
       }
 
-      const prices = [15, 20, 25] as const;
+      const priceProfiles: readonly (readonly number[])[] =
+        GENERAL_SHOP_ROW_PRICE_PROFILES[stage];
+      const prices = shuffleDeterministic(
+        drawContext,
+        `${shapeId}:general-price-profile:${stage}`,
+        priceProfiles,
+      )[0]!;
       const rewards = rewardSlots(
         context,
         drawContext,
