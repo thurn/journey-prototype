@@ -344,7 +344,7 @@ function nextShape(manifest: JourneyManifest): JourneyShapeId {
 
   return (
     orderedIds.find((shapeId) => shapeId !== manifest.shapeId) ??
-    "single_reward"
+    journeyShapePlugins()[0]!.id
   );
 }
 
