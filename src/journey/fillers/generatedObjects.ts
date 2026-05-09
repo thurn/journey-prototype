@@ -32,6 +32,30 @@ type GeneratedObjectBody = Omit<
   ruleIds: string[];
 };
 
+type GeneratedObjectBattleWindow = {
+  label: string;
+  count: number;
+};
+
+const GENERATED_OBJECT_BATTLE_WINDOWS: Record<
+  JourneyStage,
+  readonly GeneratedObjectBattleWindow[]
+> = {
+  early: [
+    { label: "next battle", count: 1 },
+    { label: "next 2 battles", count: 2 },
+  ],
+  mid: [
+    { label: "next 2 battles", count: 2 },
+    { label: "next 3 battles", count: 3 },
+  ],
+  late: [
+    { label: "next 2 battles", count: 2 },
+    { label: "next 3 battles", count: 3 },
+    { label: "next 4 battles", count: 4 },
+  ],
+};
+
 export function generatedObjectDuration(
   label: string,
   count: number = 3,
@@ -96,6 +120,17 @@ function referencedName(
   }
 
   return pick(drawContext, label, entries).name;
+}
+
+function generatedObjectBattleWindow(
+  args: NaturalGeneratedObjectArgs,
+  label: string,
+): GeneratedObjectBattleWindow {
+  return pick(
+    args.drawContext,
+    `generated-object:${label}:battle-window`,
+    GENERATED_OBJECT_BATTLE_WINDOWS[args.stage],
+  );
 }
 
 const CARD_PREFIXES = ["Amber", "Hollow", "Rain", "Silver", "Thistle"] as const;
@@ -301,26 +336,27 @@ function naturalDreamsignBody(
   }
 
   if (fragment === "omen-foresee") {
+    const window = generatedObjectBattleWindow(args, "dreamsign:omen-foresee");
+
     return {
-      idPart: "omen-foresee",
+      idPart: `omen-foresee-${window.count}-battles`,
       name,
       objectType: "Dreamsign",
-      rulesText:
-        "For the next 2 battles, the first time you gain an omen each battle, Foresee 2.",
+      rulesText: `For the ${window.label}, the first time you gain an omen each battle, Foresee 2.`,
       tags: ["journey-only", "dreamsign", "battle", "omens"],
       references: {
         rules: ["battle", "omens", "Foresee"],
       },
-      duration: generatedObjectDuration("next 2 battles", 2),
+      duration: generatedObjectDuration(window.label, window.count),
       lifetime: "temporary",
       valueEstimate: {
-        convertedEssence: 135,
+        convertedEssence: 115 + window.count * 10,
         confidence: "medium",
         basis: "Short battle window that converts omen gains into card selection.",
       },
       payload: {
         trigger: "omen gain",
-        durationBattles: 2,
+        durationBattles: window.count,
         action: "Foresee 2",
         source: "manifest_generated",
       },
@@ -468,26 +504,28 @@ function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBod
     };
   }
 
+  const window = generatedObjectBattleWindow(args, "status:purge-copy");
+
   return {
-    idPart: "purge-copy",
+    idPart: `purge-copy-${window.count}-battles`,
     name,
     objectType: "Quest Status",
-    rulesText:
-      "For the next 3 battles, the first card you purge each battle returns as a temporary copy for that battle.",
+    rulesText: `For the ${window.label}, the first card you purge each battle returns as a temporary copy for that battle.`,
     tags: ["journey-only", "status", "battle", "temporary"],
     references: {
       rules: ["battle", "card", "Copy"],
     },
-    duration: generatedObjectDuration("next 3 battles", 3),
+    duration: generatedObjectDuration(window.label, window.count),
     lifetime: "temporary",
     valueEstimate: {
-      convertedEssence: 135,
+      convertedEssence: 105 + window.count * 10,
       confidence: "medium",
       basis: "Temporary battle rule with bounded card-copy upside.",
     },
     payload: {
       statusScope: "battle",
       affectedObject: "card",
+      durationBattles: window.count,
       source: "manifest_generated",
     },
     ruleIds: [

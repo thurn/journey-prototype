@@ -1071,6 +1071,52 @@ describe("generateNextJourney", () => {
     }
   });
 
+  it("profiles natural generated object battle windows by stage", async () => {
+    const journeyContext = await context("natural-generated-object-windows");
+    const cards = journeyContext.content.cards
+      .slice(0, 16)
+      .map((card) => ({ id: card.id, name: card.name }));
+    const dreamsigns = journeyContext.content.dreamsigns
+      .slice(0, 16)
+      .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name }));
+    const definitionsFor = (
+      kind: "dreamsign" | "status",
+      stage: "early" | "late",
+    ) =>
+      Array.from({ length: 128 }, (_, index) =>
+        buildGeneratedObjectDefinition({
+          kind,
+          drawContext: {
+            seed: `natural-generated-window-${kind}-${stage}-${index}`,
+            contentVersion: journeyContext.contentVersion,
+            rootJourneyIndex: 0,
+          },
+          shapeId: "one_target_many_operations",
+          stage,
+          cards,
+          dreamsigns,
+        }),
+      );
+
+    const earlyOmenForeseeDurations = new Set(
+      definitionsFor("dreamsign", "early")
+        .filter((definition) =>
+          definition.generatedObjectId.includes("omen-foresee")
+        )
+        .map((definition) => definition.duration?.count),
+    );
+    const latePurgeCopyDurations = new Set(
+      definitionsFor("status", "late")
+        .filter((definition) =>
+          definition.generatedObjectId.includes("purge-copy")
+        )
+        .map((definition) => definition.duration?.count),
+    );
+
+    expect([...earlyOmenForeseeDurations].sort()).toEqual([1, 2]);
+    expect([...latePurgeCopyDurations].sort()).toEqual([2, 3, 4]);
+  });
+
   slowIt("samples generated-object natural selection rates across a wider deterministic batch", async () => {
     const content = await loadContent(process.cwd());
     const countGenerated = (stage: "early" | "late") =>
