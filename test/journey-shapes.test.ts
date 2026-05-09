@@ -18,6 +18,7 @@ const expectedShapeIds = [
   "random_allocation",
   "same_cost_different_rewards",
   "same_reward_different_costs",
+  "shared_prefix_menu",
   "service_menu",
   "shop_row",
   "curated_reward_trio",
@@ -40,8 +41,10 @@ const expectedShapeIds = [
   "probability_ladder",
   "random_pool_draws",
   "escalating_reward_chain",
+  "flat_escalating_trade",
   "resolved_random_series",
   "single_random_outcome",
+  "reveal_choice_menu",
   "commit_now_future_payoff",
   "alter_dreamscapes",
 ] as const;
@@ -81,8 +84,27 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(29);
+    expect(actualShapeIds).toHaveLength(32);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
+  });
+
+  it("keeps Milestone 19 topology additions scoped to genuinely missing roots", () => {
+    expect(getShapeDefinition("flat_escalating_trade")).toMatchObject({
+      topology: "direct_menu",
+      rootOptionCount: { min: 3, max: 4 },
+    });
+    expect(getShapeDefinition("reveal_choice_menu")).toMatchObject({
+      topology: "random_commit",
+      rootOptionCount: { min: 3, max: 3 },
+    });
+    expect(getShapeDefinition("shared_prefix_menu")).toMatchObject({
+      topology: "direct_menu",
+      rootOptionCount: { min: 3, max: 3 },
+    });
+    expect(isJourneyShapeId("return_row")).toBe(false);
+    expect(isJourneyShapeId("compound_service_menu")).toBe(false);
+    expect(getShapeDefinition("paired_return").rootOptionCount.max).toBe(3);
+    expect(getShapeDefinition("service_menu").supportedTags).toContain("service");
   });
 
   it("provides complete definitions and lookups for every canonical shape", () => {
@@ -297,7 +319,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v12;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v13;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

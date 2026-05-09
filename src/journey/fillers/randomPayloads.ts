@@ -11,6 +11,7 @@ import type {
 import { adaptRewardPoolOperations } from "../operationAdapters.js";
 import {
   DREAMSIGN_VALUE_CONSTANTS,
+  valueBaneBurden,
   valueBaneGain,
   valueBanePurge,
   valueDreamsignOperation,
@@ -28,6 +29,7 @@ import {
 } from "./dreamsignPayloads.js";
 import {
   CARD_DRAFT_PROFILES,
+  baneBurden,
   cardDraftText,
   cost,
   gainEssence,
@@ -465,6 +467,143 @@ export function revealChoiceOptions(args: {
         riskPremiumConvertedEssence: -14,
         worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
         presentation: "covered_cups_gain_random_reward",
+      },
+    ],
+  };
+}
+
+export function revealChoiceMenuOptions(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+}): {
+  options: JourneyOption[];
+  precommitted: RandomPrecommittedOutcome[];
+} {
+  const wheel = visibleWheelPool({
+    ...args,
+    size: 5,
+  });
+  const candidates = wheel.candidates;
+  const poolId = `${args.label}:visible-wheel`;
+  const revealCount = Math.min(3, candidates.length);
+  const allPayloads = flattenPayloads(candidates);
+  const revealed = flattenPayloads(candidates.slice(0, revealCount));
+  const randomIndex = drawInt(
+    args.drawContext,
+    `${args.label}:revealed-random-index`,
+    0,
+    candidates.length - 1,
+  );
+  const hiddenIndex = drawInt(
+    args.drawContext,
+    `${args.label}:hidden-random-index`,
+    0,
+    candidates.length - 1,
+  );
+  const revealedText = candidates
+    .slice(0, revealCount)
+    .map((candidate) => lowerFirst(candidate.text).replace(/\.$/u, ""))
+    .join("; ");
+  const randomRevealed = candidates[randomIndex]!;
+  const hiddenReward = candidates[hiddenIndex]!;
+  const nightmare = baneBurden("Nightmare", 1);
+
+  return {
+    options: [
+      option({
+        number: 1,
+        text: `Reveal ${revealCount} rewards (${revealedText}). Choose one revealed reward.`,
+        effects: [{ kind: "random_reward", table: "reveal_choice", revealCount }],
+        effect: Math.max(
+          ...candidates.slice(0, revealCount).map((candidate) => candidate.value),
+        ),
+        uncertainty: -10,
+      }),
+      option({
+        number: 2,
+        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) and gain 1 {Nightmare}.`,
+        effects: [{ kind: "random_reward", table: "visible_reveal_pool" }],
+        burdens: [nightmare],
+        burden: valueBaneBurden({ baneName: "Nightmare", count: 1 }),
+        effect: averageValue(candidates),
+        uncertainty: -16,
+      }),
+      option({
+        number: 3,
+        text: "Gain one random reward from the visible pool.",
+        effects: [{ kind: "random_reward", table: "visible_reveal_pool", poolId }],
+        effect: averageValue(candidates),
+        uncertainty: -14,
+      }),
+    ],
+    precommitted: [
+      wheel.visiblePoolEnvelope,
+      {
+        kind: "reveal_rewards",
+        optionNumber: 1,
+        revealCount,
+        rewards: revealed,
+        visibilityPolicy: randomVisibility(
+          "pre_rolled",
+          "The revealed rewards are pre-rolled and shown in root option copy.",
+          true,
+        ),
+        expectedConvertedEssence: averageValue(candidates.slice(0, revealCount)),
+        riskPremiumConvertedEssence: -5,
+        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        presentation: "reveal_choice_menu_reveal",
+      },
+      {
+        kind: "choose_one_revealed_reward",
+        optionNumber: 1,
+        revealCount,
+        rewards: revealed,
+        visibilityPolicy: randomVisibility(
+          "visible",
+          "The player chooses one reward from the revealed set.",
+          true,
+        ),
+        expectedConvertedEssence: Math.max(
+          ...candidates.slice(0, revealCount).map((candidate) => candidate.value),
+        ),
+        riskPremiumConvertedEssence: 0,
+        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        presentation: "reveal_choice_menu_choose_revealed",
+      },
+      {
+        kind: "choose_one_random_revealed_reward",
+        optionNumber: 2,
+        revealCount: candidates.length,
+        rewards: allPayloads,
+        committedReward: randomRevealed.payloads,
+        visibilityPolicy: randomVisibility(
+          "pre_rolled",
+          "A reward is selected at random from the revealed set and committed in metadata.",
+          true,
+        ),
+        expectedConvertedEssence: averageValue(candidates),
+        riskPremiumConvertedEssence: -10,
+        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        presentation: "reveal_choice_menu_choose_random_revealed",
+      },
+      {
+        kind: "gain_one_random_reward",
+        optionNumber: 3,
+        poolId,
+        rewards: allPayloads,
+        committedReward: hiddenReward.payloads,
+        visibilityPolicy: randomVisibility(
+          "hidden_until_resolution",
+          "The visible pool is disclosed, but this selected reward stays hidden until resolution.",
+          false,
+          "after entry",
+        ),
+        expectedConvertedEssence: averageValue(candidates),
+        riskPremiumConvertedEssence: -14,
+        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        presentation: "reveal_choice_menu_gain_random_reward",
       },
     ],
   };

@@ -666,7 +666,7 @@ describe("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v12",
+      shapeCatalogVersion: "journey-shapes:v13",
       effectCatalogVersion: "effects:v7",
       valueModelVersion: "value:v9",
       rendererVersion: "renderer:v1",
@@ -7287,6 +7287,92 @@ describe("validateJourneyManifest", () => {
     );
   });
 
+  it("builds Covered Cups as a reveal-choice root menu when forced", async () => {
+    const journeyContext = await context("covered-cups-reveal-choice-menu");
+    const manifest = fillForShapeAtStage(
+      "reveal_choice_menu",
+      journeyContext,
+      "mid",
+    );
+    const kinds = manifest.precommitted.random?.map((entry) => entry.kind) ?? [];
+
+    expect(manifest.shapeId).toBe("reveal_choice_menu");
+    expect(manifest.options).toHaveLength(3);
+    expect(manifest.tree).toBeUndefined();
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      expect.stringMatching(/^Reveal 3 rewards/u),
+      expect.stringMatching(/^Reveal 5 rewards.+gain 1 \{Nightmare\}/u),
+      expect.stringMatching(/^Gain one random reward/u),
+    ]);
+    expect(manifest.options[1]?.burdens).toEqual([
+      expect.objectContaining({ kind: "bane_gain", baneName: "Nightmare" }),
+    ]);
+    expect(kinds).toEqual(
+      expect.arrayContaining([
+        "visible_pool",
+        "reveal_rewards",
+        "choose_one_revealed_reward",
+        "choose_one_random_revealed_reward",
+        "gain_one_random_reward",
+      ]),
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("builds Bottomless Bowl as a flat escalating trade menu", async () => {
+    const journeyContext = await context("bottomless-bowl-flat-trade");
+    const manifest = fillForShapeAtStage(
+      "flat_escalating_trade",
+      journeyContext,
+      "mid",
+    );
+
+    expect(manifest.shapeId).toBe("flat_escalating_trade");
+    expect(manifest.tree).toBeUndefined();
+    expect(manifest.options.map((option) => option.text)).toEqual([
+      "Pay 20 essence. Gain 1 omen.",
+      "Pay 45 essence. Gain 2 omens.",
+      "Pay 80 essence. Gain 3 omens.",
+    ]);
+    expect(manifest.options.map((option) => option.costConvertedEssence)).toEqual([
+      20,
+      45,
+      80,
+    ]);
+    expect(manifest.options.map((option) => option.effectConvertedEssence)).toEqual([
+      65,
+      130,
+      195,
+    ]);
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("builds shared-prefix menus without reusing the same-cost shape", async () => {
+    const journeyContext = await context("shared-prefix-menu-forced");
+    const manifest = fillForShapeAtStage("shared_prefix_menu", journeyContext, "mid");
+
+    expect(manifest.shapeId).toBe("shared_prefix_menu");
+    expect(manifest.options).toHaveLength(3);
+    expect(manifest.tree).toBeUndefined();
+    expect(manifest.debug.symmetryContracts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sharedFirst: true,
+          contractKind: expect.stringMatching(
+            /^(shared_burden_different_rewards|shared_cleanup_followup_rewards)$/u,
+          ),
+        }),
+      ]),
+    );
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+  });
+
   it("builds Bounded Wheel as a visible mixed pool with roll-twice keep-one", async () => {
     const content = await loadContent(process.cwd());
     const matches = Array.from({ length: 24 }, (_, index) => {
@@ -7556,7 +7642,7 @@ describe("validateJourneyManifest", () => {
     const normalBatch = [
       normalManifest("curated_reward_trio", "matrix-three-masks"),
       normalManifest("alter_dreamscapes", "matrix-atlas-locksmith", "late"),
-      normalManifest("random_pool_draws", "matrix-bottomless-bowl", "mid"),
+      normalManifest("flat_escalating_trade", "matrix-bottomless-bowl", "mid"),
     ];
     const brainstormMatrixSamples = [
       {
@@ -7579,7 +7665,7 @@ describe("validateJourneyManifest", () => {
       },
       {
         example: "Bottomless Bowl",
-        normalReach: "partial_tree",
+        normalReach: "supported",
         requirement: {
           payloadFamilies: ["resource_cost:essence", "resource"],
           timingFamilies: ["immediate"],
@@ -7587,7 +7673,7 @@ describe("validateJourneyManifest", () => {
       },
     ] satisfies readonly {
       example: string;
-      normalReach: "partial" | "partial_tree";
+      normalReach: "partial" | "supported";
       requirement: ReachabilityFamilyRequirement;
     }[];
 

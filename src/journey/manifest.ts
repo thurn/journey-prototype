@@ -860,7 +860,8 @@ export type JourneySymmetryContractDebug = {
     | "shared_source_site_destinations"
     | "shared_timing_different_rewards"
     | "shared_future_trigger_outcomes"
-    | "shared_cleanup_followup_rewards";
+    | "shared_cleanup_followup_rewards"
+    | "flat_escalating_trade";
   sharedProperty: string;
   variedProperty: string;
   sharedFirst: boolean;

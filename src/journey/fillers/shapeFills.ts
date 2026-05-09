@@ -99,6 +99,7 @@ import {
   randomBaneChanceEnvelope,
   randomRiskCostEnvelope,
   randomVisibility,
+  revealChoiceMenuOptions,
   revealChoiceOptions,
   wheelRootOptions,
 } from "./randomPayloads.js";
@@ -556,6 +557,51 @@ export function fillOptions(
           }),
         ],
       };
+    }
+    case "shared_prefix_menu": {
+      const prefixFamily = weightedChoice(
+        drawContext,
+        `${shapeId}:prefix-family`,
+        [
+          { item: "shared_bane_burden", weight: 3 },
+          { item: "starter_cleanup_prefix", weight: 2 },
+        ] as const,
+      );
+      const cleanupPrefixFill = prefixFamily === "starter_cleanup_prefix"
+        ? sharedStarterCleanupRewardFill({
+            context,
+            drawContext,
+            label: shapeId,
+            stage,
+          })
+        : undefined;
+      const prefixFill =
+        cleanupPrefixFill ??
+        sharedBaneBurdenRewardFill({
+          context,
+          drawContext,
+          label: shapeId,
+          stage,
+        });
+
+      if (prefixFill) {
+        return {
+          options: prefixFill.options,
+          precommitted: {
+            routeEdits: prefixFill.options.flatMap(
+              (journeyOption) => journeyOption.routeEffects,
+            ),
+          },
+          symmetryContracts: prefixFill.symmetryContracts,
+        };
+      }
+
+      return fillOptions(
+        "same_cost_different_rewards",
+        context,
+        drawContext,
+        stage,
+      );
     }
     case "same_reward_different_costs": {
       const family = pickSequentialVariant(drawContext, `${shapeId}:family`, [
@@ -2100,6 +2146,40 @@ export function fillOptions(
         },
       };
     }
+    case "flat_escalating_trade": {
+      const prices = [20, 45, 80] as const;
+      const omenRewards = [1, 2, 3] as const;
+
+      return {
+        options: prices.map((price, index) => {
+          const omens = omenRewards[index]!;
+
+          return option({
+            number: index + 1,
+            text: `Pay ${price} essence. Gain ${omens} ${omens === 1 ? "omen" : "omens"}.`,
+            costs: [{ ...cost("essence", price), escalationTier: `tier_${index + 1}` }],
+            effects: [{ ...gainOmen(omens), escalationTier: `tier_${index + 1}` }],
+            cost: price,
+            effect: valueOmenGain(omens),
+          });
+        }),
+        precommitted: {},
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "flat_escalating_trade",
+            sharedProperty: "essence-for-omens trade family",
+            variedProperty: "strictly increasing price and omen reward",
+            sharedFirst: true,
+            optionNumbers: [1, 2, 3],
+            sharedPayloadKeys: ["resource-cost:essence", "resource-reward:omens"],
+            variedPayloadKeys: prices.map((price, index) =>
+              `essence:${price}->omens:${omenRewards[index]!}`
+            ),
+            weight: 3,
+          }),
+        ],
+      };
+    }
     case "timed_window_menu": {
       const timedWindow = timedWindowMenuFill({ context, drawContext, shapeId });
 
@@ -2220,6 +2300,21 @@ export function fillOptions(
       }
 
       const reveal = revealChoiceOptions({
+        context,
+        drawContext,
+        label: `${shapeId}:reveal`,
+        stage,
+      });
+
+      return {
+        options: reveal.options,
+        precommitted: {
+          random: reveal.precommitted,
+        },
+      };
+    }
+    case "reveal_choice_menu": {
+      const reveal = revealChoiceMenuOptions({
         context,
         drawContext,
         label: `${shapeId}:reveal`,

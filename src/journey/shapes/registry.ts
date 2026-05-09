@@ -3,6 +3,7 @@ import { chooseYourLossPlugin } from "./choose_your_loss.js";
 import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff.js";
 import { curatedRewardTrioPlugin } from "./curated_reward_trio.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain.js";
+import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair.js";
 import { mirroredOperationsPlugin } from "./mirrored_operations.js";
 import { nowVsLaterPlugin } from "./now_vs_later.js";
@@ -20,6 +21,7 @@ import { riskOrSkipPlugin } from "./risk_or_skip.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards.js";
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs.js";
 import { serviceMenuPlugin } from "./service_menu.js";
+import { sharedPrefixMenuPlugin } from "./shared_prefix_menu.js";
 import { shopRowPlugin } from "./shop_row.js";
 import { singleOfferPlugin } from "./single_offer.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome.js";
@@ -27,6 +29,7 @@ import { singleRewardPlugin } from "./single_reward.js";
 import { singleWagerPlugin } from "./single_wager.js";
 import { takeAnyNumberPlugin } from "./take_any_number.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu.js";
+import { revealChoiceMenuPlugin } from "./reveal_choice_menu.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
 import type {
   JourneyShapeDefinition,
@@ -38,6 +41,7 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   randomAllocationPlugin,
   sameCostDifferentRewardsPlugin,
   sameRewardDifferentCostsPlugin,
+  sharedPrefixMenuPlugin,
   serviceMenuPlugin,
   shopRowPlugin,
   curatedRewardTrioPlugin,
@@ -60,8 +64,10 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   probabilityLadderPlugin,
   randomPoolDrawsPlugin,
   escalatingRewardChainPlugin,
+  flatEscalatingTradePlugin,
   resolvedRandomSeriesPlugin,
   singleRandomOutcomePlugin,
+  revealChoiceMenuPlugin,
   commitNowFuturePayoffPlugin,
   alterDreamscapesPlugin,
 ] satisfies readonly JourneyShapePlugin[]);

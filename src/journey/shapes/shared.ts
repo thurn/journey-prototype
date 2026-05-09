@@ -11,7 +11,7 @@ import type {
   ShapeValidator,
 } from "./types.js";
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v12";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v13";
 
 export const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -103,6 +103,7 @@ function payloadCompatibilityFor(
     id === "shop_row" ||
     id === "curated_reward_trio";
   const serviceFamilyShape = id === "service_menu";
+  const sharedPrefixShape = id === "shared_prefix_menu";
   const generatedObjectShape = [
     "random_allocation",
     "same_cost_different_rewards",
@@ -155,9 +156,10 @@ function payloadCompatibilityFor(
       "bane",
       [
         ...(serviceFamilyShape ? ["bane-gain-purge-transform"] : []),
+        ...(sharedPrefixShape ? ["shared-bane-prefix"] : []),
         ...(id === "choose_your_loss" ? ["adapter-compatible-bane-losses"] : []),
       ],
-      serviceFamilyShape || id === "choose_your_loss"
+      serviceFamilyShape || sharedPrefixShape || id === "choose_your_loss"
         ? "Shape can frame Bane gain, purge, and transformation decisions."
         : "Shape lacks a controlled Bane-operation or loss-choice frame.",
     ),
