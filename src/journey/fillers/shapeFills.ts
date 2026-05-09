@@ -86,7 +86,6 @@ import {
   randomVisibility,
 } from "./randomPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
-import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 import { sameCostDifferentRewardsFill } from "../shapes/same_cost_different_rewards/fill.js";
 
 export { sharedBaneBurdenRewardFill } from "./shared.js";
@@ -844,17 +843,6 @@ export function fillOptions(
             weight: 3,
           }),
         ],
-      };
-    }
-    case "timed_window_menu": {
-      const timedWindow = timedWindowMenuFill({ context, drawContext, shapeId });
-
-      return {
-        options: timedWindow.options,
-        precommitted: timedWindow.routeEdits.length > 0
-          ? { routeEdits: timedWindow.routeEdits }
-          : {},
-        symmetryContracts: timedWindow.symmetryContracts,
       };
     }
     case "resolved_random_series": {
