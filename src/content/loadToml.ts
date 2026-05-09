@@ -124,7 +124,11 @@ async function readContentFile(projectRoot: string, relativePath: string) {
   }
 }
 
-export async function loadContent(projectRoot: string): Promise<ContentBundle> {
+const contentCache = new Map<string, Promise<ContentBundle>>();
+
+async function loadContentUncached(
+  projectRoot: string,
+): Promise<ContentBundle> {
   const [cardsToml, dreamcallersToml, dreamsignsToml] = await Promise.all([
     readContentFile(projectRoot, "data/cards.toml"),
     readContentFile(projectRoot, "data/dreamcallers.toml"),
@@ -162,4 +166,17 @@ export async function loadContent(projectRoot: string): Promise<ContentBundle> {
   validateContent(content);
 
   return content;
+}
+
+export function loadContent(projectRoot: string): Promise<ContentBundle> {
+  const cached = contentCache.get(projectRoot);
+  if (cached) {
+    return cached;
+  }
+  const promise = loadContentUncached(projectRoot).catch((error) => {
+    contentCache.delete(projectRoot);
+    throw error;
+  });
+  contentCache.set(projectRoot, promise);
+  return promise;
 }

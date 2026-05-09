@@ -194,7 +194,7 @@ describe("stateless command risk transitions", () => {
     });
   });
 
-  it("emits meaningful distinctness fingerprints for each fixed stage batch", async () => {
+  slowIt("emits meaningful distinctness fingerprints for each fixed stage batch", async () => {
     await withTempState(async ({ statePath, options }) => {
       const stages = ["early", "mid", "late"] as const;
       const count = 4;

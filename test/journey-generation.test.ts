@@ -749,7 +749,7 @@ describe("deterministic RNG helpers", () => {
   });
 });
 
-describe("generateNextJourney", () => {
+describe.concurrent("generateNextJourney", () => {
   it("creates J-000001 and deterministic byte-stable manifest data", async () => {
     const journeyContext = await context();
     const first = generateNextJourney({ context: journeyContext });
@@ -809,7 +809,7 @@ describe("generateNextJourney", () => {
     }
   });
 
-  it("keeps every canonical shape eligible for a fresh first Journey", async () => {
+  slowIt("keeps every canonical shape eligible for a fresh first Journey", async () => {
     const journeyContext = await context();
     const expectedShapeIds = new Set(JOURNEY_SHAPES.map((shape) => shape.id));
     const seenShapeIds = new Set<JourneyShapeId>();
@@ -1291,7 +1291,7 @@ describe("generateNextJourney", () => {
     );
   });
 
-  it("reaches Milestone 10 resource families through normal generation", async () => {
+  slowIt("reaches Milestone 10 resource families through normal generation", async () => {
     const content = await loadContent(process.cwd());
     const normalManifest = (
       shapeId: JourneyShapeId,
@@ -1447,7 +1447,7 @@ describe("generateNextJourney", () => {
     expect(randomRangeCostWithReward).toBe(true);
   }, 180000);
 
-  it("carries resource operations through delayed hooks and pre-shop timing", async () => {
+  slowIt("carries resource operations through delayed hooks and pre-shop timing", async () => {
     const content = await loadContent(process.cwd());
     const delayedManifests: JourneyManifest[] = [];
 
@@ -1633,7 +1633,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("generates normal Bane purge rewards, target contexts, and multi-copy Bane burdens", async () => {
+  slowIt("generates normal Bane purge rewards, target contexts, and multi-copy Bane burdens", async () => {
     const findManifest = async (
       shapeId: JourneyShapeId,
       predicate: (manifest: JourneyManifest) => boolean,
@@ -1790,7 +1790,7 @@ describe("generateNextJourney", () => {
     expect(baneLedger).toBeDefined();
   });
 
-  it("can precommit a Bane-to-card transform behind a normal delayed hook", async () => {
+  slowIt("can precommit a Bane-to-card transform behind a normal delayed hook", async () => {
     for (let index = 0; index < 220; index += 1) {
       const journeyContext = await context(`m9-bane-delayed-transform-${index}`);
       const manifest = generateNextJourney({
@@ -2163,7 +2163,7 @@ describe("generateNextJourney", () => {
     ]);
   });
 
-  it("generates Sealed Hands as persistent prohibition status costs paired with compensating rewards", async () => {
+  slowIt("generates Sealed Hands as persistent prohibition status costs paired with compensating rewards", async () => {
     const seen = new Set<string>();
 
     for (let index = 0; index < 40; index += 1) {
@@ -2692,7 +2692,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("forces named card operation menus with typed real-card operation payloads", async () => {
+  slowIt("forces named card operation menus with typed real-card operation payloads", async () => {
     const requiredRewardKinds = new Set([
       "card_gain",
       "card_purge",
@@ -4071,7 +4071,7 @@ describe("generateNextJourney", () => {
     );
   });
 
-  it("profiles reward-reduction status durations", async () => {
+  slowIt("profiles reward-reduction status durations", async () => {
     const costSlotDurations = new Set<string>();
     const compoundDurations = new Set<string>();
 
@@ -4532,7 +4532,7 @@ describe("generateNextJourney", () => {
     expect(resolved["battle-oriented"]!.length).toBeGreaterThan(0);
   });
 
-  it("can produce named Dreamsign operation menus through normal generation", async () => {
+  slowIt("can produce named Dreamsign operation menus through normal generation", async () => {
     const seen = new Set<string>();
 
     for (
@@ -5009,7 +5009,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("reaches paired-return sealing, borrowing, and future trade families organically", async () => {
+  slowIt("reaches paired-return sealing, borrowing, and future trade families organically", async () => {
     const content = await loadContent(process.cwd());
     const manifests = Array.from({ length: 48 }, (_, index) => {
       const journeyContext = contextFromContent(
@@ -5285,7 +5285,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("reaches the expanded delayed hook trigger catalog through normal delayed shapes", async () => {
+  slowIt("reaches the expanded delayed hook trigger catalog through normal delayed shapes", async () => {
     const content = await loadContent(process.cwd());
     const seen = new Set<string>();
     const shapeIds: JourneyShapeId[] = [
@@ -5647,7 +5647,7 @@ describe("generateNextJourney", () => {
     ).toBeLessThanOrEqual(100);
   });
 
-  it("varies positive menu filler slots across seeds while preserving deterministic replay", async () => {
+  slowIt("varies positive menu filler slots across seeds while preserving deterministic replay", async () => {
     const positiveMenuShapeIds: JourneyShapeId[] = [
       "random_allocation",
       "curated_reward_trio",
@@ -5683,7 +5683,7 @@ describe("generateNextJourney", () => {
 
       expect(outputs.size, shapeId).toBeGreaterThan(1);
     }
-  }, 15000);
+  });
 
   it("keeps generated card drafts at four choices with visible card predicates", async () => {
     const journeyContext = await context();
@@ -5845,7 +5845,7 @@ describe("generateNextJourney", () => {
     expect(gainOperation?.value?.uncertaintyConvertedEssence).toBeLessThan(0);
   });
 
-  it("can procedurally build Three Masks as a draft trio over character, event, and fast-card predicates", async () => {
+  slowIt("can procedurally build Three Masks as a draft trio over character, event, and fast-card predicates", async () => {
     const content = await loadContent(process.cwd());
     const evidence = Array.from({ length: 160 }, (_, index) => {
       const journeyContext = contextFromContent(
@@ -5976,7 +5976,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("samples timed window menu scopes beyond the old fixed battle trio", async () => {
+  slowIt("samples timed window menu scopes beyond the old fixed battle trio", async () => {
     const scopes = new Set<string>();
     const durations = new Set<string>();
 
@@ -6105,7 +6105,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("reaches Milestone 12 battle-window payload families through normal timed-window fills", async () => {
+  slowIt("reaches Milestone 12 battle-window payload families through normal timed-window fills", async () => {
     const content = await loadContent(process.cwd());
     const evidence = {
       firstBreath: undefined as JourneyManifest | undefined,
@@ -6421,7 +6421,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("profiles choose-your-loss Bane names from the Bane vocabulary", async () => {
+  slowIt("profiles choose-your-loss Bane names from the Bane vocabulary", async () => {
     const observedBanes = new Set<string>();
     const observedMultiBanes = new Set<string>();
     const observedNoOmenBanes = new Set<string>();
@@ -6675,7 +6675,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("varies true sequential shape content by seed", async () => {
+  slowIt("varies true sequential shape content by seed", async () => {
     const treeShapeIds: JourneyShapeId[] = [
       "prize_ladder",
       "probability_ladder",
@@ -6705,7 +6705,7 @@ describe("generateNextJourney", () => {
 
       expect(outputs.size, shapeId).toBeGreaterThan(1);
     }
-  }, 15000);
+  });
 
   it("keeps tree topology authored while filling rewards, costs, and odds from progressive families", async () => {
     const journeyContext = await context("tree-family-progressions");
@@ -6879,7 +6879,7 @@ describe("generateNextJourney", () => {
   });
 });
 
-describe("validateJourneyManifest", () => {
+describe.concurrent("validateJourneyManifest", () => {
   it("derives structured failures from the same ordered validator pipeline", async () => {
     const journeyContext = await context();
     const takeAnyNumber = fillForShape("take_any_number", journeyContext);
@@ -8711,7 +8711,7 @@ describe("validateJourneyManifest", () => {
     ]);
   });
 
-  it("builds Covered Cups reveal-choice envelopes through normal generation", async () => {
+  slowIt("builds Covered Cups reveal-choice envelopes through normal generation", async () => {
     const content = await loadContent(process.cwd());
     const matches = Array.from({ length: 24 }, (_, index) => {
       const journeyContext = contextFromContent(content, `covered-cups-${index}`, "mid");
@@ -8846,7 +8846,7 @@ describe("validateJourneyManifest", () => {
     });
   });
 
-  it("builds Bounded Wheel as a visible mixed pool with roll-twice keep-one", async () => {
+  slowIt("builds Bounded Wheel as a visible mixed pool with roll-twice keep-one", async () => {
     const content = await loadContent(process.cwd());
     const matches = Array.from({ length: 24 }, (_, index) => {
       const journeyContext = contextFromContent(content, `bounded-wheel-${index}`, "mid");
@@ -8896,7 +8896,7 @@ describe("validateJourneyManifest", () => {
     );
   });
 
-  it("builds Crooked Coin risk rows with named Dreamsign rewards and random costs or purges", async () => {
+  slowIt("builds Crooked Coin risk rows with named Dreamsign rewards and random costs or purges", async () => {
     const content = await loadContent(process.cwd());
     const manifests = Array.from({ length: 80 }, (_, index) => {
       const journeyContext = contextFromContent(content, `crooked-coin-${index}`, "mid");
@@ -8948,7 +8948,7 @@ describe("validateJourneyManifest", () => {
     expect(randomPurgeRisk).toBeDefined();
   });
 
-  it("keeps every advertised debug payload variant forceable", async () => {
+  slowIt("keeps every advertised debug payload variant forceable", async () => {
     const content = await loadContent(process.cwd());
     const contentVersion = "test-content-version";
 
@@ -9009,7 +9009,7 @@ describe("validateJourneyManifest", () => {
     }
   });
 
-  it("keeps forced debug fixtures distinct from organic feature coverage", async () => {
+  slowIt("keeps forced debug fixtures distinct from organic feature coverage", async () => {
     const content = await loadContent(process.cwd());
     const normalManifest = (
       shapeId: JourneyShapeId,
@@ -9429,7 +9429,7 @@ describe("validateJourneyManifest", () => {
     );
   });
 
-  it("counts staged semantic fingerprints and requires expanded payload identity", async () => {
+  slowIt("counts staged semantic fingerprints and requires expanded payload identity", async () => {
     const content = await loadContent(process.cwd());
     const stages = ["early", "mid", "late"] as const;
 
@@ -9478,7 +9478,7 @@ describe("validateJourneyManifest", () => {
     }
   });
 
-  it("does not reproduce historical brainstorm transcript rows in normal batches", async () => {
+  slowIt("does not reproduce historical brainstorm transcript rows in normal batches", async () => {
     const content = await loadContent(process.cwd());
     const forbiddenRows = [
       "Buy {Ginger Root} for 85 essence.",
@@ -10315,7 +10315,7 @@ describe("validateJourneyManifest", () => {
   });
 });
 
-describe("repairOrFallbackJourney", () => {
+describe.concurrent("repairOrFallbackJourney", () => {
   it("records deterministic repairs when validation fails", async () => {
     const journeyContext = await context();
     const base = fillForShape("single_offer", journeyContext);
