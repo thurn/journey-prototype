@@ -170,12 +170,6 @@ const FLAT_ESCALATING_TRADE_PROFILES = {
   ],
 } as const satisfies Record<JourneyStage, readonly (readonly FlatEscalatingTradeRow[])[]>;
 
-const NOW_VS_LATER_IMMEDIATE_ESSENCE_AMOUNTS = {
-  early: [80, 100],
-  mid: [100, 120],
-  late: [120, 150],
-} as const satisfies Record<JourneyStage, readonly number[]>;
-
 function namedDeckCardTargetEntries(args: {
   context: JourneyContext;
   drawContext: DrawContext;
@@ -1387,114 +1381,6 @@ export function fillOptions(
         ],
         precommitted: {
           random: [firstWagerEnvelope, secondWagerEnvelope],
-        },
-      };
-    }
-    case "now_vs_later": {
-      const expandedHooks = expandedDelayedHookFills({
-        context,
-        drawContext,
-        label: `${shapeId}:expanded`,
-        stage,
-      });
-      const namedFuture = expandedHooks.find((entry) =>
-        entry.key === "victory:two:named-dreamsign"
-      );
-      const immediateDreamsign = selectContentBackedDreamsign({
-        context,
-        drawContext,
-        label: `${shapeId}:immediate-dreamsign`,
-        stage,
-        sources: ["catalog"],
-      });
-      if (namedFuture && immediateDreamsign) {
-        const immediateEffect = namedDreamsignPayload(
-          {
-            kind: "dreamsign_gain",
-            dreamsign: immediateDreamsign.dreamsign,
-            source: immediateDreamsign.source,
-            extra: {
-              targetOrigin: immediateDreamsign.targetOrigin,
-              selectionWeight: immediateDreamsign.weight,
-              weightHooks: immediateDreamsign.weightHooks,
-            },
-          },
-          context,
-        );
-        const delayedHook = delayedHookFillFromExpanded({
-          shapeId,
-          optionNumber: 2,
-          fill: namedFuture,
-        });
-
-        return {
-          options: [
-            option({
-              number: 1,
-              text: `Gain {${immediateDreamsign.dreamsign.name}}.`,
-              effects: [immediateEffect],
-              targets: [
-                dreamsignExactTarget(
-                  immediateDreamsign.dreamsign,
-                  immediateDreamsign.source,
-                ),
-              ],
-              effect: valueDreamsignOperation("gain", {
-                tideOverlap: immediateDreamsign.weightHooks.tideOverlap > 0,
-              }),
-            }),
-            delayedHook.option,
-          ],
-          precommitted: {
-            delayed: [delayedHook.precommit],
-          },
-        };
-      }
-
-      const reward = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:reward`,
-      ).filter((entry) => entry.routeEffects === undefined)[0]!;
-      const immediateEssenceAmount = shuffleDeterministic(
-        drawContext,
-        `${shapeId}:immediate-essence:${stage}`,
-        NOW_VS_LATER_IMMEDIATE_ESSENCE_AMOUNTS[stage],
-      )[0]!;
-      const immediateReward = {
-        ...reward,
-        text: reward.key === "essence"
-          ? `Gain ${immediateEssenceAmount} essence.`
-          : reward.text,
-        effects: reward.key === "essence"
-          ? [gainEssence(immediateEssenceAmount)]
-          : reward.effects,
-        effect:
-          reward.key === "essence"
-            ? immediateEssenceAmount
-            : Math.max(120, Math.round(reward.effect * 0.65)),
-      };
-      const timing = timingSlots(drawContext, `${shapeId}:timing`).find(
-        (entry) =>
-          entry.key === "two-dreamscapes" || entry.key === "next-dreamscape",
-      )!;
-      const delayedReward = {
-        ...reward,
-        effect: Math.round(
-          reward.effect * (timing.key === "two-dreamscapes" ? 2.6 : 1.45),
-        ),
-      };
-      const delayedHook = delayedRewardHookFill({
-        shapeId,
-        optionNumber: 2,
-        timing,
-        reward: delayedReward,
-      });
-
-      return {
-        options: [rewardSlotOption(1, immediateReward), delayedHook.option],
-        precommitted: {
-          delayed: [delayedHook.precommit],
         },
       };
     }
