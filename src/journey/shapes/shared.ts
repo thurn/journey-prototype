@@ -121,7 +121,6 @@ function payloadCompatibilityFor(
   const serviceFamilyShape = id === "service_menu";
   const sharedPrefixShape = id === "shared_prefix_menu";
   const generatedObjectShape = [
-    "random_allocation",
     "same_cost_different_rewards",
     "service_menu",
     "curated_reward_trio",

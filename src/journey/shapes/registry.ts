@@ -13,7 +13,7 @@ import { pairedReturnPlugin } from "./paired_return.js";
 import { prizeLadderPlugin } from "./prize_ladder/index.js";
 import { probabilityLadderPlugin } from "./probability_ladder.js";
 import { pushYourLuckPlugin } from "./push_your_luck.js";
-import { randomAllocationPlugin } from "./random_allocation.js";
+import { randomAllocationPlugin } from "./random_allocation/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws.js";
 import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
