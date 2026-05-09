@@ -87,8 +87,6 @@ import {
   randomBaneChanceEnvelope,
   randomRiskCostEnvelope,
   randomVisibility,
-  revealChoiceOptions,
-  wheelRootOptions,
 } from "./randomPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
@@ -1161,44 +1159,6 @@ export function fillOptions(
               riskPremiumConvertedEssence: -4,
             },
           ],
-        },
-      };
-    }
-    case "single_random_outcome": {
-      const family = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:random-family`,
-        ["reveal_choice", "visible_wheel"] as const,
-      );
-
-      if (family === "visible_wheel") {
-        const wheel = wheelRootOptions({
-          context,
-          drawContext,
-          label: `${shapeId}:wheel`,
-          stage,
-        });
-
-        return {
-          options: wheel.options,
-          rewardPool: wheel.rewardPool,
-          precommitted: {
-            random: wheel.precommitted,
-          },
-        };
-      }
-
-      const reveal = revealChoiceOptions({
-        context,
-        drawContext,
-        label: `${shapeId}:reveal`,
-        stage,
-      });
-
-      return {
-        options: reveal.options,
-        precommitted: {
-          random: reveal.precommitted,
         },
       };
     }
