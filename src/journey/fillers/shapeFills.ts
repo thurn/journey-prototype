@@ -410,13 +410,6 @@ export function fillOptions(
   const premiumPrice = Math.min(45, context.state.quest.resources.essence);
 
   switch (shapeId) {
-    case "random_allocation":
-      return {
-        options: rewardSlots(context, drawContext, `${shapeId}:rewards`, stage)
-          .slice(0, 3)
-          .map((reward, index) => rewardSlotOption(index + 1, reward)),
-        precommitted: {},
-      };
     case "same_cost_different_rewards": {
       const contractVariant = weightedChoice(
         drawContext,
