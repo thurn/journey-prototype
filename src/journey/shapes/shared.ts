@@ -258,7 +258,6 @@ function payloadCompatibilityFor(
         ...((isRandomCommit ||
           [
             "risk_or_skip",
-            "random_pool_draws",
             "probability_ladder",
           ].includes(id)) &&
         id !== "single_random_outcome" &&
@@ -269,7 +268,6 @@ function payloadCompatibilityFor(
       isRandomCommit ||
         [
           "risk_or_skip",
-          "random_pool_draws",
           "probability_ladder",
         ].includes(id)
         ? "Shape exposes bounded random, reveal, odds, or wager metadata."

@@ -11,7 +11,6 @@ import {
   adaptTreeTerminalOperations,
 } from "../operationAdapters.js";
 import type { JourneyShapeId } from "../shapes.js";
-import { visibleWheelPool } from "./randomPayloads.js";
 import {
   valueCardDraft,
   valueDreamsignDraft,
@@ -674,81 +673,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     );
   }
 
-  function buildRandomPoolDrawsTree(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): JourneyTree {
-    const levelCount = pickSequentialVariant(
-      drawContext,
-      "random-pool:levels",
-      [3, 4],
-    );
-    const price = payableSequentialCost(
-      context,
-      pickSequentialVariant(drawContext, "random-pool:price", [35, 45, 55]),
-    );
-
-    return tree(
-      Array.from({ length: levelCount }, (_, index) => index + 1).map(
-        (level) => ({
-          id: `level-${level}`,
-          levelLabel: `Level ${level}`,
-          branches: [
-            treeBranch({
-              id: `level-${level}-stop`,
-              label: "Stop",
-              text: "Leave.",
-              terminal: {
-                text: "Leave.",
-                outcome: "leave",
-                costs: [],
-                effects: [],
-                burdens: [],
-                targets: [],
-                routeEffects: [],
-              },
-            }),
-            treeBranch({
-              id: `level-${level}-draw`,
-              label: "Draw",
-              text: `Pay ${price} essence and gain a random reward from the pool. ${level === levelCount ? "End the Journey." : `Go to Level ${level + 1}.`}`,
-              costs: [cost("essence", price)],
-              effects: [
-                {
-                  kind: "random_reward",
-                  pool: "visible_pool",
-                  replacement: "with_replacement",
-                },
-              ],
-              cost: price,
-              effect: 100,
-              uncertainty: -15,
-              ...(level === levelCount
-                ? {
-                    terminal: {
-                      text: "End the Journey.",
-                      outcome: "claim" as const,
-                      costs: [cost("essence", price)],
-                      effects: [
-                        {
-                          kind: "random_reward",
-                          pool: "visible_pool",
-                          replacement: "with_replacement",
-                        },
-                      ],
-                      burdens: [],
-                      targets: [],
-                      routeEffects: [],
-                    },
-                  }
-                : { nextNodeId: `level-${level + 1}` }),
-            }),
-          ],
-        }),
-      ),
-    );
-  }
-
   function decisionTreeForShape(
     shapeId: JourneyShapeId,
     context: JourneyContext,
@@ -777,54 +701,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
             ],
           },
         };
-      case "random_pool_draws": {
-        const wheel = visibleWheelPool({
-          context,
-          drawContext,
-          label: "random-pool",
-          stage: stageForContext(context),
-          size: pickSequentialVariant(drawContext, "random-pool:size", [5, 6]),
-        });
-        const pool = wheel.rewardPool;
-        const drawCount = 2;
-
-        return {
-          tree: buildRandomPoolDrawsTree(context, drawContext),
-          rewardPool: pool,
-          precommitted: {
-            random: [
-              {
-                ...wheel.visiblePoolEnvelope,
-                poolId: "random-pool-draws",
-              },
-              {
-                kind: "repeated_pool_draws",
-                poolId: "random-pool-draws",
-                drawCount,
-                rewards: pool.rewards,
-                committedDraws: wheel.candidates
-                  .slice(0, drawCount)
-                  .map((candidate) => candidate.payloads),
-                replacement: pool.replacement,
-                visibilityPolicy: {
-                  outcomeVisibility: "pre_rolled",
-                  disclosure:
-                    "Repeated draws use the fixed visible pool with replacement and are committed in metadata.",
-                  playerVisible: true,
-                },
-                expectedConvertedEssence:
-                  Number(wheel.visiblePoolEnvelope.expectedConvertedEssence ?? 0) *
-                  drawCount,
-                riskPremiumConvertedEssence: -12,
-                worstCaseBurdenConvertedEssence:
-                  Number(wheel.visiblePoolEnvelope.worstCaseBurdenConvertedEssence ?? 0) *
-                  drawCount,
-                presentation: "random_pool_repeated_draws",
-              },
-            ],
-          },
-        };
-      }
       default:
         return { precommitted: {} };
     }

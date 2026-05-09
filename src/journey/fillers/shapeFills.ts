@@ -714,8 +714,7 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "probability_ladder":
-    case "random_pool_draws": {
+    case "probability_ladder": {
       const filled = decisionTreeForShape(
         shapeId,
         context,
