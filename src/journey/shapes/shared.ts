@@ -1,5 +1,5 @@
 import { fillOptions as legacyFillOptions } from "../fillers/shapeFills.js";
-import { validateRiskOrSkip, validateSingleWager } from "../validate/precommitRules.js";
+import { validateSingleWager } from "../validate/precommitRules.js";
 import { validateDecisionTree } from "../validate/tree.js";
 import { validateTimedWindowMenu } from "../validate/values.js";
 import type {
@@ -244,7 +244,6 @@ function payloadCompatibilityFor(
           : []),
         ...((isRandomCommit ||
           [
-            "risk_or_skip",
             "probability_ladder",
           ].includes(id)) &&
         id !== "resolved_random_series"
@@ -253,7 +252,6 @@ function payloadCompatibilityFor(
       ],
       isRandomCommit ||
         [
-          "risk_or_skip",
           "probability_ladder",
         ].includes(id)
         ? "Shape exposes bounded random, reveal, odds, or wager metadata."
@@ -377,15 +375,6 @@ export function defineShapePlugin(
 
   return Object.freeze(plugin);
 }
-
-export const riskOrSkipValidator: ShapeValidator = {
-  ruleId: "risk_or_skip_envelope",
-  passMessage:
-    "Risk-or-skip envelopes expose bounded downside metadata when applicable.",
-  checkedPayloads: ({ optionChecked, precommittedChecked }) =>
-    optionChecked.length > 0 ? optionChecked : precommittedChecked,
-  validate: ({ manifest }) => validateRiskOrSkip(manifest),
-};
 
 export const singleWagerValidator: ShapeValidator = {
   ruleId: "single_wager_envelope",

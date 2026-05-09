@@ -35,7 +35,7 @@ export function containsRecordWhere(value: unknown, predicate: (record: Record<s
   return Object.values(value).some((entry) => containsRecordWhere(entry, predicate));
 }
 
-function hasEnvelopeConstraint(
+export function hasEnvelopeConstraint(
   value: Record<string, unknown>,
   shapeId: JourneyManifest["shapeId"],
   ruleId: string,
@@ -47,12 +47,6 @@ function hasEnvelopeConstraint(
       constraint.shapeId === shapeId &&
       constraint.ruleId === ruleId
     );
-}
-
-function isRiskDownsideEnvelope(value: unknown): value is Record<string, unknown> {
-  return isRecord(value) &&
-    hasEnvelopeConstraint(value, "risk_or_skip", "risk_or_skip_bounded_downside") &&
-    (value.kind === "chance_to_gain_bane" || value.kind === "chance_to_pay_cost");
 }
 
 function isSingleWagerEnvelope(value: unknown): value is Record<string, unknown> {
@@ -173,87 +167,6 @@ export function manifestHookBudgetCost(manifest: JourneyManifest): number {
     (sum, payload) => sum + hookBudgetCostFromPayload(payload),
     0,
   );
-}
-
-export function textSignalsDownsideEnvelope(text: string): boolean {
-  const hasPercentChance =
-    /\b\d+%\s+chance\b/iu.test(text) ||
-    /\b(?:chance|risk)\b.*\b\d+%\b/iu.test(text) ||
-    /\b\d+%\b.*\b(?:chance|risk)\b/iu.test(text);
-  const hasSafeAlternative = /\botherwise\b|\bno downside\b|\bsafe\b|\bnothing\b/iu.test(text);
-
-  return hasPercentChance && hasSafeAlternative;
-}
-
-export function validateRiskOrSkip(manifest: JourneyManifest): ValidationResult {
-  const acceptOptions = manifest.options.filter((option) => option.pickBehavior !== "leave");
-
-  if (acceptOptions.length !== 1 || manifest.options.length - acceptOptions.length !== 1) {
-    return fail(
-      "one_take_option_and_one_refusal_option",
-      "Risk-or-skip requires one accept option and one leave option",
-    );
-  }
-
-  const acceptOption = acceptOptions[0]!;
-
-  if (acceptOption.effects.length === 0 || acceptOption.effectConvertedEssence <= 0) {
-    return fail(
-      "accept_option_has_guaranteed_reward",
-      "Risk-or-skip accept option requires a guaranteed reward",
-    );
-  }
-
-  if (
-    acceptOption.costs.length > 0 ||
-    acceptOption.burdens.length > 0 ||
-    acceptOption.costConvertedEssence > 0 ||
-    acceptOption.burdenConvertedEssence < 0
-  ) {
-    return fail(
-      "downside_is_random_inside_visible_envelope",
-      "Risk-or-skip costs and burdens must be random outcomes, not guaranteed accept-option payloads",
-    );
-  }
-
-  if (acceptOption.uncertaintyConvertedEssence >= 0 || !textSignalsDownsideEnvelope(acceptOption.text)) {
-    return fail(
-      "downside_is_random_inside_visible_envelope",
-      "Risk-or-skip accept option must show bounded downside odds and a safe alternative",
-    );
-  }
-
-  if (!hasPrecommitted(manifest.precommitted.random)) {
-    return fail("missing_precommitted_outcomes", "Random shapes require precommitted outcomes");
-  }
-
-  const downsideRolls = manifest.precommitted.random?.filter(isRiskDownsideEnvelope) ?? [];
-
-  if (downsideRolls.length < acceptOptions.length) {
-    return fail(
-      "downside_is_random_inside_visible_envelope",
-      "Risk-or-skip precommit must store one typed constrained downside envelope per accept option",
-    );
-  }
-
-  for (const roll of downsideRolls) {
-    const hasBaneEnvelope = roll.kind === "chance_to_gain_bane" &&
-      typeof roll.baneName === "string" &&
-      typeof roll.count === "number" &&
-      (roll.committedResult === "bane" || roll.committedResult === "safe");
-    const hasCostEnvelope = roll.kind === "chance_to_pay_cost" &&
-      isRecord(roll.cost) &&
-      (roll.committedResult === "paid" || roll.committedResult === "free");
-
-    if (!hasOdds(roll) || (!hasBaneEnvelope && !hasCostEnvelope)) {
-      return fail(
-        "downside_is_random_inside_visible_envelope",
-        "Risk-or-skip precommit must store odds, typed downside metadata, and the committed safe/downside result",
-      );
-    }
-  }
-
-  return { ok: true };
 }
 
 export function validateSingleWager(manifest: JourneyManifest): ValidationResult {
