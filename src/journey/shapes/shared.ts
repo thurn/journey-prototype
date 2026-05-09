@@ -1,5 +1,4 @@
 import { fillOptions as legacyFillOptions } from "../fillers/shapeFills.js";
-import { validateSingleWager } from "../validate/precommitRules.js";
 import { validateDecisionTree } from "../validate/tree.js";
 import { validateTimedWindowMenu } from "../validate/values.js";
 import type {
@@ -375,14 +374,6 @@ export function defineShapePlugin(
 
   return Object.freeze(plugin);
 }
-
-export const singleWagerValidator: ShapeValidator = {
-  ruleId: "single_wager_envelope",
-  passMessage:
-    "Single wager options expose stakes, odds, and committed roll metadata when applicable.",
-  checkedPayloads: ({ checked }) => checked,
-  validate: ({ manifest }) => validateSingleWager(manifest),
-};
 
 export const timedWindowMenuValidator: ShapeValidator = {
   ruleId: "timed_window_menu",
