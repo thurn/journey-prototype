@@ -716,8 +716,7 @@ export function fillOptions(
     }
     case "probability_ladder":
     case "random_pool_draws":
-    case "push_your_luck":
-    case "escalating_reward_chain": {
+    case "push_your_luck": {
       const filled = decisionTreeForShape(
         shapeId,
         context,
