@@ -2112,10 +2112,59 @@ function nextVictoryRewardReplacementSlots(
     : slots.filter((slot) => slot.key !== "next-victory-replacement:dreamsign-draft");
 }
 
+type RewardReductionTrigger = "battle" | "essence_site";
+
+type RewardReductionStatusDuration = Parameters<
+  typeof statusPayload
+>[0]["duration"];
+
+type RewardReductionDuration = {
+  label: string;
+  statusDuration: RewardReductionStatusDuration;
+};
+
+const REWARD_REDUCTION_DURATIONS: Record<
+  RewardReductionTrigger,
+  readonly RewardReductionDuration[]
+> = {
+  battle: [
+    { label: "next 2 battles", statusDuration: "next_2_battles" },
+    { label: "next 3 battles", statusDuration: "next_3_battles" },
+    { label: "next 4 battles", statusDuration: "next_4_battles" },
+  ],
+  essence_site: [
+    { label: "next 2 dreamscapes", statusDuration: "next_2_dreamscapes" },
+    { label: "next 3 dreamscapes", statusDuration: "next_3_dreamscapes" },
+    { label: "next 4 dreamscapes", statusDuration: "next_4_dreamscapes" },
+  ],
+};
+
+function rewardReductionDuration(
+  drawContext: DrawContext,
+  label: string,
+  trigger: RewardReductionTrigger,
+): RewardReductionDuration {
+  return pickSequentialVariant(
+    drawContext,
+    `${label}:${trigger}:duration`,
+    REWARD_REDUCTION_DURATIONS[trigger],
+  );
+}
+
 function statusBurdenSlots(
   drawContext: DrawContext,
   label: string,
 ): CostSlot[] {
+  const battleRewardDuration = rewardReductionDuration(
+    drawContext,
+    label,
+    "battle",
+  );
+  const essenceSiteDuration = rewardReductionDuration(
+    drawContext,
+    label,
+    "essence_site",
+  );
   const battleRewardReduction = pickSequentialVariant(
     drawContext,
     `${label}:battle-reward-reduction`,
@@ -2198,13 +2247,13 @@ function statusBurdenSlots(
     },
     {
       key: "status-battle-reward-reduction",
-      prefix: `For the next 3 battles, Battle rewards offer ${battleRewardReduction} fewer card choice${battleRewardReduction === 1 ? "" : "s"}.`,
+      prefix: `For the ${battleRewardDuration.label}, Battle rewards offer ${battleRewardReduction} fewer card choice${battleRewardReduction === 1 ? "" : "s"}.`,
       burdens: [
         statusPayload({
           kind: "status_reward_reduction",
           statusName: "Thinned Battle Spoils",
           statusScope: "reward",
-          duration: "next_3_battles",
+          duration: battleRewardDuration.statusDuration,
           ruleMutationKind: "battle_reward_reduction",
           polarity: "negative",
           rewardTrigger: "battle",
@@ -2216,13 +2265,13 @@ function statusBurdenSlots(
     },
     {
       key: "status-essence-site-reward-reduction",
-      prefix: `For the next 3 dreamscapes, Essence sites yield ${essenceSiteReduction} less essence.`,
+      prefix: `For the ${essenceSiteDuration.label}, Essence sites yield ${essenceSiteReduction} less essence.`,
       burdens: [
         statusPayload({
           kind: "status_reward_reduction",
           statusName: "Dry Wells",
           statusScope: "reward",
-          duration: "next_3_dreamscapes",
+          duration: essenceSiteDuration.statusDuration,
           ruleMutationKind: "essence_site_reward_reduction",
           polarity: "negative",
           rewardTrigger: "essence_site",
@@ -3266,8 +3315,9 @@ function dreamsignSacrificeComponent(args: {
 }
 
 function rewardReductionBurdenComponent(args: {
-  trigger: "battle" | "essence_site";
+  trigger: RewardReductionTrigger;
   amount: number;
+  duration: RewardReductionDuration;
 }): CompoundPayloadComponent {
   const isBattle = args.trigger === "battle";
   const value = valueStatusRuleMutation(
@@ -3279,8 +3329,8 @@ function rewardReductionBurdenComponent(args: {
     key: `compound:reward-reduction:${args.trigger}:${args.amount}`,
     family: "reward_reduction_burden",
     text: isBattle
-      ? `For the next 3 battles, Battle rewards offer ${args.amount} fewer card choice${args.amount === 1 ? "" : "s"}.`
-      : `For the next 3 dreamscapes, Essence sites yield ${args.amount} less essence.`,
+      ? `For the ${args.duration.label}, Battle rewards offer ${args.amount} fewer card choice${args.amount === 1 ? "" : "s"}.`
+      : `For the ${args.duration.label}, Essence sites yield ${args.amount} less essence.`,
     value,
     valueBand: compoundValueBand(value),
     polarity: "negative",
@@ -3290,7 +3340,7 @@ function rewardReductionBurdenComponent(args: {
           kind: "status_reward_reduction",
           statusName: isBattle ? "Withered Orchard" : "Dry Orchard",
           statusScope: "reward",
-          duration: isBattle ? "next_3_battles" : "next_3_dreamscapes",
+          duration: args.duration.statusDuration,
           ruleMutationKind: isBattle
             ? "battle_reward_reduction"
             : "essence_site_reward_reduction",
@@ -3743,6 +3793,21 @@ function witheredOrchardCompoundFill(args: {
     `${args.shapeId}:withered-orchard:starter-cleanup-reduction`,
     [15, 20, 25],
   );
+  const battleRewardReductionDuration = rewardReductionDuration(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:battle-reduction`,
+    "battle",
+  );
+  const essenceRewardReductionDuration = rewardReductionDuration(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:essence-reduction`,
+    "essence_site",
+  );
+  const starterCleanupReductionDuration = rewardReductionDuration(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:starter-cleanup-reduction`,
+    "essence_site",
+  );
   const options = [
     compoundOption(
       1,
@@ -3751,6 +3816,7 @@ function witheredOrchardCompoundFill(args: {
         rewardReductionBurdenComponent({
           trigger: "battle",
           amount: battleRewardReductionAmount,
+          duration: battleRewardReductionDuration,
         }),
         namedDreamsignRewardComponent({
           context: args.context,
@@ -3768,6 +3834,7 @@ function witheredOrchardCompoundFill(args: {
         rewardReductionBurdenComponent({
           trigger: "essence_site",
           amount: essenceRewardReductionAmount,
+          duration: essenceRewardReductionDuration,
         }),
         namedCardRewardComponent({
           context: args.context,
@@ -3783,6 +3850,7 @@ function witheredOrchardCompoundFill(args: {
         rewardReductionBurdenComponent({
           trigger: "essence_site",
           amount: starterCleanupReductionAmount,
+          duration: starterCleanupReductionDuration,
         }),
         starterCleanupRewardComponent(args.stage),
       ],

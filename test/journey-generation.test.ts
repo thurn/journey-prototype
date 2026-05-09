@@ -26,6 +26,7 @@ import {
   cardDraftText,
   compoundPayloadMenuFill,
   commonPositiveOptions,
+  costSlots,
   draftCards,
   option,
   optionFromResolvedShapeFill,
@@ -4067,6 +4068,67 @@ describe("generateNextJourney", () => {
         expect.objectContaining({ kind: "burden", value: -120 }),
         expect.objectContaining({ kind: "effect", value: 320 }),
       ]),
+    );
+  });
+
+  it("profiles reward-reduction status durations", async () => {
+    const costSlotDurations = new Set<string>();
+    const compoundDurations = new Set<string>();
+
+    for (let index = 0; index < 24; index += 1) {
+      const journeyContext = await context(`reward-reduction-duration-${index}`);
+      const drawContext: DrawContext = {
+        seed: journeyContext.state.quest.seed,
+        contentVersion: journeyContext.contentVersion,
+        rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+      };
+
+      for (const slot of costSlots(
+        journeyContext,
+        drawContext,
+        `reward-reduction-duration-${index}`,
+        { includeStatusBurdens: true },
+      )) {
+        for (const burden of slot.burdens ?? []) {
+          if (
+            typeof burden === "object" &&
+            burden !== null &&
+            "kind" in burden &&
+            burden.kind === "status_reward_reduction" &&
+            "duration" in burden &&
+            typeof burden.duration === "string"
+          ) {
+            costSlotDurations.add(burden.duration);
+          }
+        }
+      }
+
+      const manifest = compoundManifestForFamily(
+        "withered_orchard",
+        journeyContext,
+      );
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of manifest.options.flatMap(
+        (journeyOption) => journeyOption.operations,
+      )) {
+        if (
+          operation.operationKind === "status" &&
+          operation.statusKind === "status_reward_reduction" &&
+          typeof operation.payload.duration === "string"
+        ) {
+          compoundDurations.add(operation.payload.duration);
+        }
+      }
+    }
+
+    expect([...costSlotDurations]).toEqual(
+      expect.arrayContaining(["next_2_battles", "next_4_dreamscapes"]),
+    );
+    expect([...compoundDurations]).toEqual(
+      expect.arrayContaining(["next_2_battles", "next_4_dreamscapes"]),
     );
   });
 

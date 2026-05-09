@@ -70,8 +70,12 @@ export function statusPayload(args: {
   duration:
     | "one_time"
     | "next_battle"
+    | "next_2_battles"
     | "next_3_battles"
+    | "next_4_battles"
+    | "next_2_dreamscapes"
     | "next_3_dreamscapes"
+    | "next_4_dreamscapes"
     | "persistent";
   ruleMutationKind: string;
   polarity?: "positive" | "negative" | "neutral";
