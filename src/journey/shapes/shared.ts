@@ -1,6 +1,5 @@
 import { fillOptions as legacyFillOptions } from "../fillers/shapeFills.js";
 import { validateDecisionTree } from "../validate/tree.js";
-import { validateTimedWindowMenu } from "../validate/values.js";
 import type {
   JourneyPayloadCompatibility,
   JourneyShapeDefinition,
@@ -186,23 +185,15 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "dreamwell",
-      [
-        ...(id === "timed_window_menu"
-          ? ["adapter-compatible-dreamwell-window"]
-          : []),
-      ],
-      id === "timed_window_menu"
+      [],
+      false
         ? "Shape can expose bounded Dreamwell and battle-window modifiers."
         : "Shape does not provide a shared timing window for Dreamwell payloads.",
     ),
     compatibility(
       "status",
-      [
-        ...(id === "timed_window_menu"
-          ? ["adapter-compatible-status-rules"]
-          : []),
-      ],
-      id === "timed_window_menu"
+      [],
+      false
         ? "Shape can expose one-time, temporary, or delayed rule mutations."
         : "Shape lacks a legal status or rule-mutation frame.",
     ),
@@ -354,14 +345,6 @@ export function defineShapePlugin(
 
   return Object.freeze(plugin);
 }
-
-export const timedWindowMenuValidator: ShapeValidator = {
-  ruleId: "timed_window_menu",
-  passMessage:
-    "Timed window menus use shared temporary windows with play-changing rewards when applicable.",
-  checkedPayloads: ({ optionChecked }) => optionChecked,
-  validate: ({ manifest }) => validateTimedWindowMenu(manifest),
-};
 
 export const decisionTreeValidator: ShapeValidator = {
   ruleId: "decision_tree_invariants",
