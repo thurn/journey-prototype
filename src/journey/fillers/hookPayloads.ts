@@ -21,7 +21,7 @@ import {
 } from "./dreamsignPayloads.js";
 import { shopPayload, statusPayload } from "./environmentPayloads.js";
 import { catalogRewardCards, cardExactTarget, cardQualityValue, namedCardPayload } from "./namedCardPayloads.js";
-import { routePayload } from "./routeEditCatalog.js";
+import { routeEditRewards } from "./routeEditCatalog.js";
 import {
   GENERIC_CARD_DRAFT_PROFILE,
   type RewardSlot,
@@ -382,23 +382,6 @@ type ExpandedDelayedHookFill = {
   hookBudgetCost?: number;
 };
 
-function findCard(
-  context: JourneyContext,
-  name: string,
-  fallback: CardContent,
-): CardContent {
-  return context.content.cards.find((card) => card.name === name) ?? fallback;
-}
-
-function findDreamsign(
-  context: JourneyContext,
-  name: string,
-  fallback: DreamsignContent,
-): DreamsignContent {
-  return context.content.dreamsigns.find((dreamsign) => dreamsign.name === name) ??
-    fallback;
-}
-
 function namedDreamsignGrant(
   context: JourneyContext,
   dreamsign: DreamsignContent,
@@ -594,67 +577,31 @@ function expandedDelayedHookCandidates(args: {
   stage?: HookStage;
 }): ExpandedDelayedHookFill[] {
   const cards = catalogRewardCards(args.context, args.drawContext);
-  const cardA = findCard(
-    args.context,
-    "Moonlit Voyage",
-    cards[0] ?? args.context.content.cards[0]!,
+  const cardAt = (index: number): CardContent =>
+    cards[index % Math.max(cards.length, 1)] ?? args.context.content.cards[0]!;
+  const cardA = cardAt(0);
+  const cardB = cardAt(1);
+  const cardC = cardAt(2);
+  const cardD = cardAt(3);
+  const cardE = cardAt(4);
+  const dreamsigns = [
+    ...selectedDreamsignTargets(args.context, args.drawContext),
+    ...shuffleDeterministic(
+      args.drawContext,
+      `${args.label}:catalog-dreamsign-fallbacks`,
+      args.context.content.dreamsigns,
+    ),
+  ].filter(
+    (dreamsign, index, entries) =>
+      entries.findIndex((entry) => entry.id === dreamsign.id) === index,
   );
-  const cardB = findCard(
-    args.context,
-    "Aspiring Guardian",
-    cards.find((card) => card.id !== cardA.id) ?? cardA,
-  );
-  const cardC = findCard(
-    args.context,
-    "Beacon of Tomorrow",
-    cards.find((card) => card.id !== cardA.id && card.id !== cardB.id) ??
-      cardA,
-  );
-  const cardD = findCard(
-    args.context,
-    "Scrap Reclaimer",
-    cards.find((card) =>
-      card.id !== cardA.id && card.id !== cardB.id && card.id !== cardC.id
-    ) ?? cardA,
-  );
-  const cardE = findCard(
-    args.context,
-    "Evacuation Enforcer",
-    cards.find((card) =>
-      card.id !== cardA.id &&
-      card.id !== cardB.id &&
-      card.id !== cardC.id &&
-      card.id !== cardD.id
-    ) ?? cardA,
-  );
-  const dreamsigns = selectedDreamsignTargets(args.context, args.drawContext);
-  const dreamsignA = findDreamsign(
-    args.context,
-    "Essence Vial",
-    dreamsigns[0] ?? args.context.content.dreamsigns[0]!,
-  );
-  const dreamsignB = findDreamsign(
-    args.context,
-    "Dragon Egg",
-    dreamsigns.find((dreamsign) => dreamsign.id !== dreamsignA.id) ??
-      dreamsignA,
-  );
-  const dreamsignC = findDreamsign(
-    args.context,
-    "Eye Amulet",
-    dreamsigns.find((dreamsign) =>
-      dreamsign.id !== dreamsignA.id && dreamsign.id !== dreamsignB.id
-    ) ?? dreamsignA,
-  );
-  const dreamsignD = findDreamsign(
-    args.context,
-    "Ginger Root",
-    dreamsigns.find((dreamsign) =>
-      dreamsign.id !== dreamsignA.id &&
-      dreamsign.id !== dreamsignB.id &&
-      dreamsign.id !== dreamsignC.id
-    ) ?? dreamsignA,
-  );
+  const dreamsignAt = (index: number): DreamsignContent =>
+    dreamsigns[index % Math.max(dreamsigns.length, 1)] ??
+    args.context.content.dreamsigns[0]!;
+  const dreamsignA = dreamsignAt(0);
+  const dreamsignB = dreamsignAt(1);
+  const dreamsignC = dreamsignAt(2);
+  const dreamsignD = dreamsignAt(3);
   const delayedBaneCards = [cardC, cardD, cardE];
   const delayedBaneNames = shuffleDeterministic(
     args.drawContext,
@@ -674,15 +621,16 @@ function expandedDelayedHookCandidates(args: {
       timing: delayedBaneTiming,
     })
   );
-  const routeReward = routePayload({
-    operation: "add_site",
-    routeScope: "current_dreamscape",
-    polarity: "positive",
-    siteDeltaValue: 95,
-    siteType: "Purge",
-    timing: "current dreamscape",
-    description: "add a Purge site to the current dreamscape",
-  });
+  const futureShopBaneName =
+    delayedBaneNames[delayedBaneCards.length % delayedBaneNames.length]!;
+  const routeReward = routeEditRewards({
+    drawContext: args.drawContext,
+    label: `${args.label}:future-dream-journey-route`,
+    count: 1,
+    operationKinds: ["add_site"],
+    scopes: ["current_dreamscape"],
+    polarities: ["positive"],
+  })[0]!;
 
   return [
     ...delayedBaneHooks,
@@ -916,23 +864,23 @@ function expandedDelayedHookCandidates(args: {
     },
     {
       key: "future-shop:bane-to-card",
-      text: `At the next future Shop, transform {${BANE_NAMES[0]}} into {${cardE.name}}.`,
+      text: `At the next future Shop, transform {${futureShopBaneName}} into {${cardE.name}}.`,
       triggerSelector: hookTrigger({
         triggerKind: "future_shop",
         label: "at the next future shop",
         count: 1,
       }),
       trackedCondition: "Track the next future Shop site.",
-      resolution: `At the next future Shop, transform {${BANE_NAMES[0]}} into {${cardE.name}}.`,
+      resolution: `At the next future Shop, transform {${futureShopBaneName}} into {${cardE.name}}.`,
       expiration: expiration(
         "discard_obligation",
         "If no future Shop appears within 2 dreamscapes, discard this hook.",
       ),
       duration: boundedDuration("shop_count", "next future shop", 1),
-      controlledScene: controlledScene("transformation", `${BANE_NAMES[0]} becomes ${cardE.name}`),
+      controlledScene: controlledScene("transformation", `${futureShopBaneName} becomes ${cardE.name}`),
       reward: {
         kind: "bane_transform_to_card",
-        baneName: BANE_NAMES[0],
+        baneName: futureShopBaneName,
         count: 1,
         baneTargetContext: "manifest_obligation",
         selection: "exact",
@@ -943,30 +891,37 @@ function expandedDelayedHookCandidates(args: {
         delayed: true,
       },
       targets: [
-        baneTarget(`${BANE_NAMES[0]} obligation`, [BANE_NAMES[0]], "manifest_obligation"),
+        baneTarget(
+          `${futureShopBaneName} obligation`,
+          [futureShopBaneName],
+          "manifest_obligation",
+        ),
         cardExactTarget(cardE, "catalog"),
       ],
       effect: 130,
       uncertainty: -13,
     },
     {
-      key: "future-dream-journey:add-route",
-      text: "At the next Dream Journey site, add a {Purge} site to the current dreamscape.",
+      key: `future-dream-journey:${routeReward.key}`,
+      text: `At the next Dream Journey site, ${lowerFirst(routeReward.text)}`,
       triggerSelector: hookTrigger({
         triggerKind: "future_dream_journey",
         label: "at the next Dream Journey site",
         count: 1,
       }),
       trackedCondition: "Track the next Dream Journey site you enter.",
-      resolution: "At the next Dream Journey site, add a {Purge} site to the current dreamscape.",
+      resolution: `At the next Dream Journey site, ${lowerFirst(routeReward.text)}`,
       expiration: expiration(
         "discard_obligation",
         "If no Dream Journey site appears within 2 dreamscapes, discard this hook.",
       ),
       duration: boundedDuration("journey_count", "next Dream Journey site", 1),
-      controlledScene: controlledScene("reward", "add a Purge route site"),
-      reward: routeReward,
-      effect: 95,
+      controlledScene: controlledScene(
+        "reward",
+        lowerFirst(routeReward.text).replace(/\.$/u, ""),
+      ),
+      reward: routeReward.payload,
+      effect: routeReward.effect,
       uncertainty: -12,
     },
     {
@@ -1263,11 +1218,17 @@ function pairedReturnReward(
   const dreamsign = dreamsigns[0] ?? context.content.dreamsigns[0]!;
 
   if (rewardKind === "resource") {
+    const amount = shuffleDeterministic(
+      drawContext,
+      `${label}:return-resource-amount`,
+      [90, 120, 150],
+    )[0]!;
+
     return {
-      key: "return-resource:essence",
-      text: "gain 120 essence",
-      payloads: [gainEssence(120)],
-      effect: 120,
+      key: `return-resource:essence-${amount}`,
+      text: `gain ${amount} essence`,
+      payloads: [gainEssence(amount)],
+      effect: amount,
     };
   }
 
@@ -1331,38 +1292,49 @@ function pairedReturnReward(
   }
 
   if (rewardKind === "route") {
+    const routeReward = routeEditRewards({
+      drawContext,
+      label: `${label}:return-route`,
+      count: 1,
+      operationKinds: ["add_site"],
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+    })[0]!;
+
     return {
-      key: "return-route:add-dreamsign-draft",
-      text: "add a {Dreamsign Draft} site",
-      payloads: [
-        routePayload({
-          operation: "add_site",
-          routeScope: "current_dreamscape",
-          polarity: "positive",
-          siteDeltaValue: 145,
-          siteType: "Dreamsign Draft",
-          timing: "return scene",
-          description: "add a Dreamsign Draft site to the current dreamscape",
-        }),
-      ],
-      effect: 145,
+      key: `return-route:${routeReward.key}`,
+      text: lowerFirst(routeReward.text).replace(/\.$/u, ""),
+      payloads: [routeReward.payload],
+      effect: routeReward.effect,
     };
   }
 
   if (rewardKind === "bane") {
+    const baneName = shuffleDeterministic(
+      drawContext,
+      `${label}:return-bane`,
+      BANE_NAMES,
+    )[0]!;
+
     return {
-      key: "return-bane:purge-nightmare",
-      text: "purge a chosen {Nightmare} obligation",
+      key: `return-bane:purge-${normalizedHookId(baneName)}`,
+      text: `purge a chosen {${baneName}} obligation`,
       payloads: [
         banePurgePayload({
-          baneName: "Nightmare",
+          baneName,
           targetContext: "manifest_obligation",
           selection: "chosen_after_commitment",
         }),
       ],
-      targets: [baneTarget("manifest-local Nightmare obligation", ["Nightmare"], "manifest_obligation")],
+      targets: [
+        baneTarget(
+          `manifest-local ${baneName} obligation`,
+          [baneName],
+          "manifest_obligation",
+        ),
+      ],
       effect: valueBanePurge({
-        baneName: "Nightmare",
+        baneName,
         targetContext: "manifest_obligation",
         selection: "chosen_after_commitment",
       }),
@@ -1440,35 +1412,27 @@ export function pairedReturnHookFill(args: {
   const cardB = visibleCards[args.optionNumber % Math.max(visibleCards.length, 1)] ??
     visibleCards.find((card) => card.id !== cardA.id) ??
     cardA;
-  const dreamsigns = selectedDreamsignTargets(args.context, args.drawContext);
-  const fallbackDreamsign =
-    dreamsigns[(args.optionNumber - 1) % Math.max(dreamsigns.length, 1)] ??
-    args.context.content.dreamsigns[0]!;
-  const secondFallbackDreamsign =
-    dreamsigns[args.optionNumber % Math.max(dreamsigns.length, 1)] ??
-    args.context.content.dreamsigns.find((entry) => entry.id !== fallbackDreamsign.id) ??
-    fallbackDreamsign;
-  const returningNames = ["Ginger Root", "Cloud Lens", "Leather Satchel"];
-  const borrowedNames = ["Green Amulet", "Wolf Sigil", "Green Amulet"];
-  const tradeNames = ["Gold Key", "Parchment", "Opal"];
-  const sealedDreamsign = findDreamsign(
-    args.context,
-    returningNames[(args.optionNumber - 1) % returningNames.length]!,
-    fallbackDreamsign,
+  const dreamsigns = [
+    ...selectedDreamsignTargets(args.context, args.drawContext),
+    ...shuffleDeterministic(
+      args.drawContext,
+      `${args.shapeId}:${args.optionNumber}:return-dreamsign-fallbacks`,
+      args.context.content.dreamsigns,
+    ),
+  ].filter(
+    (dreamsign, index, entries) =>
+      entries.findIndex((entry) => entry.id === dreamsign.id) === index,
   );
-  const borrowedDreamsign = findDreamsign(
-    args.context,
-    borrowedNames[(args.optionNumber - 1) % borrowedNames.length]!,
-    fallbackDreamsign,
-  );
-  const tradeDreamsign = findDreamsign(
-    args.context,
-    tradeNames[(args.optionNumber - 1) % tradeNames.length]!,
-    fallbackDreamsign,
-  );
-  const receiveDreamsign = secondFallbackDreamsign.id === tradeDreamsign.id
-    ? fallbackDreamsign
-    : secondFallbackDreamsign;
+  const dreamsignAt = (offset: number): DreamsignContent =>
+    dreamsigns[
+      (args.optionNumber - 1 + offset) % Math.max(dreamsigns.length, 1)
+    ] ?? args.context.content.dreamsigns[0]!;
+  const sealedDreamsign = dreamsignAt(0);
+  const borrowedDreamsign = dreamsignAt(1);
+  const tradeDreamsign = dreamsignAt(2);
+  const receiveDreamsign = dreamsignAt(3).id === tradeDreamsign.id
+    ? sealedDreamsign
+    : dreamsignAt(3);
   const family = args.familyId ??
     pairedReturnFamilies(
       args.drawContext,

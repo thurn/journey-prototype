@@ -4736,14 +4736,11 @@ describe("generateNextJourney", () => {
       contract.returnFamilyId === "borrowed_card_draft" &&
       payloadKinds(contract.futureCost).includes("card_purge")
     );
-    const keyTicketTradeRewards = contracts.filter((contract) => {
-      const created = contract.created as Record<string, unknown>;
-
-      return contract.returnFamilyId === "future_named_object_trade" &&
-        ["Gold Key", "Parchment", "Opal"].includes(String(created.dreamsignName));
-    });
-    const keyTicketRewardKinds = new Set(
-      keyTicketTradeRewards.flatMap((contract) =>
+    const futureTradeRewards = contracts.filter((contract) =>
+      contract.returnFamilyId === "future_named_object_trade"
+    );
+    const futureTradeRewardKinds = new Set(
+      futureTradeRewards.flatMap((contract) =>
         payloadKinds(contract.returnReward)
       ),
     );
@@ -4786,7 +4783,7 @@ describe("generateNextJourney", () => {
     expect(payloadKinds(borrowedDraftContract?.futureCost)).toEqual(
       expect.arrayContaining(["card_purge"]),
     );
-    expect(Array.from(keyTicketRewardKinds)).toEqual(
+    expect(Array.from(futureTradeRewardKinds)).toEqual(
       expect.arrayContaining(["gain_essence", "card_duplicate", "route_add_site"]),
     );
   });
@@ -4949,7 +4946,7 @@ describe("generateNextJourney", () => {
     );
   });
 
-  it("validates Sleeping Contract as an immediate named reward plus after-two-victories named payoff", async () => {
+  it("validates now-versus-later as an immediate named reward plus after-two-victories named payoff", async () => {
     const journeyContext = await context("sleeping-contract");
     const manifest = fillForShape("now_vs_later", journeyContext);
     const delayedOperation = manifest.precommitted.operations?.find(
@@ -4962,7 +4959,7 @@ describe("generateNextJourney", () => {
           operationKind: "reward",
           rewardKind: "dreamsign_gain",
           targetSelector: expect.objectContaining({
-            names: ["Dead Rat"],
+            names: [expect.any(String)],
           }),
         }),
       ]),
@@ -4977,7 +4974,7 @@ describe("generateNextJourney", () => {
           operationKind: "reward",
           rewardKind: "dreamsign_gain",
           targetSelector: expect.objectContaining({
-            names: ["Essence Vial"],
+            names: [expect.any(String)],
           }),
         }),
       ]),
@@ -4987,7 +4984,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("validates Winchime Promise as site-visit triggers with named Dreamsign rewards", async () => {
+  it("validates site-visit delayed hooks with named Dreamsign rewards", async () => {
     const journeyContext = await context("s0");
     const manifest = fillForShape("reward_after_trigger", journeyContext);
     const delayedOperations = manifest.precommitted.operations?.filter(
@@ -5004,7 +5001,9 @@ describe("generateNextJourney", () => {
           rewardOperations: expect.arrayContaining([
             expect.objectContaining({
               rewardKind: "dreamsign_gain",
-              targetSelector: expect.objectContaining({ names: ["Dragon Egg"] }),
+              targetSelector: expect.objectContaining({
+                names: [expect.any(String)],
+              }),
             }),
           ]),
         }),
@@ -5016,7 +5015,9 @@ describe("generateNextJourney", () => {
           rewardOperations: expect.arrayContaining([
             expect.objectContaining({
               rewardKind: "dreamsign_gain",
-              targetSelector: expect.objectContaining({ names: ["Eye Amulet"] }),
+              targetSelector: expect.objectContaining({
+                names: [expect.any(String)],
+              }),
             }),
           ]),
         }),
@@ -5070,7 +5071,7 @@ describe("generateNextJourney", () => {
     });
   });
 
-  it("validates Waking Cache as named card rewards with delayed Bane obligations", async () => {
+  it("validates named card rewards with delayed Bane obligations", async () => {
     const journeyContext = await context("waking-cache");
     const manifest = fillForShape("commit_now_future_payoff", journeyContext);
 
@@ -5105,13 +5106,10 @@ describe("generateNextJourney", () => {
       ) ?? []
     );
 
-    expect(cardGainTargets).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ names: ["Beacon of Tomorrow"] }),
-        expect.objectContaining({ names: ["Scrap Reclaimer"] }),
-        expect.objectContaining({ names: ["Evacuation Enforcer"] }),
-      ]),
-    );
+    expect(cardGainTargets).toHaveLength(3);
+    expect(
+      new Set(cardGainTargets.flatMap((selector) => selector.names ?? [])).size,
+    ).toBe(3);
     expect(delayedBaneOperations).toHaveLength(3);
     expect(triggerKinds.size).toBe(1);
     expect([...triggerKinds][0]).toEqual(

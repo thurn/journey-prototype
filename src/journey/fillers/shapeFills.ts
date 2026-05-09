@@ -2008,15 +2008,24 @@ export function fillOptions(
       const namedFuture = expandedHooks.find((entry) =>
         entry.key === "victory:two:named-dreamsign"
       );
-      const deadRat = context.content.dreamsigns.find((entry) =>
-        entry.name === "Dead Rat"
-      );
-      if (namedFuture && deadRat) {
+      const immediateDreamsign = selectContentBackedDreamsign({
+        context,
+        drawContext,
+        label: `${shapeId}:immediate-dreamsign`,
+        stage,
+        sources: ["catalog"],
+      });
+      if (namedFuture && immediateDreamsign) {
         const immediateEffect = namedDreamsignPayload(
           {
             kind: "dreamsign_gain",
-            dreamsign: deadRat,
-            source: "catalog",
+            dreamsign: immediateDreamsign.dreamsign,
+            source: immediateDreamsign.source,
+            extra: {
+              targetOrigin: immediateDreamsign.targetOrigin,
+              selectionWeight: immediateDreamsign.weight,
+              weightHooks: immediateDreamsign.weightHooks,
+            },
           },
           context,
         );
@@ -2030,10 +2039,17 @@ export function fillOptions(
           options: [
             option({
               number: 1,
-              text: `Gain {${deadRat.name}}.`,
+              text: `Gain {${immediateDreamsign.dreamsign.name}}.`,
               effects: [immediateEffect],
-              targets: [dreamsignExactTarget(deadRat, "catalog")],
-              effect: valueDreamsignOperation("gain", { tideOverlap: false }),
+              targets: [
+                dreamsignExactTarget(
+                  immediateDreamsign.dreamsign,
+                  immediateDreamsign.source,
+                ),
+              ],
+              effect: valueDreamsignOperation("gain", {
+                tideOverlap: immediateDreamsign.weightHooks.tideOverlap > 0,
+              }),
             }),
             delayedHook.option,
           ],
