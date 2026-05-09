@@ -123,7 +123,6 @@ function payloadCompatibilityFor(
   const generatedObjectShape = [
     "random_allocation",
     "same_cost_different_rewards",
-    "same_reward_different_costs",
     "service_menu",
     "curated_reward_trio",
     "one_target_many_operations",

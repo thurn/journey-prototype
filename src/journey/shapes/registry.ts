@@ -19,7 +19,7 @@ import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
 import { riskOrSkipPlugin } from "./risk_or_skip.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards.js";
-import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs.js";
+import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs/index.js";
 import { serviceMenuPlugin } from "./service_menu.js";
 import { sharedPrefixMenuPlugin } from "./shared_prefix_menu.js";
 import { shopRowPlugin } from "./shop_row/index.js";
