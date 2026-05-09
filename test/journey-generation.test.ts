@@ -24,6 +24,7 @@ import {
   CARD_DRAFT_PROFILES,
   cardDraftText,
   compoundPayloadMenuFill,
+  commonPositiveOptions,
   draftCards,
   option,
   optionFromResolvedShapeFill,
@@ -6138,6 +6139,32 @@ describe("generateNextJourney", () => {
 
     expect(validateJourneyManifest(heterogeneous, journeyContext)).toEqual({
       ok: true,
+    });
+  });
+
+  it("generates the common positive fallback essence amount", async () => {
+    const content = await loadContent(process.cwd());
+    const journeyContext = contextFromContent(content, "fallback-positive-0", "early");
+    journeyContext.state.quest.dreamsignPoolIds = [];
+    journeyContext.state.quest.deck.entries = [];
+    journeyContext.state.quest.deck.summary = {
+      totalCards: 0,
+      starterCards: 0,
+      uniqueCards: 0,
+    };
+    const options = commonPositiveOptions(
+      journeyContext,
+      {
+        seed: journeyContext.state.quest.seed,
+        contentVersion: journeyContext.contentVersion,
+        rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+      },
+      "test:fallback-positive",
+    );
+
+    expect(options[2]).toMatchObject({
+      text: "Gain 300 essence.",
+      effects: [expect.objectContaining({ kind: "gain_essence", amount: 300 })],
     });
   });
 

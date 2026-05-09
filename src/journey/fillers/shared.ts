@@ -398,6 +398,12 @@ export const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
 export const CARD_DRAFT_CHOICE_COUNT = 4;
 export const BATTLE_WINDOW_DURATION = "next 3 battles";
 
+const COMMON_POSITIVE_FALLBACK_ESSENCE_AMOUNTS = {
+  early: [300, 330],
+  mid: [320, 350],
+  late: [340, 370],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
 export type CardDraftProfile = {
   label: string;
   targetDescription: string;
@@ -1726,6 +1732,11 @@ export function commonPositiveOptions(
     [2, 3],
   );
   const dreamsignChoice = dreamsignDraft(dreamsignChoiceCount);
+  const fallbackEssenceAmount = pickSequentialVariant(
+    drawContext,
+    `${label}:fallback-essence`,
+    COMMON_POSITIVE_FALLBACK_ESSENCE_AMOUNTS[stageFromContext(context)],
+  );
   const fallbackReward =
     context.state.quest.deck.summary.starterCards > 0
       ? option({
@@ -1744,9 +1755,9 @@ export function commonPositiveOptions(
         })
       : option({
           number: 3,
-          text: "Gain 330 essence.",
-          effects: [gainEssence(330)],
-          effect: valueEssenceGain(330, context),
+          text: `Gain ${fallbackEssenceAmount} essence.`,
+          effects: [gainEssence(fallbackEssenceAmount)],
+          effect: valueEssenceGain(fallbackEssenceAmount, context),
         });
   const resourceOptions = [
     option({
