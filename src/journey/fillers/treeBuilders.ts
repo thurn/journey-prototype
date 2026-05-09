@@ -6,6 +6,7 @@ import type {
   JourneyTreeBranch,
   PrecommittedOutcomes,
 } from "../manifest.js";
+import { BANE_NAMES } from "../effects.js";
 import {
   adaptTreeBranchOperations,
   adaptTreeTerminalOperations,
@@ -950,7 +951,7 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     const failureBaneName = pickSequentialVariant(
       drawContext,
       "push-your-luck:failure-bane",
-      ["Nightmare", "Despair", "Envy", "Silence", "Paranoia"] as const,
+      BANE_NAMES,
     );
     const failureBane = {
       kind: "bane_gain",

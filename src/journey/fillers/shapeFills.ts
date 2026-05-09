@@ -36,6 +36,7 @@ import type {
   PrecommittedOutcomes,
 } from "../manifest.js";
 import { type JourneyShapeId } from "../shapes.js";
+import { BANE_NAMES, type BaneName } from "../effects.js";
 import {
   valueBaneBurden,
   valueBaneGain,
@@ -118,6 +119,29 @@ type FlatEscalatingTradeRow = {
   price: number;
   omens: number;
 };
+
+const CHOOSE_YOUR_LOSS_BANE_COUNTS = {
+  early: [1],
+  mid: [1, 2],
+  late: [1, 2, 2],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
+function chooseYourLossBaneCandidates(
+  count: number,
+  includeOmenLoss: boolean,
+): readonly BaneName[] {
+  if (count === 1 && !includeOmenLoss) {
+    return BANE_NAMES;
+  }
+
+  const maximumSingleBaneMagnitude = count === 1 ? 130 : 110;
+  const standardBanes = BANE_NAMES.filter(
+    (baneName) =>
+      Math.abs(valueBaneGain(baneName, 1)) <= maximumSingleBaneMagnitude,
+  );
+
+  return standardBanes.length > 0 ? standardBanes : BANE_NAMES;
+}
 
 const FLAT_ESCALATING_TRADE_PROFILES = {
   early: [
@@ -1771,23 +1795,22 @@ export function fillOptions(
       };
     }
     case "choose_your_loss": {
+      const includeOmenLoss = context.state.quest.resources.omens >= 1;
       const baneCount = pickSequentialVariant(
         drawContext,
         `${shapeId}:bane-count`,
-        [1, 2, 2],
+        CHOOSE_YOUR_LOSS_BANE_COUNTS[stage],
       );
       const baneName = pickSequentialVariant(
         drawContext,
         `${shapeId}:bane-name`,
-        baneCount > 1
-          ? ["Despair", "Envy"] as const
-          : ["Nightmare", "Despair", "Envy", "Silence", "Paranoia"] as const,
+        chooseYourLossBaneCandidates(baneCount, includeOmenLoss),
       );
       const omenLoss = valueOmenLoss(1);
       const baneLoss = valueBaneBurden({ baneName, count: baneCount });
       const essenceLoss = comparableEssenceLossAmount(
         [
-          ...(context.state.quest.resources.omens >= 1 ? [omenLoss] : []),
+          ...(includeOmenLoss ? [omenLoss] : []),
           baneLoss,
         ],
         context.state.quest.resources.essence,
@@ -1805,7 +1828,7 @@ export function fillOptions(
         );
       }
 
-      if (context.state.quest.resources.omens >= 1 && baneCount === 1) {
+      if (includeOmenLoss && baneCount === 1) {
         options.push(
           option({
             number: options.length + 1,

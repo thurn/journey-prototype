@@ -5,6 +5,7 @@ import {
   type DebugPayloadSelection,
 } from "../src/journey/debugPayloads.js";
 import {
+  BANE_NAMES,
   attachTargetResolutionMetadata,
   resolveDreamsignTargets,
 } from "../src/journey/effects.js";
@@ -67,6 +68,7 @@ import {
 import { validateRouteEffects } from "../src/journey/validate/payloadContracts.js";
 import {
   evaluateOptionValue,
+  valueBaneGain,
   valueStarterCleanup,
   valueUsefulNonStarterCardSacrifice,
 } from "../src/journey/value.js";
@@ -6355,6 +6357,81 @@ describe("generateNextJourney", () => {
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
+  });
+
+  it("profiles choose-your-loss Bane names from the Bane vocabulary", async () => {
+    const observedBanes = new Set<string>();
+    const observedMultiBanes = new Set<string>();
+    const observedNoOmenBanes = new Set<string>();
+
+    for (let index = 0; index < 48; index += 1) {
+      const journeyContext = await context(`choose-loss-bane-profile-${index}`);
+      const manifest = fillForShapeAtStage(
+        "choose_your_loss",
+        journeyContext,
+        "late",
+      );
+
+      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of manifest.options.flatMap(
+        (journeyOption) => journeyOption.operations,
+      )) {
+        if (
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_gain" &&
+          typeof operation.payload.baneName === "string"
+        ) {
+          observedBanes.add(operation.payload.baneName);
+
+          if (
+            typeof operation.payload.count === "number" &&
+            operation.payload.count > 1
+          ) {
+            observedMultiBanes.add(operation.payload.baneName);
+          }
+        }
+      }
+
+      const noOmenContext = await context(`choose-loss-bane-profile-no-omen-${index}`);
+      noOmenContext.state.quest.resources.omens = 0;
+      const noOmenManifest = fillForShapeAtStage(
+        "choose_your_loss",
+        noOmenContext,
+        "late",
+      );
+
+      expect(validateJourneyManifest(noOmenManifest, noOmenContext)).toEqual({
+        ok: true,
+      });
+
+      for (const operation of noOmenManifest.options.flatMap(
+        (journeyOption) => journeyOption.operations,
+      )) {
+        if (
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_gain" &&
+          typeof operation.payload.baneName === "string"
+        ) {
+          observedNoOmenBanes.add(operation.payload.baneName);
+        }
+      }
+    }
+
+    expect([...observedBanes].every((baneName) =>
+      BANE_NAMES.includes(baneName as (typeof BANE_NAMES)[number])
+    )).toBe(true);
+    expect([...observedBanes].every((baneName) =>
+      Math.abs(valueBaneGain(baneName as (typeof BANE_NAMES)[number], 1)) <= 130
+    )).toBe(true);
+    expect([...observedMultiBanes].every((baneName) =>
+      Math.abs(valueBaneGain(baneName as (typeof BANE_NAMES)[number], 1)) <= 110
+    )).toBe(true);
+    expect([...observedNoOmenBanes].some((baneName) =>
+      Math.abs(valueBaneGain(baneName as (typeof BANE_NAMES)[number], 1)) > 130
+    )).toBe(true);
   });
 
   it("does not throw with an empty Dreamsign pool", async () => {
