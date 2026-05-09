@@ -20,8 +20,6 @@ import {
   dreamsignExactTarget,
   namedDreamsignPayload,
   selectContentBackedDreamsign,
-  selectNamedDreamsignShopRow,
-  type NamedDreamsignShopRowSelection,
 } from "./dreamsignPayloads.js";
 import {
   cardExactTarget,
@@ -108,13 +106,6 @@ import {
 import { routeEditMenuRewards, routeEditRewards } from "./routeEditCatalog.js";
 import { timedWindowMenuFill } from "./timedWindowPayloads.js";
 
-type ShopRowPrice = {
-  key: string;
-  currency: "essence" | "omens";
-  amount: number;
-  convertedEssence: number;
-};
-
 type FlatEscalatingTradeRow = {
   price: number;
   omens: number;
@@ -182,167 +173,11 @@ const FLAT_ESCALATING_TRADE_PROFILES = {
   ],
 } as const satisfies Record<JourneyStage, readonly (readonly FlatEscalatingTradeRow[])[]>;
 
-const GENERAL_SHOP_ROW_PRICE_PROFILES = {
-  early: [
-    [10, 15, 20],
-    [15, 20, 25],
-  ],
-  mid: [
-    [15, 20, 25],
-    [20, 25, 30],
-  ],
-  late: [
-    [20, 30, 40],
-    [25, 35, 45],
-  ],
-} as const satisfies Record<JourneyStage, readonly (readonly number[])[]>;
-
 const NOW_VS_LATER_IMMEDIATE_ESSENCE_AMOUNTS = {
   early: [80, 100],
   mid: [100, 120],
   late: [120, 150],
 } as const satisfies Record<JourneyStage, readonly number[]>;
-
-function shopRowPriceText(price: ShopRowPrice): string {
-  const unit =
-    price.currency === "omens"
-      ? price.amount === 1 ? "omen" : "omens"
-      : "essence";
-
-  return `${price.amount} ${unit}`;
-}
-
-function namedDreamsignShopPrices(args: {
-  context: JourneyContext;
-  drawContext: DrawContext;
-  label: string;
-}): ShopRowPrice[] {
-  const affordableOmenAmount = Math.min(
-    args.context.state.quest.resources.omens,
-    2,
-  );
-  const priceFrames = affordableOmenAmount > 0
-    ? ["shared_essence", "varied_essence", "shared_omens"] as const
-    : ["shared_essence", "varied_essence"] as const;
-  const priceFrame = pickSequentialVariant(
-    args.drawContext,
-    `${args.label}:named-price-frame`,
-    priceFrames,
-  );
-
-  if (priceFrame === "shared_omens") {
-    const amount = affordableOmenAmount;
-
-    return [1, 2, 3].map((index) => ({
-      key: `${priceFrame}:${index}`,
-      currency: "omens",
-      amount,
-      convertedEssence: Math.abs(valueOmenLoss(amount)),
-    }));
-  }
-
-  if (priceFrame === "varied_essence") {
-    return [25, 35, 45].map((amount, index) => ({
-      key: `${priceFrame}:${index + 1}`,
-      currency: "essence",
-      amount: Math.min(amount, args.context.state.quest.resources.essence),
-      convertedEssence: Math.min(
-        amount,
-        args.context.state.quest.resources.essence,
-      ),
-    }));
-  }
-
-  const amount = Math.min(
-    pickSequentialVariant(
-      args.drawContext,
-      `${args.label}:shared-essence-price`,
-      [30, 45, 85],
-    ),
-    args.context.state.quest.resources.essence,
-  );
-
-  return [1, 2, 3].map((index) => ({
-    key: `${priceFrame}:${index}`,
-    currency: "essence",
-    amount,
-    convertedEssence: amount,
-  }));
-}
-
-function namedDreamsignShopRowFill(args: {
-  context: JourneyContext;
-  drawContext: DrawContext;
-  label: string;
-  row: NamedDreamsignShopRowSelection;
-}): ResolvedShapeFill {
-  const prices = namedDreamsignShopPrices(args);
-
-  return {
-    fillKind: "named_dreamsign_shop_row",
-    options: args.row.candidates.map((candidate, index) => {
-      const price = prices[index]!;
-      const priceCost = cost(price.currency, price.amount);
-      const effect = namedDreamsignPayload(
-        {
-          kind: "dreamsign_purchase",
-          dreamsign: candidate.dreamsign,
-          source: candidate.source,
-          extra: {
-            purchaseCurrency: price.currency,
-            purchaseAmount: price.amount,
-            shopRowPriceMode: prices.every((entry) =>
-              entry.currency === prices[0]!.currency &&
-              entry.amount === prices[0]!.amount
-            )
-              ? "shared_price"
-              : "per_row_variation",
-            shopRowCoherenceRule: args.row.coherenceRule,
-            shopRowCoherenceKey: args.row.coherenceKey,
-            targetOrigin: candidate.targetOrigin,
-            selectionWeight: candidate.weight,
-            weightHooks: candidate.weightHooks,
-          },
-        },
-        args.context,
-      );
-      const effectValue = valueDreamsignOperation("purchase", {
-        tideOverlap: candidate.weightHooks.tideOverlap > 0,
-      });
-
-      return {
-        number: index + 1,
-        textParts: [
-          {
-            source: "reward",
-            text: `Buy {${candidate.dreamsign.name}} for ${shopRowPriceText(price)}.`,
-          },
-        ],
-        payloadSpecs: [
-          {
-            role: "cost",
-            key: price.key,
-            payloads: [priceCost],
-          },
-          {
-            role: "reward",
-            key: `dreamsign-purchase:${candidate.dreamsign.id}`,
-            payloads: [effect],
-          },
-        ],
-        costs: [priceCost],
-        effects: [effect],
-        targetSelectors: [
-          dreamsignExactTarget(candidate.dreamsign, candidate.source),
-        ],
-        valueEstimate: {
-          cost: price.convertedEssence,
-          effect: effectValue,
-        },
-      };
-    }),
-  } satisfies ResolvedShapeFill;
-}
 
 function namedDeckCardTargetEntries(args: {
   context: JourneyContext;
@@ -1073,95 +908,6 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "shop_row": {
-      const namedDreamsignRow = selectNamedDreamsignShopRow({
-        context,
-        drawContext,
-        label: `${shapeId}:goods`,
-        stage,
-        sources: ["catalog"],
-      });
-      const shopFamily = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:shop-family`,
-        ["named_dreamsign", "named_dreamsign", "general"] as const,
-      );
-
-      if (namedDreamsignRow && shopFamily === "named_dreamsign") {
-        const shopFill = namedDreamsignShopRowFill({
-          context,
-          drawContext,
-          label: `${shapeId}:goods`,
-          row: namedDreamsignRow,
-        });
-
-        return {
-          options: shopFill.options.map((fill) =>
-            optionFromResolvedShapeFill(fill),
-          ),
-          precommitted: {},
-        };
-      }
-
-      const priceProfiles: readonly (readonly number[])[] =
-        GENERAL_SHOP_ROW_PRICE_PROFILES[stage];
-      const prices = shuffleDeterministic(
-        drawContext,
-        `${shapeId}:general-price-profile:${stage}`,
-        priceProfiles,
-      )[0]!;
-      const rewards = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:goods`,
-      )
-        .filter((reward) => reward.routeEffects === undefined)
-        .slice(0, 3);
-      const shopFill = {
-        fillKind: "shop_row",
-        options: rewards.map((reward, index) => {
-          const price = prices[index]!;
-          const priceCost = cost("essence", price);
-
-          return {
-            number: index + 1,
-            textParts: [
-              { source: "cost", text: `Pay ${price} essence.` },
-              { source: "reward", text: reward.text },
-            ],
-            payloadSpecs: [
-              {
-                role: "cost",
-                key: "shop-price",
-                payloads: [priceCost],
-              },
-              {
-                role: "reward",
-                key: reward.key,
-                payloads: reward.effects,
-              },
-            ],
-            costs: [priceCost],
-            effects: reward.effects,
-            targetSelectors: reward.targets ?? [],
-            triggers: reward.triggers ?? [],
-            routeEffects: reward.routeEffects ?? [],
-            valueEstimate: {
-              cost: price,
-              effect: reward.effect,
-              uncertainty: reward.uncertainty,
-            },
-          };
-        }),
-      } satisfies ResolvedShapeFill;
-
-      return {
-        options: shopFill.options.map((fill) =>
-          optionFromResolvedShapeFill(fill),
-        ),
-        precommitted: {},
-      };
-    }
     case "curated_reward_trio": {
       const rewards = rewardSlots(
         context,
@@ -1441,7 +1187,6 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "prize_ladder":
     case "probability_ladder":
     case "random_pool_draws":
     case "push_your_luck":

@@ -21,6 +21,7 @@ export const curatedRewardTrioPlugin = defineShapePlugin({
         "curated_reward_trio",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
     },
   scoreWeight: 1.35,
   generatedObjects: { natural: true },

@@ -129,7 +129,7 @@ type TreeBranchArgs = {
   terminal?: Omit<NonNullable<JourneyTreeBranch["terminal"]>, "operations">;
 };
 
-function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+export function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
   const costs = args.costs ?? [];
   const effects = args.effects ?? [];
   const burdens = args.burdens ?? [];
@@ -195,7 +195,7 @@ export function odds(percent: number): JourneyTreeBranch["odds"] {
   return { numerator: percent, denominator: 100, percent };
 }
 
-function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+export function tree(nodes: JourneyTree["nodes"]): JourneyTree {
   return {
     rootNodeId: nodes[0]?.id ?? "level-1",
     nodes,
@@ -569,89 +569,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     return treeRewardFamily(context, drawContext, `${label}:fallback`, levels, [
       "essence",
     ]);
-  }
-
-  function buildPrizeLadderTree(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): JourneyTree {
-    const rewardFamily = treeRewardFamily(
-      context,
-      drawContext,
-      "prize-ladder:reward-family",
-      4,
-      ["essence", "omens", "card_draft", "dreamsign_draft", "starter_cleanup"],
-    );
-    const claimReward = rewardFamily.rewards[3] ?? sequentialReward(
-      context,
-      drawContext,
-      "prize-ladder:claim-reward",
-    );
-    const costs = essenceCostProgression(
-      context,
-      drawContext,
-      "prize-ladder:costs",
-      3,
-      "steep",
-    );
-
-    return tree(
-      [1, 2, 3].map((level) => {
-        const stopReward = rewardFamily.rewards[level - 1]!;
-        const stopText = `${sentenceCase(stopReward.text)} End the Journey.`;
-        const price = costs[level - 1]!;
-        const isFinal = level === 3;
-
-        return {
-          id: `level-${level}`,
-          levelLabel: `Level ${level}`,
-          branches: [
-            treeBranch({
-              id: `level-${level}-stop`,
-              label: "Stop",
-              text: stopText,
-              effects: stopReward.effects,
-              targets: stopReward.targets ?? [],
-              effect: stopReward.effect,
-              terminal: {
-                text: "End the Journey.",
-                outcome: "end",
-                costs: [],
-                effects: stopReward.effects,
-                burdens: [],
-                targets: stopReward.targets ?? [],
-                routeEffects: [],
-              },
-            }),
-            treeBranch({
-              id: `level-${level}-${isFinal ? "claim" : "continue"}`,
-              label: isFinal ? "Claim" : "Continue",
-              text: isFinal
-                ? `Pay ${price} essence and ${lowerFirst(claimReward.text)} End the Journey.`
-                : `Pay ${price} essence. Go to Level ${level + 1}.`,
-              costs: [cost("essence", price)],
-              effects: isFinal ? claimReward.effects : [],
-              targets: isFinal ? (claimReward.targets ?? []) : [],
-              cost: price,
-              effect: isFinal ? claimReward.effect : 0,
-              ...(isFinal
-                ? {
-                    terminal: {
-                      text: "End the Journey.",
-                      outcome: "claim" as const,
-                      costs: [cost("essence", price)],
-                      effects: claimReward.effects,
-                      burdens: [],
-                      targets: claimReward.targets ?? [],
-                      routeEffects: [],
-                    },
-                  }
-                : { nextNodeId: `level-${level + 1}` }),
-            }),
-          ],
-        };
-      }),
-    );
   }
 
   function buildProbabilityLadderTree(
@@ -1044,11 +961,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     precommitted: PrecommittedOutcomes;
   } {
     switch (shapeId) {
-      case "prize_ladder":
-        return {
-          tree: buildPrizeLadderTree(context, drawContext),
-          precommitted: {},
-        };
       case "probability_ladder":
         return {
           tree: buildProbabilityLadderTree(context, drawContext),
@@ -1158,7 +1070,11 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     }
   }
 
-  return { decisionTreeForShape };
+  return {
+    decisionTreeForShape,
+    treeRewardFamily,
+    essenceCostProgression,
+  };
 }
 
 export function decisionTreeForShape(
@@ -1176,4 +1092,16 @@ export function decisionTreeForShape(
     context,
     drawContext,
   );
+}
+
+export function createTreePrimitives(tools: TreeBuilderTools): {
+  treeRewardFamily: ReturnType<typeof createDecisionTreeBuilders>["treeRewardFamily"];
+  essenceCostProgression: ReturnType<typeof createDecisionTreeBuilders>["essenceCostProgression"];
+} {
+  const builders = createDecisionTreeBuilders(tools);
+
+  return {
+    treeRewardFamily: builders.treeRewardFamily,
+    essenceCostProgression: builders.essenceCostProgression,
+  };
 }

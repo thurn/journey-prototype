@@ -1,4 +1,26 @@
+import { fail, type ValidationResult } from "../validate/result.js";
 import { commonValidationRules, defineShapePlugin, versionContribution } from "./shared.js";
+
+function validateCommitNowFuturePayoffValues(nets: readonly number[]): ValidationResult {
+  if (nets.length !== 3 || nets.some((net) => net <= 0)) {
+    return fail(
+      "option_values_are_comparable_for_shape",
+      "commit_now_future_payoff options must all be positive commitments",
+    );
+  }
+
+  const lowest = Math.min(...nets);
+  const highest = Math.max(...nets);
+
+  if (highest - lowest > 75) {
+    return fail(
+      "option_values_are_comparable_for_shape",
+      "commit_now_future_payoff options must be comparable future-payoff choices",
+    );
+  }
+
+  return { ok: true };
+}
 
 export const commitNowFuturePayoffPlugin = defineShapePlugin({
   definition: {
@@ -24,4 +46,5 @@ export const commitNowFuturePayoffPlugin = defineShapePlugin({
     },
   scoreWeight: 1.2,
   repair: { actions: [{ action: "clarify_commitment_terms", kind: "repair_payload_family" }, { action: "increase_future_payoff", kind: "repair_payload_family" }, { action: "store_future_payoff_metadata", kind: "repair_payload_family" }] },
+  optionValueValidator: (nets) => validateCommitNowFuturePayoffValues(nets),
 });

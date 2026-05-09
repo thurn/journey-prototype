@@ -46,6 +46,12 @@ export type JourneyPayloadCompatibility = {
   readonly reason: string;
 };
 
+export type MenuValueChecks = {
+  readonly positiveBands: boolean;
+  readonly symmetricBands: boolean;
+  readonly escalationOrRiskExempt: boolean;
+};
+
 export type JourneyShapeDefinition = {
   readonly id: JourneyShapeId;
   readonly topology: JourneyTopology;
@@ -56,6 +62,11 @@ export type JourneyShapeDefinition = {
   readonly repairPreferences: readonly string[];
   readonly debugLabel: string;
   readonly versionContribution: unknown;
+  readonly menuValueChecks: MenuValueChecks;
+  readonly allowsRouteReward: boolean;
+  readonly allowsRouteSideEffects: boolean;
+  readonly compoundCoherence: "default" | "skip";
+  readonly requiresPrecommittedRandom: boolean;
 };
 
 export type ShapeFillArgs = {
@@ -112,12 +123,30 @@ export type ShapeDebugPayloadCompatibility = {
   readonly variantIds: readonly string[];
 };
 
+export type ShapeOptionValueValidator = (
+  nets: readonly number[],
+  manifest: JourneyManifest,
+) => ValidationResult;
+
+export type ShapeTreeValidator = (
+  manifest: JourneyManifest,
+  context: import("../../quest/context.js").JourneyContext,
+  generatedObjects: readonly GeneratedObjectDefinition[],
+) => ValidationResult;
+
+export type ShapePrecommitValidator = (
+  manifest: JourneyManifest,
+) => ValidationResult;
+
 export type JourneyShapePlugin = {
   readonly id: JourneyShapeId;
   readonly definition: JourneyShapeDefinition;
   readonly scoreWeight: number;
   readonly fill: (args: ShapeFillArgs) => FilledJourney;
   readonly validators?: readonly ShapeValidator[];
+  readonly optionValueValidator?: ShapeOptionValueValidator;
+  readonly treeValidator?: ShapeTreeValidator;
+  readonly precommitValidator?: ShapePrecommitValidator;
   readonly repair?: {
     readonly fallbackRank?: number;
     readonly actions?: readonly ShapeRepairAction[];

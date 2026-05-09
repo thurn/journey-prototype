@@ -1,3 +1,5 @@
+import { isRecord } from "../validate/guards.js";
+import { fail } from "../validate/result.js";
 import { commonValidationRules, defineShapePlugin, versionContribution } from "./shared.js";
 
 export const takeAnyNumberPlugin = defineShapePlugin({
@@ -22,4 +24,42 @@ export const takeAnyNumberPlugin = defineShapePlugin({
     },
   scoreWeight: 1.25,
   repair: { actions: [{ action: "add_leave_option", kind: "repair_payload_family" }, { action: "add_shared_burden_or_limit", kind: "repair_payload_family" }, { action: "lower_take_cap", kind: "repair_payload_family" }] },
+  precommitValidator: (manifest) => {
+    const sequenceMenus = manifest.precommitted.sequenceMenus;
+
+    if (!isRecord(sequenceMenus)) {
+      return { ok: true };
+    }
+
+    for (const [path, menu] of Object.entries(sequenceMenus)) {
+      if (!Array.isArray(menu)) {
+        continue;
+      }
+
+      for (const entry of menu) {
+        if (
+          !isRecord(entry) ||
+          entry.pickBehavior === "leave" ||
+          entry.pickBehavior === "complete_sequence"
+        ) {
+          continue;
+        }
+
+        const hasLimitingStructure =
+          (Array.isArray(entry.costs) && entry.costs.length > 0) ||
+          (Array.isArray(entry.burdens) && entry.burdens.length > 0) ||
+          (typeof entry.uncertaintyConvertedEssence === "number" &&
+            entry.uncertaintyConvertedEssence < 0);
+
+        if (!hasLimitingStructure) {
+          return fail(
+            "open_pick_without_limiting_structure",
+            `${path} has a take option without a cost, burden, or risk`,
+          );
+        }
+      }
+    }
+
+    return { ok: true };
+  },
 });

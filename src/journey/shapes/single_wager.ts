@@ -18,6 +18,7 @@ export const singleWagerPlugin = defineShapePlugin({
       ],
       debugLabel: "Single wager",
       versionContribution: versionContribution("single_wager", "random_commit"),
+      menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
   scoreWeight: 0.75,
   repair: { actions: [{ action: "make_stake_visible", kind: "adjust_cost_or_burden" }, { action: "bound_reward_outcomes", kind: "repair_payload_family" }, { action: "collapse_repeated_wager_steps", kind: "simplify_fill" }] },

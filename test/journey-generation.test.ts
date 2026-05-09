@@ -42,8 +42,8 @@ import {
 import {
   contentBackedDreamsignCandidates,
   dreamsignExactTarget,
-  namedDreamsignShopRowCandidateGroups,
 } from "../src/journey/fillers/dreamsignPayloads.js";
+import { namedDreamsignShopRowCandidateGroups } from "../src/journey/shapes/shop_row/dreamsignSelection.js";
 import {
   routeEditCatalog,
   routeEditMenuRewards,

@@ -18,6 +18,7 @@ export const singleRewardPlugin = defineShapePlugin({
       ],
       debugLabel: "Single reward",
       versionContribution: versionContribution("single_reward", "single_reward"),
+      menuValueChecks: { positiveBands: true, symmetricBands: false, escalationOrRiskExempt: false },
     },
   scoreWeight: 0.65,
   repair: { fallbackRank: 1, actions: [{ action: "remove_cost_or_burden", kind: "adjust_cost_or_burden" }, { action: "collapse_extra_options", kind: "simplify_fill" }, { action: "replace_with_simple_reward", kind: "switch_to_shape", targetShapeId: "single_reward" }] },

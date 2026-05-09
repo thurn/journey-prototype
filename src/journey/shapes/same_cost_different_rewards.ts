@@ -21,6 +21,8 @@ export const sameCostDifferentRewardsPlugin = defineShapePlugin({
         "same_cost_different_rewards",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
+      allowsRouteReward: true,
     },
   scoreWeight: 1.3,
   generatedObjects: { natural: true },

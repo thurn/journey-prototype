@@ -27,7 +27,7 @@ import type {
   PickBehavior,
 } from "../manifest.js";
 import { adaptJourneyOptionOperations } from "../operationAdapters.js";
-import type { JourneyShapeId } from "../shapes.js";
+import { getShapeDefinition, type JourneyShapeId } from "../shapes.js";
 import { symbolsForOption } from "../symbols.js";
 import {
   CARD_MODIFICATION_VALUE_CONSTANTS,
@@ -3601,11 +3601,13 @@ function delayedSideEffectComponent(): CompoundPayloadComponent {
 }
 
 function compoundContract(shapeId: JourneyShapeId): CompoundCompositionContract {
+  const definition = getShapeDefinition(shapeId);
+
   return {
     shapeId,
     allowCosts: true,
     allowBurdens: true,
-    allowRouteSideEffects: shapeId === "service_menu" || shapeId === "alter_dreamscapes",
+    allowRouteSideEffects: definition.allowsRouteSideEffects,
     allowDelayedSideEffects: true,
     allowFollowUpOperations: true,
     allowRouteOnlyReward: shapeId === "alter_dreamscapes",

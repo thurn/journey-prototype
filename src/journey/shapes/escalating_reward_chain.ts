@@ -18,6 +18,7 @@ export const escalatingRewardChainPlugin = defineShapePlugin({
       ],
       debugLabel: "Escalating reward chain",
       versionContribution: versionContribution("escalating_reward_chain", "decision_tree"),
+      menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
   scoreWeight: 0.5,
   repair: { actions: [{ action: "align_reward_family", kind: "repair_payload_family" }, { action: "normalize_cost_scaling", kind: "adjust_cost_or_burden" }, { action: "simplify_chain_level_count", kind: "simplify_fill" }] },

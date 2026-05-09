@@ -1,73 +1,14 @@
 import type { JourneyManifest, JourneyOperation } from "../manifest.js";
-import {
-  LOSS_CHOICE_VALUE_CONSTANTS,
-  POSITIVE_MENU_VALUE_CONSTANTS,
-} from "../value.js";
+import { getShapeDefinition } from "../shapes.js";
+import { POSITIVE_MENU_VALUE_CONSTANTS } from "../value.js";
 import { isRecord } from "./guards.js";
 import { fail, type ValidationResult } from "./result.js";
-
-export function validateChooseYourLossValues(nets: readonly number[]): ValidationResult {
-  if (nets.some((net) => net >= 0)) {
-    return fail("invalid_positive_negative_framing", "choose_your_loss options must be negative outcomes");
-  }
-
-  const magnitudes = nets
-    .map((net) => Math.abs(net))
-    .sort((left, right) => left - right);
-  const lowest = magnitudes[0] ?? 0;
-  const highest = magnitudes[magnitudes.length - 1] ?? 0;
-
-  if (lowest < LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude) {
-    return fail("loss_not_comparable", "choose_your_loss options must use meaningful loss magnitudes");
-  }
-
-  if (highest / lowest > LOSS_CHOICE_VALUE_CONSTANTS.maximumComparableRatio) {
-    return fail("loss_not_comparable", "choose_your_loss options must be comparable damage-control choices");
-  }
-
-  return { ok: true };
-}
-
-export function validateCommitNowFuturePayoffValues(nets: readonly number[]): ValidationResult {
-  if (nets.length !== 3 || nets.some((net) => net <= 0)) {
-    return fail(
-      "option_values_are_comparable_for_shape",
-      "commit_now_future_payoff options must all be positive commitments",
-    );
-  }
-
-  const lowest = Math.min(...nets);
-  const highest = Math.max(...nets);
-
-  if (highest - lowest > 75) {
-    return fail(
-      "option_values_are_comparable_for_shape",
-      "commit_now_future_payoff options must be comparable future-payoff choices",
-    );
-  }
-
-  return { ok: true };
-}
-
-export const POSITIVE_MENU_COMPARABLE_SHAPES = new Set<JourneyManifest["shapeId"]>([
-  "random_allocation",
-  "same_cost_different_rewards",
-  "service_menu",
-  "curated_reward_trio",
-  "heterogeneous_pair",
-  "one_target_many_operations",
-  "mirrored_operations",
-  "one_operation_many_targets",
-  "single_reward",
-  "timed_window_menu",
-  "single_random_outcome",
-]);
 
 export function validatePositiveMenuValues(
   shapeId: JourneyManifest["shapeId"],
   nets: readonly number[],
 ): ValidationResult {
-  if (!POSITIVE_MENU_COMPARABLE_SHAPES.has(shapeId)) {
+  if (!getShapeDefinition(shapeId).menuValueChecks.positiveBands) {
     return { ok: true };
   }
 
@@ -94,40 +35,16 @@ export function validatePositiveMenuValues(
   return { ok: true };
 }
 
-const SYMMETRIC_VALUE_SHAPES = new Set<JourneyManifest["shapeId"]>([
-  "same_cost_different_rewards",
-  "shared_prefix_menu",
-  "shop_row",
-  "curated_reward_trio",
-  "service_menu",
-  "one_target_many_operations",
-  "mirrored_operations",
-  "one_operation_many_targets",
-  "timed_window_menu",
-]);
-
-const ESCALATION_OR_RISK_SHAPES = new Set<JourneyManifest["shapeId"]>([
-  "flat_escalating_trade",
-  "escalating_reward_chain",
-  "prize_ladder",
-  "probability_ladder",
-  "push_your_luck",
-  "risk_or_skip",
-  "single_wager",
-  "random_pool_draws",
-  "single_random_outcome",
-  "reveal_choice_menu",
-  "resolved_random_series",
-]);
-
 export function validateSymmetricMenuValues(manifest: JourneyManifest): ValidationResult {
-  if (ESCALATION_OR_RISK_SHAPES.has(manifest.shapeId)) {
+  const checks = getShapeDefinition(manifest.shapeId).menuValueChecks;
+
+  if (checks.escalationOrRiskExempt) {
     return { ok: true };
   }
 
   const hasSymmetryContract = (manifest.debug.symmetryContracts?.length ?? 0) > 0;
 
-  if (!hasSymmetryContract && !SYMMETRIC_VALUE_SHAPES.has(manifest.shapeId)) {
+  if (!hasSymmetryContract && !checks.symmetricBands) {
     return { ok: true };
   }
 
@@ -156,14 +73,6 @@ export function validateSymmetricMenuValues(manifest: JourneyManifest): Validati
 
   return { ok: true };
 }
-
-const ROUTE_REWARD_ALLOWED_SHAPES = new Set<JourneyManifest["shapeId"]>([
-  "alter_dreamscapes",
-  "service_menu",
-  "shared_prefix_menu",
-  "same_cost_different_rewards",
-  "timed_window_menu",
-]);
 
 function hasMeaningfulUpside(option: JourneyManifest["options"][number]): boolean {
   return option.effectConvertedEssence >= 100 ||
@@ -196,7 +105,9 @@ function hasOnlyDownside(option: JourneyManifest["options"][number]): boolean {
 export function validateCompoundOptionCoherence(
   manifest: JourneyManifest,
 ): ValidationResult {
-  if (manifest.shapeId === "choose_your_loss") {
+  const definition = getShapeDefinition(manifest.shapeId);
+
+  if (definition.compoundCoherence === "skip") {
     return { ok: true };
   }
 
@@ -223,10 +134,7 @@ export function validateCompoundOptionCoherence(
       option.effects.length === 0 &&
       option.effectConvertedEssence > 0;
 
-    if (
-      routeOnly &&
-      !ROUTE_REWARD_ALLOWED_SHAPES.has(manifest.shapeId)
-    ) {
+    if (routeOnly && !definition.allowsRouteReward) {
       return fail(
         "route_only_reward_in_non_route_shape",
         "Route-only rewards require an explicitly route-compatible shape",

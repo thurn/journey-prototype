@@ -1,15 +1,13 @@
 import type { JourneyContext } from "../../quest/context.js";
 import { stableStringify } from "../../util/stableJson.js";
 import type { GeneratedObjectDefinition, JourneyManifest, JourneyOption } from "../manifest.js";
-import { getShapeDefinition } from "../shapes.js";
+import { getShapeDefinition, getShapePlugin } from "../shapes.js";
 import { isRecord } from "./guards.js";
 import { validateOption, validateOptionShape } from "./options.js";
 import { hasPrecommitted } from "./precommitRules.js";
 import { fail, type ValidationResult } from "./result.js";
 import {
-  validateChooseYourLossValues,
   validateCompoundOptionCoherence,
-  validateCommitNowFuturePayoffValues,
   validatePositiveMenuValues,
   validateSymmetricMenuValues,
 } from "./values.js";
@@ -154,12 +152,10 @@ export function rootValueResult(manifest: JourneyManifest): ValidationResult {
     .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
     .map((journeyOption) => journeyOption.netConvertedEssence);
 
-  if (manifest.shapeId === "choose_your_loss") {
-    return validateChooseYourLossValues(nets);
-  }
+  const optionValueValidator = getShapePlugin(manifest.shapeId).optionValueValidator;
 
-  if (manifest.shapeId === "commit_now_future_payoff") {
-    return validateCommitNowFuturePayoffValues(nets);
+  if (optionValueValidator) {
+    return optionValueValidator(nets, manifest);
   }
 
   if (nets.length > 0 && nets.every((net) => net < 0)) {

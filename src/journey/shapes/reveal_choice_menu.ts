@@ -19,6 +19,7 @@ export const revealChoiceMenuPlugin = defineShapePlugin({
       ],
       debugLabel: "Reveal choice menu",
       versionContribution: versionContribution("reveal_choice_menu", "random_commit"),
+      menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
   scoreWeight: 0.6,
   repair: { actions: [{ action: "restore_visible_reward_pool", kind: "repair_payload_family" }, { action: "split_combined_reveal_modes", kind: "simplify_fill" }, { action: "bound_random_reward_outcomes", kind: "repair_payload_family" }] },

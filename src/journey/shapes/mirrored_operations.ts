@@ -21,6 +21,7 @@ export const mirroredOperationsPlugin = defineShapePlugin({
         "mirrored_operations",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
     },
   scoreWeight: 0.75,
   generatedObjects: { natural: true, highWeirdness: true },

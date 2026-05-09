@@ -22,6 +22,8 @@ export const riskOrSkipPlugin = defineShapePlugin({
         "risk_or_skip",
         "single_offer_refusal",
       ),
+      menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
+      requiresPrecommittedRandom: true,
     },
   scoreWeight: 0.75,
   repair: { actions: [{ action: "add_skip_option", kind: "repair_payload_family" }, { action: "move_guaranteed_cost_to_single_offer", kind: "switch_to_shape", targetShapeId: "single_offer" }, { action: "bound_random_downside", kind: "repair_payload_family" }] },

@@ -10,7 +10,7 @@ import { nowVsLaterPlugin } from "./now_vs_later.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
 import { oneTargetManyOperationsPlugin } from "./one_target_many_operations.js";
 import { pairedReturnPlugin } from "./paired_return.js";
-import { prizeLadderPlugin } from "./prize_ladder.js";
+import { prizeLadderPlugin } from "./prize_ladder/index.js";
 import { probabilityLadderPlugin } from "./probability_ladder.js";
 import { pushYourLuckPlugin } from "./push_your_luck.js";
 import { randomAllocationPlugin } from "./random_allocation.js";
@@ -22,7 +22,7 @@ import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards.js
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs.js";
 import { serviceMenuPlugin } from "./service_menu.js";
 import { sharedPrefixMenuPlugin } from "./shared_prefix_menu.js";
-import { shopRowPlugin } from "./shop_row.js";
+import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome.js";
 import { singleRewardPlugin } from "./single_reward.js";

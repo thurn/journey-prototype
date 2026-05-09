@@ -21,6 +21,7 @@ export const oneOperationManyTargetsPlugin = defineShapePlugin({
         "one_operation_many_targets",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
     },
   scoreWeight: 1.4,
   generatedObjects: { natural: true, highWeirdness: true },

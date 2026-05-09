@@ -24,6 +24,8 @@ export const timedWindowMenuPlugin = defineShapePlugin({
         "timed_window_menu",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
+      allowsRouteReward: true,
     },
   scoreWeight: 0.85,
   repair: { actions: [{ action: "align_option_timing_window", kind: "repair_payload_family" }, { action: "replace_permanent_effect", kind: "repair_payload_family" }, { action: "rebalance_timed_values", kind: "repair_payload_family" }] },

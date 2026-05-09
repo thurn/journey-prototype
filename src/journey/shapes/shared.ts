@@ -22,9 +22,25 @@ export const commonValidationRules = [
 
 export type RawJourneyShapeDefinition = Omit<
   JourneyShapeDefinition,
-  "payloadCompatibility"
+  | "payloadCompatibility"
+  | "menuValueChecks"
+  | "allowsRouteReward"
+  | "allowsRouteSideEffects"
+  | "compoundCoherence"
+  | "requiresPrecommittedRandom"
 > & {
   readonly payloadCompatibility?: readonly JourneyPayloadCompatibility[];
+  readonly menuValueChecks?: JourneyShapeDefinition["menuValueChecks"];
+  readonly allowsRouteReward?: boolean;
+  readonly allowsRouteSideEffects?: boolean;
+  readonly compoundCoherence?: JourneyShapeDefinition["compoundCoherence"];
+  readonly requiresPrecommittedRandom?: boolean;
+};
+
+const DEFAULT_MENU_VALUE_CHECKS: JourneyShapeDefinition["menuValueChecks"] = {
+  positiveBands: false,
+  symmetricBands: false,
+  escalationOrRiskExempt: false,
 };
 
 export function versionContribution(
@@ -101,7 +117,6 @@ function payloadCompatibilityFor(
     supportedTags.includes("rewrite");
   const hasDreamsign =
     supportedTags.includes("dreamsign") ||
-    id === "shop_row" ||
     id === "curated_reward_trio";
   const serviceFamilyShape = id === "service_menu";
   const sharedPrefixShape = id === "shared_prefix_menu";
@@ -110,7 +125,6 @@ function payloadCompatibilityFor(
     "same_cost_different_rewards",
     "same_reward_different_costs",
     "service_menu",
-    "shop_row",
     "curated_reward_trio",
     "one_target_many_operations",
     "mirrored_operations",
@@ -141,7 +155,6 @@ function payloadCompatibilityFor(
     compatibility(
       "dreamsign",
       [
-        ...(id === "shop_row" ? ["named-dreamsign-shop-row"] : []),
         ...(id === "curated_reward_trio"
           ? ["dreamsign-transform-duplicate-pool"]
           : []),
@@ -193,10 +206,8 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "shop",
-      id === "shop_row" ? ["shop-economy"] : [],
-      id === "shop_row"
-        ? "Shape has flat visible prices and shop-row comparison semantics."
-        : "Shape lacks a shop row price frame.",
+      [],
+      "Shape lacks a shop row price frame.",
     ),
     compatibility(
       "dreamwell",
@@ -321,6 +332,14 @@ export function freezeShapeDefinition(
     validationRules: Object.freeze([...definition.validationRules]),
     repairPreferences: Object.freeze([...definition.repairPreferences]),
     versionContribution: freezeSerializable(version),
+    menuValueChecks: Object.freeze({
+      ...DEFAULT_MENU_VALUE_CHECKS,
+      ...(definition.menuValueChecks ?? {}),
+    }),
+    allowsRouteReward: definition.allowsRouteReward ?? false,
+    allowsRouteSideEffects: definition.allowsRouteSideEffects ?? false,
+    compoundCoherence: definition.compoundCoherence ?? "default",
+    requiresPrecommittedRandom: definition.requiresPrecommittedRandom ?? false,
   });
 }
 
@@ -346,6 +365,15 @@ export function defineShapePlugin(
         legacyFillOptions(definition.id, args.context, args.drawContext, args.stage)),
     ...(input.validators
       ? { validators: Object.freeze([...input.validators]) }
+      : {}),
+    ...(input.optionValueValidator
+      ? { optionValueValidator: input.optionValueValidator }
+      : {}),
+    ...(input.treeValidator
+      ? { treeValidator: input.treeValidator }
+      : {}),
+    ...(input.precommitValidator
+      ? { precommitValidator: input.precommitValidator }
       : {}),
     ...(input.repair
       ? {

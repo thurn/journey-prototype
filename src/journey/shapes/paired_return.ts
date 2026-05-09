@@ -1,3 +1,5 @@
+import { hasPrecommitted } from "../validate/precommitRules.js";
+import { fail } from "../validate/result.js";
 import { commonValidationRules, defineShapePlugin, versionContribution } from "./shared.js";
 
 export const pairedReturnPlugin = defineShapePlugin({
@@ -21,4 +23,11 @@ export const pairedReturnPlugin = defineShapePlugin({
     },
   scoreWeight: 1,
   repair: { actions: [{ action: "store_paired_return_metadata", kind: "repair_payload_family" }, { action: "clarify_callback_anchor", kind: "repair_payload_family" }, { action: "fall_back_to_reward_after_trigger", kind: "switch_to_shape", targetShapeId: "reward_after_trigger" }] },
+  precommitValidator: (manifest) => {
+    if (!hasPrecommitted(manifest.precommitted.pairedReturn)) {
+      return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
+    }
+
+    return { ok: true };
+  },
 });

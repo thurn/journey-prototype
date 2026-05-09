@@ -1,6 +1,6 @@
 import type { JourneyContext } from "../../quest/context.js";
 import type { GeneratedObjectDefinition, JourneyManifest, JourneyOption } from "../manifest.js";
-import { getShapeDefinition } from "../shapes.js";
+import { getShapeDefinition, getShapePlugin } from "../shapes.js";
 import { isRecord } from "./guards.js";
 import { validateOption, validateOptionShape } from "./options.js";
 import { validateRouteEffects } from "./payloadContracts.js";
@@ -307,7 +307,6 @@ export function validateSequenceMenu(
   context: JourneyContext,
   path: string,
   maxSteps: number | undefined,
-  shapeId: JourneyManifest["shapeId"],
   generatedObjects: readonly GeneratedObjectDefinition[] = [],
 ): ValidationResult {
   if (!Array.isArray(menu) || menu.length === 0) {
@@ -357,31 +356,6 @@ export function validateSequenceMenu(
     return fail("sequence_advances_past_cap", `${path} cannot advance past maxSteps`);
   }
 
-  if (shapeId === "take_any_number") {
-    for (const entry of menu) {
-      if (
-        !isRecord(entry) ||
-        entry.pickBehavior === "leave" ||
-        entry.pickBehavior === "complete_sequence"
-      ) {
-        continue;
-      }
-
-      const hasLimitingStructure =
-        (Array.isArray(entry.costs) && entry.costs.length > 0) ||
-        (Array.isArray(entry.burdens) && entry.burdens.length > 0) ||
-        (typeof entry.uncertaintyConvertedEssence === "number" &&
-          entry.uncertaintyConvertedEssence < 0);
-
-      if (!hasLimitingStructure) {
-        return fail(
-          "open_pick_without_limiting_structure",
-          `${path} has a take option without a cost, burden, or risk`,
-        );
-      }
-    }
-  }
-
   return { ok: true };
 }
 
@@ -400,7 +374,6 @@ export function validateSequenceMenus(
       context,
       key,
       manifest.sequence?.maxSteps,
-      manifest.shapeId,
       generatedObjects,
     );
 
@@ -431,7 +404,7 @@ export function randomPrecommittedResult(
 ): ValidationResult {
   if (
     (definition.topology === "random_commit" ||
-      manifest.shapeId === "risk_or_skip" ||
+      definition.requiresPrecommittedRandom ||
       manifest.options.some(optionImpliesRandomOrHiddenOutcome)) &&
     !hasPrecommitted(manifest.precommitted.random)
   ) {
@@ -457,8 +430,14 @@ export function delayedPrecommittedResult(
     return fail("missing_precommitted_outcomes", "Delayed shapes require precommitted future outcomes");
   }
 
-  if (manifest.shapeId === "paired_return" && !hasPrecommitted(manifest.precommitted.pairedReturn)) {
-    return fail("missing_precommitted_outcomes", "Paired return shapes require precommitted return metadata");
+  const precommitValidator = getShapePlugin(manifest.shapeId).precommitValidator;
+
+  if (precommitValidator) {
+    const result = precommitValidator(manifest);
+
+    if (!result.ok) {
+      return result;
+    }
   }
 
   if (context.state.quest.route.unresolvedHooks.length + manifestHookBudgetCost(manifest) > 3) {

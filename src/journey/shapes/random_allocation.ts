@@ -18,6 +18,7 @@ export const randomAllocationPlugin = defineShapePlugin({
       ],
       debugLabel: "Random allocation",
       versionContribution: versionContribution("random_allocation", "direct_menu"),
+      menuValueChecks: { positiveBands: true, symmetricBands: false, escalationOrRiskExempt: false },
     },
   scoreWeight: 1.35,
   generatedObjects: { natural: true, highWeirdness: true },

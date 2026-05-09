@@ -21,6 +21,7 @@ export const singleRandomOutcomePlugin = defineShapePlugin({
         "single_random_outcome",
         "random_commit",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: false, escalationOrRiskExempt: true },
     },
   scoreWeight: 0.95,
   repair: { actions: [{ action: "bound_random_table", kind: "repair_payload_family" }, { action: "collapse_extra_random_rolls", kind: "simplify_fill" }, { action: "precommit_random_outcome", kind: "repair_payload_family" }] },

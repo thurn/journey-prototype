@@ -21,6 +21,7 @@ export const heterogeneousPairPlugin = defineShapePlugin({
         "heterogeneous_pair",
         "direct_menu",
       ),
+      menuValueChecks: { positiveBands: true, symmetricBands: false, escalationOrRiskExempt: false },
     },
   scoreWeight: 1.25,
   repair: { actions: [{ action: "replace_matching_axis_option", kind: "repair_payload_family" }, { action: "rebalance_pair_values", kind: "repair_payload_family" }, { action: "clarify_axis_difference", kind: "repair_payload_family" }] },

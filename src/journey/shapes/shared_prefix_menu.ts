@@ -19,6 +19,8 @@ export const sharedPrefixMenuPlugin = defineShapePlugin({
       ],
       debugLabel: "Shared prefix menu",
       versionContribution: versionContribution("shared_prefix_menu", "direct_menu"),
+      menuValueChecks: { positiveBands: false, symmetricBands: true, escalationOrRiskExempt: false },
+      allowsRouteReward: true,
     },
   scoreWeight: 0.8,
   repair: { actions: [{ action: "restore_shared_prefix", kind: "repair_payload_family" }, { action: "replace_duplicate_payoff_family", kind: "repair_payload_family" }, { action: "rebalance_prefix_payoff_values", kind: "repair_payload_family" }] },
