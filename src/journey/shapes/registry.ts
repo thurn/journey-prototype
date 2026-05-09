@@ -14,7 +14,7 @@ import { prizeLadderPlugin } from "./prize_ladder/index.js";
 import { probabilityLadderPlugin } from "./probability_ladder.js";
 import { pushYourLuckPlugin } from "./push_your_luck/index.js";
 import { randomAllocationPlugin } from "./random_allocation/index.js";
-import { randomPoolDrawsPlugin } from "./random_pool_draws.js";
+import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
 import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
 import { riskOrSkipPlugin } from "./risk_or_skip.js";
