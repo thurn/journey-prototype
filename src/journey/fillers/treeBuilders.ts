@@ -6,7 +6,6 @@ import type {
   JourneyTreeBranch,
   PrecommittedOutcomes,
 } from "../manifest.js";
-import { BANE_NAMES } from "../effects.js";
 import {
   adaptTreeBranchOperations,
   adaptTreeTerminalOperations,
@@ -14,7 +13,6 @@ import {
 import type { JourneyShapeId } from "../shapes.js";
 import { visibleWheelPool } from "./randomPayloads.js";
 import {
-  valueBaneGain,
   valueCardDraft,
   valueDreamsignDraft,
   valueOmenGain,
@@ -751,119 +749,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     );
   }
 
-  function buildPushYourLuckTree(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): JourneyTree {
-    const profile = {
-      chances: chanceProgression(
-        drawContext,
-        "push-your-luck:chances",
-        3,
-        "push",
-      ),
-      rewards: treeRewardFamily(
-        context,
-        drawContext,
-        "push-your-luck:reward-family",
-        3,
-        [
-          "essence",
-          "omens",
-          "card_draft",
-          "dreamsign_draft",
-          "starter_cleanup",
-          "transfiguration",
-          "battle_window",
-        ],
-      ).rewards,
-    };
-    const failureBaneName = pickSequentialVariant(
-      drawContext,
-      "push-your-luck:failure-bane",
-      BANE_NAMES,
-    );
-    const failureBane = {
-      kind: "bane_gain",
-      baneName: failureBaneName,
-      count: 1,
-    };
-    const failureBurden = valueBaneGain(failureBaneName, 1);
-
-    return tree(
-      [1, 2, 3].map((level) => {
-        const reward = profile.rewards[level - 1]!;
-        const successPercent = profile.chances[level - 1]!;
-
-        return {
-          id: `level-${level}`,
-          levelLabel: `Level ${level}`,
-          branches: [
-            treeBranch({
-              id: `level-${level}-stop`,
-              label: "Stop",
-              text:
-                level === 1
-                  ? "Leave."
-                  : "Keep the last safe reward. End the Journey.",
-              terminal: {
-                text: "End the Journey.",
-                outcome: level === 1 ? "leave" : "end",
-                costs: [],
-                effects: [],
-                burdens: [],
-                targets: [],
-                routeEffects: [],
-              },
-            }),
-            treeBranch({
-              id: `level-${level}-push`,
-              label: "Push",
-              text: `Risk immediate failure for a ${successPercent}% chance to ${reward.text} ${level === 3 ? "End the Journey." : `Go to Level ${level + 1}.`}`,
-              odds: odds(successPercent),
-              effects: reward.effects,
-              targets: reward.targets ?? [],
-              effect: reward.effect,
-              uncertainty: -30,
-              nextNodeId: level === 3 ? undefined : `level-${level + 1}`,
-              ...(level === 3
-                ? {
-                    terminal: {
-                      text: "End the Journey.",
-                      outcome: "claim" as const,
-                      costs: [],
-                      effects: reward.effects,
-                      burdens: [],
-                      targets: reward.targets ?? [],
-                      routeEffects: [],
-                    },
-                  }
-                : {}),
-            }),
-            treeBranch({
-              id: `level-${level}-failure`,
-              label: "Failure",
-              kind: "random_chance",
-              text: `Gain 1 ${failureBaneName}. End the Journey.`,
-              odds: odds(100 - successPercent),
-              burdens: [failureBane],
-              burden: failureBurden,
-              terminal: {
-                text: "End the Journey.",
-                outcome: "failure",
-                costs: [],
-                effects: [],
-                burdens: [failureBane],
-                targets: [],
-                routeEffects: [],
-              },
-            }),
-          ],
-        };
-      }),
-    );
-  }
-
   function decisionTreeForShape(
     shapeId: JourneyShapeId,
     context: JourneyContext,
@@ -935,39 +820,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
                   Number(wheel.visiblePoolEnvelope.worstCaseBurdenConvertedEssence ?? 0) *
                   drawCount,
                 presentation: "random_pool_repeated_draws",
-              },
-            ],
-          },
-        };
-      }
-      case "push_your_luck": {
-        const pushTree = buildPushYourLuckTree(context, drawContext);
-        const failureBranches = pushTree.nodes.flatMap((node) =>
-          node.branches.filter((branch) => branch.kind === "random_chance"),
-        );
-        const firstFailure = failureBranches[0];
-
-        return {
-          tree: pushTree,
-          precommitted: {
-            random: [
-              {
-                kind: "push_choice",
-                bounded: true,
-                odds: firstFailure?.odds ?? odds(50),
-                hazard: {
-                  branches: failureBranches.map((branch) => ({
-                    id: branch.id,
-                    odds: branch.odds,
-                    burdens: branch.burdens ?? [],
-                  })),
-                },
-                visibilityPolicy: {
-                  outcomeVisibility: "visible",
-                  disclosure:
-                    "Push-your-luck failure odds and hazards are visible on each push branch.",
-                  playerVisible: true,
-                },
               },
             ],
           },

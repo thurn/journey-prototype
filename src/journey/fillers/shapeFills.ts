@@ -715,8 +715,7 @@ export function fillOptions(
       };
     }
     case "probability_ladder":
-    case "random_pool_draws":
-    case "push_your_luck": {
+    case "random_pool_draws": {
       const filled = decisionTreeForShape(
         shapeId,
         context,
