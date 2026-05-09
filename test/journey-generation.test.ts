@@ -25,7 +25,6 @@ import {
   CARD_DRAFT_PROFILES,
   cardDraftText,
   compoundPayloadMenuFill,
-  commonPositiveOptions,
   costSlots,
   draftCards,
   option,
@@ -34,6 +33,7 @@ import {
   starterSurgeryRewardSlots,
   target,
 } from "../src/journey/fillers/shared.js";
+import { commonPositiveOptions } from "../src/journey/shapes/single_reward/commonPositiveOptions.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
 import {
   cardExactTarget,

@@ -56,7 +56,6 @@ import {
   cardDraftPredicate,
   cardDraftText,
   chosenCardText,
-  commonPositiveOptions,
   comparableEssenceLossAmount,
   compoundPayloadMenuFill,
   cost,
@@ -950,21 +949,6 @@ export function fillOptions(
         precommitted: {},
       };
     }
-    case "single_reward":
-      return {
-        options: renumberOptions(
-          shuffleDeterministic(
-            drawContext,
-            `${shapeId}:single-reward-options`,
-            commonPositiveOptions(
-              context,
-              drawContext,
-              `${shapeId}:positive-menu`,
-            ),
-          ).slice(0, 2),
-        ),
-        precommitted: {},
-      };
     case "risk_or_skip": {
       const reward = namedDreamsignRiskReward({
         context,
