@@ -2484,6 +2484,7 @@ export function fillOptions(
       const routeBane = baneBurdenSlot(
         drawContext,
         `${shapeId}:route-bane`,
+        1,
       );
       const companionCardOperation = compatibleCardOperations(drawContext, {
         topology: "one_operation_many_targets",
@@ -2526,7 +2527,18 @@ export function fillOptions(
           effects.push(gainOmen(amount));
           effect += valueOmenGain(amount);
         } else if (reward.companion === "bane_burden") {
+          const compensation = Math.max(
+            45,
+            Math.min(
+              90,
+              Math.round(Math.abs(routeBane.burden) * 0.7 / 5) * 5,
+            ),
+          );
+
           text = `${routeBane.prefix} ${text}`;
+          text = `${text} Gain ${compensation} essence.`;
+          effects.push(gainEssence(compensation));
+          effect += compensation;
           burdens = routeBane.burdens;
           burden = routeBane.burden;
         } else if (reward.companion === "card_operation") {

@@ -48,6 +48,12 @@ type RouteMenuSpec = {
   companion?: RouteMenuCompanion;
 };
 
+type RouteMenuVariant = {
+  variantId: RouteEditMenuVariantId;
+  sharedProperty: string;
+  buildSpecs: (drawContext: DrawContext, label: string) => RouteMenuSpec[];
+};
+
 export type RouteEditReward = {
   key: string;
   text: string;
@@ -448,62 +454,245 @@ function routeCandidate(args: {
   };
 }
 
+function routeMenuSpecFromCandidate(
+  candidate: RouteEditCandidate,
+  companion?: RouteMenuCompanion,
+): RouteMenuSpec {
+  return {
+    operation: candidate.operation,
+    routeScope: candidate.routeScope,
+    ...(candidate.siteType ? { siteType: candidate.siteType } : {}),
+    ...(candidate.fromSite ? { fromSite: candidate.fromSite } : {}),
+    ...(candidate.toSite ? { toSite: candidate.toSite } : {}),
+    ...(candidate.probabilityDirection
+      ? { probabilityDirection: candidate.probabilityDirection }
+      : {}),
+    ...(candidate.allMatchingSiteType ? { allMatchingSiteType: true } : {}),
+    ...(companion ? { companion } : {}),
+  };
+}
+
+function routeMenuSpecChoices(args: {
+  drawContext: DrawContext;
+  label: string;
+  count: number;
+  operationKinds?: readonly RouteOperationKind[];
+  scopes?: readonly RouteScope[];
+  polarities?: readonly RoutePolarity[];
+  companions?: readonly (RouteMenuCompanion | undefined)[];
+  filter?: (candidate: RouteEditCandidate) => boolean;
+}): RouteMenuSpec[] {
+  const operationKinds = new Set(args.operationKinds);
+  const scopes = new Set(args.scopes);
+  const polarities = new Set(args.polarities);
+  const candidates = routeEditCandidates().filter((candidate) =>
+    (operationKinds.size === 0 || operationKinds.has(candidate.operation)) &&
+    (scopes.size === 0 || scopes.has(candidate.routeScope)) &&
+    (polarities.size === 0 || polarities.has(candidate.polarity)) &&
+    (args.filter?.(candidate) ?? true)
+  );
+
+  return shuffleDeterministic(args.drawContext, args.label, candidates)
+    .slice(0, args.count)
+    .map((candidate, index) =>
+      routeMenuSpecFromCandidate(candidate, args.companions?.[index])
+    );
+}
+
+function routeValueBetween(minimum: number, maximum: number) {
+  return (candidate: RouteEditCandidate): boolean =>
+    candidate.baseSiteDeltaValue >= minimum &&
+    candidate.baseSiteDeltaValue <= maximum;
+}
+
+function mapFoldSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return ([
+    "current_dreamscape",
+    "next_dreamscape",
+    "future_dreamscapes",
+  ] satisfies RouteScope[]).map((scope) =>
+    routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:${scope}`,
+      count: 1,
+      scopes: [scope],
+      polarities: ["positive"],
+      operationKinds: ["add_site", "replace_site", "probability_adjustment"],
+      filter: routeValueBetween(60, 140),
+    })[0]!
+  );
+}
+
+function currentValuableSiteAccessSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return [
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:replace`,
+      count: 2,
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["replace_site"],
+      filter: routeValueBetween(80, 145),
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:add`,
+      count: 1,
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["add_site"],
+      filter: routeValueBetween(80, 145),
+    }),
+  ];
+}
+
+function compoundCurrentRouteEditSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return [
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:route-only`,
+      count: 1,
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["replace_site"],
+      filter: routeValueBetween(130, 170),
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:omen`,
+      count: 1,
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["replace_site"],
+      companions: ["small_omen_reward"],
+      filter: routeValueBetween(35, 75),
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:bane`,
+      count: 1,
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["add_site"],
+      companions: ["bane_burden"],
+      filter: routeValueBetween(140, 170),
+    }),
+  ];
+}
+
+function routeAndCardServiceSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return [
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:card-operation`,
+      count: 1,
+      scopes: ["current_dreamscape", "next_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["add_site"],
+      companions: ["card_operation"],
+      filter: routeValueBetween(35, 75),
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:essence`,
+      count: 1,
+      scopes: ["current_dreamscape", "next_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["replace_site"],
+      companions: ["small_essence_reward"],
+      filter: routeValueBetween(75, 125),
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:route-only`,
+      count: 1,
+      scopes: ["current_dreamscape", "next_dreamscape"],
+      polarities: ["positive"],
+      operationKinds: ["add_site"],
+      filter: routeValueBetween(115, 150),
+    }),
+  ];
+}
+
+function negativeSitePruningSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return [
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:all-matching`,
+      count: 1,
+      operationKinds: ["remove_site"],
+      scopes: ["full_atlas"],
+      polarities: ["negative"],
+      filter: (candidate) => candidate.allMatchingSiteType === true,
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:single-negative`,
+      count: 1,
+      operationKinds: ["purge_site", "remove_site"],
+      scopes: ["current_dreamscape"],
+      polarities: ["negative"],
+      filter: (candidate) => candidate.allMatchingSiteType !== true,
+    }),
+    ...routeMenuSpecChoices({
+      drawContext,
+      label: `${label}:offset`,
+      count: 1,
+      operationKinds: ["add_site", "replace_site"],
+      scopes: ["current_dreamscape"],
+      polarities: ["positive"],
+      companions: ["bane_burden"],
+    }),
+  ];
+}
+
 const ROUTE_MENU_VARIANTS = Object.freeze([
   {
     variantId: "shared-current-draft-replacement",
     sharedProperty: "current_dreamscape replace_site from Draft",
-    specs: [],
+    buildSpecs: sharedCurrentDraftReplacementSpecs,
   },
   {
     variantId: "map-fold",
     sharedProperty: "three route timing scopes",
-    specs: [
-      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dreamsign Offering" },
-      { operation: "add_site", routeScope: "next_dreamscape", siteType: "Transfiguration" },
-      { operation: "probability_adjustment", routeScope: "future_dreamscapes", siteType: "Shop", probabilityDirection: 1, probabilityDeltaPercent: 30 },
-    ],
+    buildSpecs: mapFoldSpecs,
   },
   {
     variantId: "atlas-locksmith",
     sharedProperty: "current_dreamscape valuable site access",
-    specs: [
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Purge" },
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Essence", toSite: "Transfiguration" },
-      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dreamsign Offering" },
-    ],
+    buildSpecs: currentValuableSiteAccessSpecs,
   },
   {
     variantId: "atlas-needle",
     sharedProperty: "compound current_dreamscape route edits",
-    specs: [
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Dreamsign Draft" },
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Shop", toSite: "Purge", companion: "small_omen_reward" },
-      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dream Journey", companion: "bane_burden" },
-    ],
+    buildSpecs: compoundCurrentRouteEditSpecs,
   },
   {
     variantId: "route-and-card-services",
     sharedProperty: "route edits with minor service payloads",
-    specs: [
-      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Purge", companion: "card_operation" },
-      { operation: "replace_site", routeScope: "next_dreamscape", fromSite: "Battle", toSite: "Essence", companion: "small_essence_reward" },
-      { operation: "add_site", routeScope: "next_dreamscape", siteType: "Duplication" },
-    ],
+    buildSpecs: routeAndCardServiceSpecs,
   },
   {
     variantId: "negative-site-pruning",
     sharedProperty: "negative all-site-type removal costs",
-    specs: [
-      { operation: "remove_site", routeScope: "full_atlas", siteType: "Shop", allMatchingSiteType: true },
-      { operation: "purge_site", routeScope: "current_dreamscape", siteType: "Essence" },
-      { operation: "add_site", routeScope: "current_dreamscape", siteType: "Dream Journey", companion: "bane_burden" },
-    ],
+    buildSpecs: negativeSitePruningSpecs,
   },
-] satisfies readonly {
-  variantId: RouteEditMenuVariantId;
-  sharedProperty: string;
-  specs: readonly RouteMenuSpec[];
-}[]);
+] satisfies readonly RouteMenuVariant[]);
 
 const PRODUCTION_ROUTE_MENU_VARIANTS = ROUTE_MENU_VARIANTS.filter(
   (variant) => variant.variantId !== "negative-site-pruning",
@@ -568,12 +757,9 @@ export function routeEditMenuRewards(args: {
   return {
     variantId: selected.variantId,
     sharedProperty: selected.sharedProperty,
-    rewards: (selected.variantId === "shared-current-draft-replacement"
-      ? sharedCurrentDraftReplacementSpecs(
-          args.drawContext,
-          `${args.label}:${selected.variantId}`,
-        )
-      : selected.specs as readonly RouteMenuSpec[]
+    rewards: selected.buildSpecs(
+      args.drawContext,
+      `${args.label}:${selected.variantId}`,
     ).map((spec, index) =>
       routeEditRewardFromCandidate(
         routeCandidate(spec),

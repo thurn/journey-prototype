@@ -31,25 +31,7 @@ instead of a family of nearby cases.
 These examples illustrate the same underlying smell: a specific value is
 embedded where a reusable generator could own the axis.
 
-1. Route edit menus are built from named variants with exact route edits, such
-   as replacing Draft with Purge, Transfiguration, or Dreamsign Offering in
-   [`routeEditCatalog.ts`](../src/journey/fillers/routeEditCatalog.ts#L435).
-   The topology is useful, but the site-type pairings and scopes could be
-   generated from route-edit compatibility rules.
-
-   ```ts
-   {
-     variantId: "shared-current-draft-replacement",
-     sharedProperty: "current_dreamscape replace_site from Draft",
-     specs: [
-       { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Purge" },
-       { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Transfiguration" },
-       { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Dreamsign Offering" },
-     ],
-   }
-   ```
-
-2. Reveal-choice random menus fix several quantities and outcomes: pool size
+1. Reveal-choice random menus fix several quantities and outcomes: pool size
    five, reveal count three, and a one-Nightmare burden on one branch in
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L349) and
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L511). These
@@ -73,7 +55,7 @@ embedded where a reusable generator could own the axis.
    });
    ```
 
-3. Compound payload families such as `scissor_saint`, `molting_archive`, and
+2. Compound payload families such as `scissor_saint`, `molting_archive`, and
     `withered_orchard` hardcode named cards, Dreamsigns, transfigurations,
     resource amounts, and burden triggers in
     [`shared.ts`](../src/journey/fillers/shared.ts#L3388). These are close to
