@@ -2109,10 +2109,12 @@ export function fillOptions(
         : hookFamily === "counter_pair"
           ? [
               expandedHooks.find((entry) =>
-                entry.key === "named-card-play:four:essence"
+                entry.key.startsWith("named-card-play:") &&
+                  entry.key.includes(":essence-")
               ),
               expandedHooks.find((entry) =>
-                entry.key === "dreamsign-trigger:three:omens"
+                entry.key.startsWith("dreamsign-trigger:") &&
+                  entry.key.includes(":omens-")
               ),
             ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
           : expandedHooks;
@@ -2367,15 +2369,9 @@ export function fillOptions(
         label: `${shapeId}:expanded`,
         stage,
       });
-      const delayedBaneHooks = [
-        "battle:next:delayed-bane",
-        "battle:next:delayed-nightmare",
-        "battle:next:delayed-oblivion",
-      ].flatMap((key) => {
-        const fill = expandedHooks.find((entry) => entry.key === key);
-
-        return fill ? [fill] : [];
-      });
+      const delayedBaneHooks = expandedHooks.filter((entry) =>
+        entry.key.includes(":delayed-bane:")
+      );
 
       if (delayedBaneHooks.length === 3) {
         const hooks = delayedBaneHooks.map((fill, index) =>
@@ -2394,11 +2390,17 @@ export function fillOptions(
           symmetryContracts: [
             symmetryContract({
               contractKind: "shared_future_trigger_outcomes",
-              sharedProperty: "after next battle",
+              sharedProperty: String(
+                delayedBaneHooks[0]?.triggerSelector.label ??
+                  "delayed Bane trigger",
+              ),
               variedProperty: "delayed Bane outcome",
               sharedFirst: true,
               optionNumbers: [1, 2, 3],
-              sharedPayloadKeys: ["battle:next"],
+              sharedPayloadKeys: [
+                String(delayedBaneHooks[0]?.triggerSelector.triggerKind ??
+                  "delayed-bane"),
+              ],
               variedPayloadKeys: delayedBaneHooks.map((entry) => entry.key),
               weight: 1,
             }),

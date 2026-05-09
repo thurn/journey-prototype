@@ -5049,52 +5049,50 @@ describe("generateNextJourney", () => {
     const journeyContext = await context("waking-cache");
     const manifest = fillForShape("commit_now_future_payoff", journeyContext);
 
-    expect(manifest.options.map((option) =>
-      option.operations.find((operation) =>
-        operation.operationKind === "reward" && operation.rewardKind === "card_gain"
-      )?.targetSelector,
-    )).toEqual([
-      expect.objectContaining({ names: ["Beacon of Tomorrow"] }),
-      expect.objectContaining({ names: ["Scrap Reclaimer"] }),
-      expect.objectContaining({ names: ["Evacuation Enforcer"] }),
-    ]);
-    expect(
-      manifest.precommitted.operations?.map((operation) => ({
-        triggerKind: operation.triggerSelector?.triggerKind,
-        rewardOperations: operation.rewardOperations,
-      })),
-    ).toEqual([
-      expect.objectContaining({
-        triggerKind: "battle",
-        rewardOperations: expect.arrayContaining([
-          expect.objectContaining({
-            operationKind: "burden",
-            burdenKind: "bane_delayed",
-            targetSelector: expect.objectContaining({ names: ["Despair"] }),
-          }),
-        ]),
-      }),
-      expect.objectContaining({
-        triggerKind: "battle",
-        rewardOperations: expect.arrayContaining([
-          expect.objectContaining({
-            operationKind: "burden",
-            burdenKind: "bane_delayed",
-            targetSelector: expect.objectContaining({ names: ["Nightmare"] }),
-          }),
-        ]),
-      }),
-      expect.objectContaining({
-        triggerKind: "battle",
-        rewardOperations: expect.arrayContaining([
-          expect.objectContaining({
-            operationKind: "burden",
-            burdenKind: "bane_delayed",
-            targetSelector: expect.objectContaining({ names: ["Oblivion"] }),
-          }),
-        ]),
-      }),
-    ]);
+    const cardGainTargets = manifest.options.flatMap((option) =>
+      option.operations.flatMap((operation) =>
+        operation.operationKind === "reward" &&
+        operation.rewardKind === "card_gain" &&
+        operation.targetSelector
+          ? [operation.targetSelector]
+          : []
+      )
+    );
+    const delayedBaneOperations =
+      manifest.precommitted.operations?.filter((operation) =>
+        operation.rewardOperations?.some((rewardOperation) =>
+          rewardOperation.operationKind === "burden" &&
+          rewardOperation.burdenKind === "bane_delayed"
+        )
+      ) ?? [];
+    const triggerKinds = new Set(
+      delayedBaneOperations.map((operation) =>
+        operation.triggerSelector?.triggerKind
+      ),
+    );
+    const delayedBaneNames = delayedBaneOperations.flatMap((operation) =>
+      operation.rewardOperations?.flatMap((rewardOperation) =>
+        rewardOperation.operationKind === "burden" &&
+        rewardOperation.burdenKind === "bane_delayed" &&
+        rewardOperation.targetSelector?.names?.[0]
+          ? [String(rewardOperation.targetSelector.names[0])]
+          : []
+      ) ?? []
+    );
+
+    expect(cardGainTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ names: ["Beacon of Tomorrow"] }),
+        expect.objectContaining({ names: ["Scrap Reclaimer"] }),
+        expect.objectContaining({ names: ["Evacuation Enforcer"] }),
+      ]),
+    );
+    expect(delayedBaneOperations).toHaveLength(3);
+    expect(triggerKinds.size).toBe(1);
+    expect([...triggerKinds][0]).toEqual(
+      expect.stringMatching(/^(battle|victory|dreamscape)$/u),
+    );
+    expect(new Set(delayedBaneNames).size).toBe(3);
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
@@ -9023,7 +9021,7 @@ describe("validateJourneyManifest", () => {
         shapeId: "commit_now_future_payoff",
         seed: "m24-forced-shape-contracts",
         expectedContract: "shared_future_trigger_outcomes",
-        expectedTags: ["delayed_hook:battle"],
+        expectedTags: ["reward:card_gain"],
       },
     ] satisfies readonly {
       shapeId: JourneyShapeId;

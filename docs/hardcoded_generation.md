@@ -31,84 +31,7 @@ instead of a family of nearby cases.
 These examples illustrate the same underlying smell: a specific value is
 embedded where a reusable generator could own the axis.
 
-1. Delayed hook entries include exact scenes such as "after next battle, add
-   Nightmare" with fixed Bane names, timing, and expiration text in
-   [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L424). A hook
-   generator could vary trigger kind, burden family, duration, expiration, and
-   reward/cost polarity.
-
-   ```ts
-   {
-     key: "battle:next:delayed-nightmare",
-     text: `Gain {${cardD.name}}. After next battle, add {Nightmare}.`,
-     triggerSelector: hookTrigger({
-       triggerKind: "battle",
-       label: "after next battle",
-       count: 1,
-     }),
-     trackedCondition: "Track completion of the next battle.",
-     resolution: "When the next battle ends, add {Nightmare}.",
-     expiration: expiration(
-       "discard_obligation",
-       "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
-     ),
-     duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-     controlledScene: controlledScene("cost", "add Nightmare"),
-     reward: delayedBane("Nightmare", "after next battle"),
-   }
-   ```
-
-2. Another hook entry fixes "play this named card 4 times, gain 120 essence" in
-   [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L592). The
-   generatable axes are trigger threshold, tracked object type, payout family,
-   payout amount, and window length.
-
-   ```ts
-   {
-     key: "named-card-play:four:essence",
-     text: `Once you play {${cardA.name}} 4 times, gain 120 essence.`,
-     triggerSelector: hookTrigger({
-       triggerKind: "named_card_play",
-       label: `once you play ${cardA.name} 4 times`,
-       count: 4,
-       card: cardA,
-     }),
-     trackedCondition: `Track playing {${cardA.name}} 4 times.`,
-     resolution: `After the fourth {${cardA.name}} play, gain 120 essence.`,
-     expiration: expiration(
-       "forfeit_reward",
-       "If it is not played 4 times within 3 battles, discard this hook.",
-     ),
-     duration: boundedDuration("battle_count", "next 3 battles", 3),
-     controlledScene: controlledScene("reward", "gain 120 essence"),
-     reward: gainEssence(120),
-   }
-   ```
-
-3. Dreamsign-trigger hooks similarly fix "trigger 3 times, gain 2 omens" in
-   [`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L615). This could
-   be a trigger-count reward template with generated Dreamsign predicates and
-   value-banded rewards.
-
-   ```ts
-   {
-     key: "dreamsign-trigger:three:omens",
-     text: `Once {${dreamsignD.name}} triggers 3 times, gain 2 omens.`,
-     triggerSelector: hookTrigger({
-       triggerKind: "dreamsign_trigger",
-       label: `once ${dreamsignD.name} triggers 3 times`,
-       count: 3,
-       dreamsign: dreamsignD,
-     }),
-     trackedCondition: `Track {${dreamsignD.name}} triggering 3 times.`,
-     resolution: `After the third {${dreamsignD.name}} trigger, gain 2 omens.`,
-     duration: boundedDuration("battle_count", "next 3 battles", 3),
-     controlledScene: controlledScene("reward", "gain 2 omens"),
-     reward: gainOmen(2),
-   }
-   ```
-
-4. Route edit menus are built from named variants with exact route edits, such
+1. Route edit menus are built from named variants with exact route edits, such
    as replacing Draft with Purge, Transfiguration, or Dreamsign Offering in
    [`routeEditCatalog.ts`](../src/journey/fillers/routeEditCatalog.ts#L435).
    The topology is useful, but the site-type pairings and scopes could be
@@ -126,7 +49,7 @@ embedded where a reusable generator could own the axis.
    }
    ```
 
-5. Reveal-choice random menus fix several quantities and outcomes: pool size
+2. Reveal-choice random menus fix several quantities and outcomes: pool size
    five, reveal count three, and a one-Nightmare burden on one branch in
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L349) and
    [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L511). These
@@ -150,7 +73,7 @@ embedded where a reusable generator could own the axis.
    });
    ```
 
-6. Compound payload families such as `scissor_saint`, `molting_archive`, and
+3. Compound payload families such as `scissor_saint`, `molting_archive`, and
     `withered_orchard` hardcode named cards, Dreamsigns, transfigurations,
     resource amounts, and burden triggers in
     [`shared.ts`](../src/journey/fillers/shared.ts#L3388). These are close to

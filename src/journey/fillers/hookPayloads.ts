@@ -69,6 +69,22 @@ type DreamsignTriggerOmenHookProfile = {
   omenAmount: number;
 };
 
+type DelayedBaneTimingProfile = {
+  key: string;
+  triggerKind: "battle" | "victory" | "dreamscape";
+  triggerLabel: string;
+  triggerCount: number;
+  textPrefix: string;
+  trackedCondition: string;
+  resolutionPrefix: string;
+  expirationLabel: string;
+  durationKind: "battle_count" | "dreamscape_count";
+  durationLabel: string;
+  durationCount: number;
+  timingLabel: string;
+  uncertainty: number;
+};
+
 const NAMED_CARD_PLAY_ESSENCE_HOOK_BANDS = {
   early: [
     { triggerCount: 3, battleWindow: 2, essenceAmount: 90 },
@@ -102,6 +118,59 @@ const DREAMSIGN_TRIGGER_OMEN_HOOK_BANDS = {
     { triggerCount: 5, battleWindow: 3, omenAmount: 4 },
   ],
 } as const satisfies Record<HookStage, readonly DreamsignTriggerOmenHookProfile[]>;
+
+const DELAYED_BANE_HOOK_MIN_EFFECT = 135;
+
+const DELAYED_BANE_TIMING_PROFILES = Object.freeze([
+  {
+    key: "next-battle",
+    triggerKind: "battle",
+    triggerLabel: "after next battle",
+    triggerCount: 1,
+    textPrefix: "After next battle",
+    trackedCondition: "Track completion of the next battle.",
+    resolutionPrefix: "When the next battle ends",
+    expirationLabel:
+      "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
+    durationKind: "dreamscape_count",
+    durationLabel: "within 2 dreamscapes",
+    durationCount: 2,
+    timingLabel: "after next battle",
+    uncertainty: -8,
+  },
+  {
+    key: "next-victory",
+    triggerKind: "victory",
+    triggerLabel: "after your next victory",
+    triggerCount: 1,
+    textPrefix: "After your next victory",
+    trackedCondition: "Track your next victory.",
+    resolutionPrefix: "When your next victory is earned",
+    expirationLabel:
+      "If no victory occurs within 3 battles, discard the Bane obligation.",
+    durationKind: "battle_count",
+    durationLabel: "next 3 battles",
+    durationCount: 3,
+    timingLabel: "after your next victory",
+    uncertainty: -10,
+  },
+  {
+    key: "next-dreamscape",
+    triggerKind: "dreamscape",
+    triggerLabel: "at the next dreamscape",
+    triggerCount: 1,
+    textPrefix: "At the next dreamscape",
+    trackedCondition: "Track arrival at the next dreamscape.",
+    resolutionPrefix: "When the next dreamscape begins",
+    expirationLabel:
+      "If the next dreamscape is skipped, discard the Bane obligation.",
+    durationKind: "dreamscape_count",
+    durationLabel: "next dreamscape",
+    durationCount: 1,
+    timingLabel: "at the next dreamscape",
+    uncertainty: -8,
+  },
+] as const satisfies readonly DelayedBaneTimingProfile[]);
 
 export function hookTrigger(args: {
   triggerKind:
@@ -475,6 +544,49 @@ function dreamsignTriggerOmenHook(args: {
   };
 }
 
+function delayedBaneHook(args: {
+  context: JourneyContext;
+  card: CardContent;
+  baneName: BaneName;
+  timing: DelayedBaneTimingProfile;
+}): ExpandedDelayedHookFill {
+  const burden = baneBurden(args.baneName, 1, {
+    timing: args.timing.timingLabel,
+  });
+
+  return {
+    key: `${args.timing.key}:delayed-bane:${normalizedHookId(args.baneName)}`,
+    text: `Gain {${args.card.name}}. ${args.timing.textPrefix}, add {${args.baneName}}.`,
+    triggerSelector: hookTrigger({
+      triggerKind: args.timing.triggerKind,
+      label: args.timing.triggerLabel,
+      count: args.timing.triggerCount,
+    }),
+    trackedCondition: args.timing.trackedCondition,
+    resolution: `${args.timing.resolutionPrefix}, add {${args.baneName}}.`,
+    expiration: expiration("discard_obligation", args.timing.expirationLabel),
+    duration: boundedDuration(
+      args.timing.durationKind,
+      args.timing.durationLabel,
+      args.timing.durationCount,
+    ),
+    controlledScene: controlledScene("cost", `add ${args.baneName}`),
+    reward: burden,
+    effects: [namedCardGrant(args.context, args.card)],
+    targets: [cardExactTarget(args.card, "catalog")],
+    effect: Math.max(
+      DELAYED_BANE_HOOK_MIN_EFFECT,
+      cardQualityValue(args.card) +
+        valueBaneBurden({
+          baneName: args.baneName,
+          count: 1,
+          delayed: true,
+        }),
+    ),
+    uncertainty: args.timing.uncertainty,
+  };
+}
+
 function expandedDelayedHookCandidates(args: {
   context: JourneyContext;
   drawContext: DrawContext;
@@ -543,8 +655,25 @@ function expandedDelayedHookCandidates(args: {
       dreamsign.id !== dreamsignC.id
     ) ?? dreamsignA,
   );
-  const delayedBane = (baneName: BaneName, timing: string) =>
-    baneBurden(baneName, 1, { timing });
+  const delayedBaneCards = [cardC, cardD, cardE];
+  const delayedBaneNames = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:delayed-bane-names`,
+    BANE_NAMES,
+  );
+  const delayedBaneTiming = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:delayed-bane-timings`,
+    DELAYED_BANE_TIMING_PROFILES,
+  )[0]!;
+  const delayedBaneHooks = delayedBaneCards.map((card, index) =>
+    delayedBaneHook({
+      context: args.context,
+      card,
+      baneName: delayedBaneNames[index % delayedBaneNames.length]!,
+      timing: delayedBaneTiming,
+    })
+  );
   const routeReward = routePayload({
     operation: "add_site",
     routeScope: "current_dreamscape",
@@ -556,84 +685,7 @@ function expandedDelayedHookCandidates(args: {
   });
 
   return [
-    {
-      key: "battle:next:delayed-bane",
-      text: `Gain {${cardC.name}}. After next battle, add {Despair}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "battle",
-        label: "after next battle",
-        count: 1,
-      }),
-      trackedCondition: "Track completion of the next battle.",
-      resolution: "When the next battle ends, add {Despair}.",
-      expiration: expiration(
-        "discard_obligation",
-        "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
-      ),
-      duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-      controlledScene: controlledScene("cost", "add Despair"),
-      reward: delayedBane("Despair", "after next battle"),
-      effects: [namedCardGrant(args.context, cardC)],
-      targets: [cardExactTarget(cardC, "catalog")],
-      effect: Math.max(
-        135,
-        cardQualityValue(cardC) +
-          valueBaneBurden({ baneName: "Despair", count: 1, delayed: true }),
-      ),
-      uncertainty: -8,
-    },
-    {
-      key: "battle:next:delayed-nightmare",
-      text: `Gain {${cardD.name}}. After next battle, add {Nightmare}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "battle",
-        label: "after next battle",
-        count: 1,
-      }),
-      trackedCondition: "Track completion of the next battle.",
-      resolution: "When the next battle ends, add {Nightmare}.",
-      expiration: expiration(
-        "discard_obligation",
-        "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
-      ),
-      duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-      controlledScene: controlledScene("cost", "add Nightmare"),
-      reward: delayedBane("Nightmare", "after next battle"),
-      effects: [namedCardGrant(args.context, cardD)],
-      targets: [cardExactTarget(cardD, "catalog")],
-      effect: Math.max(
-        140,
-        cardQualityValue(cardD) +
-          valueBaneBurden({ baneName: "Nightmare", count: 1, delayed: true }),
-      ),
-      uncertainty: -8,
-    },
-    {
-      key: "battle:next:delayed-oblivion",
-      text: `Gain {${cardE.name}}. After next battle, add {Oblivion}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "battle",
-        label: "after next battle",
-        count: 1,
-      }),
-      trackedCondition: "Track completion of the next battle.",
-      resolution: "When the next battle ends, add {Oblivion}.",
-      expiration: expiration(
-        "discard_obligation",
-        "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
-      ),
-      duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-      controlledScene: controlledScene("cost", "add Oblivion"),
-      reward: delayedBane("Oblivion", "after next battle"),
-      effects: [namedCardGrant(args.context, cardE)],
-      targets: [cardExactTarget(cardE, "catalog")],
-      effect: Math.max(
-        145,
-        cardQualityValue(cardE) +
-          valueBaneBurden({ baneName: "Oblivion", count: 1, delayed: true }),
-      ),
-      uncertainty: -8,
-    },
+    ...delayedBaneHooks,
     {
       key: "victory:two:named-dreamsign",
       text: `After 2 victories, gain {${dreamsignA.name}}.`,
