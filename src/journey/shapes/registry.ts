@@ -4,7 +4,7 @@ import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff.js";
 import { curatedRewardTrioPlugin } from "./curated_reward_trio.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain.js";
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
-import { heterogeneousPairPlugin } from "./heterogeneous_pair.js";
+import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
 import { mirroredOperationsPlugin } from "./mirrored_operations.js";
 import { nowVsLaterPlugin } from "./now_vs_later.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
