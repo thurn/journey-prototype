@@ -31,31 +31,7 @@ instead of a family of nearby cases.
 These examples illustrate the same underlying smell: a specific value is
 embedded where a reusable generator could own the axis.
 
-1. Reveal-choice random menus fix several quantities and outcomes: pool size
-   five, reveal count three, and a one-Nightmare burden on one branch in
-   [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L349) and
-   [`randomPayloads.ts`](../src/journey/fillers/randomPayloads.ts#L511). These
-   should be value-band parameters rather than recipe constants.
-
-   ```ts
-   const wheel = visibleWheelPool({
-     ...args,
-     size: 5,
-   });
-   const candidates = wheel.candidates;
-   const revealCount = Math.min(3, candidates.length);
-   const nightmare = baneBurden("Nightmare", 1);
-
-   option({
-     number: 2,
-     text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) and gain 1 {Nightmare}.`,
-     effects: [{ kind: "random_reward", table: "visible_reveal_pool" }],
-     burdens: [nightmare],
-     burden: valueBaneBurden({ baneName: "Nightmare", count: 1 }),
-   });
-   ```
-
-2. Compound payload families such as `scissor_saint`, `molting_archive`, and
+1. Compound payload families such as `scissor_saint`, `molting_archive`, and
     `withered_orchard` hardcode named cards, Dreamsigns, transfigurations,
     resource amounts, and burden triggers in
     [`shared.ts`](../src/journey/fillers/shared.ts#L3388). These are close to
