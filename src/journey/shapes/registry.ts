@@ -23,7 +23,7 @@ import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs.js
 import { serviceMenuPlugin } from "./service_menu.js";
 import { sharedPrefixMenuPlugin } from "./shared_prefix_menu.js";
 import { shopRowPlugin } from "./shop_row/index.js";
-import { singleOfferPlugin } from "./single_offer.js";
+import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome.js";
 import { singleRewardPlugin } from "./single_reward.js";
 import { singleWagerPlugin } from "./single_wager.js";
