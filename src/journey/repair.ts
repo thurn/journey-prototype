@@ -32,6 +32,13 @@ const COST_FAILURE_RULES = new Set([
 const TARGET_FAILURE_RULES = new Set([
   "unresolved_reference",
   "named_card_target_unavailable",
+  "card_operation_result_missing",
+  "card_keyword_operation_invalid",
+  "card_type_change_invalid",
+  "card_text_operation_invalid",
+  "card_temporary_window_missing",
+  "card_merge_mode_missing",
+  "card_split_mode_missing",
   "dreamsign_loss_without_dreamsign",
   "bane_current_state_target_unavailable",
   "starter_target_pool_too_small",
@@ -51,6 +58,45 @@ const ROUTE_FAILURE_RULES = new Set([
   "route_precommitted_payloads",
 ]);
 
+const RESOURCE_FAILURE_RULES = new Set([
+  "invalid_resource_semantics",
+  "invalid_resource_amount",
+  "invalid_resource_percentage",
+  "invalid_resource_random_range",
+  "invalid_resource_cap_change",
+  "invalid_resource_reward_reduction",
+  "incoherent_resource_cost_semantics",
+]);
+
+const BANE_FAILURE_RULES = new Set([
+  "bane_name_missing",
+  "bane_count_invalid",
+  "bane_temporary_duration_missing",
+  "bane_delayed_timing_missing",
+  "bane_replacement_missing",
+  "bane_transform_result_missing",
+]);
+
+const WINDOW_FAILURE_RULES = new Set([
+  "battle_window_operation_missing",
+  "battle_window_player_invalid",
+  "battle_window_polarity_invalid",
+  "battle_window_duration_missing",
+  "dreamwell_scope_invalid",
+  "dreamwell_operation_missing",
+  "dreamwell_count_invalid",
+  "dreamwell_metadata_missing",
+]);
+
+const SHOP_STATUS_FAILURE_RULES = new Set([
+  "shop_operation_missing",
+  "shop_price_modifier_invalid",
+  "shop_reroll_cap_invalid",
+  "unsupported_status_scope",
+  "invalid_status_duration",
+  "incoherent_rule_mutation",
+]);
+
 const DELAYED_HOOK_FAILURE_RULES = new Set([
   "invalid_hook_trigger",
   "invalid_hook_duration",
@@ -66,6 +112,24 @@ const RANDOM_FAILURE_RULES = new Set([
   "risk_or_skip_envelope",
   "single_wager_envelope",
   "random_precommitted_outcomes",
+]);
+
+const GENERATED_OBJECT_FAILURE_RULES = new Set([
+  "invalid_generated_object_operation",
+  "generated_object_operation_mismatch",
+  "invalid_generated_object_definition",
+  "invalid_generated_object_id",
+  "duplicate_generated_object_id",
+  "invalid_generated_object_name",
+  "invalid_generated_object_type",
+  "invalid_generated_object_rules",
+  "invalid_generated_object_tags",
+  "invalid_generated_object_references",
+  "generated_object_unresolved_reference",
+  "invalid_generated_object_duration",
+  "invalid_generated_object_lifetime",
+  "invalid_generated_object_value",
+  "invalid_generated_object_validation",
 ]);
 
 const TREE_FAILURE_RULES = new Set([
@@ -147,15 +211,43 @@ function typedFailureRepairActions(failed: ValidationResult): RepairAction[] {
     ];
   }
 
+  if (RESOURCE_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_resource_payload_family", kind: "repair_payload_family" },
+      {
+        action: "clamp_unpayable_cost_or_burden",
+        kind: "adjust_cost_or_burden",
+      },
+    ];
+  }
+
   if (TARGET_FAILURE_RULES.has(failed.rule)) {
     return [
       { action: "choose_resolvable_payload_target", kind: "repair_payload_family" },
     ];
   }
 
+  if (BANE_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_bane_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
   if (ROUTE_FAILURE_RULES.has(failed.rule)) {
     return [
       { action: "repair_route_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (WINDOW_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_timed_window_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (SHOP_STATUS_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_shop_status_payload_family", kind: "repair_payload_family" },
     ];
   }
 
@@ -168,6 +260,12 @@ function typedFailureRepairActions(failed: ValidationResult): RepairAction[] {
   if (RANDOM_FAILURE_RULES.has(failed.rule)) {
     return [
       { action: "repair_random_payload_family", kind: "repair_payload_family" },
+    ];
+  }
+
+  if (GENERATED_OBJECT_FAILURE_RULES.has(failed.rule)) {
+    return [
+      { action: "repair_generated_object_payload_family", kind: "repair_payload_family" },
     ];
   }
 
@@ -283,16 +381,31 @@ function repairMetadata(
   status: RepairOutcomeStatus,
   forcedShape: boolean,
   failed?: ValidationResult,
+  action?: RepairAction,
 ): RepairOutcomeMetadata {
   const firstFailure = manifest.debug.validation.firstFailure;
   const checkedWithTarget = firstFailure?.checked.find(
     (entry) => entry.targetResolution,
   );
+  const disposition =
+    status === "accepted_immediately"
+      ? "accepted"
+      : status === "forced_shape_failed"
+        ? "forced_to_fail"
+        : status === "unrepaired"
+          ? "unrepaired"
+          : action?.kind === "repair_payload_family"
+            ? "payload_regenerated"
+            : action?.kind === "simplify_fill"
+              ? "simplified"
+              : status;
 
   return {
     status,
     forcedShape,
     finalShapeId: manifest.shapeId,
+    disposition,
+    ...(action ? { action: action.action } : {}),
     ...(!failed?.ok && failed
       ? { failedRule: failed.rule, message: failed.message }
       : {}),
@@ -532,6 +645,7 @@ export function repairOrFallbackJourney(
             repairStatusForAction(action, repairResult),
             options.forcedShape === true,
             failed,
+            action,
           ),
         },
       };

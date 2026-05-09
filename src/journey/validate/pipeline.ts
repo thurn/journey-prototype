@@ -121,12 +121,12 @@ export function validationRuleOutcomes(
     return rules;
   }
 
-  const typedPayloadContractResult = validateTypedPayloadContracts(manifest);
+  const typedPayloadContractResult = validateTypedPayloadContracts(manifest, context);
   if (!pushRule(
     typedPayloadContractResult.ok ? "typed_payload_contracts" : typedPayloadContractResult.rule,
     typedPayloadContractResult,
     checked,
-    "Typed route, status, and rule-mutation payload contracts are coherent.",
+    "Typed operation payload contracts are coherent.",
     { fatal: true },
   )) {
     return rules;

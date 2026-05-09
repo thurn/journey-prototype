@@ -6349,6 +6349,149 @@ describe("validateJourneyManifest", () => {
     });
   });
 
+  it("rejects invalid typed operation contracts with stable rule IDs", async () => {
+    const journeyContext = await context("typed-operation-contracts");
+    const base = fillForShape("single_reward", journeyContext);
+    const dreamsign = journeyContext.content.dreamsigns[0]!;
+    const generatedObject = generatedObjectDefinition();
+    const operationManifest = (operation: JourneyOperation): JourneyManifest => ({
+      ...base,
+      options: base.options.map((option, index) =>
+        index === 0
+          ? {
+              ...option,
+              operations: [operation],
+            }
+          : option,
+      ),
+    });
+    const cases: [JourneyOperation, string][] = [
+      [
+        {
+          operationId: "test:resource:bad-percentage",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "resource",
+          visibility: "visible",
+          resourceSemantics: {
+            resource: "essence",
+            amountKind: "percentage_of_current",
+            percentage: 125,
+          },
+          payload: { kind: "resource_percentage" },
+        },
+        "invalid_resource_percentage",
+      ],
+      [
+        {
+          operationId: "test:card:bad-duplicate",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_duplicate",
+          visibility: "visible",
+          payload: { kind: "card_duplicate", copyCount: 0 },
+        },
+        "card_duplicate_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:bad-copy",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_duplicate",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_duplicate",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            copyCount: 0,
+          },
+        },
+        "dreamsign_copy_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:bane:bad-count",
+          operationKind: "burden",
+          role: "burden",
+          burdenKind: "bane_gain",
+          visibility: "visible",
+          payload: { kind: "bane_gain", baneName: "Dread", count: 0 },
+        },
+        "bane_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:battle-window:bad-player",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "battle_window_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "battle_window_modifier",
+            battleWindowOperationKind: "energy",
+            affectedPlayer: "everyone",
+            polarity: "positive",
+            duration: "next battle",
+          },
+        },
+        "battle_window_player_invalid",
+      ],
+      [
+        {
+          operationId: "test:dreamwell:bad-count",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamwell_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "dreamwell_modifier",
+            dreamwellScope: "battle_window",
+            dreamwellOperationKind: "bonus_card_count",
+            count: 0,
+            cardRole: "bonus",
+            phaseSelector: "first_draw",
+            playerVisibility: "visible",
+          },
+        },
+        "dreamwell_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:shop:bad-price",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "shop_economy_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "shop_economy_modifier",
+            shopOperationKind: "price_multiplier",
+            priceMultiplier: -1,
+          },
+        },
+        "shop_price_modifier_invalid",
+      ],
+      [
+        {
+          ...generatedObjectOperation(generatedObject),
+          payload: {
+            generatedObjectId: "different-generated-object",
+            generatedObjectKind: generatedObject.generatedObjectKind,
+          },
+        },
+        "generated_object_operation_mismatch",
+      ],
+    ];
+
+    for (const [operation, rule] of cases) {
+      expect(validateJourneyManifest(operationManifest(operation), journeyContext), rule)
+        .toMatchObject({
+          ok: false,
+          rule,
+        });
+    }
+  });
+
   it("rejects unresolved named card and Dreamsign references", async () => {
     const journeyContext = await context();
     const manifest = generateNextJourney({ context: journeyContext });
@@ -8696,6 +8839,97 @@ describe("repairOrFallbackJourney", () => {
     expect(repaired.debug.repairs[0]).toMatchObject({
       action: "replace_nonpositive_option",
       result: "repaired",
+    });
+  });
+
+  it("records whether typed payload failures regenerated, simplified, or forced failure metadata", async () => {
+    const journeyContext = await context("typed-repair-metadata");
+    const base = fillForShape("timed_window_menu", journeyContext);
+    const invalidPayload: JourneyOperation = {
+      operationId: "test:dreamwell:bad-count",
+      operationKind: "reward",
+      role: "reward",
+      rewardKind: "dreamwell_modifier",
+      visibility: "visible",
+      payload: {
+        kind: "dreamwell_modifier",
+        dreamwellScope: "battle_window",
+        dreamwellOperationKind: "bonus_card_count",
+        count: 0,
+        cardRole: "bonus",
+        phaseSelector: "first_draw",
+        playerVisibility: "visible",
+      },
+    };
+    const invalid: JourneyManifest = {
+      ...base,
+      options: base.options.map((option, index) =>
+        index === 0
+          ? {
+              ...option,
+              operations: [invalidPayload],
+            }
+          : option,
+      ),
+    };
+    const failed = validateJourneyManifest(invalid, journeyContext);
+
+    expect(failed).toMatchObject({
+      ok: false,
+      rule: "dreamwell_count_invalid",
+    });
+
+    const repaired = repairOrFallbackJourney(invalid, journeyContext, failed);
+
+    expect(validateJourneyManifest(repaired, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(repaired.shapeId).toBe("timed_window_menu");
+    expect(repaired.debug.repairs[0]).toMatchObject({
+      action: "repair_timed_window_payload_family",
+      actionCategory: "replaced",
+      result: "repaired",
+    });
+    expect(repaired.debug.repair).toMatchObject({
+      status: "replaced",
+      disposition: "payload_regenerated",
+      action: "repair_timed_window_payload_family",
+    });
+
+    const forced = repairOrFallbackJourney(invalid, journeyContext, failed, {
+      forcedShape: true,
+    });
+
+    expect(forced.shapeId).toBe("timed_window_menu");
+    expect(forced.debug.repair).toMatchObject({
+      forcedShape: true,
+      finalShapeId: "timed_window_menu",
+    });
+
+    const delayedContext = await context("typed-repair-forced-failure");
+    delayedContext.state.quest.route.unresolvedHooks = ["a", "b", "c", "d"];
+    const impossibleShape = fillForShape("reward_after_trigger", delayedContext);
+    const impossibleFailure = validateJourneyManifest(
+      impossibleShape,
+      delayedContext,
+    );
+
+    expect(impossibleFailure).toMatchObject({
+      ok: false,
+      rule: "delayed_hook_over_persistence_budget",
+    });
+    const forcedFailed = repairOrFallbackJourney(
+      impossibleShape,
+      delayedContext,
+      impossibleFailure,
+      { forcedShape: true },
+    );
+
+    expect(forcedFailed.shapeId).toBe("reward_after_trigger");
+    expect(forcedFailed.debug.repair).toMatchObject({
+      status: "forced_shape_failed",
+      disposition: "forced_to_fail",
+      finalShapeId: "reward_after_trigger",
     });
   });
 });

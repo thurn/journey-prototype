@@ -801,6 +801,17 @@ export type RepairOutcomeMetadata = {
   message?: string;
   payloadFamily?: string;
   targetResolution?: TargetResolutionMetadata;
+  disposition?:
+    | "accepted"
+    | "payload_regenerated"
+    | "simplified"
+    | "adjusted"
+    | "narrowed"
+    | "replaced"
+    | "fallback"
+    | "forced_to_fail"
+    | "unrepaired";
+  action?: string;
 };
 
 export type ReachabilityEvidenceCategory =

@@ -1,9 +1,16 @@
 import { stableStringify } from "../../util/stableJson.js";
+import type { JourneyContext } from "../../quest/context.js";
 import {
   SITE_TYPES,
   STATUS_SCOPES,
 } from "../effects.js";
-import type { JourneyManifest, JourneyOperation } from "../manifest.js";
+import type {
+  GeneratedObjectDefinition,
+  JourneyManifest,
+  JourneyOperation,
+  ResourceAmountSemantics,
+} from "../manifest.js";
+import { validateDreamsignPayload } from "./dreamsignPayloads.js";
 import { isRecord } from "./guards.js";
 import { validateRandomEnvelopePayload } from "./randomContracts.js";
 import { fail, type ValidationResult } from "./result.js";
@@ -503,6 +510,401 @@ export function validatePairedReturnContractPayload(payload: Record<string, unkn
   return { ok: true };
 }
 
+function validateResourceSemanticsContract(
+  operation: JourneyOperation,
+): ValidationResult {
+  const semantics = operation.resourceSemantics;
+
+  if (!semantics) {
+    return { ok: true };
+  }
+
+  const amountKinds = new Set<ResourceAmountSemantics["amountKind"]>([
+    "fixed",
+    "maximum",
+    "restore_to_maximum",
+    "percentage_of_current",
+    "percentage_of_maximum",
+    "all_remaining",
+    "random_range",
+    "cap_change",
+    "reward_reduction",
+  ]);
+
+  if (
+    !["essence", "omens", "maxEssence"].includes(semantics.resource) ||
+    !amountKinds.has(semantics.amountKind)
+  ) {
+    return fail("invalid_resource_semantics", "Resource operations require a supported resource and amount kind");
+  }
+
+  if (
+    semantics.amountKind === "fixed" &&
+    (typeof semantics.amount !== "number" || semantics.amount < 0)
+  ) {
+    return fail("invalid_resource_amount", "Fixed resource operations require a nonnegative amount");
+  }
+
+  if (
+    (semantics.amountKind === "percentage_of_current" ||
+      semantics.amountKind === "percentage_of_maximum") &&
+    (typeof semantics.percentage !== "number" ||
+      semantics.percentage <= 0 ||
+      semantics.percentage > 100)
+  ) {
+    return fail("invalid_resource_percentage", "Percentage resource operations require a percentage in 1..100");
+  }
+
+  if (
+    semantics.amountKind === "random_range" &&
+    (typeof semantics.minimum !== "number" ||
+      typeof semantics.maximum !== "number" ||
+      semantics.minimum < 0 ||
+      semantics.minimum > semantics.maximum)
+  ) {
+    return fail("invalid_resource_random_range", "Random resource ranges require nonnegative minimum <= maximum");
+  }
+
+  if (
+    semantics.amountKind === "cap_change" &&
+    (typeof semantics.capDelta !== "number" || semantics.capDelta === 0)
+  ) {
+    return fail("invalid_resource_cap_change", "Resource cap changes require a nonzero cap delta");
+  }
+
+  if (
+    semantics.amountKind === "reward_reduction" &&
+    (typeof semantics.amount !== "number" || semantics.amount <= 0)
+  ) {
+    return fail("invalid_resource_reward_reduction", "Reward reductions require a positive resource amount");
+  }
+
+  if (
+    operation.operationKind === "cost" &&
+    semantics.amountKind === "fixed" &&
+    operation.amount !== semantics.amount
+  ) {
+    return fail("incoherent_resource_cost_semantics", "Cost operation amount must match fixed resource semantics");
+  }
+
+  return { ok: true };
+}
+
+function validateCardOperationContract(operation: JourneyOperation): ValidationResult {
+  if (operation.operationKind !== "reward") {
+    return { ok: true };
+  }
+
+  const kind = operation.rewardKind;
+  const payload = operation.payload;
+
+  if (!kind.startsWith("card_") && kind !== "starter_cleanup" && kind !== "starter_replacement") {
+    return { ok: true };
+  }
+
+  if (
+    kind === "card_duplicate" &&
+    payload.copyCount !== undefined &&
+    (typeof payload.copyCount !== "number" || payload.copyCount < 1)
+  ) {
+    return fail("card_duplicate_count_invalid", "Card duplicate operations require a positive copy count");
+  }
+
+  if (
+    (kind === "card_transform" || kind === "card_replace") &&
+    payload.resultSelection !== "hidden_random" &&
+    typeof payload.resultCardId !== "string" &&
+    typeof payload.resultCardName !== "string" &&
+    typeof payload.newCardId !== "string" &&
+    typeof payload.newCardName !== "string"
+  ) {
+    return fail("card_operation_result_missing", "Card transform and replace operations require a structured result card");
+  }
+
+  if (
+    (kind === "card_keyword_add" || kind === "card_keyword_remove") &&
+    typeof payload.keyword !== "string"
+  ) {
+    return fail("card_keyword_operation_invalid", "Card keyword operations require a controlled keyword");
+  }
+
+  if (
+    kind === "card_type_change" &&
+    typeof payload.newCardType !== "string" &&
+    typeof payload.newSubtype !== "string"
+  ) {
+    return fail("card_type_change_invalid", "Card type-change operations require a new type or subtype");
+  }
+
+  if (
+    (kind === "card_text_modification" || kind === "card_rewrite") &&
+    typeof payload.field !== "string" &&
+    typeof payload.modificationKind !== "string" &&
+    typeof payload.textModification !== "string" &&
+    typeof payload.keyword !== "string" &&
+    payload.removeTargetRestriction !== true
+  ) {
+    return fail("card_text_operation_invalid", "Card text operations require a structured field or modification kind");
+  }
+
+  if (
+    (kind === "card_opening_hand" ||
+      kind === "card_temporary_copy") &&
+    typeof payload.duration !== "string" &&
+    !isRecord(payload.duration)
+  ) {
+    return fail("card_temporary_window_missing", "Temporary or delayed card operations require duration metadata");
+  }
+
+  if (
+    kind === "card_delayed_transformation" &&
+    typeof payload.duration !== "string" &&
+    !isRecord(payload.duration) &&
+    typeof payload.trigger !== "string"
+  ) {
+    return fail("card_temporary_window_missing", "Temporary or delayed card operations require duration metadata");
+  }
+
+  if (
+    kind === "card_merge" &&
+    typeof payload.mergeMode !== "string" &&
+    payload.cardOperationKind !== "merge"
+  ) {
+    return fail("card_merge_mode_missing", "Card merge operations require a merge mode");
+  }
+
+  if (
+    kind === "card_split" &&
+    typeof payload.splitMode !== "string" &&
+    payload.cardOperationKind !== "split"
+  ) {
+    return fail("card_split_mode_missing", "Card split operations require a split mode");
+  }
+
+  return { ok: true };
+}
+
+function validateBaneOperationContract(operation: JourneyOperation): ValidationResult {
+  const payload = operation.payload;
+  const baneKind = operation.operationKind === "reward"
+    ? operation.rewardKind
+    : operation.operationKind === "burden"
+      ? operation.burdenKind
+      : "";
+
+  if (!baneKind.startsWith("bane_")) {
+    return { ok: true };
+  }
+
+  if (typeof payload.baneName === "string" && payload.baneName.trim().length === 0) {
+    return fail("bane_name_missing", "Bane operations require a nonempty Bane name");
+  }
+
+  if (payload.count !== undefined && (typeof payload.count !== "number" || payload.count < 1)) {
+    return fail("bane_count_invalid", "Bane operations require a positive count");
+  }
+
+  if (
+    (baneKind === "bane_temporary" || payload.temporary === true) &&
+    typeof payload.duration !== "string" &&
+    !isRecord(payload.duration)
+  ) {
+    return fail("bane_temporary_duration_missing", "Temporary Bane operations require duration metadata");
+  }
+
+  if (
+    baneKind === "bane_delayed" &&
+    typeof payload.timing !== "string" &&
+    !isRecord(operation.timing)
+  ) {
+    return fail("bane_delayed_timing_missing", "Delayed Bane operations require timing metadata");
+  }
+
+  if (
+    baneKind === "bane_replace" &&
+    typeof payload.newBaneName !== "string" &&
+    typeof payload.replacementKind !== "string"
+  ) {
+    return fail("bane_replacement_missing", "Bane replacement operations require a replacement Bane or relief target");
+  }
+
+  if (
+    baneKind === "bane_transform_to_card" &&
+    typeof payload.cardId !== "string" &&
+    typeof payload.cardName !== "string" &&
+    typeof payload.resultCardId !== "string" &&
+    typeof payload.resultCardName !== "string"
+  ) {
+    return fail("bane_transform_result_missing", "Bane-to-card transformations require a result card");
+  }
+
+  return { ok: true };
+}
+
+function validateBattleWindowContract(operation: JourneyOperation): ValidationResult {
+  if (
+    !(
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "battle_window_modifier"
+    ) &&
+    !(operation.legacyKind === "battle_window_modifier")
+  ) {
+    return { ok: true };
+  }
+
+  const payload = operation.payload;
+
+  if (
+    typeof payload.battleWindowOperationKind !== "string" &&
+    typeof payload.windowModifier !== "string" &&
+    typeof payload.modifier !== "string"
+  ) {
+    return fail("battle_window_operation_missing", "Battle-window modifiers require an operation kind");
+  }
+
+  if (
+    payload.affectedPlayer !== undefined &&
+    payload.affectedPlayer !== "you" &&
+    payload.affectedPlayer !== "player" &&
+    payload.affectedPlayer !== "opponent" &&
+    payload.affectedPlayer !== "both_players" &&
+    payload.affectedPlayer !== "both"
+  ) {
+    return fail("battle_window_player_invalid", "Battle-window modifiers require player, opponent, or both-player targeting");
+  }
+
+  if (
+    payload.polarity !== undefined &&
+    payload.polarity !== "positive" &&
+    payload.polarity !== "negative" &&
+    payload.polarity !== "neutral" &&
+    payload.polarity !== "mixed"
+  ) {
+    return fail("battle_window_polarity_invalid", "Battle-window modifiers require positive, negative, neutral, or mixed polarity");
+  }
+
+  if (typeof payload.duration !== "string" && !isRecord(payload.duration)) {
+    return fail("battle_window_duration_missing", "Battle-window modifiers require duration metadata");
+  }
+
+  return { ok: true };
+}
+
+function validateDreamwellWindowContract(operation: JourneyOperation): ValidationResult {
+  const isDreamwell =
+    operation.legacyKind === "dreamwell_modifier" ||
+    (
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "dreamwell_modifier"
+    ) ||
+    (
+      operation.operationKind === "burden" &&
+      operation.burdenKind === "dreamwell_modifier"
+    );
+
+  if (!isDreamwell) {
+    return { ok: true };
+  }
+
+  const payload = operation.payload;
+
+  if (
+    payload.dreamwellScope !== "next_battle" &&
+    payload.dreamwellScope !== "battle_window" &&
+    payload.dreamwellScope !== "future_dreamwell"
+  ) {
+    return fail("dreamwell_scope_invalid", "Dreamwell modifiers require a next-battle, battle-window, or future-Dreamwell scope");
+  }
+
+  if (
+    typeof payload.dreamwellOperationKind !== "string" ||
+    payload.dreamwellOperationKind.length === 0
+  ) {
+    return fail("dreamwell_operation_missing", "Dreamwell modifiers require an operation kind");
+  }
+
+  if (payload.count !== undefined && (typeof payload.count !== "number" || payload.count < 1)) {
+    return fail("dreamwell_count_invalid", "Dreamwell modifiers require a positive count when count is present");
+  }
+
+  return { ok: true };
+}
+
+function validateShopContract(operation: JourneyOperation): ValidationResult {
+  if (
+    !(
+      operation.operationKind === "reward" &&
+      operation.rewardKind === "shop_economy_modifier"
+    )
+  ) {
+    return { ok: true };
+  }
+
+  const payload = operation.payload;
+
+  if (
+    typeof payload.shopOperationKind !== "string" &&
+    typeof payload.shopRuleKind !== "string" &&
+    typeof payload.economyOperationKind !== "string"
+  ) {
+    return fail("shop_operation_missing", "Shop modifiers require a structured shop operation kind");
+  }
+
+  if (
+    payload.priceMultiplier !== undefined &&
+    (typeof payload.priceMultiplier !== "number" || payload.priceMultiplier <= 0)
+  ) {
+    return fail("shop_price_modifier_invalid", "Shop price multipliers must be positive");
+  }
+
+  if (
+    payload.rerollOmenCap !== undefined &&
+    (typeof payload.rerollOmenCap !== "number" || payload.rerollOmenCap < 0)
+  ) {
+    return fail("shop_reroll_cap_invalid", "Shop reroll omen caps must be nonnegative");
+  }
+
+  return { ok: true };
+}
+
+function validateGeneratedObjectOperationContract(
+  operation: JourneyOperation,
+): ValidationResult {
+  if (operation.operationKind !== "generated_object") {
+    return { ok: true };
+  }
+
+  const generatedObject = operation.generatedObject;
+
+  if (!isRecord(generatedObject)) {
+    return fail("invalid_generated_object_operation", "Generated-object operations require a local definition");
+  }
+
+  if (
+    typeof operation.payload.generatedObjectId === "string" &&
+    operation.payload.generatedObjectId !== generatedObject.generatedObjectId
+  ) {
+    return fail("generated_object_operation_mismatch", "Generated-object operation payload must reference its local definition");
+  }
+
+  if (
+    typeof operation.payload.generatedObjectKind === "string" &&
+    operation.payload.generatedObjectKind !== generatedObject.generatedObjectKind
+  ) {
+    return fail("generated_object_operation_mismatch", "Generated-object operation kind must match its local definition");
+  }
+
+  return { ok: true };
+}
+
+function generatedObjectOperationDefinitions(
+  operation: JourneyOperation,
+): GeneratedObjectDefinition[] {
+  return operation.operationKind === "generated_object" && isRecord(operation.generatedObject)
+    ? [operation.generatedObject]
+    : [];
+}
+
 export function flattenOperationContracts(operations: readonly JourneyOperation[]): JourneyOperation[] {
   return operations.flatMap((operation) => [
     operation,
@@ -512,7 +914,10 @@ export function flattenOperationContracts(operations: readonly JourneyOperation[
   ]);
 }
 
-export function validateTypedPayloadContracts(manifest: JourneyManifest): ValidationResult {
+export function validateTypedPayloadContracts(
+  manifest: JourneyManifest,
+  context: JourneyContext,
+): ValidationResult {
   for (const random of manifest.precommitted.random ?? []) {
     const result = validateRandomEnvelopePayload(random);
 
@@ -558,6 +963,60 @@ export function validateTypedPayloadContracts(manifest: JourneyManifest): Valida
   ]);
 
   for (const operation of operations) {
+    const resourceResult = validateResourceSemanticsContract(operation);
+
+    if (!resourceResult.ok) {
+      return resourceResult;
+    }
+
+    const cardResult = validateCardOperationContract(operation);
+
+    if (!cardResult.ok) {
+      return cardResult;
+    }
+
+    const baneResult = validateBaneOperationContract(operation);
+
+    if (!baneResult.ok) {
+      return baneResult;
+    }
+
+    const battleWindowResult = validateBattleWindowContract(operation);
+
+    if (!battleWindowResult.ok) {
+      return battleWindowResult;
+    }
+
+    const dreamwellWindowResult = validateDreamwellWindowContract(operation);
+
+    if (!dreamwellWindowResult.ok) {
+      return dreamwellWindowResult;
+    }
+
+    const shopResult = validateShopContract(operation);
+
+    if (!shopResult.ok) {
+      return shopResult;
+    }
+
+    const generatedObjectResult = validateGeneratedObjectOperationContract(operation);
+
+    if (!generatedObjectResult.ok) {
+      return generatedObjectResult;
+    }
+
+    if (operation.operationKind === "reward") {
+      const dreamsignResult = validateDreamsignPayload(
+        operation.payload,
+        context,
+        Number(operation.payload.optionNumber ?? 0),
+      );
+
+      if (!dreamsignResult.ok) {
+        return dreamsignResult;
+      }
+    }
+
     if (
       operation.operationKind === "route_edit" &&
       (
@@ -607,6 +1066,24 @@ export function validateTypedPayloadContracts(manifest: JourneyManifest): Valida
       if (!result.ok) {
         return result;
       }
+    }
+  }
+
+  for (const generatedObject of operations.flatMap(generatedObjectOperationDefinitions)) {
+    const generatedObjectResult = validateGeneratedObjectOperationContract({
+      operationId: `generated-object:${generatedObject.generatedObjectId}`,
+      operationKind: "generated_object",
+      role: "generated_object",
+      visibility: "debug",
+      generatedObject,
+      payload: {
+        generatedObjectId: generatedObject.generatedObjectId,
+        generatedObjectKind: generatedObject.generatedObjectKind,
+      },
+    });
+
+    if (!generatedObjectResult.ok) {
+      return generatedObjectResult;
     }
   }
 
