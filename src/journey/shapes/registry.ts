@@ -17,7 +17,7 @@ import { randomAllocationPlugin } from "./random_allocation/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
 import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
-import { riskOrSkipPlugin } from "./risk_or_skip.js";
+import { riskOrSkipPlugin } from "./risk_or_skip/index.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards/index.js";
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs/index.js";
 import { serviceMenuPlugin } from "./service_menu/index.js";
