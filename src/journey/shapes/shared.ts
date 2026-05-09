@@ -120,10 +120,8 @@ function payloadCompatibilityFor(
   const hasDreamsign =
     supportedTags.includes("dreamsign") ||
     id === "curated_reward_trio";
-  const serviceFamilyShape = id === "service_menu";
   const generatedObjectShape = [
     "same_cost_different_rewards",
-    "service_menu",
     "curated_reward_trio",
     "one_target_many_operations",
     "mirrored_operations",
@@ -139,7 +137,6 @@ function payloadCompatibilityFor(
     compatibility(
       "card",
       [
-        ...(serviceFamilyShape ? ["named-card-operation-menu"] : []),
         ...(id === "curated_reward_trio"
           ? ["starter-cleanup-replacement"]
           : []),
@@ -147,7 +144,7 @@ function payloadCompatibilityFor(
           ? ["adapter-compatible-card-operations"]
           : []),
       ],
-      hasCard || serviceFamilyShape || id === "curated_reward_trio"
+      hasCard || id === "curated_reward_trio"
         ? "Shape can expose card targets or card-operation menu rows."
         : "Shape does not expose a legal card-target operation frame.",
     ),
@@ -167,21 +164,17 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "bane",
-      [
-        ...(serviceFamilyShape ? ["bane-gain-purge-transform"] : []),
-      ],
-      serviceFamilyShape
+      [],
+      false
         ? "Shape can frame Bane gain, purge, and transformation decisions."
         : "Shape lacks a controlled Bane-operation or loss-choice frame.",
     ),
     compatibility(
       "resource",
       [
-        ...(serviceFamilyShape ? ["resource-edge-cases"] : []),
         ...((isDirectMenu ||
           topology === "single_offer_refusal" ||
-          topology === "single_reward") &&
-        !serviceFamilyShape
+          topology === "single_reward")
           ? ["adapter-compatible-resource-operations"]
           : []),
       ],
@@ -193,10 +186,8 @@ function payloadCompatibilityFor(
     ),
     compatibility(
       "route",
-      [
-        ...(serviceFamilyShape ? ["route-edits"] : []),
-      ],
-      serviceFamilyShape
+      [],
+      false
         ? "Shape can expose route edits without mutating state."
         : "Shape topology is not a route-edit scene.",
     ),
@@ -208,36 +199,33 @@ function payloadCompatibilityFor(
     compatibility(
       "dreamwell",
       [
-        ...(serviceFamilyShape ? ["dreamwell-window"] : []),
         ...(id === "timed_window_menu"
           ? ["adapter-compatible-dreamwell-window"]
           : []),
       ],
-      serviceFamilyShape || id === "timed_window_menu"
+      id === "timed_window_menu"
         ? "Shape can expose bounded Dreamwell and battle-window modifiers."
         : "Shape does not provide a shared timing window for Dreamwell payloads.",
     ),
     compatibility(
       "status",
       [
-        ...(serviceFamilyShape ? ["status-reward-replacement"] : []),
         ...(id === "timed_window_menu"
           ? ["adapter-compatible-status-rules"]
           : []),
       ],
-      serviceFamilyShape || id === "timed_window_menu"
+      id === "timed_window_menu"
         ? "Shape can expose one-time, temporary, or delayed rule mutations."
         : "Shape lacks a legal status or rule-mutation frame.",
     ),
     compatibility(
       "hook",
       [
-        ...(serviceFamilyShape ? ["delayed-trigger-matrix"] : []),
-        ...(isDelayedHook && !serviceFamilyShape
+        ...(isDelayedHook
           ? ["adapter-compatible-delayed-hooks"]
           : []),
       ],
-      isDelayedHook || serviceFamilyShape
+      isDelayedHook
         ? "Shape can store visible delayed hook contracts in precommitted metadata."
         : "Shape has no delayed hook contract surface.",
     ),
