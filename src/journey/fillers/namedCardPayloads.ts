@@ -25,7 +25,9 @@ export type ContentBackedCardSelection = {
 
 export function cardQualityValue(card: CardContent): number {
   const rarityValue =
-    card.rarity === "Rare"
+    card.rarity === "Legendary"
+      ? CARD_VALUE_CONSTANTS.namedVisibleByRarity.legendary
+      : card.rarity === "Rare"
       ? CARD_VALUE_CONSTANTS.namedVisibleByRarity.rare
       : card.rarity === "Uncommon"
         ? CARD_VALUE_CONSTANTS.namedVisibleByRarity.uncommon

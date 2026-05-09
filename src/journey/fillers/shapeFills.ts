@@ -60,6 +60,7 @@ import {
   chosenCardText,
   commonPositiveOptions,
   comparableEssenceLossAmount,
+  compoundPayloadMenuFill,
   cost,
   costSlots,
   costedRewardOption,
@@ -916,11 +917,21 @@ export function fillOptions(
         drawContext,
         `${shapeId}:service-family`,
         [
+          { item: "compound_payload", weight: 2 },
           { item: "starter_cleanup_prefix", weight: 1 },
           { item: "starter_surgery", weight: 2 },
           { item: "general", weight: 5 },
         ] as const,
       );
+      const compoundFill = serviceFamily === "compound_payload"
+        ? compoundPayloadMenuFill({
+            context,
+            drawContext,
+            label: `${shapeId}:compound`,
+            shapeId,
+            stage,
+          })
+        : undefined;
       const cleanupPrefixFill = serviceFamily === "starter_cleanup_prefix"
         ? sharedStarterCleanupRewardFill({
             context,
@@ -929,6 +940,19 @@ export function fillOptions(
             stage,
           })
         : undefined;
+
+      if (compoundFill) {
+        return {
+          options: compoundFill.options.map((fill) =>
+            optionFromResolvedShapeFill(fill),
+          ),
+          precommitted: {
+            routeEdits: compoundFill.options.flatMap((fill) =>
+              fill.routeEffects ?? []
+            ),
+          },
+        };
+      }
 
       if (cleanupPrefixFill) {
         return {

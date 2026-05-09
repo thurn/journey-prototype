@@ -23,8 +23,10 @@ import {
 import {
   CARD_DRAFT_PROFILES,
   cardDraftText,
+  compoundPayloadMenuFill,
   draftCards,
   option,
+  optionFromResolvedShapeFill,
   randomCardGain,
   starterSurgeryRewardSlots,
   target,
@@ -63,6 +65,7 @@ import {
 } from "../src/journey/validate/index.js";
 import { validateRouteEffects } from "../src/journey/validate/payloadContracts.js";
 import {
+  evaluateOptionValue,
   valueStarterCleanup,
   valueUsefulNonStarterCardSacrifice,
 } from "../src/journey/value.js";
@@ -198,6 +201,40 @@ function fillForShapeAtStage(
       score: 100 - index,
     })),
   });
+}
+
+function compoundManifestForFamily(
+  family: "scissor_saint" | "molting_archive" | "withered_orchard" | "mixed_service",
+  journeyContext: Awaited<ReturnType<typeof context>>,
+) {
+  const drawContext = {
+    seed: journeyContext.state.quest.seed,
+    contentVersion: journeyContext.contentVersion,
+    rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+  };
+  const fill = compoundPayloadMenuFill({
+    context: journeyContext,
+    drawContext,
+    label: `test:${family}`,
+    family,
+    shapeId: "service_menu",
+    stage: "early",
+  });
+
+  if (!fill) {
+    throw new Error(`Unable to compose compound payload family ${family}`);
+  }
+
+  const base = fillForShape("service_menu", journeyContext);
+  const precommitted = refreshPrecommittedOperations({
+    routeEdits: fill.options.flatMap((option) => option.routeEffects ?? []),
+  });
+
+  return {
+    ...base,
+    options: fill.options.map(optionFromResolvedShapeFill),
+    precommitted,
+  };
 }
 
 async function findValidForcedShapeManifest(
@@ -3652,6 +3689,91 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("builds Scissor Saint as card and Dreamsign sacrifices paired with normal rewards", async () => {
+    const journeyContext = await context("m20-scissor");
+    const manifest = compoundManifestForFamily("scissor_saint", journeyContext);
+    const operationKinds = manifest.options.map((journeyOption) =>
+      journeyOption.operations.map((operation) =>
+        operation.operationKind === "reward"
+          ? operation.rewardKind
+          : operation.operationKind === "burden"
+            ? operation.burdenKind
+            : operation.operationKind
+      )
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(operationKinds).toEqual([
+      expect.arrayContaining(["card_sacrifice", "dreamsign_gain"]),
+      expect.arrayContaining(["card_sacrifice", "card_draft"]),
+      expect.arrayContaining(["dreamsign_sacrifice", "transfiguration"]),
+    ]);
+    expect(manifest.options.every((journeyOption) =>
+      journeyOption.symbols.includes("reward") &&
+      journeyOption.symbols.includes("risk")
+    )).toBe(true);
+  });
+
+  it("builds Molting Archive as transform-plus-reward and random-card-gain-plus-purge compounds", async () => {
+    const journeyContext = await context("m20-molting");
+    const manifest = compoundManifestForFamily("molting_archive", journeyContext);
+    const options = manifest.options.map((journeyOption) => ({
+      rewards: journeyOption.operations.flatMap((operation) =>
+        operation.operationKind === "reward" ? [operation.rewardKind] : []
+      ),
+      burdens: journeyOption.operations.flatMap((operation) =>
+        operation.operationKind === "burden" ? [operation.burdenKind] : []
+      ),
+    }));
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(options[0]!.rewards).toEqual(
+      expect.arrayContaining(["dreamsign_transform", "resource"]),
+    );
+    expect(options[1]!.rewards).toEqual(
+      expect.arrayContaining(["dreamsign_gain", "card_transform"]),
+    );
+    expect(options[2]).toMatchObject({
+      rewards: expect.arrayContaining(["card_gain"]),
+      burdens: expect.arrayContaining(["card_sacrifice"]),
+    });
+  });
+
+  it("builds Withered Orchard as reward-reduction burdens paired with Dreamsign, Legendary card, and starter cleanup rewards", async () => {
+    const journeyContext = await context("m20-withered");
+    const manifest = compoundManifestForFamily("withered_orchard", journeyContext);
+    const valueBreakdown = evaluateOptionValue(manifest.options[0]!, journeyContext);
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(
+      manifest.options.map((journeyOption) =>
+        journeyOption.operations.map((operation) =>
+          operation.operationKind === "reward"
+            ? operation.rewardKind
+            : operation.operationKind === "status"
+              ? `${operation.role}:${operation.statusKind}`
+              : operation.operationKind
+        )
+      ),
+    ).toEqual([
+      expect.arrayContaining(["burden:status_reward_reduction", "dreamsign_gain"]),
+      expect.arrayContaining(["burden:status_reward_reduction", "card_gain"]),
+      expect.arrayContaining(["burden:status_reward_reduction", "starter_cleanup"]),
+    ]);
+    expect(valueBreakdown.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "burden", value: -120 }),
+        expect.objectContaining({ kind: "effect", value: 320 }),
+      ]),
+    );
+  });
+
   it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {
     const drawContext: DrawContext = {
       seed: "card-operation-catalog",
@@ -6981,6 +7103,36 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "option_values_are_comparable_for_shape",
+    });
+  });
+
+  it("rejects pure burden rows outside loss-choice shapes", async () => {
+    const journeyContext = await context("m20-pure-burden");
+    const manifest = fillForShape("service_menu", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: [
+        refreshOptionOperations({
+          ...manifest.options[0]!,
+          text: "Gain 1 {Nightmare}.",
+          costs: [],
+          effects: [],
+          burdens: [{ kind: "bane_gain", baneName: "Nightmare", count: 1 }],
+          targets: [],
+          routeEffects: [],
+          costConvertedEssence: 0,
+          effectConvertedEssence: 0,
+          burdenConvertedEssence: -125,
+          uncertaintyConvertedEssence: 0,
+          netConvertedEssence: -125,
+        }),
+        ...manifest.options.slice(1),
+      ],
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "pure_burden_positive_scene",
     });
   });
 

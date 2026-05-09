@@ -8,6 +8,7 @@ import { hasPrecommitted } from "./precommitRules.js";
 import { fail, type ValidationResult } from "./result.js";
 import {
   validateChooseYourLossValues,
+  validateCompoundOptionCoherence,
   validateCommitNowFuturePayoffValues,
   validatePositiveMenuValues,
 } from "./values.js";
@@ -142,6 +143,12 @@ export function rootOptionPayloadsResult(
 }
 
 export function rootValueResult(manifest: JourneyManifest): ValidationResult {
+  const compoundCoherence = validateCompoundOptionCoherence(manifest);
+
+  if (!compoundCoherence.ok) {
+    return compoundCoherence;
+  }
+
   const nets = manifest.options
     .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
     .map((journeyOption) => journeyOption.netConvertedEssence);

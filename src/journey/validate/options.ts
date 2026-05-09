@@ -333,11 +333,13 @@ export function validateOption(
     return structuredResult;
   }
 
+  const semanticPayloads = [...option.effects, ...option.burdens];
+
   if (
-    option.effects.some((effect) => isRecord(effect) && effect.kind === "dreamsign_loss") &&
+    semanticPayloads.some((payload) => isRecord(payload) && payload.kind === "dreamsign_loss") &&
     context.state.quest.activeDreamsigns.length === 0
   ) {
-    const hasResolvableNonActiveLoss = option.effects.some((effect) =>
+    const hasResolvableNonActiveLoss = semanticPayloads.some((effect) =>
       isRecord(effect) &&
       effect.kind === "dreamsign_loss" &&
       effect.source !== "active" &&
@@ -357,7 +359,7 @@ export function validateOption(
     }
   }
 
-  for (const effect of option.effects) {
+  for (const effect of semanticPayloads) {
     if (isRecord(effect)) {
       const cardResult = validateCardPayload(effect, context, option.number);
 

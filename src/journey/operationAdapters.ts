@@ -536,6 +536,18 @@ function resourceAmount(value: unknown): number {
   return isRecord(value) && typeof value.amount === "number" ? value.amount : 0;
 }
 
+function explicitPayloadConvertedEssence(value: unknown): number | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return typeof value.componentConvertedEssence === "number"
+    ? value.componentConvertedEssence
+    : typeof value.operationConvertedEssence === "number"
+      ? value.operationConvertedEssence
+      : undefined;
+}
+
 function resourceSemanticsFromPayload(value: unknown): ResourceAmountSemantics | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -1317,6 +1329,10 @@ function adaptBurden(
       : isRecord(value) && typeof value.timing === "string" && value.timing !== "immediate"
         ? "bane_delayed"
         : "bane_gain"
+    : kind === "card_purge" || kind === "card_transform" || kind === "card_replace"
+      ? "card_sacrifice"
+    : kind === "dreamsign_loss" || kind === "dreamsign_purge"
+      ? "dreamsign_sacrifice"
     : kind === "dreamwell_modifier"
       ? "dreamwell_modifier"
     : kind === "resource_reward_reduction"
@@ -1333,6 +1349,8 @@ function adaptBurden(
         names: [isRecord(value) && typeof value.baneName === "string" ? value.baneName : DEFAULT_BANE_NAME],
       }
     : undefined;
+  const nonBaneTargetSelector = targetSelectorFromPayload(value);
+  const resolvedTargetSelector = targetSelector ?? nonBaneTargetSelector;
 
   return {
     operationId,
@@ -1341,7 +1359,7 @@ function adaptBurden(
     burdenKind,
     ...(timingFromPayload(value) ? { timing: timingFromPayload(value) } : { timing: { timingKind: "immediate" } }),
     visibility,
-    ...(targetSelector ? { targetSelector } : {}),
+    ...(resolvedTargetSelector ? { targetSelector: resolvedTargetSelector } : {}),
     ...(resourceSemanticsFromPayload(value) ? { resourceSemantics: resourceSemanticsFromPayload(value) } : {}),
     ...(valueMetadata(convertedEssence, isRecord(value) ? value : undefined)
       ? { value: valueMetadata(convertedEssence, isRecord(value) ? value : undefined) }
@@ -1680,7 +1698,11 @@ function adaptRecordArray(
   convertedEssence?: number,
 ): JourneyOperation[] {
   return values.map((value, index) =>
-    adapter(value, `${prefix}:${index + 1}`, convertedEssence)
+    adapter(
+      value,
+      `${prefix}:${index + 1}`,
+      convertedEssence ?? explicitPayloadConvertedEssence(value),
+    )
   );
 }
 

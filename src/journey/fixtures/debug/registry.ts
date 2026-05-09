@@ -275,7 +275,11 @@ function addRouteEdits(
     (journeyOption) => journeyOption.routeEffects,
   );
 
-  if (optionRouteEffects.length === 0 || basePrecommitted.routeEdits) {
+  if (
+    optionRouteEffects.length === 0 ||
+    (basePrecommitted.routeEdits !== undefined &&
+      basePrecommitted.routeEdits.length > 0)
+  ) {
     return basePrecommitted;
   }
 

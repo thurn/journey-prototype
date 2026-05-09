@@ -60,11 +60,13 @@ export function symbolsForOption(option: JourneyOption): string[] {
     symbols.push(SYMBOLS.neutral);
   }
 
-  if (hasRisk(option)) {
-    symbols.push(SYMBOLS.risk);
-  } else if (hasCost(option)) {
+  if (hasCost(option)) {
     symbols.push(SYMBOLS.cost);
   }
 
-  return symbols.slice(0, 2);
+  if (hasRisk(option)) {
+    symbols.push(SYMBOLS.risk);
+  }
+
+  return symbols.slice(0, 3);
 }

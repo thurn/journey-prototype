@@ -94,6 +94,86 @@ export function validatePositiveMenuValues(
   return { ok: true };
 }
 
+const ROUTE_REWARD_ALLOWED_SHAPES = new Set<JourneyManifest["shapeId"]>([
+  "alter_dreamscapes",
+  "service_menu",
+  "shared_prefix_menu",
+  "same_cost_different_rewards",
+  "timed_window_menu",
+]);
+
+function hasMeaningfulUpside(option: JourneyManifest["options"][number]): boolean {
+  return option.effectConvertedEssence >= 100 ||
+    option.effectConvertedEssence > option.costConvertedEssence ||
+    option.operations.some((operation) =>
+      (operation.role === "reward" || operation.role === "route_edit") &&
+      (operation.value?.convertedEssence ?? 0) >= 100
+    );
+}
+
+function hasOnlyDownside(option: JourneyManifest["options"][number]): boolean {
+  const hasDownside =
+    option.costs.length > 0 ||
+    option.burdens.length > 0 ||
+    option.costConvertedEssence > 0 ||
+    option.burdenConvertedEssence < 0 ||
+    option.operations.some((operation) =>
+      operation.role === "cost" || operation.role === "burden"
+    );
+
+  return hasDownside &&
+    option.effects.length === 0 &&
+    option.routeEffects.length === 0 &&
+    option.effectConvertedEssence <= 0 &&
+    !option.operations.some((operation) =>
+      operation.role === "reward" || operation.role === "route_edit"
+    );
+}
+
+export function validateCompoundOptionCoherence(
+  manifest: JourneyManifest,
+): ValidationResult {
+  if (manifest.shapeId === "choose_your_loss") {
+    return { ok: true };
+  }
+
+  for (const option of manifest.options.filter((entry) => entry.pickBehavior !== "leave")) {
+    if (hasOnlyDownside(option)) {
+      return fail(
+        "pure_burden_positive_scene",
+        "Positive Journey scenes cannot offer pure burden rows",
+      );
+    }
+
+    if (
+      (option.costs.length > 0 || option.costConvertedEssence > 0) &&
+      !hasMeaningfulUpside(option)
+    ) {
+      return fail(
+        "cost_without_meaningful_upside",
+        "Costs must be paired with a meaningful upside",
+      );
+    }
+
+    const routeOnly =
+      option.routeEffects.length > 0 &&
+      option.effects.length === 0 &&
+      option.effectConvertedEssence > 0;
+
+    if (
+      routeOnly &&
+      !ROUTE_REWARD_ALLOWED_SHAPES.has(manifest.shapeId)
+    ) {
+      return fail(
+        "route_only_reward_in_non_route_shape",
+        "Route-only rewards require an explicitly route-compatible shape",
+      );
+    }
+  }
+
+  return { ok: true };
+}
+
 export function validateTimedWindowMenu(manifest: JourneyManifest): ValidationResult {
   const sharedWindowKeys = new Set<string>();
 

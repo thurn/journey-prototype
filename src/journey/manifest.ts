@@ -432,6 +432,8 @@ export type BurdenOperation = OperationBase & {
     | "bane_gain"
     | "bane_temporary"
     | "bane_delayed"
+    | "card_sacrifice"
+    | "dreamsign_sacrifice"
     | "dreamwell_modifier"
     | "resource_loss"
     | "reward_reduction"

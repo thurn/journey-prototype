@@ -239,6 +239,17 @@ describe("symbolsForOption", () => {
     expect(
       symbolsForOption(
         option({
+          costs: [{ kind: "essence", amount: 10 }],
+          burdens: [{ kind: "nightmare" }],
+          costConvertedEssence: 10,
+          burdenConvertedEssence: -80,
+          netConvertedEssence: -70,
+        }),
+      ),
+    ).toEqual(["reward", "cost", "risk"]);
+    expect(
+      symbolsForOption(
+        option({
           pickBehavior: "leave",
           text: "Leave.",
           effects: [],
