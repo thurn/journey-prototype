@@ -260,7 +260,6 @@ function payloadCompatibilityFor(
             "risk_or_skip",
             "random_pool_draws",
             "probability_ladder",
-            "push_your_luck",
           ].includes(id)) &&
         id !== "single_random_outcome" &&
         id !== "resolved_random_series"
@@ -272,7 +271,6 @@ function payloadCompatibilityFor(
           "risk_or_skip",
           "random_pool_draws",
           "probability_ladder",
-          "push_your_luck",
         ].includes(id)
         ? "Shape exposes bounded random, reveal, odds, or wager metadata."
         : "Shape is deterministic and does not require random envelope metadata.",

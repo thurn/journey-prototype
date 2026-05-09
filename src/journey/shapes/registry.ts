@@ -12,7 +12,7 @@ import { oneTargetManyOperationsPlugin } from "./one_target_many_operations.js";
 import { pairedReturnPlugin } from "./paired_return.js";
 import { prizeLadderPlugin } from "./prize_ladder/index.js";
 import { probabilityLadderPlugin } from "./probability_ladder.js";
-import { pushYourLuckPlugin } from "./push_your_luck.js";
+import { pushYourLuckPlugin } from "./push_your_luck/index.js";
 import { randomAllocationPlugin } from "./random_allocation/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws.js";
 import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
