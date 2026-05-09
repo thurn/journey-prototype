@@ -114,6 +114,50 @@ type ShopRowPrice = {
   convertedEssence: number;
 };
 
+type FlatEscalatingTradeRow = {
+  price: number;
+  omens: number;
+};
+
+const FLAT_ESCALATING_TRADE_PROFILES = {
+  early: [
+    [
+      { price: 15, omens: 1 },
+      { price: 35, omens: 2 },
+      { price: 60, omens: 3 },
+    ],
+    [
+      { price: 20, omens: 1 },
+      { price: 40, omens: 2 },
+      { price: 70, omens: 3 },
+    ],
+  ],
+  mid: [
+    [
+      { price: 20, omens: 1 },
+      { price: 45, omens: 2 },
+      { price: 80, omens: 3 },
+    ],
+    [
+      { price: 25, omens: 1 },
+      { price: 55, omens: 2 },
+      { price: 90, omens: 3 },
+    ],
+  ],
+  late: [
+    [
+      { price: 30, omens: 1 },
+      { price: 60, omens: 2 },
+      { price: 95, omens: 3 },
+    ],
+    [
+      { price: 35, omens: 1 },
+      { price: 70, omens: 2 },
+      { price: 110, omens: 3 },
+    ],
+  ],
+} as const satisfies Record<JourneyStage, readonly (readonly FlatEscalatingTradeRow[])[]>;
+
 function shopRowPriceText(price: ShopRowPrice): string {
   const unit =
     price.currency === "omens"
@@ -2195,12 +2239,17 @@ export function fillOptions(
       };
     }
     case "flat_escalating_trade": {
-      const prices = [20, 45, 80] as const;
-      const omenRewards = [1, 2, 3] as const;
+      const tradeProfiles: readonly (readonly FlatEscalatingTradeRow[])[] =
+        FLAT_ESCALATING_TRADE_PROFILES[stage];
+      const tradeRows = shuffleDeterministic(
+        drawContext,
+        `${shapeId}:trade-profile:${stage}`,
+        tradeProfiles,
+      )[0]!;
 
       return {
-        options: prices.map((price, index) => {
-          const omens = omenRewards[index]!;
+        options: tradeRows.map((row, index) => {
+          const { price, omens } = row;
 
           return option({
             number: index + 1,
@@ -2220,8 +2269,8 @@ export function fillOptions(
             sharedFirst: true,
             optionNumbers: [1, 2, 3],
             sharedPayloadKeys: ["resource-cost:essence", "resource-reward:omens"],
-            variedPayloadKeys: prices.map((price, index) =>
-              `essence:${price}->omens:${omenRewards[index]!}`
+            variedPayloadKeys: tradeRows.map((row) =>
+              `essence:${row.price}->omens:${row.omens}`
             ),
             weight: 3,
           }),

@@ -8352,16 +8352,17 @@ describe("validateJourneyManifest", () => {
 
     expect(manifest.shapeId).toBe("flat_escalating_trade");
     expect(manifest.tree).toBeUndefined();
-    expect(manifest.options.map((option) => option.text)).toEqual([
-      "Pay 20 essence. Gain 1 omen.",
-      "Pay 45 essence. Gain 2 omens.",
-      "Pay 80 essence. Gain 3 omens.",
-    ]);
-    expect(manifest.options.map((option) => option.costConvertedEssence)).toEqual([
-      20,
-      45,
-      80,
-    ]);
+    expect(manifest.options.map((option) => option.text)).toEqual(
+      manifest.options.map((option, index) =>
+        `Pay ${option.costConvertedEssence} essence. Gain ${index + 1} ${index === 0 ? "omen" : "omens"}.`
+      ),
+    );
+    expect(manifest.options[1]!.costConvertedEssence).toBeGreaterThan(
+      manifest.options[0]!.costConvertedEssence,
+    );
+    expect(manifest.options[2]!.costConvertedEssence).toBeGreaterThan(
+      manifest.options[1]!.costConvertedEssence,
+    );
     expect(manifest.options.map((option) => option.effectConvertedEssence)).toEqual([
       65,
       130,
