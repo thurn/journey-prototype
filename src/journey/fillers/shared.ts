@@ -863,6 +863,50 @@ function starterSurgeryMenuValue(value: number): number {
   return Math.max(320, Math.min(390, value));
 }
 
+type StarterTransfigurationSlotMode = "chosen" | "random";
+
+const STARTER_SURGERY_TRANSFIGURATION_TARGET_COUNTS = {
+  chosen: {
+    early: [1, 2],
+    mid: [1, 2],
+    late: [2, 3],
+  },
+  random: {
+    early: [1, 2],
+    mid: [2, 3],
+    late: [2, 3],
+  },
+} as const satisfies Record<
+  StarterTransfigurationSlotMode,
+  Record<JourneyStage, readonly number[]>
+>;
+
+function starterTransfigurationTargetCount(
+  drawContext: DrawContext,
+  label: string,
+  stage: JourneyStage,
+  mode: StarterTransfigurationSlotMode,
+  starterCount: number,
+): number | undefined {
+  const counts = STARTER_SURGERY_TRANSFIGURATION_TARGET_COUNTS[mode][stage]
+    .filter((count) => count <= starterCount);
+
+  return counts.length > 0
+    ? pickSequentialVariant(drawContext, `${label}:${mode}:target-count`, counts)
+    : undefined;
+}
+
+function starterTransfigurationTargetText(
+  mode: StarterTransfigurationSlotMode,
+  count: number,
+): string {
+  const cardText = count === 1 ? "Starter card" : "Starter cards";
+
+  return count === 1
+    ? `a ${mode} ${cardText}`
+    : `${count} ${mode} ${cardText}`;
+}
+
 export function starterSurgeryRewardSlots(
   context: JourneyContext,
   drawContext: DrawContext,
@@ -927,6 +971,20 @@ export function starterSurgeryRewardSlots(
     drawContext,
     `${label}:starter-transfiguration`,
     ALLOWED_TRANSFIGURATIONS,
+  );
+  const chosenTransfigurationCount = starterTransfigurationTargetCount(
+    drawContext,
+    `${label}:starter-transfiguration`,
+    stage,
+    "chosen",
+    starterCount,
+  );
+  const randomTransfigurationCount = starterTransfigurationTargetCount(
+    drawContext,
+    `${label}:starter-transfiguration`,
+    stage,
+    "random",
+    starterCount,
   );
   const firstStarter = starterOrder[0]!;
   const secondStarter = starterOrder[1] ?? firstStarter;
@@ -1164,16 +1222,21 @@ export function starterSurgeryRewardSlots(
     });
   }
 
-  if (starterCount >= 2) {
+  if (chosenTransfigurationCount !== undefined) {
+    const targetText = starterTransfigurationTargetText(
+      "chosen",
+      chosenTransfigurationCount,
+    );
+
     slots.push({
       key: "starter-two-chosen-transfiguration",
-      text: `Apply {${transfiguration} Transfiguration} to 2 chosen Starter cards.`,
+      text: `Apply {${transfiguration} Transfiguration} to ${targetText}.`,
       effects: [
         {
           kind: "card_transfigure",
           transfigurationName: transfiguration,
-          targetCount: 2,
-          minRequiredTargets: 2,
+          targetCount: chosenTransfigurationCount,
+          minRequiredTargets: chosenTransfigurationCount,
           selection: "chosen_after_commitment",
           transfigurationScope: "two_chosen_starters",
           cardOperationFamily: "transfiguration",
@@ -1184,21 +1247,26 @@ export function starterSurgeryRewardSlots(
       ],
       targets: [starterTarget()],
       effect: starterSurgeryMenuValue(
-        valueStarterCleanup({ count: 2, stage }) + 25,
+        valueStarterCleanup({ count: chosenTransfigurationCount, stage }) + 25,
       ),
     });
   }
 
-  if (starterCount >= 3) {
+  if (randomTransfigurationCount !== undefined) {
+    const targetText = starterTransfigurationTargetText(
+      "random",
+      randomTransfigurationCount,
+    );
+
     slots.push({
       key: "starter-random-transfiguration",
-      text: `Apply {${transfiguration} Transfiguration} to 3 random Starter cards.`,
+      text: `Apply {${transfiguration} Transfiguration} to ${targetText}.`,
       effects: [
         {
           kind: "card_transfigure",
           transfigurationName: transfiguration,
-          targetCount: 3,
-          minRequiredTargets: 3,
+          targetCount: randomTransfigurationCount,
+          minRequiredTargets: randomTransfigurationCount,
           selection: "hidden_random",
           transfigurationScope: "random_starters",
           cardOperationFamily: "transfiguration",
@@ -1208,13 +1276,17 @@ export function starterSurgeryRewardSlots(
         },
       ],
       targets: [
-        starterTarget("random Starter cards in deck", {
+        starterTarget(`${targetText} in deck`, {
           selection: "hidden_random",
           cardOperationTargetMode: "random_predicate",
         }),
       ],
       effect: starterSurgeryMenuValue(
-        valueStarterCleanup({ count: 3, stage, random: true }) + 30,
+        valueStarterCleanup({
+          count: randomTransfigurationCount,
+          stage,
+          random: true,
+        }) + 30,
       ),
       uncertainty: -10,
     });

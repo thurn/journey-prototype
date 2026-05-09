@@ -2917,6 +2917,61 @@ describe("generateNextJourney", () => {
     ).toBe(true);
   });
 
+  it("profiles Starter surgery transfiguration target counts", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const chosenCounts = new Set<number>();
+    const randomCounts = new Set<number>();
+
+    for (let index = 0; index < 16; index += 1) {
+      const seed = `starter-surgery-transfiguration-profile:${index}`;
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      const journeyContext = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const drawContext: DrawContext = {
+        seed,
+        contentVersion,
+        rootJourneyIndex: state.generator.rootJourneyIndex,
+      };
+      const slots = starterSurgeryRewardSlots(
+        journeyContext,
+        drawContext,
+        seed,
+        "early",
+      );
+
+      for (const slot of slots) {
+        for (const effect of slot.effects) {
+          if (
+            typeof effect === "object" &&
+            effect !== null &&
+            "kind" in effect &&
+            effect.kind === "card_transfigure" &&
+            "targetCount" in effect &&
+            typeof effect.targetCount === "number"
+          ) {
+            if (effect.selection === "hidden_random") {
+              randomCounts.add(effect.targetCount);
+            } else if (effect.selection === "chosen_after_commitment") {
+              chosenCounts.add(effect.targetCount);
+            }
+          }
+        }
+      }
+    }
+
+    expect([...chosenCounts].sort()).toEqual([1, 2]);
+    expect([...randomCounts].sort()).toEqual([1, 2]);
+  });
+
   it("varies starter replacement profiles across starter surgery rewards", async () => {
     const content = await loadContent(process.cwd());
     const contentVersion = "test-content-version";
