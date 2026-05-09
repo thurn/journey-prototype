@@ -1615,31 +1615,6 @@ export function fillOptions(
         ),
         precommitted: {},
       };
-    case "single_offer": {
-      const reward = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:offer-reward`,
-      ).filter((entry) => entry.routeEffects === undefined)[0]!;
-      const costSlot = costSlots(
-        context,
-        drawContext,
-        `${shapeId}:offer-cost`,
-        { includeStatusBurdens: stage === "late" },
-      )[0]!;
-
-      return {
-        options: [
-          costedRewardOption(1, costSlot, reward),
-          option({
-            number: 2,
-            text: "Leave with no effect.",
-            pickBehavior: "leave",
-          }),
-        ],
-        precommitted: {},
-      };
-    }
     case "risk_or_skip": {
       const reward = namedDreamsignRiskReward({
         context,
