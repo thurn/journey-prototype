@@ -409,35 +409,26 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     context,
   );
   const validation = validateJourneyManifest(resolvedManifest, context);
-  let resolvedFinalManifest: JourneyManifest;
-  if (validation.ok) {
-    const accepted = markJourneyAcceptedImmediately(
-      resolvedManifest,
-      input.forcedShapeId !== undefined,
-    );
-    resolvedFinalManifest = withReachabilityMetadata(
-      withDistinctnessFingerprint(accepted),
-    );
-  } else {
-    const repaired = repairOrFallbackJourney(
-      resolvedManifest,
-      context,
-      validation,
-      { forcedShape: input.forcedShapeId !== undefined },
-    );
-    resolvedFinalManifest = withReachabilityMetadata(
-      withDistinctnessFingerprint(
-        withValidationReport(
-          attachTargetResolutionMetadata(
-            repaired,
-            context.content,
-            context.state.quest,
-          ),
-          context,
+  const finalManifest = validation.ok
+    ? markJourneyAcceptedImmediately(
+        resolvedManifest,
+        input.forcedShapeId !== undefined,
+      )
+    : repairOrFallbackJourney(resolvedManifest, context, validation, {
+        forcedShape: input.forcedShapeId !== undefined,
+      });
+  const resolvedFinalManifest = withReachabilityMetadata(
+    withDistinctnessFingerprint(
+      withValidationReport(
+        attachTargetResolutionMetadata(
+          finalManifest,
+          context.content,
+          context.state.quest,
         ),
+        context,
       ),
-    );
-  }
+    ),
+  );
 
   if (
     input.forcedShapeId &&
@@ -456,25 +447,24 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     });
   }
 
-  if (input.forcedShapeId) {
-    const finalValidation = validateJourneyManifest(
-      resolvedFinalManifest,
-      context,
-    );
-    if (!finalValidation.ok) {
-      const failedManifest = markJourneyForcedShapeFailure(
-        resolvedFinalManifest,
-        finalValidation,
-      );
+  const finalValidation = validateJourneyManifest(
+    resolvedFinalManifest,
+    context,
+  );
 
-      throw new Error(
-        forcedFailureMessage(
-          input.forcedShapeId,
-          failedManifest,
-          finalValidation,
-        ),
-      );
-    }
+  if (!finalValidation.ok && input.forcedShapeId) {
+    const failedManifest = markJourneyForcedShapeFailure(
+      resolvedFinalManifest,
+      finalValidation,
+    );
+
+    throw new Error(
+      forcedFailureMessage(
+        input.forcedShapeId,
+        failedManifest,
+        finalValidation,
+      ),
+    );
   }
 
   return freezeSerializable(resolvedFinalManifest);
