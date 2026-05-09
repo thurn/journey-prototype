@@ -92,6 +92,11 @@ export type DreamsignPredicateProfile = {
   predicate: DreamsignTargetPredicate;
 };
 
+type BattleWindowProfile = {
+  label: string;
+  count: number;
+};
+
 const ALL_TOPOLOGIES = [
   "one_target_many_operations",
   "mirrored_operations",
@@ -109,6 +114,25 @@ const CHOSEN_OR_NAMED = [
   "chosen",
   "exact_named",
 ] as const satisfies readonly DreamsignOperationTargetMode[];
+
+const DREAMSIGN_TEMPORARY_GRANT_WINDOW_PROFILES: Record<
+  JourneyStage,
+  readonly BattleWindowProfile[]
+> = {
+  early: [
+    { label: "next battle", count: 1 },
+    { label: "next 2 battles", count: 2 },
+  ],
+  mid: [
+    { label: "next 2 battles", count: 2 },
+    { label: BATTLE_WINDOW_DURATION, count: 3 },
+  ],
+  late: [
+    { label: "next 2 battles", count: 2 },
+    { label: BATTLE_WINDOW_DURATION, count: 3 },
+    { label: "next 4 battles", count: 4 },
+  ],
+};
 
 export const DREAMSIGN_PREDICATE_PROFILES = Object.freeze([
   {
@@ -178,6 +202,16 @@ function baseEntry(
     targetModes,
     effect: withCompatibility(entry.effect, targetModes, entry.family),
   };
+}
+
+function temporaryGrantWindowProfile(
+  args: DreamsignOperationMaterializerArgs,
+): BattleWindowProfile {
+  return shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:${args.entry.key}:battle-window`,
+    DREAMSIGN_TEMPORARY_GRANT_WINDOW_PROFILES[args.stage],
+  )[0]!;
 }
 
 function targetPredicateForSources(
@@ -533,10 +567,25 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
       value: valueDreamsignOperation("temporary_grant"),
       uncertainty: DREAMSIGN_OPERATION_VALUE_CONSTANTS.temporaryUncertainty,
     }),
-    materialize: (args) =>
-      materializeSourceOperation(args, {
-        extra: { temporary: true, duration: BATTLE_WINDOW_DURATION },
-      }),
+    materialize: (args) => {
+      const profile = temporaryGrantWindowProfile(args);
+      const operation = materializeSourceOperation(args, {
+        extra: {
+          temporary: true,
+          duration: profile.label,
+          durationCount: profile.count,
+        },
+      });
+
+      return operation
+        ? {
+            ...operation,
+            key: `${operation.key}:${profile.count}-battles`,
+            renderText: (targetText) =>
+              `Gain ${targetText} as a temporary Dreamsign for the ${profile.label}.`,
+          }
+        : undefined;
+    },
   },
   {
     ...baseEntry({

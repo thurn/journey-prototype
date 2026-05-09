@@ -73,7 +73,7 @@ export type MaterializedCardOperation = {
 };
 
 type CardOperationMaterializerArgs = {
-  context: JourneyContext;
+  context?: JourneyContext;
   drawContext: DrawContext;
   label: string;
   stage: JourneyStage;
@@ -83,6 +83,7 @@ type CardOperationMaterializerArgs = {
 type CardOperationCatalogEntry = MaterializedCardOperation & {
   topologies: readonly CardOperationTopology[];
   targetClasses: readonly CardOperationTargetClass[];
+  contextFree?: boolean;
   materialize?: (
     args: CardOperationMaterializerArgs,
   ) => MaterializedCardOperation | undefined;
@@ -102,6 +103,11 @@ type CardOperationRequest = {
 };
 
 type StarterTransfigurationMode = "random" | "chosen";
+
+type BattleWindowProfile = {
+  label: string;
+  count: number;
+};
 
 const ALL_TARGET_CLASSES = [
   "draft_card",
@@ -155,6 +161,25 @@ const STARTER_TRANSFIGURATION_TARGET_COUNTS = {
   Record<JourneyStage, readonly number[]>
 >;
 
+const CARD_OPERATION_BATTLE_WINDOW_PROFILES: Record<
+  JourneyStage,
+  readonly BattleWindowProfile[]
+> = {
+  early: [
+    { label: "next battle", count: 1 },
+    { label: "next 2 battles", count: 2 },
+  ],
+  mid: [
+    { label: "next 2 battles", count: 2 },
+    { label: BATTLE_WINDOW_DURATION, count: 3 },
+  ],
+  late: [
+    { label: "next 2 battles", count: 2 },
+    { label: BATTLE_WINDOW_DURATION, count: 3 },
+    { label: "next 4 battles", count: 4 },
+  ],
+};
+
 function withCompatibility(
   effect: Record<string, unknown>,
   targetModes: readonly CardOperationTargetMode[],
@@ -179,6 +204,45 @@ function baseEntry(
     ...entry,
     targetModes,
     effect: withCompatibility(entry.effect, targetModes, entry.family),
+  };
+}
+
+function requireContext(args: CardOperationMaterializerArgs): JourneyContext {
+  if (!args.context) {
+    throw new Error(`Card operation ${args.entry.key} requires Journey context`);
+  }
+
+  return args.context;
+}
+
+function battleWindowProfile(args: CardOperationMaterializerArgs): BattleWindowProfile {
+  return shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:${args.entry.key}:battle-window`,
+    CARD_OPERATION_BATTLE_WINDOW_PROFILES[args.stage],
+  )[0]!;
+}
+
+function materializeBattleWindowOperation(
+  args: CardOperationMaterializerArgs,
+  renderText: (targetText: string, profile: BattleWindowProfile) => string,
+): MaterializedCardOperation {
+  const profile = battleWindowProfile(args);
+
+  return {
+    ...args.entry,
+    key: `${args.entry.key}:${profile.count}-battles`,
+    renderText: (targetText) => renderText(targetText, profile),
+    effect: withCompatibility(
+      {
+        ...args.entry.effect,
+        duration: profile.label,
+        durationCount: profile.count,
+      },
+      args.entry.targetModes,
+      args.entry.family,
+    ),
+    value: args.entry.value,
   };
 }
 
@@ -211,8 +275,10 @@ function transfigurationEntry(
 function resultCardForOperation(
   args: CardOperationMaterializerArgs,
 ): CardContent | undefined {
+  const context = requireContext(args);
+
   return selectContentBackedCard({
-    context: args.context,
+    context,
     drawContext: args.drawContext,
     label: `${args.label}:${args.entry.key}:result`,
     stage: args.stage,
@@ -232,6 +298,7 @@ function namedResultOperation(
     return undefined;
   }
 
+  const context = requireContext(args);
   const value = Math.max(entry.value, cardQualityValue(result) + 45);
 
   return {
@@ -243,7 +310,7 @@ function namedResultOperation(
         kind,
         cardOperationKind: kind.replace(/^card_/u, ""),
         source: "catalog",
-        sourcePoolSize: args.context.content.cards.length,
+        sourcePoolSize: context.content.cards.length,
         timing: "immediate",
         resultCardId: result.id,
         resultCardName: result.name,
@@ -261,12 +328,14 @@ function starterTargetCountEffect(
   args: CardOperationMaterializerArgs,
   effect: Record<string, unknown>,
 ): Record<string, unknown> {
+  const context = requireContext(args);
+
   return {
     ...effect,
     source: "deck",
-    sourcePoolSize: args.context.state.quest.deck.summary.uniqueCards,
+    sourcePoolSize: context.state.quest.deck.summary.uniqueCards,
     starterTarget: true,
-    starterTargetCount: starterDeckCardCount(args.context),
+    starterTargetCount: starterDeckCardCount(context),
     predicate: { source: "deck", starter: true },
   };
 }
@@ -275,8 +344,9 @@ function namedStarterReplacementOperation(
   entry: CardOperationCatalogEntry,
   args: CardOperationMaterializerArgs,
 ): MaterializedCardOperation | undefined {
+  const context = requireContext(args);
   const replacementProfile = starterReplacementProfile({
-    context: args.context,
+    context,
     drawContext: args.drawContext,
     label: `${args.label}:${args.entry.key}`,
     stage: args.stage,
@@ -288,7 +358,7 @@ function namedStarterReplacementOperation(
   }
 
   const result = selectContentBackedCard({
-    context: args.context,
+    context,
     drawContext: args.drawContext,
     label: `${args.label}:${args.entry.key}:starter-result`,
     stage: args.stage,
@@ -328,7 +398,8 @@ function starterTransfigurationOperation(
   args: CardOperationMaterializerArgs,
   mode: StarterTransfigurationMode,
 ): MaterializedCardOperation | undefined {
-  const starterCount = starterDeckCardCount(args.context);
+  const context = requireContext(args);
+  const starterCount = starterDeckCardCount(context);
   const targetCounts = STARTER_TRANSFIGURATION_TARGET_COUNTS[mode][args.stage]
     .filter((count) => count <= starterCount);
 
@@ -445,8 +516,9 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       value: 120,
     }),
     materialize: (args) => {
+      const context = requireContext(args);
       const replacementProfile = starterReplacementProfile({
-        context: args.context,
+        context,
         drawContext: args.drawContext,
         label: `${args.label}:${args.entry.key}`,
         stage: args.stage,
@@ -515,9 +587,10 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       uncertainty: -10,
     }),
     materialize: (args) => {
-      const starterCount = starterDeckCardCount(args.context);
+      const context = requireContext(args);
+      const starterCount = starterDeckCardCount(context);
       const replacementProfile = starterReplacementProfile({
-        context: args.context,
+        context,
         drawContext: args.drawContext,
         label: `${args.label}:${args.entry.key}`,
         stage: args.stage,
@@ -578,15 +651,16 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       uncertainty: -10,
     }),
     materialize: (args) => {
+      const context = requireContext(args);
       const replacementProfile = starterReplacementProfile({
-        context: args.context,
+        context,
         drawContext: args.drawContext,
         label: `${args.label}:${args.entry.key}`,
         stage: args.stage,
         sources: ["catalog"],
       });
 
-      if (starterDeckCardCount(args.context) === 0 || !replacementProfile) {
+      if (starterDeckCardCount(context) === 0 || !replacementProfile) {
         return undefined;
       }
 
@@ -654,7 +728,8 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       value: 180,
     }),
     materialize: (args) => {
-      const starterCount = starterDeckCardCount(args.context);
+      const context = requireContext(args);
+      const starterCount = starterDeckCardCount(context);
 
       if (starterCount === 0) {
         return undefined;
@@ -939,58 +1014,85 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     },
     value: 75,
   }),
-  baseEntry({
-    key: "opening-hand-window",
-    family: "opening_hand",
-    valueBand: "temporary",
-    timing: "battle_window",
-    topologies: ["one_operation_many_targets"],
-    targetClasses: ["deck_card", "starter_card"],
-    targetModes: CHOSEN_OR_NAMED,
-    renderText: (targetText) =>
-      `${targetText} appears in your opening hand for the next 3 battles.`,
-    effect: { kind: "card_opening_hand", duration: BATTLE_WINDOW_DURATION },
-    value: 105,
-    uncertainty: -10,
-  }),
-  baseEntry({
-    key: "temporary-copy-window",
-    family: "duplicate",
-    valueBand: "temporary",
-    timing: "battle_window",
-    topologies: ["one_operation_many_targets"],
-    targetClasses: ["deck_card", "starter_card"],
-    targetModes: CHOSEN_OR_NAMED,
-    renderText: (targetText) =>
-      `Create a temporary copy of ${targetText} for the next 3 battles.`,
-    effect: {
-      kind: "card_temporary_copy",
-      duration: BATTLE_WINDOW_DURATION,
-      copyCount: 1,
-      temporary: true,
-    },
-    value: 110,
-    uncertainty: -10,
-  }),
-  baseEntry({
-    key: "reduce-cost-window",
-    family: "timing",
-    valueBand: "temporary",
-    timing: "battle_window",
-    topologies: ["one_target_many_operations"],
-    targetClasses: ALL_TARGET_CLASSES,
-    targetModes: VISIBLE_TARGET_MODES,
-    renderText: (targetText) =>
-      `Reduce the cost of ${targetText} by 1 for the next 3 battles.`,
-    effect: {
-      kind: "card_rewrite",
-      field: "energy_cost",
-      amount: -1,
-      duration: BATTLE_WINDOW_DURATION,
-    },
-    value: 105,
-    uncertainty: -10,
-  }),
+  {
+    ...baseEntry({
+      key: "opening-hand-window",
+      family: "opening_hand",
+      valueBand: "temporary",
+      timing: "battle_window",
+      topologies: ["one_operation_many_targets"],
+      targetClasses: ["deck_card", "starter_card"],
+      targetModes: CHOSEN_OR_NAMED,
+      renderText: (targetText) =>
+        `${targetText} appears in your opening hand for the next 3 battles.`,
+      effect: { kind: "card_opening_hand", duration: BATTLE_WINDOW_DURATION },
+      value: 105,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    materialize: (args) =>
+      materializeBattleWindowOperation(
+        args,
+        (targetText, profile) =>
+          `${targetText} appears in your opening hand for the ${profile.label}.`,
+      ),
+  },
+  {
+    ...baseEntry({
+      key: "temporary-copy-window",
+      family: "duplicate",
+      valueBand: "temporary",
+      timing: "battle_window",
+      topologies: ["one_operation_many_targets"],
+      targetClasses: ["deck_card", "starter_card"],
+      targetModes: CHOSEN_OR_NAMED,
+      renderText: (targetText) =>
+        `Create a temporary copy of ${targetText} for the next 3 battles.`,
+      effect: {
+        kind: "card_temporary_copy",
+        duration: BATTLE_WINDOW_DURATION,
+        copyCount: 1,
+        temporary: true,
+      },
+      value: 110,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    materialize: (args) =>
+      materializeBattleWindowOperation(
+        args,
+        (targetText, profile) =>
+          `Create a temporary copy of ${targetText} for the ${profile.label}.`,
+      ),
+  },
+  {
+    ...baseEntry({
+      key: "reduce-cost-window",
+      family: "timing",
+      valueBand: "temporary",
+      timing: "battle_window",
+      topologies: ["one_target_many_operations"],
+      targetClasses: ALL_TARGET_CLASSES,
+      targetModes: VISIBLE_TARGET_MODES,
+      renderText: (targetText) =>
+        `Reduce the cost of ${targetText} by 1 for the next 3 battles.`,
+      effect: {
+        kind: "card_rewrite",
+        field: "energy_cost",
+        amount: -1,
+        duration: BATTLE_WINDOW_DURATION,
+      },
+      value: 105,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    materialize: (args) =>
+      materializeBattleWindowOperation(
+        args,
+        (targetText, profile) =>
+          `Reduce the cost of ${targetText} by 1 for the ${profile.label}.`,
+      ),
+  },
   baseEntry({
     key: "materialized-ability-conversion",
     family: "materialized_ability",
@@ -1149,6 +1251,7 @@ function materializeOperation(
     const {
       topologies: _topologies,
       targetClasses: _targetClasses,
+      contextFree: _contextFree,
       materialize: _materialize,
       ...operation
     } = entry;
@@ -1156,7 +1259,7 @@ function materializeOperation(
     return operation;
   }
 
-  if (!request.context) {
+  if (entry.contextFree !== true && !request.context) {
     return undefined;
   }
 

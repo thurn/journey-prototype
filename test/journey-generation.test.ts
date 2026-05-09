@@ -4111,6 +4111,46 @@ describe("generateNextJourney", () => {
     });
   });
 
+  it("profiles card-operation battle windows by stage", async () => {
+    const drawContext: DrawContext = {
+      seed: "card-window-profile",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const operationFor = (stage: "early" | "mid" | "late", label: string) =>
+      compatibleCardOperations(drawContext, {
+        topology: "one_target_many_operations",
+        targetClasses: ["draft_card"],
+        families: ["timing"],
+        valueBands: ["temporary"],
+        timings: ["battle_window"],
+        stage,
+        label,
+        count: 1,
+      })[0]!;
+
+    const earlyOperation = operationFor("early", "test:card-window:early");
+    const lateOperations = Array.from({ length: 32 }, (_, index) =>
+      operationFor("late", `test:card-window:late:${index}`)
+    );
+    const longLateOperation = lateOperations.find(
+      (operation) => operation.effect.duration === "next 4 battles",
+    );
+
+    expect(earlyOperation.effect).toMatchObject({
+      durationCount: expect.any(Number),
+    });
+    expect(earlyOperation.effect.duration).not.toBe("next 3 battles");
+    expect(earlyOperation.renderText("a chosen card")).toContain(
+      String(earlyOperation.effect.duration),
+    );
+    expect(longLateOperation).toBeDefined();
+    expect(longLateOperation?.effect).toMatchObject({
+      duration: "next 4 battles",
+      durationCount: 4,
+    });
+  });
+
   it("serves Dreamsign operation menus from a normal topology-compatible catalog", async () => {
     const journeyContext = await context("dreamsign-operation-catalog");
     const activeDreamsignId = journeyContext.state.quest.dreamsignPoolIds[0]!;
@@ -4164,6 +4204,43 @@ describe("generateNextJourney", () => {
           Array.isArray(operation.effect.dreamsignOperationTargetModes),
       ),
     ).toBe(true);
+  });
+
+  it("profiles temporary Dreamsign grant windows by stage", async () => {
+    const journeyContext = await context("dreamsign-window-profile");
+    const drawContext: DrawContext = {
+      seed: "dreamsign-window-profile",
+      contentVersion: "test-content-version",
+      rootJourneyIndex: 0,
+    };
+    const operationFor = (stage: "early" | "mid" | "late", label: string) =>
+      compatibleDreamsignOperations(drawContext, {
+        topology: "direct_menu",
+        targetSources: ["catalog"],
+        families: ["temporary_grant"],
+        context: journeyContext,
+        stage,
+        label,
+        count: 1,
+      })[0]!;
+
+    const earlyOperation = operationFor("early", "test:dreamsign-window:early");
+    const lateOperations = Array.from({ length: 32 }, (_, index) =>
+      operationFor("late", `test:dreamsign-window:late:${index}`)
+    );
+    const longLateOperation = lateOperations.find(
+      (operation) => operation.effect.duration === "next 4 battles",
+    );
+
+    expect(earlyOperation.effect.duration).not.toBe("next 3 battles");
+    expect(earlyOperation.renderText("{Ember Crown}")).toContain(
+      String(earlyOperation.effect.duration),
+    );
+    expect(longLateOperation).toBeDefined();
+    expect(longLateOperation?.effect).toMatchObject({
+      duration: "next 4 battles",
+      durationCount: 4,
+    });
   });
 
   it("covers milestone Dreamsign families and structured predicates through the normal catalog", async () => {
