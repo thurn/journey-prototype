@@ -167,9 +167,8 @@ function payloadCompatibilityFor(
       "bane",
       [
         ...(serviceFamilyShape ? ["bane-gain-purge-transform"] : []),
-        ...(id === "choose_your_loss" ? ["adapter-compatible-bane-losses"] : []),
       ],
-      serviceFamilyShape || id === "choose_your_loss"
+      serviceFamilyShape
         ? "Shape can frame Bane gain, purge, and transformation decisions."
         : "Shape lacks a controlled Bane-operation or loss-choice frame.",
     ),

@@ -34,10 +34,7 @@ import type {
   PrecommittedOutcomes,
 } from "../manifest.js";
 import { type JourneyShapeId } from "../shapes.js";
-import { BANE_NAMES, type BaneName } from "../effects.js";
 import {
-  valueBaneBurden,
-  valueBaneGain,
   valueCardDraft,
   valueDreamsignDraft,
   valueDreamsignOperation,
@@ -50,13 +47,10 @@ import {
   CARD_POOL_TARGET_DESCRIPTION,
   DREAMSIGN_POOL_TARGET_DESCRIPTION,
   GENERIC_CARD_DRAFT_PROFILE,
-  baneBurden,
   baneBurdenSlot,
-  baneNameText,
   cardDraftPredicate,
   cardDraftText,
   chosenCardText,
-  comparableEssenceLossAmount,
   compoundPayloadMenuFill,
   cost,
   costSlots,
@@ -109,29 +103,6 @@ type FlatEscalatingTradeRow = {
   price: number;
   omens: number;
 };
-
-const CHOOSE_YOUR_LOSS_BANE_COUNTS = {
-  early: [1],
-  mid: [1, 2],
-  late: [1, 2, 2],
-} as const satisfies Record<JourneyStage, readonly number[]>;
-
-function chooseYourLossBaneCandidates(
-  count: number,
-  includeOmenLoss: boolean,
-): readonly BaneName[] {
-  if (count === 1 && !includeOmenLoss) {
-    return BANE_NAMES;
-  }
-
-  const maximumSingleBaneMagnitude = count === 1 ? 130 : 110;
-  const standardBanes = BANE_NAMES.filter(
-    (baneName) =>
-      Math.abs(valueBaneGain(baneName, 1)) <= maximumSingleBaneMagnitude,
-  );
-
-  return standardBanes.length > 0 ? standardBanes : BANE_NAMES;
-}
 
 const FLAT_ESCALATING_TRADE_PROFILES = {
   early: [
@@ -886,67 +857,6 @@ export function fillOptions(
             weight: 4,
           }),
         ],
-      };
-    }
-    case "choose_your_loss": {
-      const includeOmenLoss = context.state.quest.resources.omens >= 1;
-      const baneCount = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:bane-count`,
-        CHOOSE_YOUR_LOSS_BANE_COUNTS[stage],
-      );
-      const baneName = pickSequentialVariant(
-        drawContext,
-        `${shapeId}:bane-name`,
-        chooseYourLossBaneCandidates(baneCount, includeOmenLoss),
-      );
-      const omenLoss = valueOmenLoss(1);
-      const baneLoss = valueBaneBurden({ baneName, count: baneCount });
-      const essenceLoss = comparableEssenceLossAmount(
-        [
-          ...(includeOmenLoss ? [omenLoss] : []),
-          baneLoss,
-        ],
-        context.state.quest.resources.essence,
-      );
-      const options: JourneyOption[] = [];
-
-      if (essenceLoss !== null) {
-        options.push(
-          option({
-            number: options.length + 1,
-            text: `Pay ${essenceLoss} essence.`,
-            costs: [cost("essence", essenceLoss)],
-            cost: essenceLoss,
-          }),
-        );
-      }
-
-      if (includeOmenLoss && baneCount === 1) {
-        options.push(
-          option({
-            number: options.length + 1,
-            text: "Lose 1 omen.",
-            costs: [cost("omens", 1)],
-            cost: Math.abs(omenLoss),
-          }),
-        );
-      }
-
-      options.push(
-        option({
-          number: options.length + 1,
-          text: `Gain ${baneNameText(baneName, baneCount)}.`,
-          burdens: [baneBurden(baneName, baneCount)],
-          burden: baneLoss,
-        }),
-      );
-
-      return {
-        options: renumberOptions(
-          shuffleDeterministic(drawContext, `${shapeId}:loss-order`, options),
-        ),
-        precommitted: {},
       };
     }
     case "risk_or_skip": {
