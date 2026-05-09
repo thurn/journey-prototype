@@ -8,7 +8,7 @@ const SRC_ROOT = join(REPO_ROOT, "src");
 
 // Shapes whose IDs must not appear in any non-shape file.
 // As shapes migrate, add their IDs here and the test will enforce isolation.
-const MIGRATED_SHAPE_IDS = ["shop_row", "prize_ladder", "single_offer", "heterogeneous_pair", "reward_after_trigger", "take_any_number", "same_reward_different_costs", "random_allocation", "now_vs_later", "shared_prefix_menu", "commit_now_future_payoff", "escalating_reward_chain", "push_your_luck", "random_pool_draws", "same_cost_different_rewards", "single_reward", "choose_your_loss", "alter_dreamscapes", "service_menu", "reveal_choice_menu"];
+const MIGRATED_SHAPE_IDS = ["shop_row", "prize_ladder", "single_offer", "heterogeneous_pair", "reward_after_trigger", "take_any_number", "same_reward_different_costs", "random_allocation", "now_vs_later", "shared_prefix_menu", "commit_now_future_payoff", "escalating_reward_chain", "push_your_luck", "random_pool_draws", "same_cost_different_rewards", "single_reward", "choose_your_loss", "alter_dreamscapes", "service_menu", "reveal_choice_menu", "single_random_outcome"];
 
 // Files allowed to mention any shape ID (legacy code path during migration).
 // Shrinks toward zero as the remaining shapes migrate.

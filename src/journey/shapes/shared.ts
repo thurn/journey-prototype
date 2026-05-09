@@ -239,8 +239,7 @@ function payloadCompatibilityFor(
     compatibility(
       "random",
       [
-        ...(id === "single_random_outcome" ||
-        id === "resolved_random_series"
+        ...(id === "resolved_random_series"
           ? ["reveal-roll-wager"]
           : []),
         ...((isRandomCommit ||
@@ -248,7 +247,6 @@ function payloadCompatibilityFor(
             "risk_or_skip",
             "probability_ladder",
           ].includes(id)) &&
-        id !== "single_random_outcome" &&
         id !== "resolved_random_series"
           ? ["adapter-compatible-random-envelope"]
           : []),
