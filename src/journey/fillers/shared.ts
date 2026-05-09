@@ -8,6 +8,7 @@ import {
 } from "../../util/rng.js";
 import type { DebugPayloadSelection } from "../debugPayloads.js";
 import {
+  ALLOWED_TRANSFIGURATIONS,
   BANE_NAMES,
   DEFAULT_BANE_NAME,
   resolveCardTargets,
@@ -888,7 +889,7 @@ export function starterSurgeryRewardSlots(
   const transfiguration = pickSequentialVariant(
     drawContext,
     `${label}:starter-transfiguration`,
-    ["Viridian", "Bronze", "Scarlet", "Golden"],
+    ALLOWED_TRANSFIGURATIONS,
   );
   const firstStarter = starterOrder[0]!;
   const secondStarter = starterOrder[1] ?? firstStarter;
@@ -2241,7 +2242,7 @@ export function rewardSlots(
   const transfiguration = pickSequentialVariant(
     drawContext,
     `${label}:transfiguration`,
-    ["Bronze", "Scarlet", "Viridian", "Prismatic", "Golden"],
+    ALLOWED_TRANSFIGURATIONS,
   );
   const namedCard = selectContentBackedCard({
     context,

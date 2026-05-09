@@ -55,6 +55,54 @@ type PairedReturnFamilyId =
   | "return_for_card_operation"
   | "return_for_route_edit";
 
+type HookStage = "early" | "mid" | "late";
+
+type NamedCardPlayEssenceHookProfile = {
+  triggerCount: number;
+  battleWindow: number;
+  essenceAmount: number;
+};
+
+type DreamsignTriggerOmenHookProfile = {
+  triggerCount: number;
+  battleWindow: number;
+  omenAmount: number;
+};
+
+const NAMED_CARD_PLAY_ESSENCE_HOOK_BANDS = {
+  early: [
+    { triggerCount: 3, battleWindow: 2, essenceAmount: 90 },
+    { triggerCount: 4, battleWindow: 3, essenceAmount: 110 },
+  ],
+  mid: [
+    { triggerCount: 3, battleWindow: 3, essenceAmount: 100 },
+    { triggerCount: 4, battleWindow: 3, essenceAmount: 120 },
+    { triggerCount: 5, battleWindow: 3, essenceAmount: 150 },
+  ],
+  late: [
+    { triggerCount: 4, battleWindow: 3, essenceAmount: 130 },
+    { triggerCount: 5, battleWindow: 3, essenceAmount: 160 },
+    { triggerCount: 6, battleWindow: 3, essenceAmount: 190 },
+  ],
+} as const satisfies Record<HookStage, readonly NamedCardPlayEssenceHookProfile[]>;
+
+const DREAMSIGN_TRIGGER_OMEN_HOOK_BANDS = {
+  early: [
+    { triggerCount: 2, battleWindow: 2, omenAmount: 1 },
+    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
+  ],
+  mid: [
+    { triggerCount: 2, battleWindow: 2, omenAmount: 1 },
+    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
+    { triggerCount: 4, battleWindow: 4, omenAmount: 3 },
+  ],
+  late: [
+    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
+    { triggerCount: 4, battleWindow: 3, omenAmount: 3 },
+    { triggerCount: 5, battleWindow: 3, omenAmount: 4 },
+  ],
+} as const satisfies Record<HookStage, readonly DreamsignTriggerOmenHookProfile[]>;
+
 export function hookTrigger(args: {
   triggerKind:
     | "battle"
@@ -314,11 +362,124 @@ function namedCardGrant(
   );
 }
 
+function ordinalWord(value: number): string {
+  return value === 1
+    ? "first"
+    : value === 2
+      ? "second"
+      : value === 3
+        ? "third"
+        : value === 4
+          ? "fourth"
+          : value === 5
+            ? "fifth"
+            : `${value}th`;
+}
+
+function namedCardPlayEssenceHook(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: HookStage;
+  card: CardContent;
+}): ExpandedDelayedHookFill {
+  const profiles: readonly NamedCardPlayEssenceHookProfile[] =
+    NAMED_CARD_PLAY_ESSENCE_HOOK_BANDS[args.stage];
+  const profile = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:named-card-play-essence-profile`,
+    profiles,
+  )[0]!;
+  const battleText = profile.battleWindow === 1
+    ? "next battle"
+    : `next ${profile.battleWindow} battles`;
+
+  return {
+    key: `named-card-play:${profile.triggerCount}:essence-${profile.essenceAmount}`,
+    text: `Once you play {${args.card.name}} ${profile.triggerCount} times, gain ${profile.essenceAmount} essence.`,
+    triggerSelector: hookTrigger({
+      triggerKind: "named_card_play",
+      label: `once you play ${args.card.name} ${profile.triggerCount} times`,
+      count: profile.triggerCount,
+      card: args.card,
+    }),
+    trackedCondition: `Track playing {${args.card.name}} ${profile.triggerCount} times.`,
+    resolution: `After the ${ordinalWord(profile.triggerCount)} {${args.card.name}} play, gain ${profile.essenceAmount} essence.`,
+    expiration: expiration(
+      "forfeit_reward",
+      `If it is not played ${profile.triggerCount} times within ${profile.battleWindow} battles, discard this hook.`,
+    ),
+    duration: boundedDuration("battle_count", battleText, profile.battleWindow),
+    controlledScene: controlledScene(
+      "reward",
+      `gain ${profile.essenceAmount} essence`,
+    ),
+    reward: gainEssence(profile.essenceAmount),
+    effects: [
+      namedCardGrant(args.context, args.card),
+      gainEssence(profile.essenceAmount),
+    ],
+    targets: [cardExactTarget(args.card, "catalog")],
+    effect: cardQualityValue(args.card) + profile.essenceAmount,
+    uncertainty: -14,
+  };
+}
+
+function dreamsignTriggerOmenHook(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: HookStage;
+  dreamsign: DreamsignContent;
+}): ExpandedDelayedHookFill {
+  const profiles: readonly DreamsignTriggerOmenHookProfile[] =
+    DREAMSIGN_TRIGGER_OMEN_HOOK_BANDS[args.stage];
+  const profile = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:dreamsign-trigger-omen-profile`,
+    profiles,
+  )[0]!;
+  const battleText = profile.battleWindow === 1
+    ? "next battle"
+    : `next ${profile.battleWindow} battles`;
+
+  return {
+    key: `dreamsign-trigger:${profile.triggerCount}:omens-${profile.omenAmount}`,
+    text: `Once {${args.dreamsign.name}} triggers ${profile.triggerCount} times, gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}.`,
+    triggerSelector: hookTrigger({
+      triggerKind: "dreamsign_trigger",
+      label: `once ${args.dreamsign.name} triggers ${profile.triggerCount} times`,
+      count: profile.triggerCount,
+      dreamsign: args.dreamsign,
+    }),
+    trackedCondition: `Track {${args.dreamsign.name}} triggering ${profile.triggerCount} times.`,
+    resolution: `After the ${ordinalWord(profile.triggerCount)} {${args.dreamsign.name}} trigger, gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}.`,
+    expiration: expiration(
+      "forfeit_reward",
+      `If the Dreamsign does not trigger ${profile.triggerCount} times within ${profile.battleWindow} battles, discard this hook.`,
+    ),
+    duration: boundedDuration("battle_count", battleText, profile.battleWindow),
+    controlledScene: controlledScene(
+      "reward",
+      `gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}`,
+    ),
+    reward: gainOmen(profile.omenAmount),
+    effects: [
+      namedDreamsignGrant(args.context, args.dreamsign),
+      gainOmen(profile.omenAmount),
+    ],
+    targets: [dreamsignExactTarget(args.dreamsign, "catalog")],
+    effect: valueDreamsignOperation("gain", { tideOverlap: false }) +
+      valueOmenGain(profile.omenAmount),
+    uncertainty: -14,
+  };
+}
+
 function expandedDelayedHookCandidates(args: {
   context: JourneyContext;
   drawContext: DrawContext;
   label: string;
-  stage?: "early" | "mid" | "late";
+  stage?: HookStage;
 }): ExpandedDelayedHookFill[] {
   const cards = catalogRewardCards(args.context, args.drawContext);
   const cardA = findCard(
@@ -588,53 +749,20 @@ function expandedDelayedHookCandidates(args: {
       effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.2,
       uncertainty: -10,
     },
-    {
-      key: "named-card-play:four:essence",
-      text: `Once you play {${cardA.name}} 4 times, gain 120 essence.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "named_card_play",
-        label: `once you play ${cardA.name} 4 times`,
-        count: 4,
-        card: cardA,
-      }),
-      trackedCondition: `Track playing {${cardA.name}} 4 times.`,
-      resolution: `After the fourth {${cardA.name}} play, gain 120 essence.`,
-      expiration: expiration(
-        "forfeit_reward",
-        "If it is not played 4 times within 3 battles, discard this hook.",
-      ),
-      duration: boundedDuration("battle_count", "next 3 battles", 3),
-      controlledScene: controlledScene("reward", "gain 120 essence"),
-      reward: gainEssence(120),
-      effects: [namedCardGrant(args.context, cardA), gainEssence(120)],
-      targets: [cardExactTarget(cardA, "catalog")],
-      effect: cardQualityValue(cardA) + 120,
-      uncertainty: -14,
-    },
-    {
-      key: "dreamsign-trigger:three:omens",
-      text: `Once {${dreamsignD.name}} triggers 3 times, gain 2 omens.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "dreamsign_trigger",
-        label: `once ${dreamsignD.name} triggers 3 times`,
-        count: 3,
-        dreamsign: dreamsignD,
-      }),
-      trackedCondition: `Track {${dreamsignD.name}} triggering 3 times.`,
-      resolution: `After the third {${dreamsignD.name}} trigger, gain 2 omens.`,
-      expiration: expiration(
-        "forfeit_reward",
-        "If the Dreamsign does not trigger 3 times within 3 battles, discard this hook.",
-      ),
-      duration: boundedDuration("battle_count", "next 3 battles", 3),
-      controlledScene: controlledScene("reward", "gain 2 omens"),
-      reward: gainOmen(2),
-      effects: [namedDreamsignGrant(args.context, dreamsignD), gainOmen(2)],
-      targets: [dreamsignExactTarget(dreamsignD, "catalog")],
-      effect: valueDreamsignOperation("gain", { tideOverlap: false }) +
-        valueOmenGain(2),
-      uncertainty: -14,
-    },
+    namedCardPlayEssenceHook({
+      context: args.context,
+      drawContext: args.drawContext,
+      label: args.label,
+      stage: args.stage ?? "mid",
+      card: cardA,
+    }),
+    dreamsignTriggerOmenHook({
+      context: args.context,
+      drawContext: args.drawContext,
+      label: args.label,
+      stage: args.stage ?? "mid",
+      dreamsign: dreamsignD,
+    }),
     {
       key: "named-card-play:five:duplicate",
       text: `Once you play {${cardB.name}} 5 times, duplicate it.`,

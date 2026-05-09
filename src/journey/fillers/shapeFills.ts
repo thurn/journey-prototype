@@ -613,11 +613,18 @@ export function fillOptions(
       ] as const);
 
       if (family === "transfiguration") {
-        const transfiguration = pickSequentialVariant(
-          drawContext,
-          `${shapeId}:same-reward-transfiguration`,
-          ["Bronze", "Scarlet", "Viridian", "Golden", "Prismatic"],
-        );
+        const transfigurationOperation = compatibleCardOperations(drawContext, {
+          topology: "one_target_many_operations",
+          targetClasses: ["draft_card"],
+          targetModes: ["drafted_card"],
+          valueBands: ["standard"],
+          timings: ["immediate"],
+          families: ["transfiguration"],
+          context,
+          stage,
+          label: `${shapeId}:same-reward-transfiguration`,
+          count: 1,
+        })[0]!;
         const targetProfile = pickLegalCardDraftProfile(
           context,
           drawContext,
@@ -633,6 +640,10 @@ export function fillOptions(
           "card",
           targetProfile.targetDescription,
           cardDraftPredicate(targetProfile),
+          {
+            selection: "chosen_after_commitment",
+            cardOperationTargetMode: "drafted_card",
+          },
         );
         const sharedOmenBonus = pickSequentialVariant(
           drawContext,
@@ -640,15 +651,12 @@ export function fillOptions(
           [3, 4, 5],
         );
         const sharedReward = {
-          text: `Apply {${transfiguration} Transfiguration} to ${chosenCardText()}. Gain ${sharedOmenBonus} omens.`,
+          text: `${transfigurationOperation.renderText(chosenCardText())} Gain ${sharedOmenBonus} omens.`,
           effects: [
-            {
-              kind: "transfiguration",
-              transfigurationName: transfiguration,
-            },
+            transfigurationOperation.effect,
             gainOmen(sharedOmenBonus),
           ],
-          effect: 100 + valueOmenGain(sharedOmenBonus),
+          effect: transfigurationOperation.value + valueOmenGain(sharedOmenBonus),
         };
         const costs: {
           prefix: string;

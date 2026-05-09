@@ -22,6 +22,12 @@ export function completeDecisionTreeRewardPool(
       ...branch.effects,
       ...(branch.terminal?.effects ?? []),
     ]),
+  ).filter((reward) =>
+    !(
+      typeof reward === "object" &&
+      reward !== null &&
+      "cardOperationTargetModes" in reward
+    )
   );
 
   if (rewards.length === 0) {

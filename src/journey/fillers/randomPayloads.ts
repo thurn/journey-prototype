@@ -55,6 +55,24 @@ export type RandomPoolCandidate = {
   family: "resource" | "dreamsign" | "bane" | "burden" | "card" | "mixed";
 };
 
+const REVEAL_POOL_SIZE_BANDS = {
+  early: [4, 5],
+  mid: [5, 6],
+  late: [5, 6, 7],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
+const REVEAL_COUNT_BANDS = {
+  early: [2, 3],
+  mid: [2, 3, 4],
+  late: [3, 4, 5],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
+const REVEAL_BURDEN_COUNT_BANDS = {
+  early: [1],
+  mid: [1, 1, 2],
+  late: [1, 2],
+} as const satisfies Record<JourneyStage, readonly number[]>;
+
 function odds(percent: number): RandomOdds {
   return { numerator: percent, denominator: 100, percent };
 }
@@ -269,6 +287,58 @@ function flattenPayloads(candidates: readonly RandomPoolCandidate[]): unknown[] 
   return candidates.flatMap((candidate) => candidate.payloads);
 }
 
+function revealPoolSize(
+  drawContext: DrawContext,
+  label: string,
+  stage: JourneyStage,
+): number {
+  return pickSequentialVariant(
+    drawContext,
+    `${label}:reveal-pool-size`,
+    REVEAL_POOL_SIZE_BANDS[stage],
+  );
+}
+
+function revealCount(args: {
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+  candidateCount: number;
+}): number {
+  const desiredCount = pickSequentialVariant(
+    args.drawContext,
+    `${args.label}:reveal-count`,
+    REVEAL_COUNT_BANDS[args.stage],
+  );
+
+  return Math.max(1, Math.min(desiredCount, args.candidateCount));
+}
+
+function revealBurdenProfile(args: {
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+}) {
+  const baneName = pickSequentialVariant(
+    args.drawContext,
+    `${args.label}:reveal-burden-name`,
+    BANE_NAMES,
+  );
+  const count = pickSequentialVariant(
+    args.drawContext,
+    `${args.label}:reveal-burden-count`,
+    REVEAL_BURDEN_COUNT_BANDS[args.stage],
+  );
+
+  return {
+    baneName,
+    count,
+    text: `gain ${count} {${baneName}}`,
+    payload: baneBurden(baneName, count),
+    value: valueBaneBurden({ baneName, count }),
+  };
+}
+
 export function visibleWheelPool(args: {
   context: JourneyContext;
   drawContext: DrawContext;
@@ -355,20 +425,27 @@ export function revealChoiceOptions(args: {
   options: JourneyOption[];
   precommitted: RandomPrecommittedOutcome[];
 } {
+  const poolSize = revealPoolSize(args.drawContext, args.label, args.stage);
   const wheel = visibleWheelPool({
     ...args,
-    size: 5,
+    size: poolSize,
   });
   const candidates = wheel.candidates;
   const poolId = `${args.label}:visible-wheel`;
-  const revealCount = Math.min(3, candidates.length);
+  const revealCountValue = revealCount({
+    drawContext: args.drawContext,
+    label: args.label,
+    stage: args.stage,
+    candidateCount: candidates.length,
+  });
   const allPayloads = flattenPayloads(candidates);
-  const revealed = flattenPayloads(candidates.slice(0, revealCount));
+  const revealedCandidates = candidates.slice(0, revealCountValue);
+  const revealed = flattenPayloads(revealedCandidates);
   const randomIndex = drawInt(
     args.drawContext,
     `${args.label}:revealed-random-index`,
     0,
-    revealCount - 1,
+    revealCountValue - 1,
   );
   const hiddenIndex = drawInt(
     args.drawContext,
@@ -377,19 +454,25 @@ export function revealChoiceOptions(args: {
     candidates.length - 1,
   );
   const revealedText = candidates
-    .slice(0, revealCount)
+    .slice(0, revealCountValue)
     .map((candidate) => lowerFirst(candidate.text).replace(/\.$/u, ""))
     .join("; ");
   const randomRevealed = candidates[randomIndex]!;
   const hiddenReward = candidates[hiddenIndex]!;
-  const expectedConvertedEssence = averageValue(candidates.slice(0, revealCount));
+  const expectedConvertedEssence = averageValue(revealedCandidates);
 
   return {
     options: [
       option({
         number: 1,
-        text: `Reveal ${revealCount} rewards (${revealedText}). Choose one revealed reward.`,
-        effects: [{ kind: "random_reward", table: "reveal_choice", revealCount }],
+        text: `Reveal ${revealCountValue} rewards (${revealedText}). Choose one revealed reward.`,
+        effects: [
+          {
+            kind: "random_reward",
+            table: "reveal_choice",
+            revealCount: revealCountValue,
+          },
+        ],
         effect: 220,
         uncertainty: -10,
       }),
@@ -406,7 +489,7 @@ export function revealChoiceOptions(args: {
       {
         kind: "reveal_rewards",
         optionNumber: 1,
-        revealCount,
+        revealCount: revealCountValue,
         rewards: revealed,
         visibilityPolicy: randomVisibility(
           "pre_rolled",
@@ -415,13 +498,13 @@ export function revealChoiceOptions(args: {
         ),
         expectedConvertedEssence,
         riskPremiumConvertedEssence: -5,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
         presentation: "covered_cups_reveal",
       },
       {
         kind: "choose_one_revealed_reward",
         optionNumber: 1,
-        revealCount,
+        revealCount: revealCountValue,
         rewards: revealed,
         visibilityPolicy: randomVisibility(
           "visible",
@@ -429,10 +512,10 @@ export function revealChoiceOptions(args: {
           true,
         ),
         expectedConvertedEssence: Math.max(
-          ...candidates.slice(0, revealCount).map((candidate) => candidate.value),
+          ...revealedCandidates.map((candidate) => candidate.value),
         ),
         riskPremiumConvertedEssence: 0,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
         presentation: "covered_cups_choose_revealed",
       },
       {
@@ -481,15 +564,22 @@ export function revealChoiceMenuOptions(args: {
   options: JourneyOption[];
   precommitted: RandomPrecommittedOutcome[];
 } {
+  const poolSize = revealPoolSize(args.drawContext, args.label, args.stage);
   const wheel = visibleWheelPool({
     ...args,
-    size: 5,
+    size: poolSize,
   });
   const candidates = wheel.candidates;
   const poolId = `${args.label}:visible-wheel`;
-  const revealCount = Math.min(3, candidates.length);
+  const revealCountValue = revealCount({
+    drawContext: args.drawContext,
+    label: args.label,
+    stage: args.stage,
+    candidateCount: candidates.length,
+  });
   const allPayloads = flattenPayloads(candidates);
-  const revealed = flattenPayloads(candidates.slice(0, revealCount));
+  const revealedCandidates = candidates.slice(0, revealCountValue);
+  const revealed = flattenPayloads(revealedCandidates);
   const randomIndex = drawInt(
     args.drawContext,
     `${args.label}:revealed-random-index`,
@@ -503,30 +593,40 @@ export function revealChoiceMenuOptions(args: {
     candidates.length - 1,
   );
   const revealedText = candidates
-    .slice(0, revealCount)
+    .slice(0, revealCountValue)
     .map((candidate) => lowerFirst(candidate.text).replace(/\.$/u, ""))
     .join("; ");
   const randomRevealed = candidates[randomIndex]!;
   const hiddenReward = candidates[hiddenIndex]!;
-  const nightmare = baneBurden("Nightmare", 1);
+  const randomRevealBurden = revealBurdenProfile({
+    drawContext: args.drawContext,
+    label: args.label,
+    stage: args.stage,
+  });
 
   return {
     options: [
       option({
         number: 1,
-        text: `Reveal ${revealCount} rewards (${revealedText}). Choose one revealed reward.`,
-        effects: [{ kind: "random_reward", table: "reveal_choice", revealCount }],
+        text: `Reveal ${revealCountValue} rewards (${revealedText}). Choose one revealed reward.`,
+        effects: [
+          {
+            kind: "random_reward",
+            table: "reveal_choice",
+            revealCount: revealCountValue,
+          },
+        ],
         effect: Math.max(
-          ...candidates.slice(0, revealCount).map((candidate) => candidate.value),
+          ...revealedCandidates.map((candidate) => candidate.value),
         ),
         uncertainty: -10,
       }),
       option({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) and gain 1 {Nightmare}.`,
+        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) and ${randomRevealBurden.text}.`,
         effects: [{ kind: "random_reward", table: "visible_reveal_pool" }],
-        burdens: [nightmare],
-        burden: valueBaneBurden({ baneName: "Nightmare", count: 1 }),
+        burdens: [randomRevealBurden.payload],
+        burden: randomRevealBurden.value,
         effect: averageValue(candidates),
         uncertainty: -16,
       }),
@@ -543,22 +643,22 @@ export function revealChoiceMenuOptions(args: {
       {
         kind: "reveal_rewards",
         optionNumber: 1,
-        revealCount,
+        revealCount: revealCountValue,
         rewards: revealed,
         visibilityPolicy: randomVisibility(
           "pre_rolled",
           "The revealed rewards are pre-rolled and shown in root option copy.",
           true,
         ),
-        expectedConvertedEssence: averageValue(candidates.slice(0, revealCount)),
+        expectedConvertedEssence: averageValue(revealedCandidates),
         riskPremiumConvertedEssence: -5,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
         presentation: "reveal_choice_menu_reveal",
       },
       {
         kind: "choose_one_revealed_reward",
         optionNumber: 1,
-        revealCount,
+        revealCount: revealCountValue,
         rewards: revealed,
         visibilityPolicy: randomVisibility(
           "visible",
@@ -566,10 +666,10 @@ export function revealChoiceMenuOptions(args: {
           true,
         ),
         expectedConvertedEssence: Math.max(
-          ...candidates.slice(0, revealCount).map((candidate) => candidate.value),
+          ...revealedCandidates.map((candidate) => candidate.value),
         ),
         riskPremiumConvertedEssence: 0,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates.slice(0, revealCount)),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
         presentation: "reveal_choice_menu_choose_revealed",
       },
       {

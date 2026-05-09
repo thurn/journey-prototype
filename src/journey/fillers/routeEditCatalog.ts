@@ -116,6 +116,22 @@ const HIGH_AGENCY_SITES: readonly RouteSite[] = [
   "Duplication",
 ];
 
+function sharedCurrentDraftReplacementSpecs(
+  drawContext: DrawContext,
+  label: string,
+): RouteMenuSpec[] {
+  return shuffleDeterministic(
+    drawContext,
+    `${label}:draft-replacement-destinations`,
+    HIGH_AGENCY_SITES.filter((siteType) => siteType !== "Draft"),
+  ).slice(0, 3).map((toSite) => ({
+    operation: "replace_site",
+    routeScope: "current_dreamscape",
+    fromSite: "Draft",
+    toSite,
+  }));
+}
+
 const ROUTE_SCOPE_MULTIPLIERS: Record<RouteScope, number> = {
   current_dreamscape: 1,
   next_dreamscape: 0.85,
@@ -436,11 +452,7 @@ const ROUTE_MENU_VARIANTS = Object.freeze([
   {
     variantId: "shared-current-draft-replacement",
     sharedProperty: "current_dreamscape replace_site from Draft",
-    specs: [
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Purge" },
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Transfiguration" },
-      { operation: "replace_site", routeScope: "current_dreamscape", fromSite: "Draft", toSite: "Dreamsign Offering" },
-    ],
+    specs: [],
   },
   {
     variantId: "map-fold",
@@ -556,7 +568,13 @@ export function routeEditMenuRewards(args: {
   return {
     variantId: selected.variantId,
     sharedProperty: selected.sharedProperty,
-    rewards: (selected.specs as readonly RouteMenuSpec[]).map((spec, index) =>
+    rewards: (selected.variantId === "shared-current-draft-replacement"
+      ? sharedCurrentDraftReplacementSpecs(
+          args.drawContext,
+          `${args.label}:${selected.variantId}`,
+        )
+      : selected.specs as readonly RouteMenuSpec[]
+    ).map((spec, index) =>
       routeEditRewardFromCandidate(
         routeCandidate(spec),
         args.drawContext,

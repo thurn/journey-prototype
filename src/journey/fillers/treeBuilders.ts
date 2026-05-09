@@ -18,6 +18,11 @@ import {
   valueDreamsignDraft,
   valueOmenGain,
 } from "../value.js";
+import {
+  compatibleCardOperations,
+  renderChosenCardOperationText,
+  type MaterializedCardOperation,
+} from "./cardOperationCatalog.js";
 
 export type TreeCardDraftProfile = {
   label: string;
@@ -95,6 +100,11 @@ export type TreeBuilderTools = {
     kind: "card" | "dreamsign",
     description: string,
     predicate: unknown,
+    options?: {
+      selection?: "exact" | "predicate" | "chosen_after_commitment" | "visible_random" | "hidden_random";
+      cardOperationTargetMode?: string;
+      dreamsignOperationTargetMode?: string;
+    },
   ): unknown;
 };
 
@@ -203,7 +213,6 @@ function stageForContext(context: JourneyContext): "early" | "mid" | "late" {
 
 function createDecisionTreeBuilders(tools: TreeBuilderTools) {
   const {
-    BATTLE_WINDOW_DURATION,
     CARD_DRAFT_PROFILES,
     DREAMSIGN_POOL_TARGET_DESCRIPTION,
     cardDraftText,
@@ -218,7 +227,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     pickSequentialVariant,
     sentenceCase,
     sequentialReward,
-    starterCleanup,
     target,
   } = tools;
 
@@ -331,6 +339,39 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     return Array.from({ length: levels }, (_, index) =>
       Math.max(1, index + 1 + (index === levels - 1 ? finalBonus : 0)),
     );
+  }
+
+  function withOmenBonus(text: string, omenCount: number): string {
+    const baseText = lowerFirst(text).replace(/\.$/u, "");
+
+    return omenCount > 0
+      ? `${baseText} and gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
+      : `${baseText}.`;
+  }
+
+  function cardOperationTargets(operation: MaterializedCardOperation): unknown[] {
+    const effect = operation.effect;
+    const starterTarget = effect.starterTarget === true;
+    const predicate =
+      typeof effect.predicate === "object" && effect.predicate !== null
+        ? effect.predicate
+        : starterTarget
+          ? { source: "deck", starter: true }
+          : { source: "deck" };
+    const description = starterTarget
+      ? "Starter cards in deck"
+      : effect.selection === "hidden_random"
+        ? "a random matching card in deck"
+        : effect.selection === "predicate"
+          ? "matching cards in deck"
+          : "cards in deck";
+
+    return [
+      target("card", description, predicate, {
+        selection: "chosen_after_commitment",
+        cardOperationTargetMode: "chosen",
+      }),
+    ];
   }
 
   function treeRewardFamily(
@@ -447,128 +488,77 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
       case "starter_cleanup":
         return {
           id: family,
-          rewards: Array.from({ length: levels }, (_, index) => {
-            const cleanupCount = Math.min(2, 1 + Math.floor(index / 2));
+          rewards: compatibleCardOperations(drawContext, {
+            topology: "mirrored_operations",
+            targetClasses: ["starter_card"],
+            targetModes: ["chosen"],
+            timings: ["immediate"],
+            families: ["purge", "replacement", "transfiguration"],
+            context,
+            stage: stageForContext(context),
+            label: `${label}:starter-operations`,
+            count: levels,
+          }).map((operation, index) => {
             const omenCount = index;
-            const cleanup = starterCleanup(cleanupCount);
             const effects = omenCount > 0
-              ? [cleanup, gainOmen(omenCount)]
-              : [cleanup];
+              ? [operation.effect, gainOmen(omenCount)]
+              : [operation.effect];
 
             return {
-              text:
-                omenCount > 0
-                  ? `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"} and gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
-                  : `purge up to ${cleanupCount} chosen Starter ${cleanupCount === 1 ? "card" : "cards"}.`,
+              text: withOmenBonus(renderChosenCardOperationText(operation), omenCount),
               effects,
-              targets: [
-                target("card", "Starter cards in deck", {
-                  source: "deck",
-                  starter: true,
-                }),
-              ],
-              effect: 85 * cleanupCount + valueOmenGain(omenCount),
+              targets: cardOperationTargets(operation),
+              effect: operation.value + valueOmenGain(omenCount),
             };
           }),
         };
       case "transfiguration": {
-        const startIndex = pickSequentialVariant(
-          drawContext,
-          `${label}:transfiguration-start`,
-          [0, 1, 2],
-        );
-        const names = ["Bronze", "Scarlet", "Viridian", "Golden", "Prismatic"];
-
         return {
           id: family,
-          rewards: Array.from({ length: levels }, (_, index) => {
-            const transfigurationName =
-              names[Math.min(names.length - 1, startIndex + index)]!;
-            const wideTarget = index >= levels - 1 && levels > 2;
-            const effect = {
-              kind: "transfiguration",
-              transfigurationName,
-              scope: wideTarget ? "up_to_2_chosen_cards" : "random_card",
-            };
-
+          rewards: compatibleCardOperations(drawContext, {
+            topology: "mirrored_operations",
+            targetClasses: ["deck_card", "starter_card"],
+            targetModes: ["chosen"],
+            valueBands: ["standard", "premium"],
+            timings: ["immediate"],
+            families: ["transfiguration"],
+            context,
+            stage: stageForContext(context),
+            label: `${label}:transfiguration-operations`,
+            count: levels,
+          }).map((operation) => {
             return {
-              text: wideTarget
-                ? `apply {${transfigurationName} Transfiguration} to up to 2 chosen cards.`
-                : `apply {${transfigurationName} Transfiguration} to a random card.`,
-              effects: [effect],
-              targets: [
-                target(
-                  "card",
-                  wideTarget ? "cards in deck" : "a random card in deck",
-                  { source: "deck" },
-                ),
-              ],
-              effect: wideTarget ? 185 : 90 + index * 25,
+              text: lowerFirst(renderChosenCardOperationText(operation)),
+              effects: [operation.effect],
+              targets: cardOperationTargets(operation),
+              effect: operation.value,
             };
           }),
         };
       }
       case "battle_window": {
-        const windows = [
-          {
-            text: "draw 1 extra card in your opening hand",
-            effect: {
-              kind: "battle_window_modifier",
-              duration: BATTLE_WINDOW_DURATION,
-              modifier: "opening_hand_cards",
-              amount: 1,
-            },
-            value: 155,
-          },
-          {
-            text: "gain 1 extra energy on turn 1",
-            effect: {
-              kind: "battle_window_modifier",
-              duration: BATTLE_WINDOW_DURATION,
-              modifier: "turn_1_energy",
-              amount: 1,
-            },
-            value: 160,
-          },
-          {
-            text: "give all event cards in your deck Fast",
-            effect: {
-              kind: "card_rewrite",
-              keyword: "Fast",
-              duration: BATTLE_WINDOW_DURATION,
-              scope: "all_matching_cards_in_deck",
-              predicate: { cardType: "Event" },
-            },
-            value: 165,
-          },
-          {
-            text: "give all fast cards in your deck Reclaim 1",
-            effect: {
-              kind: "card_rewrite",
-              keyword: "Reclaim",
-              amount: 1,
-              duration: BATTLE_WINDOW_DURATION,
-              scope: "all_matching_cards_in_deck",
-              predicate: { isFast: true },
-            },
-            value: 170,
-          },
-        ];
-        const startIndex = pickSequentialVariant(
-          drawContext,
-          `${label}:window-start`,
-          [0, 1],
-        );
+        const operations = compatibleCardOperations(drawContext, {
+          topology: "one_operation_many_targets",
+          targetClasses: ["deck_card", "starter_card"],
+          targetModes: ["chosen"],
+          valueBands: ["temporary"],
+          timings: ["battle_window"],
+          context,
+          stage: stageForContext(context),
+          label: `${label}:battle-window-operations`,
+          count: 2,
+        });
 
         return {
           id: family,
           rewards: Array.from({ length: levels }, (_, index) => {
-            const window = windows[(startIndex + index) % windows.length]!;
+            const operation = operations[index % operations.length]!;
 
             return {
-              text: `${window.text} for the ${BATTLE_WINDOW_DURATION}.`,
-              effects: [window.effect],
-              effect: window.value,
+              text: lowerFirst(renderChosenCardOperationText(operation)),
+              effects: [operation.effect],
+              targets: cardOperationTargets(operation),
+              effect: operation.value,
             };
           }),
         };
