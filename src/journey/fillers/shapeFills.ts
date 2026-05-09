@@ -51,7 +51,6 @@ import {
   cardDraftPredicate,
   cardDraftText,
   chosenCardText,
-  compoundPayloadMenuFill,
   cost,
   costSlots,
   costedRewardOption,
@@ -72,7 +71,6 @@ import {
   rewardSlotOption,
   rewardSlots,
   starterCleanup,
-  starterSurgeryRewardSlots,
   symmetryContract,
   target,
   timingSlots,
@@ -263,76 +261,6 @@ export function fillOptions(
   const premiumPrice = Math.min(45, context.state.quest.resources.essence);
 
   switch (shapeId) {
-    case "service_menu": {
-      const starterRewards = starterSurgeryRewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:starter-services`,
-        stage,
-      ).filter((reward) => reward.effect >= 140);
-      const serviceFamily = weightedChoice(
-        drawContext,
-        `${shapeId}:service-family`,
-        [
-          { item: "compound_payload", weight: 2 },
-          { item: "starter_cleanup_prefix", weight: 1 },
-          { item: "starter_surgery", weight: 2 },
-          { item: "general", weight: 5 },
-        ] as const,
-      );
-      const compoundFill = serviceFamily === "compound_payload"
-        ? compoundPayloadMenuFill({
-            context,
-            drawContext,
-            label: `${shapeId}:compound`,
-            shapeId,
-            stage,
-          })
-        : undefined;
-      const cleanupPrefixFill = serviceFamily === "starter_cleanup_prefix"
-        ? sharedStarterCleanupRewardFill({
-            context,
-            drawContext,
-            label: shapeId,
-            stage,
-          })
-        : undefined;
-
-      if (compoundFill) {
-        return {
-          options: compoundFill.options.map((fill) =>
-            optionFromResolvedShapeFill(fill),
-          ),
-          precommitted: {
-            routeEdits: compoundFill.options.flatMap((fill) =>
-              fill.routeEffects ?? []
-            ),
-          },
-        };
-      }
-
-      if (cleanupPrefixFill) {
-        return {
-          options: cleanupPrefixFill.options,
-          precommitted: {},
-          symmetryContracts: cleanupPrefixFill.symmetryContracts,
-        };
-      }
-
-      const rewards =
-        serviceFamily === "starter_surgery" && starterRewards.length >= 3
-          ? starterRewards
-          : rewardSlots(context, drawContext, `${shapeId}:services`).filter(
-              (reward) => reward.effect >= 140,
-            );
-
-      return {
-        options: rewards
-          .slice(0, 3)
-          .map((reward, index) => rewardSlotOption(index + 1, reward)),
-        precommitted: {},
-      };
-    }
     case "curated_reward_trio": {
       const rewards = rewardSlots(
         context,
