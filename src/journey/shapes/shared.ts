@@ -223,11 +223,11 @@ function payloadCompatibilityFor(
       "status",
       [
         ...(serviceFamilyShape ? ["status-reward-replacement"] : []),
-        ...(id === "timed_window_menu" || id === "now_vs_later"
+        ...(id === "timed_window_menu"
           ? ["adapter-compatible-status-rules"]
           : []),
       ],
-      serviceFamilyShape || id === "timed_window_menu" || id === "now_vs_later"
+      serviceFamilyShape || id === "timed_window_menu"
         ? "Shape can expose one-time, temporary, or delayed rule mutations."
         : "Shape lacks a legal status or rule-mutation frame.",
     ),
