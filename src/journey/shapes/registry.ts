@@ -1,4 +1,4 @@
-import { alterDreamscapesPlugin } from "./alter_dreamscapes.js";
+import { alterDreamscapesPlugin } from "./alter_dreamscapes/index.js";
 import { chooseYourLossPlugin } from "./choose_your_loss/index.js";
 import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff/index.js";
 import { curatedRewardTrioPlugin } from "./curated_reward_trio.js";

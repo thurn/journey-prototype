@@ -67,6 +67,7 @@ export type JourneyShapeDefinition = {
   readonly allowsRouteSideEffects: boolean;
   readonly compoundCoherence: "default" | "skip";
   readonly requiresPrecommittedRandom: boolean;
+  readonly compoundAllowsRouteOnlyReward: boolean;
 };
 
 export type ShapeFillArgs = {

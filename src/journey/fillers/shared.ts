@@ -3467,7 +3467,7 @@ function compoundContract(shapeId: JourneyShapeId): CompoundCompositionContract 
     allowRouteSideEffects: definition.allowsRouteSideEffects,
     allowDelayedSideEffects: true,
     allowFollowUpOperations: true,
-    allowRouteOnlyReward: shapeId === "alter_dreamscapes",
+    allowRouteOnlyReward: definition.compoundAllowsRouteOnlyReward,
     minimumUpside: 140,
     valueBands: ["standard", "premium"],
     allowedTargetKinds: ["card", "dreamsign", "route_site", "generated_object"],

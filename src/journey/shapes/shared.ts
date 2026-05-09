@@ -28,6 +28,7 @@ export type RawJourneyShapeDefinition = Omit<
   | "allowsRouteSideEffects"
   | "compoundCoherence"
   | "requiresPrecommittedRandom"
+  | "compoundAllowsRouteOnlyReward"
 > & {
   readonly payloadCompatibility?: readonly JourneyPayloadCompatibility[];
   readonly menuValueChecks?: JourneyShapeDefinition["menuValueChecks"];
@@ -35,6 +36,7 @@ export type RawJourneyShapeDefinition = Omit<
   readonly allowsRouteSideEffects?: boolean;
   readonly compoundCoherence?: JourneyShapeDefinition["compoundCoherence"];
   readonly requiresPrecommittedRandom?: boolean;
+  readonly compoundAllowsRouteOnlyReward?: boolean;
 };
 
 const DEFAULT_MENU_VALUE_CHECKS: JourneyShapeDefinition["menuValueChecks"] = {
@@ -193,9 +195,8 @@ function payloadCompatibilityFor(
       "route",
       [
         ...(serviceFamilyShape ? ["route-edits"] : []),
-        ...(id === "alter_dreamscapes" ? ["adapter-compatible-route-edits"] : []),
       ],
-      id === "alter_dreamscapes" || serviceFamilyShape
+      serviceFamilyShape
         ? "Shape can expose route edits without mutating state."
         : "Shape topology is not a route-edit scene.",
     ),
@@ -330,6 +331,8 @@ export function freezeShapeDefinition(
     allowsRouteSideEffects: definition.allowsRouteSideEffects ?? false,
     compoundCoherence: definition.compoundCoherence ?? "default",
     requiresPrecommittedRandom: definition.requiresPrecommittedRandom ?? false,
+    compoundAllowsRouteOnlyReward:
+      definition.compoundAllowsRouteOnlyReward ?? false,
   });
 }
 
