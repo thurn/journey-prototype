@@ -26,7 +26,7 @@ import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome/index.js";
 import { singleRewardPlugin } from "./single_reward/index.js";
-import { singleWagerPlugin } from "./single_wager.js";
+import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu.js";
 import { revealChoiceMenuPlugin } from "./reveal_choice_menu/index.js";
