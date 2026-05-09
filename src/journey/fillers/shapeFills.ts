@@ -2164,6 +2164,7 @@ export function fillOptions(
         shapeId,
         optionNumber: 1,
         reward: rewards[0]!,
+        stage,
       });
       const secondReturn = pairedReturnHookFill({
         context,
@@ -2171,6 +2172,7 @@ export function fillOptions(
         shapeId,
         optionNumber: 2,
         reward: rewards[1] ?? rewards[0]!,
+        stage,
       });
       const thirdReturn = pairedReturnHookFill({
         context,
@@ -2178,6 +2180,7 @@ export function fillOptions(
         shapeId,
         optionNumber: 3,
         reward: rewards[2] ?? rewards[1] ?? rewards[0]!,
+        stage,
       });
 
       return {

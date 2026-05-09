@@ -6,6 +6,7 @@ import {
 } from "../../util/rng.js";
 import { BANE_NAMES, type BaneName } from "../effects.js";
 import type { JourneyOption } from "../manifest.js";
+import type { JourneyShapeId } from "../shapes.js";
 import {
   valueBaneBurden,
   valueBanePurge,
@@ -22,6 +23,10 @@ import {
 import { shopPayload, statusPayload } from "./environmentPayloads.js";
 import { catalogRewardCards, cardExactTarget, cardQualityValue, namedCardPayload } from "./namedCardPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
+import {
+  generatedObjectDefinition,
+  generatedObjectPayload,
+} from "./generatedObjects.js";
 import {
   GENERIC_CARD_DRAFT_PROFILE,
   type RewardSlot,
@@ -996,7 +1001,7 @@ export function expandedDelayedHookFills(args: {
 }
 
 export function delayedHookFillFromExpanded(args: {
-  shapeId: string;
+  shapeId: JourneyShapeId;
   optionNumber: number;
   fill: ExpandedDelayedHookFill;
   optionText?: string;
@@ -1192,19 +1197,38 @@ type PairedReturnReward = {
   uncertainty?: number;
 };
 
-function generatedObjectReturnReward(label: string): Record<string, unknown> {
-  const id = normalizedHookId(`generated-return-${label}`);
+function generatedObjectReturnReward(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  shapeId: JourneyShapeId;
+  stage: HookStage;
+}): PairedReturnReward {
+  const generatedObject = generatedObjectDefinition({
+    kind: "dreamsign",
+    drawContext: args.drawContext,
+    shapeId: args.shapeId,
+    stage: args.stage,
+    cards: catalogRewardCards(args.context, args.drawContext)
+      .slice(0, 3)
+      .map((card) => ({ id: card.id, name: card.name })),
+    dreamsigns: selectedDreamsignTargets(args.context, args.drawContext)
+      .slice(0, 3)
+      .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name })),
+  });
+  const payload = generatedObjectPayload({
+    kind: "generated_object_grant",
+    generatedObject,
+    operation: "grant",
+    extra: { timing: "return scene" },
+  });
 
   return {
-    kind: "generated_object_grant",
-    generatedObjectOperationKind: "grant",
-    generatedObjectId: id,
-    generatedObjectKind: "dreamsign",
-    generatedObjectName: "Lantern Echo",
-    generatedObjectReferenceKind: "placeholder",
-    rulesText: "The next time a returned object resolves, gain 1 omen.",
-    timing: "return scene",
-    source: "manifest_generated",
+    key: `return-generated-object:${generatedObject.generatedObjectId}`,
+    text: `gain generated Dreamsign {${generatedObject.name}}`,
+    payloads: [payload],
+    effect: generatedObject.valueEstimate.convertedEssence,
+    uncertainty: -8,
   };
 }
 
@@ -1212,6 +1236,8 @@ function pairedReturnReward(
   context: JourneyContext,
   drawContext: DrawContext,
   label: string,
+  shapeId: JourneyShapeId,
+  stage: HookStage,
   rewardKind: "resource" | "card_purge" | "card_duplicate" | "dreamsign" | "route" | "bane" | "generated_object",
 ): PairedReturnReward {
   const dreamsigns = selectedDreamsignTargets(context, drawContext);
@@ -1341,19 +1367,19 @@ function pairedReturnReward(
     };
   }
 
-  return {
-    key: "return-generated-object:dreamsign",
-    text: "gain a generated Dreamsign",
-    payloads: [generatedObjectReturnReward(label)],
-    effect: 135,
-    uncertainty: -8,
-  };
+  return generatedObjectReturnReward({
+    context,
+    drawContext,
+    label,
+    shapeId,
+    stage,
+  });
 }
 
 function returnRewardKindFor(
   family: PairedReturnFamilyId,
   optionNumber: number,
-): Parameters<typeof pairedReturnReward>[3] {
+): Parameters<typeof pairedReturnReward>[5] {
   if (family === "return_for_resource") {
     return "resource";
   }
@@ -1400,6 +1426,7 @@ export function pairedReturnHookFill(args: {
   optionNumber: number;
   reward: RewardSlot;
   familyId?: PairedReturnFamilyId;
+  stage?: HookStage;
 }): { option: JourneyOption; precommit: Record<string, unknown> } {
   const cards = catalogRewardCards(args.context, args.drawContext);
   const visibleCards = cards.filter((card) => !/\btides?\b/iu.test(card.name));
@@ -1442,6 +1469,8 @@ export function pairedReturnHookFill(args: {
     args.context,
     args.drawContext,
     `${args.shapeId}:${args.optionNumber}:${family}`,
+    args.shapeId,
+    args.stage ?? "mid",
     returnRewardKindFor(family, args.optionNumber),
   );
   const rewardPayload = reward.payloads.length === 1
