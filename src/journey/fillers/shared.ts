@@ -3996,6 +3996,120 @@ export function costedRewardOption(
   });
 }
 
+export function sharedBaneBurdenRewardFill(args: {
+  context: JourneyContext;
+  drawContext: DrawContext;
+  label: string;
+  stage: JourneyStage;
+}): {
+  options: JourneyOption[];
+  symmetryContracts: JourneySymmetryContractDebug[];
+} | undefined {
+  const sharedBane = baneBurdenSlot(args.drawContext, `${args.label}:shared-bane`, 1);
+  const dreamsign = selectContentBackedDreamsign({
+    context: args.context,
+    drawContext: args.drawContext,
+    label: `${args.label}:dreamsign`,
+    stage: args.stage,
+    sources: ["pool", "catalog"],
+  });
+
+  if (!dreamsign) {
+    return undefined;
+  }
+
+  const draftProfile = pickLegalCardDraftProfile(
+    args.context,
+    args.drawContext,
+    `${args.label}:card-draft`,
+    [
+      CARD_DRAFT_PROFILES.characters,
+      CARD_DRAFT_PROFILES.events,
+      CARD_DRAFT_PROFILES.allEligibleCards,
+    ],
+  );
+  const cardDraft = draftCards(draftProfile);
+  const routeReward = routeEditRewards({
+    drawContext: args.drawContext,
+    label: `${args.label}:route`,
+    count: 1,
+    operationKinds: ["add_site"],
+    scopes: ["current_dreamscape"],
+    polarities: ["positive"],
+  })[0]!;
+  const dreamsignPayload = namedDreamsignPayload(
+    {
+      kind: "dreamsign_gain",
+      dreamsign: dreamsign.dreamsign,
+      source: dreamsign.source,
+      extra: {
+        targetOrigin: dreamsign.targetOrigin,
+        selectionWeight: dreamsign.weight,
+        weightHooks: dreamsign.weightHooks,
+      },
+    },
+    args.context,
+  );
+  const rewards = [
+    {
+      key: `named-dreamsign:${dreamsign.dreamsign.id}`,
+      text: `Gain {${dreamsign.dreamsign.name}}.`,
+      effects: [dreamsignPayload],
+      targets: [dreamsignExactTarget(dreamsign.dreamsign, dreamsign.source)],
+      routeEffects: [],
+      effect: Math.max(320, valueDreamsignOperation("gain", {
+        tideOverlap: dreamsign.weightHooks.tideOverlap > 0,
+      })),
+    },
+    {
+      key: `card-draft:${draftProfile.label}`,
+      text: cardDraftText(draftProfile),
+      effects: [cardDraft],
+      targets: [
+        target("card", draftProfile.targetDescription, cardDraft.predicate),
+      ],
+      routeEffects: [],
+      effect: Math.max(320, valueCardDraft(cardDraft)),
+    },
+    {
+      key: routeReward.key,
+      text: routeReward.text,
+      effects: [],
+      targets: [],
+      routeEffects: [routeReward.payload],
+      effect: Math.max(320, routeReward.effect),
+    },
+  ];
+  const options = rewards.map((reward, index) =>
+    option({
+      number: index + 1,
+      text: `${sharedBane.prefix} ${reward.text}`,
+      burdens: sharedBane.burdens,
+      effects: reward.effects,
+      targets: reward.targets,
+      routeEffects: reward.routeEffects,
+      burden: sharedBane.burden,
+      effect: reward.effect,
+    })
+  );
+
+  return {
+    options,
+    symmetryContracts: [
+      symmetryContract({
+        contractKind: "shared_burden_different_rewards",
+        sharedProperty: `${sharedBane.baneName} Bane burden`,
+        variedProperty: "Dreamsign, card draft, and route reward families",
+        sharedFirst: true,
+        optionNumbers: options.map((entry) => entry.number),
+        sharedPayloadKeys: [sharedBane.key],
+        variedPayloadKeys: rewards.map((reward) => reward.key),
+        weight: 1,
+      }),
+    ],
+  };
+}
+
 export function delayedRewardOption(
   number: number,
   trigger: {
