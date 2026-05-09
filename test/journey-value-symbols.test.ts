@@ -4,6 +4,14 @@ import { adaptJourneyOptionOperations } from "../src/journey/operationAdapters.j
 import { symbolsForOption } from "../src/journey/symbols.js";
 import {
   evaluateOptionValue,
+  semanticAllRemainingCostBand,
+  semanticBatchSizeBand,
+  semanticHookCounterBand,
+  semanticMaxResourceEffectBand,
+  semanticOperationArityBand,
+  semanticPercentageCostBand,
+  semanticRandomRangeBand,
+  semanticRouteScopeBand,
   valueCardDraft,
   valueDreamsignDraft,
   valueEssenceGain,
@@ -82,9 +90,9 @@ describe("evaluateOptionValue", () => {
   });
 
   it("exports a stable value model contribution with version and values", () => {
-    expect(VALUE_MODEL_VERSION).toBe("value:v9");
+    expect(VALUE_MODEL_VERSION).toBe("value:v10");
     expect(VALUE_MODEL_CONTRIBUTION).toMatchObject({
-      version: "value:v9",
+      version: "value:v10",
       values: {
         essence: {
           gainUnit: 1,
@@ -137,6 +145,12 @@ describe("evaluateOptionValue", () => {
         positiveMenus: {
           maximumComparableSpread: 100,
           minimumComparableRatio: 0.7,
+          symmetricMaximumComparableSpread: 250,
+          symmetricMinimumComparableRatio: 0.35,
+        },
+        objectQuality: {
+          namedCardFallback: 100,
+          namedDreamsignFallback: 145,
         },
       },
     });
@@ -212,6 +226,100 @@ describe("evaluateOptionValue", () => {
     expect(copiedPick).toBeGreaterThan(oneOfFour);
     expect(randomEvents).toBeGreaterThan(oneOfFour);
     expect(temporaryRandomEvents).toBeLessThan(randomEvents);
+  });
+
+  it("exposes semantic equivalence bands for value comparability dimensions", () => {
+    expect(semanticPercentageCostBand(50)).toBe("percentage-cost:moderate");
+    expect(semanticMaxResourceEffectBand(-20)).toBe("max-resource-loss:standard");
+    expect(semanticAllRemainingCostBand("essence")).toBe("essence:all-remaining");
+    expect(semanticRandomRangeBand(25, 125)).toBe("random-range:wide");
+    expect(semanticBatchSizeBand(3)).toBe("batch-size:small");
+    expect(semanticHookCounterBand(2)).toBe("hook-counter:short");
+    expect(semanticRouteScopeBand("full_atlas")).toBe("route-scope:full-atlas");
+    expect(semanticOperationArityBand(3)).toBe("operation-arity:menu");
+  });
+
+  it("explains named, random, generated, route, status, and compound value components", () => {
+    const evaluated = evaluateOptionValue(
+      option({
+        text: "Gain a named card and reshape the route.",
+        effects: [
+          {
+            kind: "card_gain",
+            cardName: "Nocturne Strummer",
+            componentConvertedEssence: 140,
+            compoundComponentRole: "primary_reward",
+          },
+          {
+            kind: "dreamsign_gain",
+            dreamsignName: "Ginger Root",
+            componentConvertedEssence: 145,
+          },
+          {
+            kind: "generated_object_grant",
+            generatedObjectId: "generated-dreamsign",
+            generatedObjectKind: "dreamsign",
+            generatedObjectName: "Lantern Echo",
+            generatedObjectReferenceKind: "placeholder",
+            componentConvertedEssence: 155,
+          },
+          {
+            kind: "visible_pool",
+            expectedConvertedEssence: 130,
+            riskPremiumConvertedEssence: -12,
+            worstCaseBurdenConvertedEssence: -80,
+            minimum: 25,
+            maximum: 125,
+          },
+        ],
+        burdens: [
+          {
+            kind: "status_reward_reduction",
+            statusScope: "reward",
+            ruleMutationKind: "battle_reward_reduction",
+            replacedRewardKind: "battle_rewards",
+            polarity: "negative",
+            componentConvertedEssence: -120,
+          },
+        ],
+        routeEffects: [
+          {
+            kind: "route_add_site",
+            routeOperationKind: "add_site",
+            routeScope: "full_atlas",
+            routePolarity: "positive",
+            siteType: "Dream Journey",
+            siteDeltaValue: 90,
+          },
+        ],
+        effectConvertedEssence: 530,
+        burdenConvertedEssence: -120,
+        uncertaintyConvertedEssence: -12,
+        netConvertedEssence: 398,
+      }),
+    );
+    const componentKinds = evaluated.components.map((component) => component.kind);
+
+    expect(componentKinds).toEqual(
+      expect.arrayContaining([
+        "named-card-quality",
+        "named-dreamsign-quality",
+        "generated-object-confidence",
+        "random-envelope-risk",
+        "reward-replacement",
+        "compound-bundle",
+        "route-scope",
+        "route-polarity",
+      ]),
+    );
+    expect(evaluated.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "named-card-quality", value: 140 }),
+        expect.objectContaining({ kind: "named-dreamsign-quality", value: 145 }),
+        expect.objectContaining({ kind: "compound-bundle", value: 140 }),
+        expect.objectContaining({ kind: "random-envelope-risk", value: -12 }),
+      ]),
+    );
   });
 });
 

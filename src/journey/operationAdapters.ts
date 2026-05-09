@@ -27,6 +27,14 @@ import {
   BANE_VALUE_CONSTANTS,
   PURGE_VALUE_CONSTANTS,
   cardPredicateSpecificityValue,
+  OBJECT_QUALITY_VALUE_CONSTANTS,
+  OPERATION_ARITY_VALUE_CONSTANTS,
+  COMPOUND_BUNDLE_VALUE_CONSTANTS,
+  semanticBatchSizeBand,
+  semanticHookCounterBand,
+  semanticOperationArityBand,
+  semanticRandomRangeBand,
+  semanticRouteScopeBand,
 } from "./value.js";
 
 type PayloadRecord = Record<string, unknown>;
@@ -627,6 +635,61 @@ function booleanField(value: PayloadRecord, key: string): boolean | undefined {
   return typeof value[key] === "boolean" ? value[key] : undefined;
 }
 
+function selectedNamedCard(value: PayloadRecord): string | undefined {
+  return [
+    value.cardName,
+    value.resultCardName,
+    value.targetCardName,
+    value.oldCardName,
+    value.secondTargetCardName,
+  ].find((entry): entry is string => typeof entry === "string" && entry.length > 0);
+}
+
+function selectedNamedDreamsign(value: PayloadRecord): string | undefined {
+  return [
+    value.dreamsignName,
+    value.resultDreamsignName,
+    value.newDreamsignName,
+    value.targetDreamsignName,
+  ].find((entry): entry is string => typeof entry === "string" && entry.length > 0);
+}
+
+function payloadConvertedAmount(value: PayloadRecord, convertedEssence?: number): number {
+  return convertedEssence ??
+    numberField(value, "componentConvertedEssence") ??
+    numberField(value, "operationConvertedEssence") ??
+    numberField(value, "windowValue") ??
+    numberField(value, "siteDeltaValue") ??
+    0;
+}
+
+function routePayloadScope(value: PayloadRecord): string | undefined {
+  return typeof value.routeScope === "string"
+    ? value.routeScope
+    : typeof value.scope === "string"
+      ? value.scope
+      : undefined;
+}
+
+function payloadOperationArity(value: PayloadRecord): number | undefined {
+  const explicitArity =
+    numberField(value, "operationArity") ??
+    numberField(value, "operationCount") ??
+    numberField(value, "payloadCount");
+
+  if (explicitArity !== undefined) {
+    return explicitArity;
+  }
+
+  const componentRole = typeof value.compoundComponentRole === "string" ? 1 : 0;
+  const hasTarget = selectedNamedCard(value) || selectedNamedDreamsign(value) ? 1 : 0;
+  const hasRoute = routePayloadScope(value) ? 1 : 0;
+
+  return componentRole + hasTarget + hasRoute > 1
+    ? componentRole + hasTarget + hasRoute
+    : undefined;
+}
+
 function cardPredicateMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
   const bands: NonNullable<OperationValueMetadata["bands"]> = [];
   const kind = legacyKind(value);
@@ -694,8 +757,143 @@ function cardPredicateMetadataBands(value: PayloadRecord): NonNullable<Operation
   return bands;
 }
 
+function namedObjectMetadataBands(
+  value: PayloadRecord,
+  convertedEssence?: number,
+): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const cardName = selectedNamedCard(value);
+  const dreamsignName = selectedNamedDreamsign(value);
+  const amount = payloadConvertedAmount(value, convertedEssence);
+
+  if (cardName) {
+    bands.push({
+      id: "named_card_quality",
+      label: cardName,
+      description: "Named card value records visible card quality instead of treating all named cards as text-only references.",
+      amount: amount || OBJECT_QUALITY_VALUE_CONSTANTS.namedCardFallback,
+    });
+  }
+
+  if (dreamsignName) {
+    bands.push({
+      id: "named_dreamsign_quality",
+      label: dreamsignName,
+      description: "Named Dreamsign value records visible Dreamsign quality and selected-source confidence.",
+      amount: amount || OBJECT_QUALITY_VALUE_CONSTANTS.namedDreamsignFallback,
+    });
+  }
+
+  return bands;
+}
+
+function randomTargetMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const randomSelection = value.selection === "hidden_random" ||
+    value.selection === "visible_random" ||
+    value.resultSelection === "hidden_random" ||
+    value.resultSelection === "visible_random" ||
+    booleanField(value, "random") === true;
+
+  if (randomSelection) {
+    bands.push({
+      id: "random_target_uncertainty",
+      label: value.selection === "visible_random" || value.resultSelection === "visible_random"
+        ? "visible random target"
+        : "hidden random target",
+      description: "Random target value applies uncertainty when the exact target is not chosen at commit time.",
+      amount: CARD_VALUE_CONSTANTS.hiddenRandomPenalty,
+    });
+  }
+
+  return bands;
+}
+
 function numericPayloadField(value: PayloadRecord, key: string): number | undefined {
   return typeof value[key] === "number" ? value[key] : undefined;
+}
+
+function batchOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const count =
+    numericPayloadField(value, "targetCount") ??
+    numericPayloadField(value, "count") ??
+    numericPayloadField(value, "starterTargetCount") ??
+    numericPayloadField(value, "drawCount");
+  const allMatching = value.cleanupMode === "all" ||
+    value.replacementMode === "all" ||
+    value.duplicateMode === "batch" ||
+    value.purgeMode === "all_duplicates" ||
+    value.cardOperationTargetMode === "all_matching" ||
+    value.transfigurationScope === "all_cards" ||
+    value.transfigurationScope === "all_events" ||
+    value.transfigurationScope === "all_starters" ||
+    value.allMatchingSiteType === true;
+
+  if (!allMatching && (count === undefined || count <= 1)) {
+    return [];
+  }
+
+  return [{
+    id: "batch_operation",
+    label: semanticBatchSizeBand(count ?? 1, allMatching),
+    description: "Batch and all-card operations carry separate value metadata from single-target operations.",
+    amount: allMatching
+      ? OPERATION_ARITY_VALUE_CONSTANTS.allMatchingOperationBonus
+      : Math.max(0, count ?? 0) * OPERATION_ARITY_VALUE_CONSTANTS.batchOperationBonus,
+  }];
+}
+
+function temporaryDurationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  if (value.temporary !== true && typeof value.duration !== "string" && typeof value.durationKind !== "string") {
+    return [];
+  }
+
+  return [{
+    id: "temporary_duration",
+    label: typeof value.duration === "string"
+      ? value.duration
+      : typeof value.durationKind === "string"
+        ? value.durationKind
+        : "temporary",
+    description: "Temporary effects are discounted by their declared duration window.",
+    ...(typeof value.durationCount === "number" ? { amount: value.durationCount } : {}),
+  }];
+}
+
+function delayedTriggerMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const triggerSelector = isRecord(value.triggerSelector) ? value.triggerSelector : undefined;
+  const triggerCount = triggerSelector && typeof triggerSelector.count === "number"
+    ? triggerSelector.count
+    : numberField(value, "triggerCount") ?? numberField(value, "count");
+  const delayed = typeof value.timing === "string" && value.timing !== "immediate" ||
+    triggerSelector !== undefined ||
+    typeof value.hookBudgetCost === "number" ||
+    typeof value.trigger === "string";
+
+  if (delayed) {
+    bands.push({
+      id: "delayed_trigger_risk",
+      label: triggerSelector && typeof triggerSelector.label === "string"
+        ? triggerSelector.label
+        : typeof value.trigger === "string"
+          ? value.trigger
+          : "delayed trigger",
+      description: "Delayed trigger value records resolution risk and timing uncertainty.",
+      amount: typeof value.hookBudgetCost === "number" ? -Math.abs(value.hookBudgetCost) : -8,
+    });
+  }
+
+  if (triggerCount !== undefined) {
+    bands.push({
+      id: "hook_counter",
+      label: semanticHookCounterBand(triggerCount),
+      description: "Hook counter values use semantic bands so one, short, and long counters compare consistently.",
+      amount: triggerCount,
+    });
+  }
+
+  return bands;
 }
 
 function starterOperationMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
@@ -1065,6 +1263,130 @@ function statusMetadataBands(value: PayloadRecord): NonNullable<OperationValueMe
     });
   }
 
+  if (typeof value.replacedRewardKind === "string") {
+    bands.push({
+      id: "reward_replacement",
+      label: value.replacedRewardKind,
+      description: "Reward-replacement burdens record which reward class is being reduced or replaced.",
+      ...(typeof value.amount === "number" ? { amount: value.amount } : {}),
+    });
+  }
+
+  return bands;
+}
+
+function routeMetadataBands(
+  value: PayloadRecord,
+  convertedEssence?: number,
+): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const scope = routePayloadScope(value);
+  const polarity = typeof value.routePolarity === "string"
+    ? value.routePolarity
+    : typeof value.polarity === "string"
+      ? value.polarity
+      : undefined;
+
+  if (scope) {
+    bands.push({
+      id: "route_scope",
+      label: semanticRouteScopeBand(scope),
+      description: "Route edit value scales by whether it affects the current dreamscape, future dreamscapes, or the full atlas.",
+      amount: payloadConvertedAmount(value, convertedEssence),
+    });
+  }
+
+  if (polarity) {
+    bands.push({
+      id: "route_polarity",
+      label: polarity,
+      description: "Route edit value records positive, negative, or mixed map impact.",
+      amount: payloadConvertedAmount(value, convertedEssence),
+    });
+  }
+
+  return bands;
+}
+
+function generatedObjectMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  if (
+    typeof value.generatedObjectId !== "string" &&
+    typeof value.generatedObjectKind !== "string" &&
+    typeof value.generatedObjectName !== "string" &&
+    typeof value.generatedObjectReferenceKind !== "string"
+  ) {
+    return [];
+  }
+
+  return [{
+    id: "generated_object_confidence",
+    label: value.generatedObjectReferenceKind === "placeholder"
+      ? "low"
+      : "medium",
+    description: "Manifest-local generated object value records whether the referenced object is already defined or only promised.",
+    amount: value.generatedObjectReferenceKind === "placeholder"
+      ? OBJECT_QUALITY_VALUE_CONSTANTS.generatedObjectConfidence.low
+      : OBJECT_QUALITY_VALUE_CONSTANTS.generatedObjectConfidence.medium,
+  }];
+}
+
+function compoundMetadataBands(
+  value: PayloadRecord,
+  convertedEssence?: number,
+): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const componentRole = typeof value.compoundComponentRole === "string"
+    ? value.compoundComponentRole
+    : undefined;
+  const arity = payloadOperationArity(value);
+
+  if (componentRole) {
+    bands.push({
+      id: "compound_bundle",
+      label: componentRole,
+      description: "Compound bundle value exposes the cost, burden, primary reward, or follow-up component separately.",
+      amount: payloadConvertedAmount(value, convertedEssence) ||
+        COMPOUND_BUNDLE_VALUE_CONSTANTS.componentFloor,
+    });
+  }
+
+  if (arity !== undefined) {
+    bands.push({
+      id: "operation_arity",
+      label: semanticOperationArityBand(arity),
+      description: "Compound and multi-operation payloads use operation-arity bands for comparability.",
+      amount: arity,
+    });
+  }
+
+  return bands;
+}
+
+function randomEnvelopeMetadataBands(value: PayloadRecord): NonNullable<OperationValueMetadata["bands"]> {
+  const bands: NonNullable<OperationValueMetadata["bands"]> = [];
+  const kind = legacyKind(value);
+
+  if (kind && isRandomEnvelopePayloadKind(kind)) {
+    bands.push({
+      id: "random_envelope_risk",
+      label: kind,
+      description: "Random envelope value records expected value, worst case, and risk premium separately from fixed rewards.",
+      amount: numberField(value, "riskPremiumConvertedEssence") ??
+        numberField(value, "worstCaseBurdenConvertedEssence") ??
+        -8,
+    });
+  }
+
+  if (typeof value.minimum === "number" && typeof value.maximum === "number") {
+    bands.push({
+      id: "random_range",
+      label: semanticRandomRangeBand(value.minimum, value.maximum),
+      description: "Random range value bands compare ranges by variance rather than exact rolled values.",
+      minimum: value.minimum,
+      maximum: value.maximum,
+    });
+  }
+
   return bands;
 }
 
@@ -1075,7 +1397,11 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
 
   if (payload) {
     const bands = [
+      ...namedObjectMetadataBands(payload, convertedEssence),
       ...cardPredicateMetadataBands(payload),
+      ...randomTargetMetadataBands(payload),
+      ...batchOperationMetadataBands(payload),
+      ...temporaryDurationMetadataBands(payload),
       ...starterOperationMetadataBands(payload),
       ...dreamsignOperationMetadataBands(payload),
       ...baneOperationMetadataBands(payload),
@@ -1083,6 +1409,11 @@ function valueMetadata(convertedEssence?: number, payload?: PayloadRecord): Oper
       ...battleWindowMetadataBands(payload),
       ...dreamwellMetadataBands(payload),
       ...statusMetadataBands(payload),
+      ...routeMetadataBands(payload, convertedEssence),
+      ...delayedTriggerMetadataBands(payload),
+      ...randomEnvelopeMetadataBands(payload),
+      ...generatedObjectMetadataBands(payload),
+      ...compoundMetadataBands(payload, convertedEssence),
     ];
 
     if (bands.length > 0) {
@@ -1120,6 +1451,7 @@ function randomValueMetadata(value: unknown): OperationValueMetadata | undefined
     return undefined;
   }
 
+  const bands = randomEnvelopeMetadataBands(value);
   const metadata: OperationValueMetadata = {
     ...(typeof value.expectedConvertedEssence === "number"
       ? { expectedConvertedEssence: value.expectedConvertedEssence }
@@ -1133,6 +1465,7 @@ function randomValueMetadata(value: unknown): OperationValueMetadata | undefined
           uncertaintyConvertedEssence: value.riskPremiumConvertedEssence,
         }
       : {}),
+    ...(bands.length > 0 ? { bands } : {}),
   };
 
   return Object.keys(metadata).length > 0 ? metadata : undefined;
@@ -1393,6 +1726,7 @@ function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
       adaptHookResolutionPayload(reward, `${operationId}:reward:${index + 1}`)
     );
   const payload = clonePayload(value);
+  const metadata = valueMetadata(undefined, isRecord(value) ? value : undefined);
   if (rewardOperations.length > 0) {
     payload.rewardOperations = rewardOperations;
   }
@@ -1425,6 +1759,7 @@ function adaptTrigger(value: unknown, operationId: string): JourneyOperation {
         ? { hookBudgetCost: value.hookBudgetCost }
         : {}),
     ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
+    ...(metadata ? { value: metadata } : {}),
     legacyKind: kind,
     payload,
   };
@@ -1472,7 +1807,9 @@ function adaptRouteEdit(
     ...(targetSelector ? { targetSelector } : {}),
     ...(isRecord(value) && typeof value.fromSite === "string" ? { fromSite: value.fromSite } : {}),
     ...(isRecord(value) && typeof value.toSite === "string" ? { toSite: value.toSite } : {}),
-    ...(valueMetadata(convertedEssence ?? payloadValue) ? { value: valueMetadata(convertedEssence ?? payloadValue) } : {}),
+    ...(valueMetadata(convertedEssence ?? payloadValue, isRecord(value) ? value : undefined)
+      ? { value: valueMetadata(convertedEssence ?? payloadValue, isRecord(value) ? value : undefined) }
+      : {}),
     ...(kind ? { legacyKind: kind } : {}),
     payload,
   };
@@ -1619,6 +1956,7 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
     });
   const payload = clonePayload(value);
   delete payload.reward;
+  const metadata = valueMetadata(undefined, isRecord(value) ? value : undefined);
   if (rewardOperations.length > 0) {
     payload.rewardOperations = rewardOperations;
   }
@@ -1651,6 +1989,7 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
         ? { hookBudgetCost: value.hookBudgetCost }
         : {}),
     ...(rewardOperations.length > 0 ? { rewardOperations } : {}),
+    ...(metadata ? { value: metadata } : {}),
     payload,
   };
 }

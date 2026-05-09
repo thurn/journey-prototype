@@ -705,7 +705,7 @@ describe("generateNextJourney", () => {
       contentVersion: "test-content-version",
       shapeCatalogVersion: "journey-shapes:v13",
       effectCatalogVersion: "effects:v7",
-      valueModelVersion: "value:v9",
+      valueModelVersion: "value:v10",
       rendererVersion: "renderer:v1",
       manifestContractVersion: "manifest:v2",
       validationContractVersion: "validation:v1",
@@ -1087,7 +1087,10 @@ describe("generateNextJourney", () => {
       ),
     );
     const valueBandComponents = manifest.debug.optionValues.flatMap((entry) =>
-      entry.components.filter((component) => component.kind === "value-band"),
+      entry.components.filter((component) =>
+        component.kind === "value-band" ||
+        component.kind === "random-envelope-risk"
+      ),
     );
 
     expect(operationBands.map((band) => band.id)).toEqual(
@@ -1116,6 +1119,14 @@ describe("generateNextJourney", () => {
         expect.stringContaining("random_range"),
         expect.stringContaining("cap_change"),
         expect.stringContaining("multi_omen"),
+      ]),
+    );
+    expect(manifest.distinctness.equivalenceBands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "percentage_cost" }),
+        expect.objectContaining({ field: "max_resource_effect" }),
+        expect.objectContaining({ field: "all_remaining_cost" }),
+        expect.objectContaining({ field: "random_range" }),
       ]),
     );
     expect(manifest.shapeId).toBe("service_menu");
@@ -7103,6 +7114,38 @@ describe("validateJourneyManifest", () => {
     expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
       ok: false,
       rule: "option_values_are_comparable_for_shape",
+    });
+  });
+
+  it("rejects incoherent row values in symmetric menus", async () => {
+    const journeyContext = await context("m21-symmetric-values");
+    const manifest = fillForShape("shared_prefix_menu", journeyContext);
+    const invalid: JourneyManifest = {
+      ...manifest,
+      options: manifest.options.map((option, index) => ({
+        ...option,
+        effectConvertedEssence: index === 0 ? 120 : 360,
+        netConvertedEssence: index === 0 ? 120 : 360,
+      })),
+    };
+
+    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
+      ok: false,
+      rule: "symmetric_option_values_are_comparable",
+    });
+    expect(repairOrFallbackJourney(invalid, journeyContext, {
+      ok: false,
+      rule: "symmetric_option_values_are_comparable",
+      message: "symmetric rows are outside the comparable band",
+    }).debug.repair.action).not.toBe("accepted");
+  });
+
+  it("keeps explicit escalation shapes exempt from symmetric value bands", async () => {
+    const journeyContext = await context("m21-escalating-values");
+    const manifest = fillForShapeAtStage("flat_escalating_trade", journeyContext, "mid");
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
     });
   });
 

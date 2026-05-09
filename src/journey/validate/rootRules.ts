@@ -11,6 +11,7 @@ import {
   validateCompoundOptionCoherence,
   validateCommitNowFuturePayoffValues,
   validatePositiveMenuValues,
+  validateSymmetricMenuValues,
 } from "./values.js";
 
 export function normalizedMechanicalValue(value: unknown): unknown {
@@ -163,6 +164,12 @@ export function rootValueResult(manifest: JourneyManifest): ValidationResult {
 
   if (nets.length > 0 && nets.every((net) => net < 0)) {
     return fail("negative_only_positive_scene", "Positive Journey scenes cannot contain only negative options");
+  }
+
+  const symmetricValues = validateSymmetricMenuValues(manifest);
+
+  if (!symmetricValues.ok) {
+    return symmetricValues;
   }
 
   return validatePositiveMenuValues(manifest.shapeId, nets);

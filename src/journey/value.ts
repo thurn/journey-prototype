@@ -3,7 +3,7 @@ import type { JourneyOperation, JourneyOption } from "./manifest.js";
 
 import type { BaneName } from "./effects.js";
 
-export const VALUE_MODEL_VERSION: "value:v9" = "value:v9";
+export const VALUE_MODEL_VERSION: "value:v10" = "value:v10";
 
 export const ESSENCE_CONVERTED_ESSENCE_VALUE = 1;
 
@@ -244,6 +244,30 @@ export const LOSS_CHOICE_VALUE_CONSTANTS = {
 export const POSITIVE_MENU_VALUE_CONSTANTS = {
   maximumComparableSpread: 100,
   minimumComparableRatio: 0.7,
+  symmetricMaximumComparableSpread: 250,
+  symmetricMinimumComparableRatio: 0.35,
+} as const;
+
+export const OBJECT_QUALITY_VALUE_CONSTANTS = {
+  namedCardFallback: 100,
+  namedDreamsignFallback: DREAMSIGN_VALUE_CONSTANTS.namedGain,
+  generatedObjectConfidence: {
+    low: -25,
+    medium: 0,
+    high: 15,
+  },
+} as const;
+
+export const COMPOUND_BUNDLE_VALUE_CONSTANTS = {
+  componentFloor: 20,
+  minorBundleBonus: 15,
+  multiComponentBonus: 25,
+} as const;
+
+export const OPERATION_ARITY_VALUE_CONSTANTS = {
+  batchOperationBonus: 25,
+  allMatchingOperationBonus: 45,
+  compoundOperationPenalty: -10,
 } as const;
 
 export const STAGE_PRIORITY_TAGS = {
@@ -333,6 +357,9 @@ export const VALUE_MODEL_VALUES = {
   payments: PAYMENT_VALUE_CONSTANTS,
   lossChoices: LOSS_CHOICE_VALUE_CONSTANTS,
   positiveMenus: POSITIVE_MENU_VALUE_CONSTANTS,
+  objectQuality: OBJECT_QUALITY_VALUE_CONSTANTS,
+  compoundBundles: COMPOUND_BUNDLE_VALUE_CONSTANTS,
+  operationArity: OPERATION_ARITY_VALUE_CONSTANTS,
   stagePriorityTags: STAGE_PRIORITY_TAGS,
   runStateModifiers: RUN_STATE_VALUE_MODIFIERS,
   essenceConvertedEssenceValue: ESSENCE_CONVERTED_ESSENCE_VALUE,
@@ -382,8 +409,20 @@ export type ValueBreakdown = {
       | "duration"
       | "target-quality"
       | "object-quality"
+      | "named-card-quality"
+      | "named-dreamsign-quality"
+      | "random-target-uncertainty"
+      | "batch-operation"
+      | "temporary-duration"
+      | "delayed-trigger-risk"
       | "route-scope"
+      | "route-polarity"
       | "status-scope"
+      | "reward-replacement"
+      | "random-envelope-risk"
+      | "generated-object-confidence"
+      | "compound-bundle"
+      | "operation-arity"
       | "value-band";
     operationId?: string;
     label: string;
@@ -492,6 +531,138 @@ export function semanticChoiceCountBand(count: number): string {
   }
 
   return "choice-count:broad";
+}
+
+export function semanticPercentageCostBand(percent: number): string {
+  if (percent <= 0) {
+    return "percentage-cost:none";
+  }
+
+  if (percent <= 25) {
+    return "percentage-cost:light";
+  }
+
+  if (percent <= 50) {
+    return "percentage-cost:moderate";
+  }
+
+  if (percent <= 75) {
+    return "percentage-cost:heavy";
+  }
+
+  return "percentage-cost:near-total";
+}
+
+export function semanticMaxResourceEffectBand(amount: number): string {
+  const magnitude = Math.abs(amount);
+  const prefix = amount < 0 ? "max-resource-loss" : "max-resource-gain";
+
+  if (magnitude === 0) {
+    return `${prefix}:none`;
+  }
+
+  if (magnitude <= 10) {
+    return `${prefix}:minor`;
+  }
+
+  if (magnitude <= 30) {
+    return `${prefix}:standard`;
+  }
+
+  return `${prefix}:major`;
+}
+
+export function semanticAllRemainingCostBand(resource = "essence"): string {
+  return `${resource}:all-remaining`;
+}
+
+export function semanticRandomRangeBand(minimum: number, maximum: number): string {
+  const span = Math.max(0, maximum - minimum);
+
+  if (span === 0) {
+    return "random-range:fixed";
+  }
+
+  if (span <= 50) {
+    return "random-range:narrow";
+  }
+
+  if (span <= 150) {
+    return "random-range:wide";
+  }
+
+  return "random-range:volatile";
+}
+
+export function semanticBatchSizeBand(count: number, all = false): string {
+  if (all) {
+    return "batch-size:all";
+  }
+
+  if (count <= 1) {
+    return "batch-size:single";
+  }
+
+  if (count === 2) {
+    return "batch-size:pair";
+  }
+
+  if (count <= 4) {
+    return "batch-size:small";
+  }
+
+  return "batch-size:large";
+}
+
+export function semanticHookCounterBand(count: number | undefined): string {
+  if (count === undefined || !Number.isFinite(count)) {
+    return "hook-counter:unspecified";
+  }
+
+  if (count <= 1) {
+    return "hook-counter:single";
+  }
+
+  if (count <= 3) {
+    return "hook-counter:short";
+  }
+
+  return "hook-counter:long";
+}
+
+export function semanticRouteScopeBand(scope: string): string {
+  switch (scope) {
+    case "current_dreamscape":
+    case "current":
+      return "route-scope:current";
+    case "next_dreamscape":
+    case "next":
+      return "route-scope:next";
+    case "future_dreamscapes":
+    case "future":
+      return "route-scope:future";
+    case "full_atlas":
+    case "atlas":
+      return "route-scope:full-atlas";
+    default:
+      return "route-scope:other";
+  }
+}
+
+export function semanticOperationArityBand(count: number): string {
+  if (count <= 1) {
+    return "operation-arity:single";
+  }
+
+  if (count === 2) {
+    return "operation-arity:pair";
+  }
+
+  if (count <= 4) {
+    return "operation-arity:menu";
+  }
+
+  return "operation-arity:bundle";
 }
 
 function choiceCurveValue(
@@ -924,6 +1095,10 @@ function operationEffectValueTotal(option: JourneyOption): number {
   return operationValueTotal(option, "reward") + operationValueTotal(option, "route_edit");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function valueForRole(
   option: JourneyOption,
   role: "cost" | "reward" | "burden",
@@ -944,6 +1119,50 @@ function valueForRole(
 
 function operationValueComponents(option: JourneyOption): ValueBreakdown["components"] {
   const components: ValueBreakdown["components"] = [];
+  const componentKindForBand = (
+    id: NonNullable<NonNullable<JourneyOperation["value"]>["bands"]>[number]["id"],
+  ): ValueBreakdown["components"][number]["kind"] => {
+    switch (id) {
+      case "named_card_quality":
+        return "named-card-quality";
+      case "named_dreamsign_quality":
+        return "named-dreamsign-quality";
+      case "random_hidden_target":
+      case "random_target_uncertainty":
+      case "dreamsign_random_source":
+        return "random-target-uncertainty";
+      case "batch_operation":
+      case "all_starters":
+        return "batch-operation";
+      case "temporary_gain":
+      case "temporary_duration":
+      case "temporary_dreamsign":
+      case "bane_temporary_duration":
+        return "temporary-duration";
+      case "delayed_trigger_risk":
+      case "hook_counter":
+      case "bane_delayed_timing":
+        return "delayed-trigger-risk";
+      case "route_scope":
+        return "route-scope";
+      case "route_polarity":
+        return "route-polarity";
+      case "status_reward_replacement":
+      case "reward_replacement":
+        return "reward-replacement";
+      case "random_range":
+      case "random_envelope_risk":
+        return "random-envelope-risk";
+      case "generated_object_confidence":
+        return "generated-object-confidence";
+      case "compound_bundle":
+        return "compound-bundle";
+      case "operation_arity":
+        return "operation-arity";
+      default:
+        return "value-band";
+    }
+  };
 
   for (const operation of option.operations) {
     const converted = operation.value?.convertedEssence;
@@ -982,11 +1201,13 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
     }
 
     for (const band of operation.value?.bands ?? []) {
+      const componentKind = componentKindForBand(band.id);
+
       components.push({
-        kind: "value-band",
+        kind: componentKind,
         operationId: operation.operationId,
         label: `${band.id} ${band.label}`,
-        value: 0,
+        value: band.amount ?? 0,
       });
     }
 
@@ -1047,6 +1268,17 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
         label: operation.timing?.timingKind === "route" ? operation.timing.scope : "route",
         value: 0,
       });
+
+      if (typeof operation.payload.routePolarity === "string" || typeof operation.payload.polarity === "string") {
+        components.push({
+          kind: "route-polarity",
+          operationId: operation.operationId,
+          label: String(operation.payload.routePolarity ?? operation.payload.polarity),
+          value: typeof operation.value?.convertedEssence === "number"
+            ? operation.value.convertedEssence
+            : 0,
+        });
+      }
     }
 
     if (operation.operationKind === "status") {
@@ -1055,6 +1287,27 @@ function operationValueComponents(option: JourneyOption): ValueBreakdown["compon
         operationId: operation.operationId,
         label: operation.statusKind,
         value: 0,
+      });
+    }
+
+    if (operation.operationKind === "generated_object") {
+      components.push({
+        kind: "generated-object-confidence",
+        operationId: operation.operationId,
+        label: operation.generatedObject.valueEstimate.confidence,
+        value:
+          OBJECT_QUALITY_VALUE_CONSTANTS.generatedObjectConfidence[
+            operation.generatedObject.valueEstimate.confidence
+          ],
+      });
+    }
+
+    if (isRecord(operation.payload) && typeof operation.payload.compoundComponentRole === "string") {
+      components.push({
+        kind: "compound-bundle",
+        operationId: operation.operationId,
+        label: String(operation.payload.compoundComponentRole),
+        value: COMPOUND_BUNDLE_VALUE_CONSTANTS.componentFloor,
       });
     }
   }

@@ -16,10 +16,18 @@ import type {
 import { getShapeDefinition, type JourneyShapeId } from "../shapes.js";
 import {
   semanticChanceBand,
+  semanticBatchSizeBand,
   semanticChoiceCountBand,
   semanticDurationBand,
   semanticEssenceAmountBand,
+  semanticHookCounterBand,
+  semanticMaxResourceEffectBand,
   semanticOmenCountBand,
+  semanticOperationArityBand,
+  semanticPercentageCostBand,
+  semanticAllRemainingCostBand,
+  semanticRandomRangeBand,
+  semanticRouteScopeBand,
 } from "../value.js";
 import { uniqueSorted } from "./shared.js";
 
@@ -248,6 +256,94 @@ export function semanticFingerprintFor(args: {
         "Durations contribute only as next, short-window, long-window, or unspecified bands.",
     });
   };
+  const addPercentageCostBand = (percent: unknown) => {
+    if (typeof percent !== "number") {
+      return;
+    }
+
+    addBand({
+      field: "percentage_cost",
+      band: semanticPercentageCostBand(percent),
+      description:
+        "Percentage costs contribute only as light, moderate, heavy, or near-total cost bands.",
+    });
+  };
+  const addMaxResourceBand = (amount: unknown) => {
+    if (typeof amount !== "number") {
+      return;
+    }
+
+    addBand({
+      field: "max_resource_effect",
+      band: semanticMaxResourceEffectBand(amount),
+      description:
+        "Maximum-resource effects contribute only as minor, standard, or major cap-change bands.",
+    });
+  };
+  const addAllRemainingCostBand = (resource: unknown) => {
+    addBand({
+      field: "all_remaining_cost",
+      band: semanticAllRemainingCostBand(typeof resource === "string" ? resource : "essence"),
+      description:
+        "All-remaining costs contribute as a semantic all-in resource commitment.",
+    });
+  };
+  const addRandomRangeBand = (minimum: unknown, maximum: unknown) => {
+    if (typeof minimum !== "number" || typeof maximum !== "number") {
+      return;
+    }
+
+    addBand({
+      field: "random_range",
+      band: semanticRandomRangeBand(minimum, maximum),
+      description:
+        "Random ranges contribute by variance band rather than exact bounds.",
+    });
+  };
+  const addBatchSizeBand = (count: unknown, all = false) => {
+    if (typeof count !== "number" && !all) {
+      return;
+    }
+
+    addBand({
+      field: "batch_size",
+      band: semanticBatchSizeBand(typeof count === "number" ? count : 1, all),
+      description:
+        "Batch and all-card operation sizes contribute by semantic operation size.",
+    });
+  };
+  const addHookCounterBand = (count: unknown) => {
+    addBand({
+      field: "hook_counter",
+      band: semanticHookCounterBand(typeof count === "number" ? count : undefined),
+      description:
+        "Hook counters contribute by single, short, long, or unspecified bands.",
+    });
+  };
+  const addRouteScopeBand = (scope: unknown) => {
+    if (typeof scope !== "string") {
+      return;
+    }
+
+    addBand({
+      field: "route_scope",
+      band: semanticRouteScopeBand(scope),
+      description:
+        "Route scopes contribute by current, next, future, or full-atlas bands.",
+    });
+  };
+  const addOperationArityBand = (count: unknown) => {
+    if (typeof count !== "number") {
+      return;
+    }
+
+    addBand({
+      field: "operation_arity",
+      band: semanticOperationArityBand(count),
+      description:
+        "Operation arity contributes by single, pair, menu, or bundle bands.",
+    });
+  };
   const addResourceBand = (
     resource: unknown,
     amount: unknown,
@@ -305,9 +401,23 @@ export function semanticFingerprintFor(args: {
     addChoiceBand(payload.takeCount);
     addChoiceBand(payload.revealCount);
     addChoiceBand(payload.drawCount);
+    addBatchSizeBand(
+      payload.targetCount ?? payload.starterTargetCount ?? payload.count,
+      payload.cleanupMode === "all" ||
+        payload.replacementMode === "all" ||
+        payload.cardOperationTargetMode === "all_matching" ||
+        payload.transfigurationScope === "all_cards" ||
+        payload.transfigurationScope === "all_events" ||
+        payload.transfigurationScope === "all_starters" ||
+        payload.allMatchingSiteType === true,
+    );
+    addOperationArityBand(payload.operationArity ?? payload.operationCount);
     addChanceBand(payload.probability);
     addChanceBand(payload.percent);
     addChanceBand(payload.probabilityDeltaPercent);
+    addPercentageCostBand(payload.percentage);
+    addRandomRangeBand(payload.minimum, payload.maximum);
+    addRouteScopeBand(payload.routeScope ?? payload.scope);
     addDurationBand(
       typeof payload.durationKind === "string"
         ? payload.durationKind
@@ -411,6 +521,11 @@ export function semanticFingerprintFor(args: {
           ? operation.timing.scope
           : "route",
       );
+      addRouteScopeBand(
+        operation.timing?.timingKind === "route"
+          ? operation.timing.scope
+          : operation.payload.routeScope,
+      );
     }
 
     if (operation.operationKind === "paired_return") {
@@ -507,6 +622,7 @@ export function semanticFingerprintFor(args: {
       addString(triggerClasses, "hook", operation.hookKind);
       if (operation.triggerSelector) {
         triggerClasses.add(operation.triggerSelector.triggerKind);
+        addHookCounterBand(operation.triggerSelector.count);
         addDurationBand(
           operation.triggerSelector.triggerKind,
           operation.triggerSelector.count,
@@ -532,6 +648,29 @@ export function semanticFingerprintFor(args: {
       semanticValueBands.add(
         `${operation.resourceSemantics.resource}:${operation.resourceSemantics.amountKind}`,
       );
+      if (operation.resourceSemantics.amountKind === "percentage_of_current") {
+        addPercentageCostBand(operation.resourceSemantics.percentage);
+      }
+      if (
+        operation.resourceSemantics.amountKind === "maximum" ||
+        operation.resourceSemantics.amountKind === "restore_to_maximum" ||
+        operation.resourceSemantics.amountKind === "cap_change"
+      ) {
+        addMaxResourceBand(
+          operation.resourceSemantics.capDelta ??
+            operation.resourceSemantics.amount ??
+            operation.resourceSemantics.maximum,
+        );
+      }
+      if (operation.resourceSemantics.amountKind === "all_remaining") {
+        addAllRemainingCostBand(operation.resourceSemantics.resource);
+      }
+      if (operation.resourceSemantics.amountKind === "random_range") {
+        addRandomRangeBand(
+          operation.resourceSemantics.minimum,
+          operation.resourceSemantics.maximum,
+        );
+      }
       addResourceBand(
         operation.resourceSemantics.resource,
         operation.resourceSemantics.amount ??
@@ -548,6 +687,18 @@ export function semanticFingerprintFor(args: {
 
     for (const band of operation.value?.bands ?? []) {
       semanticValueBands.add(`explicit:${band.id}`);
+      if (band.id === "batch_operation") {
+        addBatchSizeBand(band.amount, String(band.label).includes("all"));
+      }
+      if (band.id === "hook_counter") {
+        addHookCounterBand(band.amount);
+      }
+      if (band.id === "route_scope") {
+        addRouteScopeBand(String(band.label).replace(/^route-scope:/u, ""));
+      }
+      if (band.id === "operation_arity") {
+        addOperationArityBand(band.amount);
+      }
     }
 
     addPayloadSemantics(
@@ -580,6 +731,7 @@ export function semanticFingerprintFor(args: {
   for (const journeyOption of args.options) {
     motifs.add(`pick:${journeyOption.pickBehavior}`);
     addChoiceBand(args.options.length);
+    addOperationArityBand(journeyOption.operations.length);
     journeyOption.operations.forEach(inspectOperation);
     journeyOption.costs.forEach((payload) =>
       inspectUnknownPayload(payload, "cost"),

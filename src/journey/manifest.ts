@@ -94,21 +94,30 @@ export type OperationValueMetadata = {
       | "take_count"
       | "copy_count"
       | "random_hidden_target"
+      | "random_target_uncertainty"
       | "temporary_gain"
+      | "temporary_duration"
+      | "named_card_quality"
       | "starter_cleanup_reward"
       | "starter_replacement"
       | "useful_card_sacrifice"
       | "all_starters"
+      | "batch_operation"
+      | "named_dreamsign_quality"
       | "dreamsign_operation_family"
       | "dreamsign_random_source"
       | "temporary_dreamsign"
       | "dreamsign_predicate"
+      | "delayed_trigger_risk"
+      | "hook_counter"
       | "bane_name"
       | "bane_count"
       | "bane_temporary_duration"
       | "bane_delayed_timing"
       | "bane_purge_certainty"
       | "bane_replacement_relief"
+      | "route_scope"
+      | "route_polarity"
       | "battle_window_operation"
       | "battle_window_player"
       | "battle_window_polarity"
@@ -119,7 +128,12 @@ export type OperationValueMetadata = {
       | "status_scope"
       | "status_rule_mutation"
       | "status_prohibition"
-      | "status_reward_replacement";
+      | "status_reward_replacement"
+      | "reward_replacement"
+      | "random_envelope_risk"
+      | "generated_object_confidence"
+      | "compound_bundle"
+      | "operation_arity";
     label: string;
     description: string;
     amount?: number;
@@ -727,7 +741,15 @@ export type SemanticEquivalenceBand = {
     | "omen_count"
     | "chance_percentage"
     | "duration_count"
-    | "choice_count";
+    | "choice_count"
+    | "percentage_cost"
+    | "max_resource_effect"
+    | "all_remaining_cost"
+    | "random_range"
+    | "batch_size"
+    | "hook_counter"
+    | "route_scope"
+    | "operation_arity";
   band: string;
   description: string;
 };

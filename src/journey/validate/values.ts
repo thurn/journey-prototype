@@ -94,6 +94,69 @@ export function validatePositiveMenuValues(
   return { ok: true };
 }
 
+const SYMMETRIC_VALUE_SHAPES = new Set<JourneyManifest["shapeId"]>([
+  "same_cost_different_rewards",
+  "shared_prefix_menu",
+  "shop_row",
+  "curated_reward_trio",
+  "service_menu",
+  "one_target_many_operations",
+  "mirrored_operations",
+  "one_operation_many_targets",
+  "timed_window_menu",
+]);
+
+const ESCALATION_OR_RISK_SHAPES = new Set<JourneyManifest["shapeId"]>([
+  "flat_escalating_trade",
+  "escalating_reward_chain",
+  "prize_ladder",
+  "probability_ladder",
+  "push_your_luck",
+  "risk_or_skip",
+  "single_wager",
+  "random_pool_draws",
+  "single_random_outcome",
+  "reveal_choice_menu",
+  "resolved_random_series",
+]);
+
+export function validateSymmetricMenuValues(manifest: JourneyManifest): ValidationResult {
+  if (ESCALATION_OR_RISK_SHAPES.has(manifest.shapeId)) {
+    return { ok: true };
+  }
+
+  const hasSymmetryContract = (manifest.debug.symmetryContracts?.length ?? 0) > 0;
+
+  if (!hasSymmetryContract && !SYMMETRIC_VALUE_SHAPES.has(manifest.shapeId)) {
+    return { ok: true };
+  }
+
+  const nets = manifest.options
+    .filter((journeyOption) => journeyOption.pickBehavior !== "leave")
+    .map((journeyOption) => journeyOption.netConvertedEssence);
+  const positiveNets = nets.filter((net) => net > 0);
+
+  if (positiveNets.length < 2) {
+    return { ok: true };
+  }
+
+  const lowest = Math.min(...positiveNets);
+  const highest = Math.max(...positiveNets);
+  const minimumComparableValue = Math.max(
+    highest - POSITIVE_MENU_VALUE_CONSTANTS.symmetricMaximumComparableSpread,
+    highest * POSITIVE_MENU_VALUE_CONSTANTS.symmetricMinimumComparableRatio,
+  );
+
+  if (lowest < minimumComparableValue) {
+    return fail(
+      "symmetric_option_values_are_comparable",
+      `${manifest.shapeId} symmetric rows must stay in comparable value bands`,
+    );
+  }
+
+  return { ok: true };
+}
+
 const ROUTE_REWARD_ALLOWED_SHAPES = new Set<JourneyManifest["shapeId"]>([
   "alter_dreamscapes",
   "service_menu",

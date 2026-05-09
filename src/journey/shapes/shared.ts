@@ -17,6 +17,7 @@ export const commonValidationRules = [
   "root_option_count_within_bounds",
   "options_match_shape_topology",
   "option_values_are_comparable_for_shape",
+  "symmetric_option_values_are_comparable",
 ];
 
 export type RawJourneyShapeDefinition = Omit<
