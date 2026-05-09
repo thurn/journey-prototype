@@ -4074,6 +4074,42 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("materializes starter transfigurations from generated profiles", async () => {
+    const content = await loadContent(process.cwd());
+    const journeyContext = contextFromContent(content, "starter-transfig-0", "early");
+    const operations = compatibleCardOperations(
+      {
+        seed: journeyContext.state.quest.seed,
+        contentVersion: journeyContext.contentVersion,
+        rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
+      },
+      {
+        topology: "one_target_many_operations",
+        targetClasses: ["starter_card"],
+        targetModes: ["random_predicate"],
+        families: ["transfiguration"],
+        timings: ["immediate"],
+        context: journeyContext,
+        stage: "early",
+        label: "test:starter-transfig",
+        count: 1,
+      },
+    );
+    const operation = operations[0]!;
+
+    expect(operation.renderText("unused")).toBe(
+      "Apply {Scarlet Transfiguration} to 2 random Starter cards.",
+    );
+    expect(operation.effect).toMatchObject({
+      kind: "card_transfigure",
+      transfigurationName: "Scarlet",
+      selection: "hidden_random",
+      transfigurationScope: "random_starters",
+      targetCount: 2,
+      starterTarget: true,
+    });
+  });
+
   it("serves Dreamsign operation menus from a normal topology-compatible catalog", async () => {
     const journeyContext = await context("dreamsign-operation-catalog");
     const activeDreamsignId = journeyContext.state.quest.dreamsignPoolIds[0]!;

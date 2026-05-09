@@ -101,6 +101,8 @@ type CardOperationRequest = {
   count: number;
 };
 
+type StarterTransfigurationMode = "random" | "chosen";
+
 const ALL_TARGET_CLASSES = [
   "draft_card",
   "deck_card",
@@ -136,6 +138,22 @@ const ALL_TARGET_MODES = [
   "all_matching",
   "drafted_card",
 ] as const satisfies readonly CardOperationTargetMode[];
+
+const STARTER_TRANSFIGURATION_TARGET_COUNTS = {
+  random: {
+    early: [1, 2],
+    mid: [2, 3],
+    late: [2, 3],
+  },
+  chosen: {
+    early: [1, 2],
+    mid: [1, 2],
+    late: [2],
+  },
+} as const satisfies Record<
+  StarterTransfigurationMode,
+  Record<JourneyStage, readonly number[]>
+>;
 
 function withCompatibility(
   effect: Record<string, unknown>,
@@ -303,6 +321,55 @@ function namedStarterReplacementOperation(
       resultValue: cardQualityValue(result),
       stage: args.stage,
     }),
+  };
+}
+
+function starterTransfigurationOperation(
+  args: CardOperationMaterializerArgs,
+  mode: StarterTransfigurationMode,
+): MaterializedCardOperation | undefined {
+  const starterCount = starterDeckCardCount(args.context);
+  const targetCounts = STARTER_TRANSFIGURATION_TARGET_COUNTS[mode][args.stage]
+    .filter((count) => count <= starterCount);
+
+  if (targetCounts.length === 0) {
+    return undefined;
+  }
+
+  const targetCount = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:${args.entry.key}:target-count`,
+    targetCounts,
+  )[0]!;
+  const transfigurationName = shuffleDeterministic(
+    args.drawContext,
+    `${args.label}:${args.entry.key}:transfiguration`,
+    ALLOWED_TRANSFIGURATIONS,
+  )[0]!;
+  const random = mode === "random";
+  const selection = random ? "hidden_random" : "chosen_after_commitment";
+  const starterText = targetCount === 1 ? "Starter card" : "Starter cards";
+  const targetText = `${targetCount} ${random ? "random" : "chosen"} ${starterText}`;
+
+  return {
+    ...args.entry,
+    key: `${args.entry.key}:${transfigurationName.toLowerCase()}:${targetCount}`,
+    renderText: () =>
+      `Apply {${transfigurationName} Transfiguration} to ${targetText}.`,
+    effect: withCompatibility(
+      starterTargetCountEffect(args, {
+        ...args.entry.effect,
+        transfigurationName,
+        selection,
+        minRequiredTargets: targetCount,
+        targetCount,
+      }),
+      args.entry.targetModes,
+      args.entry.family,
+    ),
+    value:
+      valueStarterCleanup({ count: targetCount, random, stage: args.stage }) +
+      Math.round(transfigurationValue(transfigurationName) * 0.25),
   };
 }
 
@@ -1009,31 +1076,20 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       targetClasses: ["starter_card"],
       targetModes: ["random_predicate"],
       renderText: () =>
-        "Apply {Viridian Transfiguration} to 3 random Starter cards.",
+        "Apply a generated Transfiguration to random Starter cards.",
       effect: {
         kind: "card_transfigure",
-        transfigurationName: "Viridian",
+        transfigurationName: "generated",
         selection: "hidden_random",
         transfigurationScope: "random_starters",
-        minRequiredTargets: 3,
-        targetCount: 3,
+        minRequiredTargets: 1,
+        targetCount: 1,
       },
       value: valueStarterCleanup({ count: 3, random: true }) + 30,
       uncertainty: -10,
     }),
     materialize: (args) => {
-      if (starterDeckCardCount(args.context) < 3) {
-        return undefined;
-      }
-
-      return {
-        ...args.entry,
-        effect: withCompatibility(
-          starterTargetCountEffect(args, args.entry.effect),
-          args.entry.targetModes,
-          args.entry.family,
-        ),
-      };
+      return starterTransfigurationOperation(args, "random");
     },
   },
   {
@@ -1046,30 +1102,19 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       targetClasses: ["starter_card"],
       targetModes: ["chosen"],
       renderText: () =>
-        "Apply {Viridian Transfiguration} to 2 chosen Starter cards.",
+        "Apply a generated Transfiguration to chosen Starter cards.",
       effect: {
         kind: "card_transfigure",
-        transfigurationName: "Viridian",
+        transfigurationName: "generated",
         selection: "chosen_after_commitment",
         transfigurationScope: "two_chosen_starters",
-        minRequiredTargets: 2,
-        targetCount: 2,
+        minRequiredTargets: 1,
+        targetCount: 1,
       },
       value: valueStarterCleanup({ count: 2 }) + 25,
     }),
     materialize: (args) => {
-      if (starterDeckCardCount(args.context) < 2) {
-        return undefined;
-      }
-
-      return {
-        ...args.entry,
-        effect: withCompatibility(
-          starterTargetCountEffect(args, args.entry.effect),
-          args.entry.targetModes,
-          args.entry.family,
-        ),
-      };
+      return starterTransfigurationOperation(args, "chosen");
     },
   },
 ];
