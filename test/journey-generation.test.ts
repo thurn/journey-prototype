@@ -3895,6 +3895,31 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("builds mixed service compounds with cost, route, and follow-up pairings", async () => {
+    const journeyContext = await context("m20-mixed-service");
+    const manifest = compoundManifestForFamily("mixed_service", journeyContext);
+    const operationKinds = manifest.options.map((journeyOption) =>
+      journeyOption.operations.map((operation) =>
+        operation.operationKind === "reward"
+          ? operation.rewardKind
+          : operation.operationKind === "cost"
+            ? operation.operationKind
+            : operation.operationKind === "route_edit"
+              ? operation.operationKind
+              : operation.operationKind
+      )
+    );
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(operationKinds).toEqual([
+      expect.arrayContaining(["cost", "dreamsign_gain"]),
+      expect.arrayContaining(["dreamsign_gain", "route_edit"]),
+      expect.arrayContaining(["dreamsign_gain", "resource"]),
+    ]);
+  });
+
   it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {
     const drawContext: DrawContext = {
       seed: "card-operation-catalog",

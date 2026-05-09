@@ -28,45 +28,8 @@ instead of a family of nearby cases.
 
 ## Codebase Examples
 
-These examples illustrate the same underlying smell: a specific value is
-embedded where a reusable generator could own the axis.
-
-1. Compound payload families such as `scissor_saint`, `molting_archive`, and
-    `withered_orchard` hardcode named cards, Dreamsigns, transfigurations,
-    resource amounts, and burden triggers in
-    [`shared.ts`](../src/journey/fillers/shared.ts#L3388). These are close to
-    authored events; they would become more procedural if the named objects were
-    selected through typed roles such as sacrifice target, premium Dreamsign
-    reward, follow-up card transform, or reward-reduction burden.
-
-    ```ts
-    compoundOption(
-      1,
-      contract,
-      [
-        cardSacrificeComponent({
-          context: args.context,
-          cardName: "Nocturne Strummer",
-        }),
-        namedDreamsignRewardComponent({
-          context: args.context,
-          dreamsignName: "Charm Bracelet",
-          value: 400,
-        }),
-      ],
-    ),
-    compoundOption(
-      3,
-      contract,
-      [
-        dreamsignSacrificeComponent({
-          context: args.context,
-          dreamsignName: "Black Cat",
-        }),
-        transfigurationRewardComponent("Golden", 420),
-      ],
-    ),
-    ```
+No unresolved examples are currently listed here. Run a fresh codebase audit
+before treating this section as exhaustive.
 
 ## Avoidance Strategies
 

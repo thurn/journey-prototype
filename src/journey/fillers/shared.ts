@@ -81,7 +81,11 @@ import {
   resourceCostCatalog,
   resourceRewardCatalog,
 } from "./resourcePayloads.js";
-import { firstRouteEditReward, routePayload } from "./routeEditCatalog.js";
+import {
+  firstRouteEditReward,
+  routeEditRewards,
+  routePayload,
+} from "./routeEditCatalog.js";
 
 export type BuildArgs = {
   context: JourneyContext;
@@ -2899,10 +2903,23 @@ function exactDreamsignByName(
 
 function namedDreamsignRewardComponent(args: {
   context: JourneyContext;
-  dreamsignName: string;
+  dreamsignName?: string;
+  drawContext?: DrawContext;
+  label?: string;
+  stage?: JourneyStage;
   value?: number;
 }): CompoundPayloadComponent | undefined {
-  const dreamsign = exactDreamsignByName(args.context, args.dreamsignName);
+  const dreamsign = args.dreamsignName
+    ? exactDreamsignByName(args.context, args.dreamsignName)
+    : args.drawContext && args.label && args.stage
+      ? selectContentBackedDreamsign({
+          context: args.context,
+          drawContext: args.drawContext,
+          label: args.label,
+          stage: args.stage,
+          sources: ["catalog"],
+        })?.dreamsign
+      : undefined;
 
   if (!dreamsign) {
     return undefined;
@@ -3101,9 +3118,22 @@ function cardSacrificeComponent(args: {
 
 function dreamsignSacrificeComponent(args: {
   context: JourneyContext;
-  dreamsignName: string;
+  dreamsignName?: string;
+  drawContext?: DrawContext;
+  label?: string;
+  stage?: JourneyStage;
 }): CompoundPayloadComponent | undefined {
-  const dreamsign = exactDreamsignByName(args.context, args.dreamsignName);
+  const dreamsign = args.dreamsignName
+    ? exactDreamsignByName(args.context, args.dreamsignName)
+    : args.drawContext && args.label && args.stage
+      ? selectContentBackedDreamsign({
+          context: args.context,
+          drawContext: args.drawContext,
+          label: args.label,
+          stage: args.stage,
+          sources: ["catalog"],
+        })?.dreamsign
+      : undefined;
 
   if (!dreamsign) {
     return undefined;
@@ -3209,10 +3239,30 @@ function randomCardGainRewardComponent(
 
 function transformCardToRandomRewardComponent(args: {
   context: JourneyContext;
-  cardName: string;
+  drawContext?: DrawContext;
+  label?: string;
+  cardName?: string;
   reward: CompoundPayloadComponent;
 }): CompoundPayloadComponent | undefined {
-  const card = exactCardByName(args.context, args.cardName);
+  const deckCandidates = resolveCardTargets(
+    args.context.content,
+    args.context.state.quest,
+    { source: "deck" },
+  );
+  const preferredDeckCandidates = deckCandidates.filter(
+    (candidate) => candidate.rarity !== "Starter",
+  );
+  const card = args.cardName
+    ? exactCardByName(args.context, args.cardName)
+    : args.drawContext && args.label
+      ? shuffleDeterministic(
+          args.drawContext,
+          `${args.label}:transform-card-target`,
+          preferredDeckCandidates.length > 0
+            ? preferredDeckCandidates
+            : deckCandidates,
+        )[0]
+      : undefined;
 
   if (!card) {
     return undefined;
@@ -3255,9 +3305,22 @@ function transformCardToRandomRewardComponent(args: {
 
 function transformDreamsignToRandomRewardComponent(args: {
   context: JourneyContext;
-  dreamsignName: string;
+  dreamsignName?: string;
+  drawContext?: DrawContext;
+  label?: string;
+  stage?: JourneyStage;
 }): CompoundPayloadComponent | undefined {
-  const dreamsign = exactDreamsignByName(args.context, args.dreamsignName);
+  const dreamsign = args.dreamsignName
+    ? exactDreamsignByName(args.context, args.dreamsignName)
+    : args.drawContext && args.label && args.stage
+      ? selectContentBackedDreamsign({
+          context: args.context,
+          drawContext: args.drawContext,
+          label: args.label,
+          stage: args.stage,
+          sources: ["catalog"],
+        })?.dreamsign
+      : undefined;
 
   if (!dreamsign) {
     return undefined;
@@ -3340,8 +3403,19 @@ function starterCleanupRewardComponent(stage: JourneyStage): CompoundPayloadComp
 function routeSideEffectComponent(args: {
   drawContext: DrawContext;
   label: string;
+  maxEffect?: number;
 }): CompoundPayloadComponent {
-  const routeReward = firstRouteEditReward({
+  const boundedRewards = args.maxEffect === undefined
+    ? []
+    : routeEditRewards({
+        drawContext: args.drawContext,
+        label: `${args.label}:bounded`,
+        count: 16,
+        operationKinds: ["add_site"],
+        scopes: ["current_dreamscape"],
+        polarities: ["positive"],
+      }).filter((reward) => reward.effect <= args.maxEffect!);
+  const routeReward = boundedRewards[0] ?? firstRouteEditReward({
     drawContext: args.drawContext,
     label: args.label,
     operationKinds: ["add_site"],
@@ -3415,10 +3489,16 @@ function compoundOption(
 
 function scissorSaintCompoundFill(args: {
   context: JourneyContext;
+  drawContext: DrawContext;
   stage: JourneyStage;
   shapeId: JourneyShapeId;
 }): ResolvedShapeFill | undefined {
   const contract = compoundContract(args.shapeId);
+  const transfigurationName = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:scissor-saint:transfiguration`,
+    ALLOWED_TRANSFIGURATIONS,
+  );
   const options = [
     compoundOption(
       1,
@@ -3426,11 +3506,13 @@ function scissorSaintCompoundFill(args: {
       [
         cardSacrificeComponent({
           context: args.context,
-          cardName: "Nocturne Strummer",
+          randomCharacter: true,
         }),
         namedDreamsignRewardComponent({
           context: args.context,
-          dreamsignName: "Charm Bracelet",
+          drawContext: args.drawContext,
+          label: `${args.shapeId}:scissor-saint:premium-dreamsign`,
+          stage: args.stage,
           value: 400,
         }),
       ],
@@ -3452,9 +3534,11 @@ function scissorSaintCompoundFill(args: {
       [
         dreamsignSacrificeComponent({
           context: args.context,
-          dreamsignName: "Black Cat",
+          drawContext: args.drawContext,
+          label: `${args.shapeId}:scissor-saint:sacrificed-dreamsign`,
+          stage: args.stage,
         }),
-        transfigurationRewardComponent("Golden", 420),
+        transfigurationRewardComponent(transfigurationName, 420),
       ],
     ),
   ];
@@ -3471,13 +3555,21 @@ function scissorSaintCompoundFill(args: {
 
 function moltingArchiveCompoundFill(args: {
   context: JourneyContext;
+  drawContext: DrawContext;
   stage: JourneyStage;
   shapeId: JourneyShapeId;
 }): ResolvedShapeFill | undefined {
   const contract = compoundContract(args.shapeId);
+  const followUpAmount = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:molting-archive:follow-up-essence`,
+    [75, 90, 105],
+  );
   const gingerRoot = namedDreamsignRewardComponent({
     context: args.context,
-    dreamsignName: "Ginger Root",
+    drawContext: args.drawContext,
+    label: `${args.shapeId}:molting-archive:dreamsign-reward`,
+    stage: args.stage,
     value: 320,
   });
   const options = [
@@ -3487,9 +3579,11 @@ function moltingArchiveCompoundFill(args: {
       [
         transformDreamsignToRandomRewardComponent({
           context: args.context,
-          dreamsignName: "Black Cat",
+          drawContext: args.drawContext,
+          label: `${args.shapeId}:molting-archive:dreamsign-transform`,
+          stage: args.stage,
         }),
-        resourceRewardFollowUp(90),
+        resourceRewardFollowUp(followUpAmount),
       ],
     ),
     compoundOption(
@@ -3499,7 +3593,8 @@ function moltingArchiveCompoundFill(args: {
         gingerRoot,
         transformCardToRandomRewardComponent({
           context: args.context,
-          cardName: "Glimpse of What Was",
+          drawContext: args.drawContext,
+          label: `${args.shapeId}:molting-archive:card-transform`,
           reward: gingerRoot ?? {
             role: "primary_reward",
             key: "missing",
@@ -3534,19 +3629,40 @@ function moltingArchiveCompoundFill(args: {
 
 function witheredOrchardCompoundFill(args: {
   context: JourneyContext;
+  drawContext: DrawContext;
   stage: JourneyStage;
   shapeId: JourneyShapeId;
 }): ResolvedShapeFill | undefined {
   const contract = compoundContract(args.shapeId);
+  const battleRewardReductionAmount = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:battle-reduction`,
+    [1, 1, 2],
+  );
+  const essenceRewardReductionAmount = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:essence-reduction`,
+    [20, 30, 40],
+  );
+  const starterCleanupReductionAmount = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:withered-orchard:starter-cleanup-reduction`,
+    [15, 20, 25],
+  );
   const options = [
     compoundOption(
       1,
       contract,
       [
-        rewardReductionBurdenComponent({ trigger: "battle", amount: 1 }),
+        rewardReductionBurdenComponent({
+          trigger: "battle",
+          amount: battleRewardReductionAmount,
+        }),
         namedDreamsignRewardComponent({
           context: args.context,
-          dreamsignName: "Green Beetle",
+          drawContext: args.drawContext,
+          label: `${args.shapeId}:withered-orchard:dreamsign-reward`,
+          stage: args.stage,
           value: 320,
         }),
       ],
@@ -3555,7 +3671,10 @@ function witheredOrchardCompoundFill(args: {
       2,
       contract,
       [
-        rewardReductionBurdenComponent({ trigger: "essence_site", amount: 40 }),
+        rewardReductionBurdenComponent({
+          trigger: "essence_site",
+          amount: essenceRewardReductionAmount,
+        }),
         namedCardRewardComponent({
           context: args.context,
           predicate: { rarity: "Legendary" },
@@ -3567,7 +3686,10 @@ function witheredOrchardCompoundFill(args: {
       3,
       contract,
       [
-        rewardReductionBurdenComponent({ trigger: "essence_site", amount: 20 }),
+        rewardReductionBurdenComponent({
+          trigger: "essence_site",
+          amount: starterCleanupReductionAmount,
+        }),
         starterCleanupRewardComponent(args.stage),
       ],
     ),
@@ -3601,9 +3723,16 @@ function mixedServiceCompoundFill(args: {
     ).find((slot) => (slot.cost ?? 0) > 0);
   const reward = namedDreamsignRewardComponent({
     context: args.context,
-    dreamsignName: "Charm Bracelet",
+    drawContext: args.drawContext,
+    label: `${args.shapeId}:compound-mixed-dreamsign`,
+    stage: stageFromContext(args.context),
     value: 320,
   });
+  const followUpAmount = pickSequentialVariant(
+    args.drawContext,
+    `${args.shapeId}:compound-mixed-follow-up-essence`,
+    [55, 65, 75],
+  );
   const costComponent = sharedCost
     ? {
         role: "cost" as const,
@@ -3620,11 +3749,18 @@ function mixedServiceCompoundFill(args: {
     : undefined;
   const options = [
     compoundOption(1, contract, [costComponent, reward]),
-    compoundOption(2, contract, [reward, routeSideEffectComponent({
-      drawContext: args.drawContext,
-      label: `${args.shapeId}:compound-route`,
-    })]),
-    compoundOption(3, contract, [reward, resourceRewardFollowUp(65)]),
+    compoundOption(2, contract, [
+      reward,
+      routeSideEffectComponent({
+        drawContext: args.drawContext,
+        label: `${args.shapeId}:compound-route`,
+        maxEffect: 75,
+      }),
+    ]),
+    compoundOption(3, contract, [
+      reward,
+      resourceRewardFollowUp(followUpAmount),
+    ]),
   ];
 
   if (options.some((entry) => entry === undefined)) {
