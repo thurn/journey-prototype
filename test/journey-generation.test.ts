@@ -4788,6 +4788,49 @@ describe("generateNextJourney", () => {
     );
   });
 
+  it("profiles paired-return borrowed loan terms", async () => {
+    const content = await loadContent(process.cwd());
+    const journeyContext = contextFromContent(content, "borrowed-profile-27", "early");
+    const manifest = fillForShapeAtStage("paired_return", journeyContext, "early");
+    const contracts = (manifest.precommitted.pairedReturn ?? []) as Record<string, unknown>[];
+    const borrowedDreamsigns = contracts.filter(
+      (contract) => contract.returnFamilyId === "borrowed_dreamsign",
+    );
+    const borrowedDraft = contracts.find(
+      (contract) => contract.returnFamilyId === "borrowed_card_draft",
+    );
+    const futureCosts = borrowedDreamsigns.flatMap((contract) =>
+      Array.isArray(contract.futureCost) ? contract.futureCost : [contract.futureCost]
+    ) as Record<string, unknown>[];
+    const draftFutureCosts = Array.isArray(borrowedDraft?.futureCost)
+      ? borrowedDraft.futureCost as Record<string, unknown>[]
+      : [];
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(
+      borrowedDreamsigns.map((contract) =>
+        (contract.triggerSelector as Record<string, unknown> | undefined)?.count
+      ),
+    ).toEqual(expect.arrayContaining([1, 2]));
+    expect(futureCosts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "bane_gain",
+          baneName: expect.not.stringMatching(/^Nightmare$/u),
+        }),
+      ]),
+    );
+    expect(draftFutureCosts).toEqual([
+      expect.objectContaining({
+        kind: "card_purge",
+        count: 1,
+        timing: "after next battle",
+      }),
+    ]);
+  });
+
   it("values near-term triggered rewards through typed hook contracts", async () => {
     const journeyContext = await context(
       "random:3aa6092e-d433-4819-b86c-ccf61b9f51cd",

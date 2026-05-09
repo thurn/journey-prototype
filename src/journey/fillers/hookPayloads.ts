@@ -103,6 +103,18 @@ type FutureJourneyOptionHookProfile = {
   effect: number;
 };
 
+type BorrowedDreamsignLoanProfile = {
+  battleWindow: number;
+  essenceCost: number;
+  loanValue: number;
+};
+
+type BorrowedCardDraftLoanProfile = {
+  battleWindow: number;
+  takeCount: number;
+  obligationValue: number;
+};
+
 type DelayedBaneTimingProfile = {
   key: string;
   triggerKind: "battle" | "victory" | "dreamscape";
@@ -227,6 +239,36 @@ const FUTURE_JOURNEY_OPTION_HOOK_BANDS = {
     { optionCount: 3, effect: 175 },
   ],
 } as const satisfies Record<HookStage, readonly FutureJourneyOptionHookProfile[]>;
+
+const BORROWED_DREAMSIGN_LOAN_BANDS = {
+  early: [
+    { battleWindow: 1, essenceCost: 80, loanValue: 65 },
+    { battleWindow: 2, essenceCost: 100, loanValue: 95 },
+  ],
+  mid: [
+    { battleWindow: 2, essenceCost: 90, loanValue: 90 },
+    { battleWindow: 3, essenceCost: 120, loanValue: 120 },
+  ],
+  late: [
+    { battleWindow: 2, essenceCost: 110, loanValue: 100 },
+    { battleWindow: 3, essenceCost: 140, loanValue: 130 },
+  ],
+} as const satisfies Record<HookStage, readonly BorrowedDreamsignLoanProfile[]>;
+
+const BORROWED_CARD_DRAFT_LOAN_BANDS = {
+  early: [
+    { battleWindow: 1, takeCount: 1, obligationValue: -30 },
+    { battleWindow: 2, takeCount: 2, obligationValue: -60 },
+  ],
+  mid: [
+    { battleWindow: 2, takeCount: 1, obligationValue: -35 },
+    { battleWindow: 3, takeCount: 2, obligationValue: -65 },
+  ],
+  late: [
+    { battleWindow: 2, takeCount: 2, obligationValue: -60 },
+    { battleWindow: 3, takeCount: 2, obligationValue: -70 },
+  ],
+} as const satisfies Record<HookStage, readonly BorrowedCardDraftLoanProfile[]>;
 
 const SITE_VISIT_HOOK_SITES = Object.freeze(
   SITE_TYPES.filter((siteType) =>
@@ -549,6 +591,18 @@ function battleWindowText(count: number): string {
 
 function dreamscapeWindowText(count: number): string {
   return count === 1 ? "next dreamscape" : `within ${count} dreamscapes`;
+}
+
+function afterBattleWindowText(count: number): string {
+  return count === 1 ? "after next battle" : `after ${count} battles`;
+}
+
+function sentenceStart(text: string): string {
+  return `${text[0]?.toUpperCase() ?? ""}${text.slice(1)}`;
+}
+
+function temporaryCardsText(count: number): string {
+  return count === 1 ? "the temporary card" : "both temporary cards";
 }
 
 function namedCardPlayEssenceHook(args: {
@@ -1833,13 +1887,28 @@ export function pairedReturnHookFill(args: {
   }
 
   if (family === "borrowed_dreamsign") {
+    const loanProfiles: readonly BorrowedDreamsignLoanProfile[] =
+      BORROWED_DREAMSIGN_LOAN_BANDS[args.stage ?? "mid"];
+    const loanProfile = shuffleDeterministic(
+      args.drawContext,
+      `${pairedReturnId}:borrowed-dreamsign-loan-profile`,
+      loanProfiles,
+    )[0]!;
+    const battleWindow = battleWindowText(loanProfile.battleWindow);
+    const afterWindow = afterBattleWindowText(loanProfile.battleWindow);
+    const afterWindowSentence = sentenceStart(afterWindow);
+    const futureBaneName = shuffleDeterministic(
+      args.drawContext,
+      `${pairedReturnId}:borrowed-dreamsign-future-bane`,
+      BANE_NAMES,
+    )[0]!;
     const createdId = `${pairedReturnId}-borrowed-dreamsign`;
     const temporaryGrant = namedDreamsignPayload(
       {
         kind: "dreamsign_temporary_grant",
         dreamsign: borrowedDreamsign,
         source: "catalog",
-        extra: { temporary: true, duration: "next 2 battles" },
+        extra: { temporary: true, duration: battleWindow },
       },
       args.context,
     );
@@ -1850,14 +1919,14 @@ export function pairedReturnHookFill(args: {
               kind: "dreamsign_loss",
               dreamsign: borrowedDreamsign,
               source: "catalog",
-              extra: { timing: "after 2 battles", temporary: true },
+              extra: { timing: afterWindow, temporary: true },
             },
             args.context,
           ),
           baneGainPayload({
-            baneName: "Nightmare",
+            baneName: futureBaneName,
             targetContext: "future_burden",
-            timing: "after 2 battles",
+            timing: afterWindow,
           }),
         ]
       : [
@@ -1866,15 +1935,15 @@ export function pairedReturnHookFill(args: {
               kind: "dreamsign_loss",
               dreamsign: borrowedDreamsign,
               source: "catalog",
-              extra: { timing: "after 2 battles", temporary: true },
+              extra: { timing: afterWindow, temporary: true },
             },
             args.context,
           ),
-          cost("essence", 100),
+          cost("essence", loanProfile.essenceCost),
         ];
     const futureCostValue = args.optionNumber % 2 === 0
-      ? valueBaneBurden({ baneName: "Nightmare", count: 1, delayed: true })
-      : -100;
+      ? valueBaneBurden({ baneName: futureBaneName, count: 1, delayed: true })
+      : -loanProfile.essenceCost;
     const returnReward = rewardPayload;
     const precommit = {
       ...pairedReturnContract({
@@ -1884,7 +1953,7 @@ export function pairedReturnHookFill(args: {
         created: {
           referenceKind: "borrowed_object",
           referenceId: createdId,
-          label: `Borrow {${borrowedDreamsign.name}} for the next 2 battles.`,
+          label: `Borrow {${borrowedDreamsign.name}} for the ${battleWindow}.`,
           objectKind: "dreamsign",
           dreamsignId: borrowedDreamsign.id,
           dreamsignName: borrowedDreamsign.name,
@@ -1893,16 +1962,16 @@ export function pairedReturnHookFill(args: {
           returnSceneKind: "borrowed_object_return",
           triggerSelector: hookTrigger({
             triggerKind: "each_battle",
-            label: "after 2 battles",
-            count: 2,
+            label: afterWindow,
+            count: loanProfile.battleWindow,
           }),
           referencesCreatedId: createdId,
           resolution: `Lose {${borrowedDreamsign.name}}, pay the return cost, then ${reward.text}.`,
           expiration: expiration(
             "pay_cost",
-            "If the borrowed Dreamsign is not returned after 2 battles, apply the committed return cost.",
+            `If the borrowed Dreamsign is not returned ${afterWindow}, apply the committed return cost.`,
           ),
-          duration: boundedDuration("battle_count", "next 2 battles", 2),
+          duration: boundedDuration("battle_count", battleWindow, loanProfile.battleWindow),
         },
         futureCost,
         returnReward,
@@ -1912,21 +1981,21 @@ export function pairedReturnHookFill(args: {
       returnFamilyId: family,
       rewardMetadata: {
         rewardKey: reward.key,
-        expectedConvertedEssence: expectedValue + futureCostValue + 95,
+        expectedConvertedEssence: expectedValue + futureCostValue + loanProfile.loanValue,
       },
     };
 
     return {
       option: option({
         number: args.optionNumber,
-        text: `Borrow {${borrowedDreamsign.name}} for 2 battles. After 2 battles, lose it, pay the return cost, then ${reward.text}.`,
+        text: `Borrow {${borrowedDreamsign.name}} for the ${battleWindow}. ${afterWindowSentence}, lose it, pay the return cost, then ${reward.text}.`,
         triggers: [precommit],
         effects: [temporaryGrant],
         targets: [
           dreamsignExactTarget(borrowedDreamsign, "catalog"),
           ...(reward.targets ?? []),
         ],
-        effect: expectedValue + futureCostValue + 95,
+        effect: expectedValue + futureCostValue + loanProfile.loanValue,
         uncertainty: reward.uncertainty ?? -15,
       }),
       precommit,
@@ -1934,9 +2003,19 @@ export function pairedReturnHookFill(args: {
   }
 
   if (family === "borrowed_card_draft") {
+    const loanProfiles: readonly BorrowedCardDraftLoanProfile[] =
+      BORROWED_CARD_DRAFT_LOAN_BANDS[args.stage ?? "mid"];
+    const loanProfile = shuffleDeterministic(
+      args.drawContext,
+      `${pairedReturnId}:borrowed-card-draft-loan-profile`,
+      loanProfiles,
+    )[0]!;
+    const battleWindow = battleWindowText(loanProfile.battleWindow);
+    const afterWindow = afterBattleWindowText(loanProfile.battleWindow);
+    const afterWindowSentence = sentenceStart(afterWindow);
     const createdId = `${pairedReturnId}-borrowed-card-draft`;
     const temporaryDraft = draftCards(GENERIC_CARD_DRAFT_PROFILE, {
-      takeCount: 2,
+      takeCount: loanProfile.takeCount,
       temporary: true,
     });
     const futureCost = [{
@@ -1944,8 +2023,8 @@ export function pairedReturnHookFill(args: {
       cardOperationKind: "purge",
       selection: "temporary_drafted_cards",
       source: "temporary_manifest_grant",
-      count: 2,
-      timing: "after 2 battles",
+      count: loanProfile.takeCount,
+      timing: afterWindow,
     }];
     const returnReward = rewardPayload;
     const expectedDraftValue = valueCardDraft(temporaryDraft);
@@ -1957,7 +2036,7 @@ export function pairedReturnHookFill(args: {
         created: {
           referenceKind: "borrowed_object",
           referenceId: createdId,
-          label: "Draft 2 temporary cards for the next 2 battles.",
+          label: `Draft ${loanProfile.takeCount} temporary card${loanProfile.takeCount === 1 ? "" : "s"} for the ${battleWindow}.`,
           objectKind: "card",
           statusScope: "quest",
         },
@@ -1965,16 +2044,16 @@ export function pairedReturnHookFill(args: {
           returnSceneKind: "borrowed_object_return",
           triggerSelector: hookTrigger({
             triggerKind: "each_battle",
-            label: "after 2 battles",
-            count: 2,
+            label: afterWindow,
+            count: loanProfile.battleWindow,
           }),
           referencesCreatedId: createdId,
-          resolution: `Purge both temporary drafted cards, then ${reward.text}.`,
+          resolution: `Purge ${temporaryCardsText(loanProfile.takeCount)}, then ${reward.text}.`,
           expiration: expiration(
             "pay_cost",
-            "If the temporary cards cannot be purged after 2 battles, keep the purge obligation.",
+            `If ${temporaryCardsText(loanProfile.takeCount)} cannot be purged ${afterWindow}, keep the purge obligation.`,
           ),
-          duration: boundedDuration("battle_count", "next 2 battles", 2),
+          duration: boundedDuration("battle_count", battleWindow, loanProfile.battleWindow),
         },
         futureCost,
         returnReward,
@@ -1984,21 +2063,22 @@ export function pairedReturnHookFill(args: {
       returnFamilyId: family,
       rewardMetadata: {
         rewardKey: reward.key,
-        expectedConvertedEssence: expectedValue + expectedDraftValue - 60,
+        expectedConvertedEssence:
+          expectedValue + expectedDraftValue + loanProfile.obligationValue,
       },
     };
 
     return {
       option: option({
         number: args.optionNumber,
-        text: `Draft 2 of 4 cards for 2 battles. After 2 battles, purge both temporary cards, then ${reward.text}.`,
+        text: `Draft ${loanProfile.takeCount} of 4 cards for the ${battleWindow}. ${afterWindowSentence}, purge ${temporaryCardsText(loanProfile.takeCount)}, then ${reward.text}.`,
         triggers: [precommit],
         effects: [temporaryDraft],
         targets: [
           target("card", GENERIC_CARD_DRAFT_PROFILE.targetDescription, temporaryDraft.predicate),
           ...(reward.targets ?? []),
         ],
-        effect: expectedValue + expectedDraftValue - 60,
+        effect: expectedValue + expectedDraftValue + loanProfile.obligationValue,
         uncertainty: reward.uncertainty ?? -14,
       }),
       precommit,
