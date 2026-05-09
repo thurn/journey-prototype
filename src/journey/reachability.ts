@@ -1,6 +1,7 @@
 import type {
   BoundedDuration,
   DelayedHookOperation,
+  FeatureReachabilityDecision,
   JourneyManifest,
   JourneyOperation,
   ReachabilityEvidence,
@@ -247,6 +248,121 @@ function addDelayedRewardSelectorEvidence(
   }
 }
 
+function featureDecisionsForManifest(
+  manifest: JourneyManifest,
+  evidence: readonly ReachabilityEvidence[],
+): FeatureReachabilityDecision[] {
+  const pathsWithTargetResolution = new Set(
+    operationEntries(manifest)
+      .filter((entry) => entry.operation.targetResolution)
+      .map((entry) => entry.path),
+  );
+  const contracts = manifest.debug.symmetryContracts ?? [];
+  const evidenceFor = (predicate: (entry: ReachabilityEvidence) => boolean) =>
+    evidence.filter(predicate);
+  const decision = (
+    family: string,
+    matches: readonly ReachabilityEvidence[],
+    selectedReason: string,
+    skippedReason: string,
+  ): FeatureReachabilityDecision => ({
+    family,
+    status: matches.length > 0 ? "selected" : "skipped",
+    reason: matches.length > 0 ? selectedReason : skippedReason,
+    evidencePaths: sortedUnique(matches.map((entry) => entry.path)).slice(0, 8),
+    evidenceFamilies: sortedUnique(matches.map((entry) => entry.family)).slice(0, 12),
+  });
+  const targetResolutionMatches: ReachabilityEvidence[] = [...pathsWithTargetResolution].map((path) => ({
+    category: "selector",
+    family: "target_resolution_metadata",
+    path,
+  }));
+  const symmetryMatches: ReachabilityEvidence[] = contracts.map((contract, index) => ({
+    category: "payload",
+    family: `symmetry:${contract.contractKind}`,
+    path: `debug.symmetryContracts.${index}`,
+    detail: `${contract.sharedProperty} -> ${contract.variedProperty}`,
+  }));
+
+  return [
+    decision(
+      "resource_semantics",
+      evidenceFor((entry) =>
+        entry.family.startsWith("resource_amount:") && entry.family !== "resource_amount:fixed"
+      ),
+      "Selected because one or more operations use non-fixed resource amount semantics.",
+      "Skipped because this manifest only uses fixed resource amounts or no resource operations.",
+    ),
+    decision(
+      "named_object_operations",
+      evidenceFor((entry) =>
+        entry.category === "selector" &&
+        (
+          entry.family === "card:exact" ||
+          entry.family === "dreamsign:exact" ||
+          entry.family === "bane:exact" ||
+          entry.family === "status:exact" ||
+          entry.family === "generated_object:exact"
+        )
+      ),
+      "Selected because typed operations resolve exact visible object selectors.",
+      "Skipped because no typed operation resolves an exact named object selector.",
+    ),
+    decision(
+      "target_resolution_metadata",
+      targetResolutionMatches,
+      "Selected because operations carry resolved target metadata with candidate counts.",
+      "Skipped because no operation needed resolved target metadata.",
+    ),
+    decision(
+      "route_effects",
+      evidenceFor((entry) => entry.family === "route_edit" || entry.family.startsWith("route_edit:")),
+      "Selected because route edit operations are present.",
+      "Skipped because no route edit operation is present.",
+    ),
+    decision(
+      "statuses",
+      evidenceFor((entry) => entry.family === "status" || entry.family.startsWith("status:")),
+      "Selected because status or rule-mutation operations are present.",
+      "Skipped because no status operation is present.",
+    ),
+    decision(
+      "random_envelopes",
+      evidenceFor((entry) =>
+        entry.family === "random_envelope" ||
+        entry.family === "reveal_envelope" ||
+        entry.family.startsWith("random:")
+      ),
+      "Selected because a random or reveal envelope is precommitted in structured operations.",
+      "Skipped because no random or reveal envelope operation is present.",
+    ),
+    decision(
+      "delayed_hooks",
+      evidenceFor((entry) => entry.family === "delayed_hook" || entry.family.startsWith("delayed_hook:")),
+      "Selected because delayed hook contracts are present.",
+      "Skipped because no delayed hook contract is present.",
+    ),
+    decision(
+      "paired_returns",
+      evidenceFor((entry) => entry.family === "paired_return" || entry.family.startsWith("paired_return:")),
+      "Selected because paired-return contracts are present.",
+      "Skipped because no paired-return contract is present.",
+    ),
+    decision(
+      "generated_objects",
+      evidenceFor((entry) => entry.family === "generated_object" || entry.family.startsWith("generated_object:")),
+      "Selected because manifest-local generated object definitions or operations are present.",
+      "Skipped because no manifest-local generated object is present.",
+    ),
+    decision(
+      "shared_symmetry_contracts",
+      symmetryMatches,
+      "Selected because the fill recorded a shared-property symmetry contract.",
+      "Skipped because this shape/fill did not record a symmetry contract.",
+    ),
+  ];
+}
+
 export function reachabilityMetadataForManifest(
   manifest: JourneyManifest,
 ): ReachabilityMetadata {
@@ -304,6 +420,7 @@ export function reachabilityMetadataForManifest(
         .filter((entry) => entry.category === "timing")
         .map((entry) => entry.family),
     ),
+    featureDecisions: featureDecisionsForManifest(manifest, evidence),
     evidence,
     ...(debugPayload
       ? {

@@ -707,6 +707,23 @@ describe("stateless command risk transitions", () => {
         value: expect.any(String),
         components: expect.arrayContaining(["shape:shop_row", "stage:mid"]),
       });
+      expect(payload.manifest.debug.reachability.featureDecisions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            family: "named_object_operations",
+            status: "selected",
+            evidenceFamilies: expect.arrayContaining(["dreamsign:exact"]),
+          }),
+          expect.objectContaining({
+            family: "target_resolution_metadata",
+            status: "selected",
+          }),
+          expect.objectContaining({
+            family: "random_envelopes",
+            status: "skipped",
+          }),
+        ]),
+      );
       expect(prices).toEqual([
         expect.objectContaining({ resource: "essence", amount: 20 }),
         expect.objectContaining({ resource: "omens", amount: 1 }),

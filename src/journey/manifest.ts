@@ -837,6 +837,7 @@ export type ReachabilityMetadata = {
   payloadFamilies: string[];
   selectorFamilies: string[];
   timingFamilies: string[];
+  featureDecisions: FeatureReachabilityDecision[];
   evidence: ReachabilityEvidence[];
   debugFixture?: {
     qaId: string;
@@ -844,6 +845,14 @@ export type ReachabilityMetadata = {
     variantId: string;
     coverageKind?: string;
   };
+};
+
+export type FeatureReachabilityDecision = {
+  family: string;
+  status: "selected" | "skipped";
+  reason: string;
+  evidencePaths: string[];
+  evidenceFamilies: string[];
 };
 
 export type PrecommittedOutcomes = {

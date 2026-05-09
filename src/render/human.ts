@@ -165,6 +165,152 @@ function predicateSummary(predicate: unknown): string {
   return parts.length === 0 ? "" : ` (${parts.join("; ")})`;
 }
 
+function humanizeToken(value: unknown): string {
+  return typeof value === "string" && value.length > 0
+    ? value.replace(/_/gu, " ")
+    : "unspecified";
+}
+
+function bracedName(name: unknown, fallback: string): string {
+  return typeof name === "string" && name.length > 0 ? `{${name}}` : fallback;
+}
+
+function durationText(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) {
+    return humanizeToken(value);
+  }
+
+  if (isRecord(value) && typeof value.label === "string") {
+    return value.label;
+  }
+
+  return undefined;
+}
+
+function resourcePayloadText(value: Record<string, unknown>): string | undefined {
+  const resource = humanizeToken(value.resource ?? "essence");
+  const amount = value.amount ?? value.count ?? "?";
+
+  switch (value.kind) {
+    case "shop_economy_modifier": {
+      const scope = humanizeToken(value.shopScope ?? value.siteType ?? "shop");
+      const hook = typeof value.hook === "string" ? value.hook : undefined;
+      const amountText = typeof value.amount === "number" ? `${value.amount} essence` : "a shop benefit";
+
+      return hook ? `${scope}: ${hook}.` : `${scope}: apply ${amountText}.`;
+    }
+    case "resource_restore_to_maximum":
+      return `Restore ${resource} to maximum.`;
+    case "resource_percentage":
+      return `${value.resourceSetMode === "set_current_to_percentage" ? "Set" : "Scale"} ${resource} to ${value.percentage ?? "?"}% of ${humanizeToken(value.basis ?? "maximum")}.`;
+    case "resource_random_range":
+      return `Gain ${value.minimum ?? "?"}-${value.maximum ?? "?"} random ${resource}; committed amount ${value.committedAmount ?? value.amount ?? "?"}.`;
+    case "resource_cap_change":
+      return `Change maximum ${resource} by ${value.capDelta ?? amount}.`;
+    case "resource_reward_reduction":
+      return `Reduce ${humanizeToken(value.basis ?? "reward")} ${resource} by ${value.percentage ?? amount}${typeof value.percentage === "number" ? "%" : ""}.`;
+    case "gain_essence":
+      return `Gain ${amount} essence.`;
+    case "gain_omens":
+      return `Gain ${countText(amount, "omen", "omens")}.`;
+    case "essence":
+      return `Pay ${amount} essence.`;
+    case "omens":
+      return `Pay ${countText(amount, "omen", "omens")}.`;
+    case "essence_loss":
+      return `Lose ${amount} essence.`;
+    case "omen_loss":
+      return `Lose ${countText(amount, "omen", "omens")}.`;
+    default:
+      return undefined;
+  }
+}
+
+function namedObjectPayloadText(value: Record<string, unknown>): string | undefined {
+  switch (value.kind) {
+    case "card_transform":
+    case "card_replace":
+      return `Transform ${bracedName(value.targetCardName ?? value.oldCardName, "the selected card")} into ${bracedName(value.resultCardName ?? value.cardName, "the result card")}.`;
+    case "card_temporary_copy": {
+      const duration = durationText(value.duration);
+
+      return `Gain a temporary copy of ${bracedName(value.targetCardName ?? value.cardName, "the selected card")}${duration ? ` for ${duration}` : ""}.`;
+    }
+    case "card_draft":
+      return `Draft ${value.takeCount ?? 1} of ${value.choiceCount ?? "?"} cards${predicateSummary(value.predicate)}.`;
+    case "card_gain":
+      return `Gain ${bracedName(value.cardName, "a card")}.`;
+    case "dreamsign_gain":
+    case "dreamsign_purchase":
+      return `Gain ${bracedName(value.dreamsignName, "a Dreamsign")}.`;
+    case "dreamsign_transform":
+      return `Transform ${bracedName(value.targetDreamsignName ?? value.dreamsignName, "the selected Dreamsign")} into ${bracedName(value.resultDreamsignName ?? value.newDreamsignName, "the result Dreamsign")}.`;
+    case "dreamsign_duplicate":
+      return `Duplicate ${bracedName(value.dreamsignName ?? value.targetDreamsignName, "a Dreamsign")}.`;
+    case "dreamsign_temporary_grant": {
+      const duration = durationText(value.duration);
+
+      return `Gain ${bracedName(value.dreamsignName, "a Dreamsign")} temporarily${duration ? ` for ${duration}` : ""}.`;
+    }
+    case "dreamsign_pool_edit":
+      return `${humanizeToken(value.poolOperationKind ?? "Edit")} the Dreamsign pool${typeof value.dreamsignName === "string" ? ` with ${bracedName(value.dreamsignName, "a Dreamsign")}` : ""}.`;
+    default:
+      return undefined;
+  }
+}
+
+function statusPayloadText(value: Record<string, unknown>): string | undefined {
+  if (typeof value.kind !== "string" || !value.kind.startsWith("status_")) {
+    return undefined;
+  }
+
+  const name = typeof value.statusName === "string" ? value.statusName : "Status";
+  const duration = durationText(value.duration ?? value.timing);
+  const durationPrefix = duration ? ` for ${duration}` : "";
+
+  switch (value.kind) {
+    case "status_reward_replacement":
+      return `${name}: replace a reward with ${String(value.replacement ?? "the committed replacement")}${durationPrefix}.`;
+    case "status_battle_rule":
+      return `${name}: ${humanizeToken(value.ruleMutationKind)} affects ${humanizeToken(value.affectedPlayer ?? "you")}${durationPrefix}.`;
+    case "status_dreamwell_rule":
+      return `${name}: ${humanizeToken(value.dreamwellRuleKind ?? value.ruleMutationKind)}${durationPrefix}.`;
+    case "status_shop_rule":
+      return `${name}: ${humanizeToken(value.ruleMutationKind)} for ${humanizeToken(value.statusScope ?? "shops")}${durationPrefix}.`;
+    case "status_structural_constraint":
+      return `${name}: ${humanizeToken(value.ruleMutationKind)}${durationPrefix}.`;
+    default:
+      return `${name}: ${humanizeToken(value.ruleMutationKind ?? value.kind)}${durationPrefix}.`;
+  }
+}
+
+function generatedObjectPayloadText(value: Record<string, unknown>): string | undefined {
+  if (typeof value.kind !== "string" || !value.kind.startsWith("generated_object_")) {
+    return undefined;
+  }
+
+  const name = bracedName(value.generatedObjectName, "the generated object");
+  const rules = typeof value.rulesText === "string" ? ` ${value.rulesText}` : "";
+  const duration = durationText(value.duration);
+
+  switch (value.kind) {
+    case "generated_object_create":
+      return `Create ${name}.${rules}`;
+    case "generated_object_grant":
+      return `Gain ${name}.${rules}`;
+    case "generated_object_transform":
+      return `Transform the selected object into ${name}.${rules}`;
+    case "generated_object_temporary_grant":
+      return `Gain ${name} temporarily${duration ? ` for ${duration}` : ""}.${rules}`;
+    case "generated_object_return":
+      return `Return ${name}${duration ? ` ${duration.startsWith("at ") ? duration : `at ${duration}`}` : ""}.${rules}`;
+    case "generated_object_trade":
+      return `Trade for ${name}${duration ? ` at ${duration}` : ""}.${rules}`;
+    default:
+      return `${humanizeToken(value.kind)} ${name}.${rules}`;
+  }
+}
+
 function committedOutcomeText(value: unknown): string {
   if (Array.isArray(value)) {
     return value.map(committedOutcomeText).join(" ");
@@ -172,6 +318,16 @@ function committedOutcomeText(value: unknown): string {
 
   if (!isRecord(value)) {
     return stableStringify(value).trim();
+  }
+
+  const concisePayload =
+    resourcePayloadText(value) ??
+    namedObjectPayloadText(value) ??
+    statusPayloadText(value) ??
+    generatedObjectPayloadText(value);
+
+  if (concisePayload) {
+    return concisePayload;
   }
 
   switch (value.kind) {
@@ -683,6 +839,17 @@ function reachabilityDebugLines(manifest: JourneyManifest): string[] {
           `Debug fixture: ${reachability.debugFixture.qaId}; coverage=${reachability.debugFixture.coverageKind ?? "debug_fixture"}.`,
         ]
       : []),
+    "Feature decisions:",
+    ...reachability.featureDecisions.map((decision) => {
+      const families = decision.evidenceFamilies.length > 0
+        ? ` families=${decision.evidenceFamilies.join(",")}`
+        : "";
+      const paths = decision.evidencePaths.length > 0
+        ? ` paths=${decision.evidencePaths.join(",")}`
+        : "";
+
+      return `  ${decision.family}: ${decision.status}; ${decision.reason}${families}${paths}`;
+    }),
   ];
 }
 

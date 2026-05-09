@@ -188,6 +188,63 @@ describe("review feedback regressions", () => {
     expect(output).toContain("References: rules=Fast,omens.");
   });
 
+  it("renders structured precommitted payloads without raw JSON fallback", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      precommitted: {
+        delayed: [
+          {
+            trigger: "next_3_battles",
+            reward: {
+              kind: "status_battle_rule",
+              statusName: "Shared Opening",
+              ruleMutationKind: "both_player_battle_rule",
+              affectedPlayer: "both_players",
+              duration: "next_3_battles",
+            },
+          },
+          {
+            trigger: "when you play shardwoven tyrant",
+            reward: {
+              kind: "card_transform",
+              targetCardName: "Shardwoven Tyrant",
+              resultCardName: "Gleamharvester",
+            },
+          },
+          {
+            trigger: "when you visit a shop site",
+            reward: {
+              kind: "shop_economy_modifier",
+              shopScope: "future_shops",
+              hook: "spend this hook for a 45 essence discount",
+            },
+          },
+          {
+            trigger: "at the next Dream Journey site",
+            reward: {
+              kind: "generated_object_return",
+              generatedObjectName: "Rain Lantern",
+              duration: "at the next Dream Journey site",
+              rulesText: "0 energy Event. Fast. Gain 1 omen.",
+            },
+          },
+        ],
+      },
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: true,
+      color: false,
+    });
+
+    expect(output).toContain("next_3_battles: Shared Opening: both player battle rule affects both players for next 3 battles.");
+    expect(output).toContain("when you play shardwoven tyrant: Transform {Shardwoven Tyrant} into {Gleamharvester}.");
+    expect(output).toContain("when you visit a shop site: future shops: spend this hook for a 45 essence discount.");
+    expect(output).toContain("at the next Dream Journey site: Return {Rain Lantern} at the next Dream Journey site. 0 energy Event. Fast. Gain 1 omen.");
+    expect(output).not.toContain("\"kind\"");
+  });
+
   it("keeps precommitted outcomes out of normal human output unless option copy reveals them", () => {
     const precommitted = {
       random: [{ kind: "gain_essence", amount: 110 }],
