@@ -29,7 +29,7 @@ import { singleRewardPlugin } from "./single_reward/index.js";
 import { singleWagerPlugin } from "./single_wager.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu.js";
-import { revealChoiceMenuPlugin } from "./reveal_choice_menu.js";
+import { revealChoiceMenuPlugin } from "./reveal_choice_menu/index.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
 import type {
   JourneyShapeDefinition,

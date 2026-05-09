@@ -87,7 +87,6 @@ import {
   randomBaneChanceEnvelope,
   randomRiskCostEnvelope,
   randomVisibility,
-  revealChoiceMenuOptions,
   revealChoiceOptions,
   wheelRootOptions,
 } from "./randomPayloads.js";
@@ -1190,21 +1189,6 @@ export function fillOptions(
       }
 
       const reveal = revealChoiceOptions({
-        context,
-        drawContext,
-        label: `${shapeId}:reveal`,
-        stage,
-      });
-
-      return {
-        options: reveal.options,
-        precommitted: {
-          random: reveal.precommitted,
-        },
-      };
-    }
-    case "reveal_choice_menu": {
-      const reveal = revealChoiceMenuOptions({
         context,
         drawContext,
         label: `${shapeId}:reveal`,
