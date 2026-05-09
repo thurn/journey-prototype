@@ -233,12 +233,11 @@ function payloadCompatibilityFor(
       "hook",
       [
         ...(serviceFamilyShape ? ["delayed-trigger-matrix"] : []),
-        ...((isDelayedHook || id === "commit_now_future_payoff") &&
-        !serviceFamilyShape
+        ...(isDelayedHook && !serviceFamilyShape
           ? ["adapter-compatible-delayed-hooks"]
           : []),
       ],
-      isDelayedHook || serviceFamilyShape || id === "commit_now_future_payoff"
+      isDelayedHook || serviceFamilyShape
         ? "Shape can store visible delayed hook contracts in precommitted metadata."
         : "Shape has no delayed hook contract surface.",
     ),

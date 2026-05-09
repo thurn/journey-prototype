@@ -1,6 +1,6 @@
 import { alterDreamscapesPlugin } from "./alter_dreamscapes.js";
 import { chooseYourLossPlugin } from "./choose_your_loss.js";
-import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff.js";
+import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff/index.js";
 import { curatedRewardTrioPlugin } from "./curated_reward_trio.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain.js";
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
