@@ -321,6 +321,58 @@ function generatedOptionText(manifest: JourneyManifest): string[] {
   return text;
 }
 
+function structuredOperationTags(manifest: JourneyManifest): string[] {
+  const operations = [
+    ...manifest.options.flatMap((option) => option.operations),
+    ...(manifest.rewardPool?.operations ?? []),
+    ...(manifest.precommitted.operations ?? []),
+    ...(manifest.tree?.nodes.flatMap((node) =>
+      node.branches.flatMap((branch) => [
+        ...branch.operations,
+        ...(branch.terminal?.operations ?? []),
+      ])
+    ) ?? []),
+  ];
+  const tags = operations.map((operation) => {
+    switch (operation.operationKind) {
+      case "cost":
+        return `cost:${operation.resource}:${operation.resourceSemantics?.amountKind ?? "fixed"}`;
+      case "reward":
+        return `reward:${operation.rewardKind}`;
+      case "burden":
+        return `burden:${operation.burdenKind}`;
+      case "route_edit":
+        return `route_edit:${operation.editKind}`;
+      case "delayed_hook":
+        return `delayed_hook:${operation.hookKind ?? operation.triggerSelector?.triggerKind ?? "contract"}`;
+      case "paired_return":
+        return `paired_return:${operation.contract?.returnScene.returnSceneKind ?? "contract"}`;
+      case "random_envelope":
+      case "reveal_envelope":
+        return `random:${operation.envelopeKind ?? operation.operationKind}`;
+      case "status":
+        return `status:${operation.statusKind}`;
+      case "generated_object":
+        return `generated_object:${operation.generatedObject.generatedObjectKind}`;
+      case "target":
+        return `target:${operation.targetSelector.selectorKind}:${operation.targetSelector.selection}`;
+      case "validation_requirement":
+        return `validation:${operation.requirementKind}`;
+    }
+  });
+
+  tags.push(
+    ...manifest.generatedObjects.map(
+      (generatedObject) =>
+        `generated_object:${generatedObject.generatedObjectKind}`,
+    ),
+  );
+
+  return [...new Set(tags)].sort((left, right) =>
+    left.localeCompare(right, "en-US"),
+  );
+}
+
 function normalizeMechanical(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(normalizeMechanical);
@@ -6353,6 +6405,7 @@ describe("validateJourneyManifest", () => {
     const journeyContext = await context("typed-operation-contracts");
     const base = fillForShape("single_reward", journeyContext);
     const dreamsign = journeyContext.content.dreamsigns[0]!;
+    const otherDreamsign = journeyContext.content.dreamsigns[1]!;
     const generatedObject = generatedObjectDefinition();
     const operationManifest = (operation: JourneyOperation): JourneyManifest => ({
       ...base,
@@ -6384,6 +6437,71 @@ describe("validateJourneyManifest", () => {
       ],
       [
         {
+          operationId: "test:resource:bad-kind",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "resource",
+          visibility: "visible",
+          resourceSemantics: {
+            resource: "spark" as "essence",
+            amountKind: "fixed",
+            amount: 1,
+          },
+          payload: { kind: "gain_spark" },
+        },
+        "invalid_resource_semantics",
+      ],
+      [
+        {
+          operationId: "test:resource:bad-fixed",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "resource",
+          visibility: "visible",
+          resourceSemantics: {
+            resource: "essence",
+            amountKind: "fixed",
+            amount: -1,
+          },
+          payload: { kind: "gain_essence" },
+        },
+        "invalid_resource_amount",
+      ],
+      [
+        {
+          operationId: "test:resource:bad-cap",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "resource_cap_change",
+          visibility: "visible",
+          resourceSemantics: {
+            resource: "maxEssence",
+            amountKind: "cap_change",
+            capDelta: 0,
+          },
+          payload: { kind: "resource_cap_change", capDelta: 0 },
+        },
+        "invalid_resource_cap_change",
+      ],
+      [
+        {
+          operationId: "test:resource:cost-mismatch",
+          operationKind: "cost",
+          role: "cost",
+          visibility: "visible",
+          resource: "essence",
+          amount: 10,
+          resourceSemantics: {
+            resource: "essence",
+            amountKind: "fixed",
+            amount: 20,
+          },
+          payload: { kind: "essence", amount: 10 },
+        },
+        "incoherent_resource_cost_semantics",
+      ],
+      [
+        {
           operationId: "test:card:bad-duplicate",
           operationKind: "reward",
           role: "reward",
@@ -6392,6 +6510,83 @@ describe("validateJourneyManifest", () => {
           payload: { kind: "card_duplicate", copyCount: 0 },
         },
         "card_duplicate_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:card:missing-result",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_transform",
+          visibility: "visible",
+          payload: { kind: "card_transform", resultSelection: "exact" },
+        },
+        "card_operation_result_missing",
+      ],
+      [
+        {
+          operationId: "test:card:bad-keyword",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_keyword_add",
+          visibility: "visible",
+          payload: { kind: "card_keyword_add" },
+        },
+        "card_keyword_operation_invalid",
+      ],
+      [
+        {
+          operationId: "test:card:bad-type-change",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_type_change",
+          visibility: "visible",
+          payload: { kind: "card_type_change" },
+        },
+        "card_type_change_invalid",
+      ],
+      [
+        {
+          operationId: "test:card:bad-text-change",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_text_modification",
+          visibility: "visible",
+          payload: { kind: "card_text_modification" },
+        },
+        "card_text_operation_invalid",
+      ],
+      [
+        {
+          operationId: "test:card:bad-temporary",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_temporary_copy",
+          visibility: "visible",
+          payload: { kind: "card_temporary_copy" },
+        },
+        "card_temporary_window_missing",
+      ],
+      [
+        {
+          operationId: "test:card:bad-merge",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_merge",
+          visibility: "visible",
+          payload: { kind: "card_merge" },
+        },
+        "card_merge_mode_missing",
+      ],
+      [
+        {
+          operationId: "test:card:bad-split",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "card_split",
+          visibility: "visible",
+          payload: { kind: "card_split" },
+        },
+        "card_split_mode_missing",
       ],
       [
         {
@@ -6411,6 +6606,131 @@ describe("validateJourneyManifest", () => {
       ],
       [
         {
+          operationId: "test:dreamsign:missing-target",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_gain",
+          visibility: "visible",
+          payload: { kind: "dreamsign_gain" },
+        },
+        "dreamsign_target_unavailable",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:missing-transform-result",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_transform",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_transform",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            newDreamsignId: "not-a-real-dreamsign",
+            newDreamsignName: "Not A Real Dreamsign",
+          },
+        },
+        "dreamsign_transform_destination_unavailable",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:same-transform-result",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_transform",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_transform",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            newDreamsignId: dreamsign.id,
+            newDreamsignName: dreamsign.name,
+          },
+        },
+        "dreamsign_transform_same_target",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:temporary-missing-duration",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_temporary_grant",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_temporary_grant",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+          },
+        },
+        "dreamsign_temporary_duration_missing",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:bad-pool-operation",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_pool_edit",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_pool_edit",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            resultDreamsignId: otherDreamsign.id,
+            resultDreamsignName: otherDreamsign.name,
+            poolOperation: "shuffle",
+          },
+        },
+        "dreamsign_pool_edit_operation_invalid",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:bad-trigger-counter",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_trigger_counter",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_trigger_counter",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+            trigger: "on battle start",
+            count: 0,
+          },
+        },
+        "dreamsign_trigger_counter_invalid",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:missing-random-pool",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_random_reward",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_random_reward",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+          },
+        },
+        "dreamsign_random_reward_pool_missing",
+      ],
+      [
+        {
+          operationId: "test:dreamsign:missing-trade-obligation",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamsign_trade_hook",
+          visibility: "visible",
+          payload: {
+            kind: "dreamsign_trade_hook",
+            dreamsignId: dreamsign.id,
+            dreamsignName: dreamsign.name,
+          },
+        },
+        "dreamsign_trade_hook_obligation_missing",
+      ],
+      [
+        {
           operationId: "test:bane:bad-count",
           operationKind: "burden",
           role: "burden",
@@ -6419,6 +6739,61 @@ describe("validateJourneyManifest", () => {
           payload: { kind: "bane_gain", baneName: "Dread", count: 0 },
         },
         "bane_count_invalid",
+      ],
+      [
+        {
+          operationId: "test:bane:missing-name",
+          operationKind: "burden",
+          role: "burden",
+          burdenKind: "bane_gain",
+          visibility: "visible",
+          payload: { kind: "bane_gain", baneName: "", count: 1 },
+        },
+        "bane_name_missing",
+      ],
+      [
+        {
+          operationId: "test:bane:missing-duration",
+          operationKind: "burden",
+          role: "burden",
+          burdenKind: "bane_temporary",
+          visibility: "visible",
+          payload: { kind: "bane_temporary", baneName: "Dread", count: 1 },
+        },
+        "bane_temporary_duration_missing",
+      ],
+      [
+        {
+          operationId: "test:bane:missing-delayed-timing",
+          operationKind: "burden",
+          role: "burden",
+          burdenKind: "bane_delayed",
+          visibility: "visible",
+          payload: { kind: "bane_delayed", baneName: "Dread", count: 1 },
+        },
+        "bane_delayed_timing_missing",
+      ],
+      [
+        {
+          operationId: "test:bane:missing-replacement",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "bane_replace",
+          visibility: "visible",
+          payload: { kind: "bane_replace", baneName: "Dread", count: 1 },
+        },
+        "bane_replacement_missing",
+      ],
+      [
+        {
+          operationId: "test:bane:missing-transform-result",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "bane_transform_to_card",
+          visibility: "visible",
+          payload: { kind: "bane_transform_to_card", baneName: "Dread" },
+        },
+        "bane_transform_result_missing",
       ],
       [
         {
@@ -6436,6 +6811,55 @@ describe("validateJourneyManifest", () => {
           },
         },
         "battle_window_player_invalid",
+      ],
+      [
+        {
+          operationId: "test:battle-window:missing-operation",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "battle_window_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "battle_window_modifier",
+            affectedPlayer: "you",
+            polarity: "positive",
+            duration: "next battle",
+          },
+        },
+        "battle_window_operation_missing",
+      ],
+      [
+        {
+          operationId: "test:battle-window:bad-polarity",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "battle_window_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "battle_window_modifier",
+            battleWindowOperationKind: "starting_energy",
+            affectedPlayer: "you",
+            polarity: "maybe",
+            duration: "next battle",
+          },
+        },
+        "battle_window_polarity_invalid",
+      ],
+      [
+        {
+          operationId: "test:battle-window:missing-duration",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "battle_window_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "battle_window_modifier",
+            battleWindowOperationKind: "starting_energy",
+            affectedPlayer: "you",
+            polarity: "positive",
+          },
+        },
+        "battle_window_duration_missing",
       ],
       [
         {
@@ -6458,6 +6882,35 @@ describe("validateJourneyManifest", () => {
       ],
       [
         {
+          operationId: "test:dreamwell:bad-scope",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamwell_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "dreamwell_modifier",
+            dreamwellScope: "forever",
+            dreamwellOperationKind: "bonus_card_count",
+          },
+        },
+        "dreamwell_scope_invalid",
+      ],
+      [
+        {
+          operationId: "test:dreamwell:missing-operation",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "dreamwell_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "dreamwell_modifier",
+            dreamwellScope: "battle_window",
+          },
+        },
+        "dreamwell_operation_missing",
+      ],
+      [
+        {
           operationId: "test:shop:bad-price",
           operationKind: "reward",
           role: "reward",
@@ -6470,6 +6923,108 @@ describe("validateJourneyManifest", () => {
           },
         },
         "shop_price_modifier_invalid",
+      ],
+      [
+        {
+          operationId: "test:shop:missing-operation",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "shop_economy_modifier",
+          visibility: "visible",
+          payload: { kind: "shop_economy_modifier" },
+        },
+        "shop_operation_missing",
+      ],
+      [
+        {
+          operationId: "test:shop:bad-reroll-cap",
+          operationKind: "reward",
+          role: "reward",
+          rewardKind: "shop_economy_modifier",
+          visibility: "visible",
+          payload: {
+            kind: "shop_economy_modifier",
+            shopRuleKind: "reroll_cap",
+            rerollOmenCap: -1,
+          },
+        },
+        "shop_reroll_cap_invalid",
+      ],
+      [
+        {
+          operationId: "test:status:bad-duration",
+          operationKind: "status",
+          role: "burden",
+          statusKind: "status_reward_reduction",
+          visibility: "visible",
+          payload: {
+            kind: "status_reward_reduction",
+            statusScope: "reward",
+            duration: "",
+            ruleMutationKind: "battle_reward_reduction",
+          },
+        },
+        "invalid_status_duration",
+      ],
+      [
+        {
+          operationId: "test:hook:bad-budget",
+          operationKind: "delayed_hook",
+          role: "delayed_hook",
+          visibility: "precommitted",
+          hookKind: "battle",
+          triggerSelector: {
+            triggerKind: "battle",
+            label: "after a battle",
+          },
+          duration: {
+            durationKind: "battle_count",
+            label: "next battle",
+            count: 1,
+          },
+          expiration: {
+            policyKind: "forfeit_reward",
+            label: "expires",
+          },
+          controlledScene: {
+            sceneKind: "reward",
+            label: "reward",
+          },
+          visibilityPolicy: {
+            outcomeVisibility: "visible",
+            disclosure: "Visible delayed reward.",
+          },
+          hookBudgetCost: 2,
+          payload: {
+            kind: "delayed_hook_contract",
+            triggerSelector: {
+              triggerKind: "battle",
+              label: "after a battle",
+            },
+            trackedCondition: "Track a battle.",
+            resolution: "Resolve the reward.",
+            expiration: {
+              policyKind: "forfeit_reward",
+              label: "expires",
+            },
+            duration: {
+              durationKind: "battle_count",
+              label: "next battle",
+              count: 1,
+            },
+            controlledScene: {
+              sceneKind: "reward",
+              label: "reward",
+            },
+            visibilityPolicy: {
+              outcomeVisibility: "visible",
+              disclosure: "Visible delayed reward.",
+            },
+            hookBudgetCost: 2,
+            reward: { kind: "gain_essence", amount: 40 },
+          },
+        },
+        "invalid_hook_budget",
       ],
       [
         {
@@ -7961,7 +8516,6 @@ describe("validateJourneyManifest", () => {
 
   it("checks brainstorm reachability matrix families through structured manifest operations", async () => {
     const content = await loadContent(process.cwd());
-    const contentVersion = "test-content-version";
     const normalManifest = (
       shapeId: JourneyShapeId,
       seed: string,
@@ -7977,72 +8531,472 @@ describe("validateJourneyManifest", () => {
 
       return manifest;
     };
-    const normalBatch = [
-      normalManifest("curated_reward_trio", "matrix-three-masks"),
-      normalManifest("alter_dreamscapes", "matrix-atlas-locksmith", "late"),
-      normalManifest("flat_escalating_trade", "matrix-bottomless-bowl", "mid"),
-    ];
-    const brainstormMatrixSamples = [
+    const reachabilityRecords = [
       {
         example: "Three Masks",
-        normalReach: "partial",
+        seed: "three-masks-procedural-0",
+        shapeId: "same_reward_different_costs",
+        stage: "early",
         requirement: {
           payloadFamilies: ["card_draft"],
           selectorFamilies: ["card:predicate"],
           timingFamilies: ["immediate"],
         },
+        operationEvidence: ["reward:card_draft", "target:card:predicate"],
+      },
+      {
+        example: "Curator's Shelf",
+        seed: "shop-test-4",
+        shapeId: "shop_row",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["dreamsign_purchase", "resource_cost:essence"],
+          selectorFamilies: ["dreamsign:exact"],
+          timingFamilies: ["immediate"],
+        },
+        operationEvidence: [
+          "cost:essence:fixed",
+          "reward:dreamsign_purchase",
+          "target:dreamsign:exact",
+        ],
+      },
+      {
+        example: "One Blessing, Three Vessels",
+        seed: "m18-one-blessing-2",
+        shapeId: "one_operation_many_targets",
+        stage: "early",
+        requirement: {
+          payloadFamilies: ["card_transfigure"],
+          selectorFamilies: ["card:exact"],
+          timingFamilies: ["immediate"],
+        },
+        operationEvidence: ["reward:card_transfigure", "target:card:exact"],
+        symmetryContracts: ["shared_operation_named_targets"],
+      },
+      {
+        example: "Equal Shadow",
+        seed: "m18-equal-shadow-1",
+        shapeId: "same_cost_different_rewards",
+        stage: "early",
+        requirement: {
+          payloadFamilies: ["bane_gain", "card_draft", "dreamsign_gain", "route_edit:add_site"],
+          selectorFamilies: ["bane:exact", "card:predicate", "dreamsign:exact", "route_site:exact"],
+          timingFamilies: ["immediate", "route:current_dreamscape"],
+        },
+        operationEvidence: [
+          "burden:bane_gain",
+          "reward:card_draft",
+          "reward:dreamsign_gain",
+          "route_edit:add_site",
+        ],
+        symmetryContracts: ["shared_burden_different_rewards"],
+      },
+      {
+        example: "One Card, Three Masks",
+        seed: "m18-one-card-three-masks-0",
+        shapeId: "one_target_many_operations",
+        stage: "early",
+        requirement: {
+          payloadFamilies: ["card_transfigure"],
+          selectorFamilies: ["card:exact"],
+          timingFamilies: ["immediate"],
+        },
+        operationEvidence: ["reward:card_transfigure", "target:card:exact"],
+        symmetryContracts: ["shared_target_operations"],
+      },
+      {
+        example: "Narrow Reservoir",
+        seed: "m24-resource-0",
+        shapeId: "same_cost_different_rewards",
+        stage: "early",
+        requirement: {
+          payloadFamilies: ["resource_amount:random_range", "resource_cost:essence"],
+          timingFamilies: ["immediate"],
+        },
+        operationEvidence: ["cost:essence:random_range"],
       },
       {
         example: "Atlas Locksmith",
-        normalReach: "partial",
+        seed: "matrix-atlas-locksmith",
+        shapeId: "alter_dreamscapes",
+        stage: "late",
         requirement: {
-          payloadFamilies: ["route_edit"],
+          payloadFamilies: ["bane_gain", "resource", "route_edit:add_site", "route_edit:replace_site"],
           selectorFamilies: ["route_site:exact"],
-          timingFamilies: ["route"],
+          timingFamilies: ["route:current_dreamscape"],
         },
+        operationEvidence: [
+          "burden:bane_gain",
+          "reward:resource",
+          "route_edit:add_site",
+          "route_edit:replace_site",
+        ],
+        symmetryContracts: ["shared_source_site_destinations"],
+      },
+      {
+        example: "First Breath",
+        seed: "m12-timed-window-0",
+        shapeId: "timed_window_menu",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["battle_window_modifier"],
+          timingFamilies: ["delayed:next 2 battles"],
+        },
+        operationEvidence: ["reward:battle_window_modifier"],
+        symmetryContracts: ["shared_timing_different_rewards"],
+      },
+      {
+        example: "Dreamwell Switch",
+        seed: "m13-167",
+        shapeId: "timed_window_menu",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["dreamwell_modifier"],
+          timingFamilies: ["delayed:next 3 battles"],
+        },
+        operationEvidence: ["reward:dreamwell_modifier"],
+        symmetryContracts: ["shared_timing_different_rewards"],
+      },
+      {
+        example: "Shop Courtesy",
+        seed: "m14-shop-courtesy-5",
+        shapeId: "timed_window_menu",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["shop_economy_modifier", "resource_amount:restore_to_maximum"],
+          timingFamilies: ["delayed"],
+        },
+        operationEvidence: [
+          "reward:resource",
+          "reward:shop_economy_modifier",
+        ],
+      },
+      {
+        example: "Sealed Hands",
+        seed: "m14-sealed-hands-0",
+        shapeId: "single_offer",
+        stage: "late",
+        requirement: {
+          payloadFamilies: ["card_transform", "status"],
+          timingFamilies: ["immediate"],
+        },
+        operationEvidence: ["reward:card_transform", "status:status_structural_constraint"],
+      },
+      {
+        example: "Sleeping Contract",
+        seed: "sleeping-contract",
+        shapeId: "reward_after_trigger",
+        stage: "early",
+        requirement: {
+          payloadFamilies: ["delayed_hook", "dreamsign_gain"],
+          selectorFamilies: ["dreamsign:exact"],
+          timingFamilies: ["trigger:site_visit"],
+        },
+        operationEvidence: ["delayed_hook:site_visit", "reward:dreamsign_gain"],
+      },
+      {
+        example: "Borrowed Crown",
+        seed: "organic-paired-return",
+        shapeId: "paired_return",
+        stage: "late",
+        requirement: {
+          payloadFamilies: ["paired_return", "dreamsign_temporary_grant"],
+          selectorFamilies: ["dreamsign:exact"],
+          timingFamilies: ["trigger:each_battle"],
+        },
+        operationEvidence: [
+          "paired_return:borrowed_object_return",
+          "reward:dreamsign_temporary_grant",
+        ],
+      },
+      {
+        example: "Covered Cups",
+        seed: "covered-cups-3",
+        shapeId: "single_random_outcome",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["random:reveal_rewards", "reveal_envelope"],
+          timingFamilies: ["random"],
+        },
+        operationEvidence: ["random:reveal_rewards"],
+      },
+      {
+        example: "Emergency Thread",
+        seed: "m24-generated-16",
+        shapeId: "one_target_many_operations",
+        stage: "late",
+        requirement: {
+          payloadFamilies: ["generated_object", "generated_object:dreamsign"],
+        },
+        operationEvidence: [
+          "generated_object:dreamsign",
+          "reward:generated_object_grant",
+        ],
       },
       {
         example: "Bottomless Bowl",
-        normalReach: "supported",
+        seed: "bottomless-bowl-flat-trade",
+        shapeId: "flat_escalating_trade",
+        stage: "mid",
         requirement: {
           payloadFamilies: ["resource_cost:essence", "resource"],
           timingFamilies: ["immediate"],
         },
+        operationEvidence: ["cost:essence:fixed", "reward:resource"],
+        symmetryContracts: ["flat_escalating_trade"],
+      },
+      {
+        example: "Covered Cups Reveal Menu",
+        seed: "covered-cups-reveal-choice-menu",
+        shapeId: "reveal_choice_menu",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["random:choose_one_revealed_reward", "random:gain_one_random_reward", "reveal_envelope"],
+          timingFamilies: ["random"],
+        },
+        operationEvidence: [
+          "random:choose_one_revealed_reward",
+          "random:gain_one_random_reward",
+        ],
+      },
+      {
+        example: "Shared Prefix Menu",
+        seed: "shared-prefix-menu-forced",
+        shapeId: "shared_prefix_menu",
+        stage: "mid",
+        requirement: {
+          payloadFamilies: ["bane_gain", "card_draft", "dreamsign_gain", "route_edit:add_site"],
+          selectorFamilies: ["bane:exact", "card:predicate", "dreamsign:exact", "route_site:exact"],
+        },
+        operationEvidence: [
+          "burden:bane_gain",
+          "reward:card_draft",
+          "reward:dreamsign_gain",
+          "route_edit:add_site",
+        ],
+        symmetryContracts: ["shared_burden_different_rewards"],
       },
     ] satisfies readonly {
       example: string;
-      normalReach: "partial" | "supported";
+      seed: string;
+      shapeId: JourneyShapeId;
+      stage: JourneyStage;
       requirement: ReachabilityFamilyRequirement;
+      operationEvidence: readonly string[];
+      symmetryContracts?: readonly string[];
     }[];
+    const normalBatch = reachabilityRecords.map((record) =>
+      normalManifest(record.shapeId, record.seed, record.stage)
+    );
 
-    for (const matrixRow of brainstormMatrixSamples) {
+    for (const [index, matrixRow] of reachabilityRecords.entries()) {
+      const manifest = normalBatch[index]!;
+      const operationTags = structuredOperationTags(manifest);
+
+      expect(manifest.shapeId, matrixRow.example).toBe(matrixRow.shapeId);
       expect(
-        findReachabilityEvidence(normalBatch, matrixRow.requirement).length,
+        findReachabilityEvidence([manifest], matrixRow.requirement).length,
         matrixRow.example,
       ).toBeGreaterThan(0);
+      expect(operationTags, matrixRow.example).toEqual(
+        expect.arrayContaining(matrixRow.operationEvidence),
+      );
+      expect(
+        reachabilityFor(manifest).evidence.length,
+        matrixRow.example,
+      ).toBeGreaterThan(0);
+      expect(reachabilityFor(manifest).generatorMode, matrixRow.example).toBe(
+        "normal_generation",
+      );
+      expect(
+        manifest.debug.symmetryContracts?.map((contract) => contract.contractKind) ?? [],
+        matrixRow.example,
+      ).toEqual(expect.arrayContaining(matrixRow.symmetryContracts ?? []));
     }
 
+    const requiredPayloadFamilies = [
+      "bane_gain",
+      "battle_window_modifier",
+      "card_draft",
+      "card_transfigure",
+      "delayed_hook",
+      "dreamsign_gain",
+      "dreamsign_purchase",
+      "dreamwell_modifier",
+      "generated_object",
+      "paired_return",
+      "random:reveal_rewards",
+      "resource",
+      "resource_amount:random_range",
+      "route_edit:add_site",
+      "route_edit:replace_site",
+      "shop_economy_modifier",
+      "status",
+    ];
     const batchFamilies = batchReachabilityFamilies(normalBatch);
 
     expect(batchFamilies.payloadFamilies).toEqual(
-      expect.arrayContaining(["card_draft", "route_edit", "resource"]),
+      expect.arrayContaining(requiredPayloadFamilies),
     );
-    expect(normalBatch.map((manifest) => reachabilityFor(manifest).generatorMode)).toEqual([
-      "normal_generation",
-      "normal_generation",
-      "normal_generation",
-    ]);
-    expect(
-      normalBatch.flatMap((manifest) => reachabilityFor(manifest).evidence),
-    ).toEqual(
+    expect(batchFamilies.selectorFamilies).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          category: "payload",
-          family: "card_draft",
-          operationKind: "reward",
-        }),
+        "bane:exact",
+        "card:exact",
+        "card:predicate",
+        "dreamsign:exact",
+        "route_site:exact",
       ]),
     );
+  });
+
+  it("counts staged semantic fingerprints and requires expanded payload identity", async () => {
+    const content = await loadContent(process.cwd());
+    const stages = ["early", "mid", "late"] as const;
+
+    for (const stage of stages) {
+      const manifests = Array.from({ length: 16 }, (_, index) => {
+        const journeyContext = contextFromContent(
+          content,
+          `m24-diversity-${stage}-${index}`,
+          stage,
+        );
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: stage,
+        });
+
+        expect(validateJourneyManifest(manifest, journeyContext), `${stage}:${index}`).toEqual({
+          ok: true,
+        });
+        return manifest;
+      });
+      const fingerprints = manifests.map((manifest) => manifest.distinctness.value);
+      const payloadFamilies = new Set(
+        manifests.flatMap((manifest) =>
+          manifest.distinctness.explanation.payloadFamilies
+        ),
+      );
+      const curatedVariantIds = new Set(
+        manifests.flatMap((manifest) =>
+          manifest.distinctness.explanation.curatedVariantIds
+        ),
+      );
+
+      expect(new Set(fingerprints).size, stage).toBeGreaterThanOrEqual(14);
+      expect(payloadFamilies.size, stage).toBeGreaterThanOrEqual(7);
+      expect(curatedVariantIds.size, stage).toBeGreaterThanOrEqual(12);
+      expect([...payloadFamilies], stage).toEqual(
+        expect.arrayContaining(["bane", "card", "dreamsign", "hook", "random", "resource"]),
+      );
+      expect([...curatedVariantIds], stage).not.toEqual(["adapter/current"]);
+      expect(
+        manifests.every((manifest) =>
+          manifest.distinctness.value === manifest.debug.semanticFingerprint.value
+        ),
+        stage,
+      ).toBe(true);
+    }
+  });
+
+  it("does not reproduce historical brainstorm transcript rows in normal batches", async () => {
+    const content = await loadContent(process.cwd());
+    const forbiddenRows = [
+      "Buy {Ginger Root} for 85 essence.",
+      "Buy {Cloud Lens} for 85 essence.",
+      "Buy {Leather Satchel} for 85 essence.",
+      "Pay all essence and transfigure all cards in your deck. End the Journey.",
+      "Seal {Ginger Root}. Later, recover it and gain 120 essence.",
+    ];
+    const generatedRows = ["early", "mid", "late"].flatMap((stage) =>
+      Array.from({ length: 24 }, (_, index) => {
+        const journeyContext = contextFromContent(
+          content,
+          `m24-anti-hardcoding-${stage}-${index}`,
+          stage as JourneyStage,
+        );
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: stage as JourneyStage,
+        });
+
+        expect(validateJourneyManifest(manifest, journeyContext), `${stage}:${index}`).toEqual({
+          ok: true,
+        });
+        expect(manifest.debug.debugPayload).toBeUndefined();
+        return generatedOptionText(manifest);
+      }).flat()
+    );
+
+    for (const forbiddenRow of forbiddenRows) {
+      expect(generatedRows, forbiddenRow).not.toContain(forbiddenRow);
+    }
+  });
+
+  it("checks new shapes and symmetric fill contracts through forced normal generation", async () => {
+    const forcedRecords = [
+      {
+        shapeId: "flat_escalating_trade",
+        seed: "bottomless-bowl-flat-trade",
+        expectedContract: "flat_escalating_trade",
+        expectedTags: ["cost:essence:fixed", "reward:resource"],
+      },
+      {
+        shapeId: "reveal_choice_menu",
+        seed: "covered-cups-reveal-choice-menu",
+        expectedTags: [
+          "random:choose_one_revealed_reward",
+          "random:gain_one_random_reward",
+        ],
+      },
+      {
+        shapeId: "shared_prefix_menu",
+        seed: "shared-prefix-menu-forced",
+        expectedContract: "shared_burden_different_rewards",
+        expectedTags: ["burden:bane_gain", "route_edit:add_site"],
+      },
+      {
+        shapeId: "timed_window_menu",
+        seed: "m13-167",
+        expectedContract: "shared_timing_different_rewards",
+        expectedTags: ["reward:dreamwell_modifier"],
+      },
+      {
+        shapeId: "alter_dreamscapes",
+        seed: "matrix-atlas-locksmith",
+        expectedContract: "shared_source_site_destinations",
+        expectedTags: ["route_edit:add_site", "route_edit:replace_site"],
+      },
+      {
+        shapeId: "commit_now_future_payoff",
+        seed: "m24-forced-shape-contracts",
+        expectedContract: "shared_future_trigger_outcomes",
+        expectedTags: ["delayed_hook:battle"],
+      },
+    ] satisfies readonly {
+      shapeId: JourneyShapeId;
+      seed: string;
+      expectedContract?: string;
+      expectedTags: readonly string[];
+    }[];
+
+    for (const record of forcedRecords) {
+      const journeyContext = await context(record.seed);
+      const manifest = fillForShapeAtStage(record.shapeId, journeyContext, "mid");
+
+      expect(validateJourneyManifest(manifest, journeyContext), record.shapeId).toEqual({
+        ok: true,
+      });
+      expect(manifest.debug.debugPayload, record.shapeId).toBeUndefined();
+      expect(structuredOperationTags(manifest), record.shapeId).toEqual(
+        expect.arrayContaining(record.expectedTags),
+      );
+      if (record.expectedContract) {
+        expect(
+          manifest.debug.symmetryContracts?.map((contract) => contract.contractKind) ?? [],
+          record.shapeId,
+        ).toContain(record.expectedContract);
+      }
+    }
   });
 
   it("marks debug fixture reachability separately from normal generation", async () => {
@@ -8298,6 +9252,75 @@ describe("validateJourneyManifest", () => {
     ).toMatchObject({
       ok: false,
       rule: "hidden_outcome_disclosure",
+    });
+    expect(
+      validateJourneyManifest(
+        withRandom(
+          (entry) => ({
+            ...entry,
+            visibilityPolicy: {
+              outcomeVisibility: "secret_forever",
+              disclosure: "Unknown.",
+              playerVisible: false,
+            },
+          }),
+          "gain_one_random_reward",
+        ),
+        journeyContext,
+      ),
+    ).toMatchObject({
+      ok: false,
+      rule: "invalid_random_visibility",
+    });
+    expect(
+      validateJourneyManifest(
+        withRandom(
+          (entry) => ({
+            ...entry,
+            replacement: "invented_replacement",
+          }),
+          "visible_pool",
+        ),
+        journeyContext,
+      ),
+    ).toMatchObject({
+      ok: false,
+      rule: "invalid_random_replacement_policy",
+    });
+    expect(
+      validateJourneyManifest(
+        withRandom(
+          (entry) => ({
+            ...entry,
+            revealCount: 999,
+          }),
+          "reveal_rewards",
+        ),
+        journeyContext,
+      ),
+    ).toMatchObject({
+      ok: false,
+      rule: "incoherent_reveal_count",
+    });
+    expect(
+      validateJourneyManifest(
+        withRandom(
+          (entry) => ({
+            ...entry,
+            constraints: [
+              {
+                constraintKind: "shape_invariant",
+                shapeId: "single_random_outcome",
+              },
+            ],
+          }),
+          "roll_twice_keep_one",
+        ),
+        journeyContext,
+      ),
+    ).toMatchObject({
+      ok: false,
+      rule: "invalid_random_envelope_constraint",
     });
     expect(
       validateJourneyManifest(
