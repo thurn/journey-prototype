@@ -33,7 +33,6 @@ import {
   CARD_MODIFICATION_VALUE_CONSTANTS,
   commonEssenceRewardAmount,
   DREAMSIGN_VALUE_CONSTANTS,
-  LOSS_CHOICE_VALUE_CONSTANTS,
   TIMING_AND_RANDOMNESS_VALUE_CONSTANTS,
   valueBaneBurden,
   valueBaneGain,
@@ -1666,31 +1665,6 @@ export function baneReliefRewardSlots(
   }
 
   return shuffleDeterministic(drawContext, `${label}:bane-relief-slots`, slots);
-}
-
-export function comparableEssenceLossAmount(
-  comparisonLosses: readonly number[],
-  availableEssence: number,
-): number | null {
-  const magnitudes = comparisonLosses
-    .map((loss) => Math.abs(loss))
-    .filter(
-      (loss) => loss >= LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude,
-    )
-    .sort((left, right) => left - right);
-
-  if (magnitudes.length === 0) {
-    return null;
-  }
-
-  const lowest = magnitudes[0]!;
-  const highest = magnitudes[magnitudes.length - 1]!;
-  const target = Math.round((lowest + highest) / 2 / 5) * 5;
-  const payable = Math.min(target, availableEssence);
-
-  return payable >= LOSS_CHOICE_VALUE_CONSTANTS.minimumComparableMagnitude
-    ? payable
-    : null;
 }
 
 function addBaneReference(references: Set<string>, value: unknown): void {
