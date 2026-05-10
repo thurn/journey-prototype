@@ -1,7 +1,15 @@
 import type { JourneyContext } from "../../src/quest/context.js";
-import type { JourneyStage } from "../../src/journey/manifest.js";
+import type {
+  JourneyManifest,
+  JourneyStage,
+} from "../../src/journey/manifest.js";
 import type { ContentBundle } from "../../src/content/model.js";
 import type { JourneyState } from "../../src/state/schema.js";
+import { getShapePlugin } from "../../src/journey/shapes.js";
+import type {
+  JourneyShapeId,
+  ShapeValidatorArgs,
+} from "../../src/journey/shapes/types.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
 const TEST_CONTENT_VERSION = "test-content-version";
@@ -103,4 +111,132 @@ export function makeTestContext(options: TestContextOptions): TestContextBundle 
   };
 
   return { context, drawContext, stage };
+}
+
+export type ShapeValidatorFailure = {
+  ruleId: string;
+  message: string;
+};
+
+export type ShapeValidatorRunResult = {
+  failures: ShapeValidatorFailure[];
+};
+
+/**
+ * Runs a shape plugin's `validators` against the given manifest, returning the
+ * `(ruleId, message)` of every validator that returned a failure result. The
+ * helper deliberately bypasses the full validation pipeline so tests can
+ * exercise a single shape's bespoke rules in isolation.
+ */
+export function runShapeValidators(
+  shapeId: JourneyShapeId,
+  manifest: JourneyManifest,
+): ShapeValidatorRunResult {
+  const plugin = getShapePlugin(shapeId);
+  const { context } = makeTestContext({ seed: `validators:${shapeId}` });
+  const args: ShapeValidatorArgs = {
+    manifest,
+    context,
+    definition: plugin.definition,
+    generatedObjects: [],
+    checked: [],
+    manifestChecked: [],
+    optionChecked: [],
+    treeChecked: [],
+    precommittedChecked: [],
+  };
+  const failures: ShapeValidatorFailure[] = [];
+
+  for (const validator of plugin.validators ?? []) {
+    const result = validator.validate(args);
+
+    if (!result.ok) {
+      failures.push({ ruleId: result.rule, message: result.message });
+    }
+  }
+
+  return { failures };
+}
+
+/**
+ * Builds a minimal `independent_rows_menu` manifest where every option has
+ * identical `(cost, reward)` payloads. The manifest only fills the fields
+ * that the shape's validators inspect; other manifest invariants are not
+ * enforced because the helper is intended for validator-isolation tests.
+ */
+export function synthesizeIdenticalRowsManifest(): JourneyManifest {
+  const sharedCost = { kind: "essence", amount: 80, timing: "immediate" };
+  const sharedEffect = {
+    kind: "card_draft",
+    takeCount: 1,
+    choiceCount: 4,
+    predicate: { source: "draftPool" },
+  };
+  const sharedOption = {
+    symbols: [],
+    text: "Pay 80 essence. Draft a card.",
+    operations: [],
+    costs: [sharedCost],
+    effects: [sharedEffect],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 80,
+    effectConvertedEssence: 400,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: 320,
+    pickBehavior: "record_and_generate_next" as const,
+  };
+
+  return {
+    schemaVersion: 2,
+    versions: {
+      contentVersion: TEST_CONTENT_VERSION,
+      shapeCatalogVersion: "journey-shapes:test",
+      effectCatalogVersion: "effects:test",
+      valueModelVersion: "value:test",
+      rendererVersion: "renderer:test",
+      manifestContractVersion: "manifest:test",
+      validationContractVersion: "validation:test",
+    },
+    journeyId: "J-000001",
+    seed: "synth-identical-rows",
+    rootJourneyIndex: 1,
+    shapeId: "independent_rows_menu",
+    stage: "mid",
+    dreamscape: 0,
+    selectedTags: [],
+    options: [
+      { ...sharedOption, number: 1 },
+      { ...sharedOption, number: 2 },
+    ],
+    generatedObjects: [],
+    precommitted: {},
+    debug: {
+      shapeScores: [],
+      selectedShapeId: "independent_rows_menu",
+      selectedTags: [],
+      optionValues: [],
+      repairs: [],
+      semanticFingerprint: {
+        algorithm: "semantic-fingerprint:v1",
+        value: "synth",
+        components: [],
+      },
+      validation: { ok: true, passed: 0, failed: 0, rules: [] },
+      repair: {
+        status: "accepted_immediately",
+        forcedShape: false,
+        finalShapeId: "independent_rows_menu",
+      },
+    },
+    references: {
+      cardIds: [],
+      dreamsignIds: [],
+      dreamcallerIds: [],
+      baneNames: [],
+    },
+  } as unknown as JourneyManifest;
 }

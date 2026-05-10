@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { getShapePlugin } from "../src/journey/shapes.js";
 import { independentRowsMenuFill } from "../src/journey/shapes/independent_rows_menu/fill.js";
 import { ROW_POOL_CONFIGURATIONS } from "../src/journey/shapes/independent_rows_menu/rowPools.js";
-import { makeTestContext } from "./helpers/journey-context.js";
+import {
+  makeTestContext,
+  runShapeValidators,
+  synthesizeIdenticalRowsManifest,
+} from "./helpers/journey-context.js";
 
 describe("independent_rows_menu plugin", () => {
   it("is registered with rootOptionCount 2-3", () => {
@@ -42,5 +46,15 @@ describe("independentRowsMenuFill", () => {
       ].join("|"),
     );
     expect(new Set(tuples).size).toBe(tuples.length);
+  });
+});
+
+describe("independent_rows_menu validators", () => {
+  it("rejects manifests where every row uses the identical pool entry", () => {
+    const manifest = synthesizeIdenticalRowsManifest();
+    const result = runShapeValidators("independent_rows_menu", manifest);
+    expect(result.failures.map((f) => f.ruleId)).toContain(
+      "rows_are_pairwise_distinct_on_at_least_one_axis",
+    );
   });
 });
