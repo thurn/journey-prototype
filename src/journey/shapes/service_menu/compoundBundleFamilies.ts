@@ -9,15 +9,19 @@ import type {
 } from "../../fillers/shared.js";
 import type { DrawContext } from "../../../util/rng.js";
 import {
-  bundleCostBurdenValue,
-  bundleCostResourceValue,
-  bundleRewardEffectValue,
   genericBundleOption,
   type BundleCostSource,
   type BundleOptionPayload,
   type BundleRewardSource,
   type GenericBundleOption,
 } from "./genericBundleOption.js";
+import {
+  valueCardDraft,
+  valueRandomCardGain,
+  valueStarterCleanup,
+  valueStatusRuleMutation,
+  valueUsefulNonStarterCardSacrifice,
+} from "../../value.js";
 
 /**
  * Stable identifier for one of the four compound bundle families. New families
@@ -51,8 +55,6 @@ export const COMPOUND_BUNDLE_FAMILIES: readonly CompoundBundleFamily[] = [
     id: "scissor_saint",
     weight: 3,
     fillKind: "compound_payload:scissor_saint",
-    // Mirrors `scissorSaintCompoundFill` option 2: purge a random Character in
-    // exchange for a draft from the Survivors profile.
     costSource: { kind: "card_purge_random", randomCharacter: true },
     rewardSource: { kind: "fixed_card_draft", profileId: "survivors" },
   },
@@ -60,8 +62,6 @@ export const COMPOUND_BUNDLE_FAMILIES: readonly CompoundBundleFamily[] = [
     id: "molting_archive",
     weight: 3,
     fillKind: "compound_payload:molting_archive",
-    // Mirrors `moltingArchiveCompoundFill` option 3: purge a random deck card
-    // in exchange for 3 random energy-generation cards.
     costSource: { kind: "card_purge_random" },
     rewardSource: {
       kind: "random_card_gain",
@@ -73,9 +73,6 @@ export const COMPOUND_BUNDLE_FAMILIES: readonly CompoundBundleFamily[] = [
     id: "withered_orchard",
     weight: 3,
     fillKind: "compound_payload:withered_orchard",
-    // Mirrors `witheredOrchardCompoundFill` option 3: an essence-site reward
-    // reduction status in exchange for one chosen Starter purge. The amount
-    // and duration are picked deterministically inside the composer.
     costSource: { kind: "reward_reduction_burden", trigger: "essence_site" },
     rewardSource: { kind: "starter_cleanup", count: 1 },
   },
@@ -83,11 +80,8 @@ export const COMPOUND_BUNDLE_FAMILIES: readonly CompoundBundleFamily[] = [
     id: "mixed_service",
     weight: 1,
     fillKind: "compound_payload:mixed_service",
-    // Mirrors `mixedServiceCompoundFill` option 3 (cost from option 1's
-    // `low-essence` slot, reward from option 3's `resourceRewardFollowUp`):
-    // pay a small essence cost in exchange for a small essence gain. The
-    // legacy fill's primary reward is a content-backed dreamsign, which the
-    // bundle composer cannot guarantee in a content-less context; the
+    // The legacy fill's primary reward is a content-backed dreamsign, which
+    // the bundle composer cannot guarantee in a content-less context; the
     // declarative source pair preserves the family's cost/reward shape and is
     // suitable for the registry's first iteration. Additional variants will
     // be reintroduced as Task 1.3 expands the registry to multi-option fills.
@@ -114,7 +108,7 @@ type PayloadAdaptation = {
   readonly targets: readonly unknown[];
 };
 
-const EMPTY: readonly unknown[] = Object.freeze([]);
+const EMPTY = [] as const;
 
 function adaptPayload(payload: BundleOptionPayload): PayloadAdaptation {
   switch (payload.kind) {
@@ -219,9 +213,7 @@ function adaptToFillOption(
   const textParts: FillPlanTextPart[] = adaptations.map(({ payload, adaptation }) => ({
     source: adaptation.textSource,
     text: adaptation.textSource === "cost"
-      ? adaptation.role === "cost" && payload.kind === "essence_cost"
-        ? `Pay ${payload.cost.amount} essence.`
-        : adaptCostText(payload)
+      ? adaptCostText(payload)
       : adaptRewardOrBurdenText(payload),
   }));
   const payloadSpecs: FillPlanPayloadSpec[] = adaptations.map(({ payload, adaptation }) => ({
@@ -270,10 +262,100 @@ function adaptToFillOption(
   };
 }
 
+/**
+ * Computes a coarse value estimate for the burden component of a cost
+ * payload. Used to populate `ResolvedShapeFillOption.valueEstimate.burden`.
+ * Only the kinds that map to the burden role contribute non-zero values.
+ */
+function bundleCostBurdenValue(payload: BundleOptionPayload): number {
+  switch (payload.kind) {
+    case "card_purge":
+      return valueUsefulNonStarterCardSacrifice(1);
+    case "reward_reduction":
+      return valueStatusRuleMutation(
+        payload.trigger === "battle"
+          ? "battle_reward_reduction"
+          : "essence_site_reward_reduction",
+      );
+    case "essence_cost":
+    case "card_draft":
+    case "resource_cost_slot":
+    case "random_card_gain":
+    case "starter_cleanup":
+    case "essence_gain":
+      return 0;
+  }
+}
+
+/**
+ * Computes a coarse value estimate for the cost component of a payload (i.e.
+ * resource expenditure rather than burden).
+ */
+function bundleCostResourceValue(payload: BundleOptionPayload): number {
+  switch (payload.kind) {
+    case "essence_cost":
+      return payload.cost.amount;
+    case "resource_cost_slot": {
+      let total = 0;
+      for (const entry of payload.costs) {
+        if (
+          entry !== null &&
+          typeof entry === "object" &&
+          "amount" in entry &&
+          typeof (entry as { amount: unknown }).amount === "number"
+        ) {
+          total += (entry as { amount: number }).amount;
+        }
+      }
+      return total;
+    }
+    case "card_purge":
+    case "card_draft":
+    case "reward_reduction":
+    case "random_card_gain":
+    case "starter_cleanup":
+    case "essence_gain":
+      return 0;
+  }
+}
+
+/**
+ * Computes a coarse value estimate for the reward effect of a payload.
+ */
+function bundleRewardEffectValue(
+  payload: BundleOptionPayload,
+  stage: JourneyStage,
+): number {
+  switch (payload.kind) {
+    case "card_draft":
+      return Math.max(400, valueCardDraft(payload.draft));
+    case "random_card_gain":
+      return Math.max(
+        420,
+        valueRandomCardGain({
+          count: payload.count,
+          predicate: payload.gain.predicate,
+        }),
+      );
+    case "starter_cleanup":
+      return Math.max(320, valueStarterCleanup({ count: payload.count, stage }));
+    case "essence_gain":
+      return payload.amount;
+    case "essence_cost":
+    case "card_purge":
+    case "reward_reduction":
+    case "resource_cost_slot":
+      return 0;
+  }
+}
+
 function adaptCostText(payload: BundleOptionPayload): string {
   switch (payload.kind) {
     case "essence_cost":
       return `Pay ${payload.cost.amount} essence.`;
+    // `resource_cost_slot` produces a `slot.prefix` in the intermediate, but
+    // that text is part of the combined `renderText` and is not preserved
+    // per-payload; the slot's costs render via the payload pipeline instead.
     case "resource_cost_slot":
       return "";
     case "card_purge":

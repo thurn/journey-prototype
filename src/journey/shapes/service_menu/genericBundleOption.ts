@@ -15,12 +15,6 @@ import {
   type CardDraftProfile,
 } from "../../fillers/shared.js";
 import { statusPayload } from "../../fillers/environmentPayloads.js";
-import {
-  valueRandomCardGain,
-  valueStarterCleanup,
-  valueStatusRuleMutation,
-  valueUsefulNonStarterCardSacrifice,
-} from "../../value.js";
 import type { DrawContext } from "../../../util/rng.js";
 
 /**
@@ -412,94 +406,6 @@ function buildRewardPayload(
       const _exhaustive: never = source;
       return _exhaustive;
     }
-  }
-}
-
-/**
- * Computes a coarse value estimate for the burden component of a cost
- * payload. Used by the family adapter to populate
- * `ResolvedShapeFillOption.valueEstimate.burden`. Only the kinds that map to
- * the burden role here contribute non-zero values.
- */
-export function bundleCostBurdenValue(payload: BundleOptionPayload): number {
-  switch (payload.kind) {
-    case "card_purge":
-      return valueUsefulNonStarterCardSacrifice(1);
-    case "reward_reduction":
-      return valueStatusRuleMutation(
-        payload.trigger === "battle"
-          ? "battle_reward_reduction"
-          : "essence_site_reward_reduction",
-      );
-    case "essence_cost":
-    case "card_draft":
-    case "resource_cost_slot":
-    case "random_card_gain":
-    case "starter_cleanup":
-    case "essence_gain":
-      return 0;
-  }
-}
-
-/**
- * Computes a coarse value estimate for the cost component of a payload (i.e.
- * resource expenditure rather than burden).
- */
-export function bundleCostResourceValue(payload: BundleOptionPayload): number {
-  switch (payload.kind) {
-    case "essence_cost":
-      return payload.cost.amount;
-    case "resource_cost_slot": {
-      let total = 0;
-      for (const entry of payload.costs) {
-        if (
-          entry !== null &&
-          typeof entry === "object" &&
-          "amount" in entry &&
-          typeof (entry as { amount: unknown }).amount === "number"
-        ) {
-          total += (entry as { amount: number }).amount;
-        }
-      }
-      return total;
-    }
-    case "card_purge":
-    case "card_draft":
-    case "reward_reduction":
-    case "random_card_gain":
-    case "starter_cleanup":
-    case "essence_gain":
-      return 0;
-  }
-}
-
-/**
- * Computes a coarse value estimate for the reward effect of a payload.
- */
-export function bundleRewardEffectValue(
-  payload: BundleOptionPayload,
-  stage: JourneyStage,
-): number {
-  switch (payload.kind) {
-    case "card_draft":
-      return Math.max(400, 0);
-    case "random_card_gain":
-      return Math.max(
-        420,
-        valueRandomCardGain({
-          count: payload.count,
-          predicate: payload.gain.predicate,
-        }),
-      );
-    case "starter_cleanup":
-      return Math.max(320, valueStarterCleanup({ count: payload.count, stage }));
-    case "essence_gain":
-      return payload.amount;
-    case "essence_cost":
-    case "card_purge":
-    case "reward_reduction":
-    case "resource_cost_slot":
-      return 0;
   }
 }
 
