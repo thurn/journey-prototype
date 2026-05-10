@@ -62,6 +62,7 @@ describe("compoundPayloadMenuFill (registry-driven)", () => {
     // of the registry entries.
     const allowed = new Set(COMPOUND_BUNDLE_FAMILIES.map((f) => f.fillKind));
     const { context, drawContext } = makeTestContext({ seed: "bundle-3" });
+    let nonUndefinedCount = 0;
     for (let i = 0; i < 25; i += 1) {
       const fill = compoundPayloadMenuFill({
         context,
@@ -71,8 +72,10 @@ describe("compoundPayloadMenuFill (registry-driven)", () => {
         stage: "mid",
       });
       if (fill !== undefined) {
+        nonUndefinedCount += 1;
         expect(allowed.has(fill.fillKind)).toBe(true);
       }
     }
+    expect(nonUndefinedCount).toBeGreaterThan(15);
   });
 });
