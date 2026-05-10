@@ -474,7 +474,7 @@ function naturalDreamsignBody(
   };
 }
 
-function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody {
+export function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody {
   const anchorCard = referencedName(
     args.drawContext,
     "generated-object:status:anchor-card",
@@ -485,6 +485,7 @@ function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBod
     "purge-copy",
     "shop-reclaim",
     "bane-essence",
+    "oneshot-battle-rule",
   ] as const);
 
   if (fragment === "shop-reclaim") {
@@ -558,6 +559,49 @@ function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBod
         statusScope: "quest",
         trigger: "Bane gain",
         rewardEssence: 100,
+        source: "manifest_generated",
+      },
+      ruleIds: [
+        "stable_id",
+        "status_scope",
+        "duration",
+        "value_estimate",
+        "manifest_local",
+      ],
+    };
+  }
+
+  if (fragment === "oneshot-battle-rule") {
+    const flavour = pick(
+      args.drawContext,
+      "generated-object:status:oneshot-flavour",
+      ["hand_size", "energy", "turn_end"] as const,
+    );
+    const rulesText =
+      flavour === "hand_size"
+        ? `In your next battle, your starting hand size is +2.`
+        : flavour === "energy"
+          ? `In your next battle, gain 1 extra energy on turn 1.`
+          : `In your next battle, your turn does not end automatically.`;
+
+    return {
+      idPart: `oneshot-battle-${kebab(flavour)}`,
+      name,
+      objectType: "Quest Status",
+      rulesText,
+      tags: ["journey-only", "status", "battle", "oneshot"],
+      references: { rules: ["battle"] },
+      duration: generatedObjectDuration("next battle", 1, "battle_count"),
+      lifetime: "temporary",
+      valueEstimate: {
+        convertedEssence: 95,
+        confidence: "medium",
+        basis: "One-shot battle rule with bounded scope.",
+      },
+      payload: {
+        statusScope: "battle",
+        affectedObject: "battle_rule",
+        flavour,
         source: "manifest_generated",
       },
       ruleIds: [
