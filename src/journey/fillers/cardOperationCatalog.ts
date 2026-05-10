@@ -1130,6 +1130,22 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     },
     value: 75,
   }),
+  baseEntry({
+    key: "transfiguration_removal",
+    family: "transfiguration",
+    valueBand: "standard",
+    timing: "immediate",
+    compatibilityTraits: [
+      "needs_named_target",
+      "needs_deck_side",
+      "produces_deck_mutation",
+    ],
+    targetClasses: DECK_TARGET_CLASSES,
+    targetModes: CHOSEN_OR_NAMED,
+    renderText: (targetText) => `Remove a transfiguration from ${targetText}.`,
+    effect: { kind: "remove_transfiguration" },
+    value: 70,
+  }),
   {
     ...baseEntry({
       key: "opening-hand-window",
