@@ -6890,6 +6890,37 @@ describe.concurrent("generateNextJourney", () => {
 
     expect(seen).toBeGreaterThan(0);
   });
+
+  it("generates at least one single_rule_trial over a 100-seed sweep", async () => {
+    const journeyContext = await context();
+    let seen = 0;
+
+    for (let index = 0; index < 100; index += 1) {
+      const seededState = structuredClone(journeyContext.state);
+
+      seededState.quest.seed = `single-rule-coverage:${index}`;
+      seededState.generator = {
+        rootJourneyIndex: 1,
+        lastJourneyId: null,
+        cursors: {},
+      };
+      seededState.pendingJourney = null;
+      seededState.history = [];
+
+      const manifest = generateNextJourney({
+        context: {
+          ...journeyContext,
+          state: seededState,
+        },
+      });
+
+      if (manifest.shapeId === "single_rule_trial") {
+        seen += 1;
+      }
+    }
+
+    expect(seen).toBeGreaterThan(0);
+  });
 });
 
 describe.concurrent("validateJourneyManifest", () => {
