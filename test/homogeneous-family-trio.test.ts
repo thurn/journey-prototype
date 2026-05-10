@@ -4,6 +4,8 @@ import {
   symmetryContract,
 } from "../src/journey/fillers/shared.js";
 import { curatedRewardTrioFill } from "../src/journey/shapes/curated_reward_trio/fill.js";
+import { sameCostDifferentRewardsFill } from "../src/journey/shapes/same_cost_different_rewards/fill.js";
+import { serviceMenuFill } from "../src/journey/shapes/service_menu/fill.js";
 import { makeTestContext } from "./helpers/journey-context.js";
 
 describe("homogeneous_family_trio contract", () => {
@@ -70,6 +72,112 @@ describe("curated_reward_trio with familyRestriction", () => {
         (c) => c.contractKind !== "homogeneous_family_trio",
       ),
     ).toBe(true);
+  });
+});
+
+describe("service_menu with familyRestriction", () => {
+  it("emits a homogeneous_family_trio contract when familyRestriction is set", () => {
+    let emittedContract = false;
+    let succeeded = false;
+
+    for (let seedIndex = 0; seedIndex < 30; seedIndex += 1) {
+      const { context, drawContext, stage } = makeTestContext({
+        seed: `hft-svc-resource-${seedIndex}`,
+      });
+      const filled = serviceMenuFill({
+        context,
+        drawContext,
+        stage,
+        shapeArgs: { familyRestriction: "resource" },
+      });
+      if (filled.options.length !== 3) {
+        continue;
+      }
+      succeeded = true;
+      emittedContract =
+        emittedContract ||
+        (filled.symmetryContracts ?? []).some(
+          (c) => c.contractKind === "homogeneous_family_trio",
+        );
+      if (emittedContract) break;
+    }
+
+    expect(succeeded).toBe(true);
+    expect(emittedContract).toBe(true);
+  });
+
+  it("does not emit the contract when familyRestriction is unset", () => {
+    let sawContract = false;
+    for (let seedIndex = 0; seedIndex < 5; seedIndex += 1) {
+      const { context, drawContext, stage } = makeTestContext({
+        seed: `hft-svc-no-restriction-${seedIndex}`,
+      });
+      const filled = serviceMenuFill({ context, drawContext, stage });
+      if (
+        (filled.symmetryContracts ?? []).some(
+          (c) => c.contractKind === "homogeneous_family_trio",
+        )
+      ) {
+        sawContract = true;
+        break;
+      }
+    }
+    expect(sawContract).toBe(false);
+  });
+});
+
+describe("same_cost_different_rewards with familyRestriction", () => {
+  it("emits a homogeneous_family_trio contract when familyRestriction is set", () => {
+    let emittedContract = false;
+    let succeeded = false;
+
+    for (let seedIndex = 0; seedIndex < 30; seedIndex += 1) {
+      const { context, drawContext, stage } = makeTestContext({
+        seed: `hft-scdr-resource-${seedIndex}`,
+      });
+      const filled = sameCostDifferentRewardsFill({
+        context,
+        drawContext,
+        stage,
+        shapeArgs: { familyRestriction: "resource" },
+      });
+      if (filled.options.length !== 3) {
+        continue;
+      }
+      succeeded = true;
+      emittedContract =
+        emittedContract ||
+        (filled.symmetryContracts ?? []).some(
+          (c) => c.contractKind === "homogeneous_family_trio",
+        );
+      if (emittedContract) break;
+    }
+
+    expect(succeeded).toBe(true);
+    expect(emittedContract).toBe(true);
+  });
+
+  it("does not emit the contract when familyRestriction is unset", () => {
+    let sawContract = false;
+    for (let seedIndex = 0; seedIndex < 5; seedIndex += 1) {
+      const { context, drawContext, stage } = makeTestContext({
+        seed: `hft-scdr-no-restriction-${seedIndex}`,
+      });
+      const filled = sameCostDifferentRewardsFill({
+        context,
+        drawContext,
+        stage,
+      });
+      if (
+        (filled.symmetryContracts ?? []).some(
+          (c) => c.contractKind === "homogeneous_family_trio",
+        )
+      ) {
+        sawContract = true;
+        break;
+      }
+    }
+    expect(sawContract).toBe(false);
   });
 });
 

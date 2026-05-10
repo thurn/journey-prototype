@@ -2,9 +2,11 @@ import { weightedChoice } from "../../../util/rng.js";
 import { sharedStarterCleanupRewardFill } from "../../fillers/shapeFills.js";
 import {
   optionFromResolvedShapeFill,
+  rewardFamilyTag,
   rewardSlotOption,
   rewardSlots,
   starterSurgeryRewardSlots,
+  symmetryContract,
 } from "../../fillers/shared.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { compoundPayloadMenuFill } from "./compoundPayloads.js";
@@ -12,7 +14,50 @@ import { compoundPayloadMenuFill } from "./compoundPayloads.js";
 const SHAPE_ID = "service_menu";
 
 export function serviceMenuFill(args: ShapeFillArgs): FilledJourney {
-  const { context, drawContext, stage } = args;
+  const { context, drawContext, stage, shapeArgs } = args;
+  const familyRestriction =
+    typeof shapeArgs?.familyRestriction === "string"
+      ? shapeArgs.familyRestriction
+      : undefined;
+
+  if (familyRestriction) {
+    const restricted = rewardSlots(
+      context,
+      drawContext,
+      `${SHAPE_ID}:services`,
+    ).filter(
+      (reward) =>
+        reward.effect >= 140 &&
+        rewardFamilyTag(reward.key) === familyRestriction,
+    );
+
+    const options = restricted
+      .slice(0, 3)
+      .map((reward, index) => rewardSlotOption(index + 1, reward));
+
+    if (options.length === 3) {
+      return {
+        options,
+        precommitted: {},
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "homogeneous_family_trio",
+            sharedProperty: "rewardFamily",
+            variedProperty: "rewardSpecific",
+            sharedFirst: true,
+            optionNumbers: options.map((opt) => opt.number),
+            sharedPayloadKeys: [`rewardFamily=${familyRestriction}`],
+          }),
+        ],
+      };
+    }
+
+    return {
+      options,
+      precommitted: {},
+    };
+  }
+
   const starterRewards = starterSurgeryRewardSlots(
     context,
     drawContext,
