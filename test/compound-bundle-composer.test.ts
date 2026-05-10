@@ -4,6 +4,7 @@ import {
   COMPOUND_BUNDLE_FAMILIES,
   buildBundleFamilyOption,
 } from "../src/journey/shapes/service_menu/compoundBundleFamilies.js";
+import { compoundPayloadMenuFill } from "../src/journey/shapes/service_menu/compoundPayloads.js";
 import { makeTestContext } from "./helpers/journey-context.js";
 
 describe("genericBundleOption", () => {
@@ -50,6 +51,28 @@ describe("COMPOUND_BUNDLE_FAMILIES", () => {
         shapeId: "service_menu",
       });
       expect(option, `family ${family.id} returned undefined`).toBeDefined();
+    }
+  });
+});
+
+describe("compoundPayloadMenuFill (registry-driven)", () => {
+  it("never dispatches to per-family fill functions", () => {
+    // Static assertion via grep is also done in the deletion check; here
+    // we assert behaviour: every fill it returns has a fillKind matching one
+    // of the registry entries.
+    const allowed = new Set(COMPOUND_BUNDLE_FAMILIES.map((f) => f.fillKind));
+    const { context, drawContext } = makeTestContext({ seed: "bundle-3" });
+    for (let i = 0; i < 25; i += 1) {
+      const fill = compoundPayloadMenuFill({
+        context,
+        drawContext: { ...drawContext, sequenceStep: i },
+        label: `iter-${i}`,
+        shapeId: "service_menu",
+        stage: "mid",
+      });
+      if (fill !== undefined) {
+        expect(allowed.has(fill.fillKind)).toBe(true);
+      }
     }
   });
 });

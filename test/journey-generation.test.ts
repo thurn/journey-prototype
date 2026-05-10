@@ -27,7 +27,6 @@ import {
   costSlots,
   draftCards,
   option,
-  optionFromResolvedShapeFill,
   randomCardGain,
   starterSurgeryRewardSlots,
   target,
@@ -207,7 +206,7 @@ function fillForShapeAtStage(
   });
 }
 
-function compoundManifestForFamily(
+function compoundFillForFamily(
   family: "scissor_saint" | "molting_archive" | "withered_orchard" | "mixed_service",
   journeyContext: Awaited<ReturnType<typeof context>>,
 ) {
@@ -229,16 +228,7 @@ function compoundManifestForFamily(
     throw new Error(`Unable to compose compound payload family ${family}`);
   }
 
-  const base = fillForShape("service_menu", journeyContext);
-  const precommitted = refreshPrecommittedOperations({
-    routeEdits: fill.options.flatMap((option) => option.routeEffects ?? []),
-  });
-
-  return {
-    ...base,
-    options: fill.options.map(optionFromResolvedShapeFill),
-    precommitted,
-  };
+  return fill;
 }
 
 async function findValidForcedShapeManifest(
@@ -3986,89 +3976,51 @@ describe.concurrent("generateNextJourney", () => {
     );
   });
 
-  it("builds Scissor Saint as card and Dreamsign sacrifices paired with normal rewards", async () => {
+  it("composes Scissor Saint bundles from a card-purge cost and a survivors card-draft reward", async () => {
     const journeyContext = await context("m20-scissor");
-    const manifest = compoundManifestForFamily("scissor_saint", journeyContext);
-    const operationKinds = manifest.options.map((journeyOption) =>
-      journeyOption.operations.map((operation) =>
-        operation.operationKind === "reward"
-          ? operation.rewardKind
-          : operation.operationKind === "burden"
-            ? operation.burdenKind
-            : operation.operationKind
-      )
-    );
+    const fill = compoundFillForFamily("scissor_saint", journeyContext);
 
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
-    expect(operationKinds).toEqual([
-      expect.arrayContaining(["card_sacrifice", "dreamsign_gain"]),
-      expect.arrayContaining(["card_sacrifice", "card_draft"]),
-      expect.arrayContaining(["dreamsign_sacrifice", "transfiguration"]),
-    ]);
-    expect(manifest.options.every((journeyOption) =>
-      journeyOption.symbols.includes("reward") &&
-      journeyOption.symbols.includes("risk")
-    )).toBe(true);
-  });
-
-  it("builds Molting Archive as transform-plus-reward and random-card-gain-plus-purge compounds", async () => {
-    const journeyContext = await context("m20-molting");
-    const manifest = compoundManifestForFamily("molting_archive", journeyContext);
-    const options = manifest.options.map((journeyOption) => ({
-      rewards: journeyOption.operations.flatMap((operation) =>
-        operation.operationKind === "reward" ? [operation.rewardKind] : []
-      ),
-      burdens: journeyOption.operations.flatMap((operation) =>
-        operation.operationKind === "burden" ? [operation.burdenKind] : []
-      ),
-    }));
-
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
-    expect(options[0]!.rewards).toEqual(
-      expect.arrayContaining(["dreamsign_transform", "resource"]),
-    );
-    expect(options[1]!.rewards).toEqual(
-      expect.arrayContaining(["dreamsign_gain", "card_transform"]),
-    );
-    expect(options[2]).toMatchObject({
-      rewards: expect.arrayContaining(["card_gain"]),
-      burdens: expect.arrayContaining(["card_sacrifice"]),
-    });
-  });
-
-  it("builds Withered Orchard as reward-reduction burdens paired with Dreamsign, Legendary card, and starter cleanup rewards", async () => {
-    const journeyContext = await context("m20-withered");
-    const manifest = compoundManifestForFamily("withered_orchard", journeyContext);
-    const valueBreakdown = evaluateOptionValue(manifest.options[0]!, journeyContext);
-
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
+    expect(fill.fillKind).toBe("compound_payload:scissor_saint");
+    expect(fill.options).toHaveLength(1);
+    const roles = fill.options[0]!.payloadSpecs.map((spec) => spec.role).sort();
+    expect(roles).toEqual(["burden", "reward"]);
     expect(
-      manifest.options.map((journeyOption) =>
-        journeyOption.operations.map((operation) =>
-          operation.operationKind === "reward"
-            ? operation.rewardKind
-            : operation.operationKind === "status"
-              ? `${operation.role}:${operation.statusKind}`
-              : operation.operationKind
-        )
-      ),
-    ).toEqual([
-      expect.arrayContaining(["burden:status_reward_reduction", "dreamsign_gain"]),
-      expect.arrayContaining(["burden:status_reward_reduction", "card_gain"]),
-      expect.arrayContaining(["burden:status_reward_reduction", "starter_cleanup"]),
-    ]);
-    expect(valueBreakdown.components).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ kind: "burden", value: -120 }),
-        expect.objectContaining({ kind: "effect", value: 320 }),
-      ]),
+      fill.options[0]!.payloadSpecs.map((spec) => spec.family).sort(),
+    ).toEqual(["bundle_card_draft", "bundle_card_purge"]);
+  });
+
+  it("composes Molting Archive bundles from a card-purge cost and a random-card-gain reward", async () => {
+    const journeyContext = await context("m20-molting");
+    const fill = compoundFillForFamily("molting_archive", journeyContext);
+
+    expect(fill.fillKind).toBe("compound_payload:molting_archive");
+    expect(fill.options).toHaveLength(1);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.role).sort(),
+    ).toEqual(["burden", "reward"]);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.family).sort(),
+    ).toEqual(["bundle_card_purge", "bundle_random_card_gain"]);
+  });
+
+  it("composes Withered Orchard bundles from a reward-reduction burden and a starter cleanup reward", async () => {
+    const journeyContext = await context("m20-withered");
+    const fill = compoundFillForFamily("withered_orchard", journeyContext);
+
+    expect(fill.fillKind).toBe("compound_payload:withered_orchard");
+    expect(fill.options).toHaveLength(1);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.role).sort(),
+    ).toEqual(["burden", "reward"]);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.family).sort(),
+    ).toEqual(["bundle_reward_reduction", "bundle_starter_cleanup"]);
+    const burdenSpec = fill.options[0]!.payloadSpecs.find(
+      (spec) => spec.role === "burden",
     );
+    expect(
+      (burdenSpec?.payloads[0] as { kind?: unknown } | undefined)?.kind,
+    ).toBe("status_reward_reduction");
   });
 
   slowIt("profiles reward-reduction status durations", async () => {
@@ -4103,58 +4055,42 @@ describe.concurrent("generateNextJourney", () => {
         }
       }
 
-      const manifest = compoundManifestForFamily(
-        "withered_orchard",
-        journeyContext,
+      const fill = compoundFillForFamily("withered_orchard", journeyContext);
+      const burdenSpec = fill.options[0]!.payloadSpecs.find(
+        (spec) => spec.role === "burden",
       );
-      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-        ok: true,
-      });
+      const burdenPayload = burdenSpec?.payloads[0] as
+        | { duration?: unknown }
+        | undefined;
 
-      for (const operation of manifest.options.flatMap(
-        (journeyOption) => journeyOption.operations,
-      )) {
-        if (
-          operation.operationKind === "status" &&
-          operation.statusKind === "status_reward_reduction" &&
-          typeof operation.payload.duration === "string"
-        ) {
-          compoundDurations.add(operation.payload.duration);
-        }
+      if (typeof burdenPayload?.duration === "string") {
+        compoundDurations.add(burdenPayload.duration);
       }
     }
 
     expect([...costSlotDurations]).toEqual(
       expect.arrayContaining(["next_2_battles", "next_4_dreamscapes"]),
     );
+    // The withered_orchard registry entry uses an essence_site trigger, which
+    // emits dreamscape-scoped durations; battle-scoped durations now appear
+    // only in cost-slot burdens, not in compound bundles.
     expect([...compoundDurations]).toEqual(
-      expect.arrayContaining(["next_2_battles", "next_4_dreamscapes"]),
+      expect.arrayContaining(["next_2_dreamscapes", "next_4_dreamscapes"]),
     );
   });
 
-  it("builds mixed service compounds with cost, route, and follow-up pairings", async () => {
+  it("composes mixed-service bundles from a low-essence cost slot and an essence-gain reward", async () => {
     const journeyContext = await context("m20-mixed-service");
-    const manifest = compoundManifestForFamily("mixed_service", journeyContext);
-    const operationKinds = manifest.options.map((journeyOption) =>
-      journeyOption.operations.map((operation) =>
-        operation.operationKind === "reward"
-          ? operation.rewardKind
-          : operation.operationKind === "cost"
-            ? operation.operationKind
-            : operation.operationKind === "route_edit"
-              ? operation.operationKind
-              : operation.operationKind
-      )
-    );
+    const fill = compoundFillForFamily("mixed_service", journeyContext);
 
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
-    expect(operationKinds).toEqual([
-      expect.arrayContaining(["cost", "dreamsign_gain"]),
-      expect.arrayContaining(["dreamsign_gain", "route_edit"]),
-      expect.arrayContaining(["dreamsign_gain", "resource"]),
-    ]);
+    expect(fill.fillKind).toBe("compound_payload:mixed_service");
+    expect(fill.options).toHaveLength(1);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.role).sort(),
+    ).toEqual(["cost", "reward"]);
+    expect(
+      fill.options[0]!.payloadSpecs.map((spec) => spec.family).sort(),
+    ).toEqual(["bundle_essence_gain", "bundle_resource_cost_slot"]);
   });
 
   it("serves normal card-operation shapes from topology-compatible catalog entries", async () => {
