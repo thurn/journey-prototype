@@ -26,9 +26,10 @@ describe("genericBundleOption", () => {
 });
 
 describe("COMPOUND_BUNDLE_FAMILIES", () => {
-  it("contains entries for the four legacy families with positive weights", () => {
+  it("contains entries for the four legacy families plus the registry-only fifth, all with positive weights", () => {
     const ids = COMPOUND_BUNDLE_FAMILIES.map((f) => f.id).sort();
     expect(ids).toEqual([
+      "bane_purge_plus_essence",
       "mixed_service",
       "molting_archive",
       "scissor_saint",
@@ -52,6 +53,13 @@ describe("COMPOUND_BUNDLE_FAMILIES", () => {
       });
       expect(option, `family ${family.id} returned undefined`).toBeDefined();
     }
+  });
+});
+
+describe("registry extensibility", () => {
+  it("supports a fifth family added by configuration only", () => {
+    const ids = COMPOUND_BUNDLE_FAMILIES.map((f) => f.id);
+    expect(ids).toContain("bane_purge_plus_essence");
   });
 });
 

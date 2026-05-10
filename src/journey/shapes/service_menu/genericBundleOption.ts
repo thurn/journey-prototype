@@ -3,6 +3,7 @@ import type { JourneyStage } from "../../manifest.js";
 import {
   CARD_DRAFT_PROFILES,
   GENERIC_CARD_DRAFT_PROFILE,
+  baneBurden,
   cardDraftText,
   cost,
   costSlots,
@@ -15,6 +16,7 @@ import {
   type CardDraftProfile,
 } from "../../fillers/shared.js";
 import { statusPayload } from "../../fillers/environmentPayloads.js";
+import { DEFAULT_BANE_NAME, type BaneName } from "../../effects.js";
 import type { DrawContext } from "../../../util/rng.js";
 
 /**
@@ -41,6 +43,21 @@ export type BundleCardDraftProfileId =
 export type BundleRewardReductionTrigger = "battle" | "essence_site";
 
 /**
+ * Timing window for the `delayed_bane` cost source. Values match the
+ * `next_N_battles` literals already used by `statusPayload.duration`, the
+ * shared "battle window" vocabulary surfaced by `REWARD_REDUCTION_DURATIONS`,
+ * and the snake_case duration tokens consumed elsewhere in the project.
+ *
+ * The composer maps each value to a human label (e.g. `next 2 battles`) for
+ * the bundle render text and to a `baneBurden` `timing` string for the
+ * downstream payload.
+ */
+export type BundleDelayedBaneTiming =
+  | "next_2_battles"
+  | "next_3_battles"
+  | "next_4_battles";
+
+/**
  * Declarative descriptor for the cost half of a generic bundle option.
  *
  * Each kind names a self-contained selection strategy. `fixed_essence`
@@ -55,6 +72,10 @@ export type BundleRewardReductionTrigger = "battle" | "essence_site";
  *   `drawContext` at build time.
  * - `low_essence_cost_slot` matches the `mixed_service` shared cost: pick the
  *   `low-essence` slot from `costSlots(...)`.
+ * - `delayed_bane` adds a Bane obligation that resolves later, modeled on
+ *   the legacy `delayedBaneHook`/`baneBurden` pattern. The timing window is
+ *   one of the snake_case `next_N_battles` literals shared with
+ *   `statusPayload.duration`.
  */
 export type BundleCostSource =
   | { readonly kind: "fixed_essence"; readonly amount: number }
@@ -63,7 +84,13 @@ export type BundleCostSource =
       readonly kind: "reward_reduction_burden";
       readonly trigger: BundleRewardReductionTrigger;
     }
-  | { readonly kind: "low_essence_cost_slot" };
+  | { readonly kind: "low_essence_cost_slot" }
+  | {
+      readonly kind: "delayed_bane";
+      readonly baneCount: number;
+      readonly timing: BundleDelayedBaneTiming;
+      readonly baneName?: BaneName;
+    };
 
 /**
  * Declarative descriptor for the reward half of a generic bundle option.
@@ -134,6 +161,14 @@ export type BundleOptionPayload =
       readonly kind: "essence_gain";
       readonly amount: number;
       readonly effect: ReturnType<typeof gainEssence>;
+    }
+  | {
+      readonly kind: "delayed_bane_cost";
+      readonly baneName: BaneName;
+      readonly baneCount: number;
+      readonly timing: BundleDelayedBaneTiming;
+      readonly timingLabel: string;
+      readonly burden: Record<string, unknown>;
     };
 
 /**
@@ -190,6 +225,16 @@ const REWARD_REDUCTION_AMOUNTS: Record<
   battle: [1, 1, 2],
   essence_site: [20, 30, 40],
 };
+
+const DELAYED_BANE_TIMING_LABELS: Record<BundleDelayedBaneTiming, string> = {
+  next_2_battles: "next 2 battles",
+  next_3_battles: "next 3 battles",
+  next_4_battles: "next 4 battles",
+};
+
+function delayedBaneTimingLabel(timing: BundleDelayedBaneTiming): string {
+  return DELAYED_BANE_TIMING_LABELS[timing];
+}
 
 function resolveCardDraftProfile(
   profileId: BundleCardDraftProfileId,
@@ -327,6 +372,28 @@ function buildCostPayload(
           costs: slot.costs ?? [],
         },
         renderText: slot.prefix,
+      };
+    }
+    case "delayed_bane": {
+      const baneName = source.baneName ?? DEFAULT_BANE_NAME;
+      const timingLabel = delayedBaneTimingLabel(source.timing);
+      const burden = baneBurden(baneName, source.baneCount, {
+        timing: timingLabel,
+        duration: timingLabel,
+      });
+      const noun = source.baneCount === 1 ? baneName : `${baneName}s`;
+      const renderText = `Gain ${source.baneCount} ${noun} over the ${timingLabel}`;
+
+      return {
+        payload: {
+          kind: "delayed_bane_cost",
+          baneName,
+          baneCount: source.baneCount,
+          timing: source.timing,
+          timingLabel,
+          burden: burden as Record<string, unknown>,
+        },
+        renderText,
       };
     }
     default: {

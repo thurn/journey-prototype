@@ -16,6 +16,7 @@ import {
   type GenericBundleOption,
 } from "./genericBundleOption.js";
 import {
+  valueBaneBurden,
   valueCardDraft,
   valueRandomCardGain,
   valueStarterCleanup,
@@ -32,7 +33,8 @@ export type CompoundBundleFamilyId =
   | "scissor_saint"
   | "molting_archive"
   | "withered_orchard"
-  | "mixed_service";
+  | "mixed_service"
+  | "bane_purge_plus_essence";
 
 /**
  * Registry entry describing a single compound bundle family. The four entries
@@ -87,6 +89,18 @@ export const COMPOUND_BUNDLE_FAMILIES: readonly CompoundBundleFamily[] = [
     // be reintroduced as Task 1.3 expands the registry to multi-option fills.
     costSource: { kind: "low_essence_cost_slot" },
     rewardSource: { kind: "essence_gain", amount: 65 },
+  },
+  {
+    // First registry-only family: demonstrates that a new pairing now requires
+    // only a registry entry (plus a new cost-source variant + payload-kind
+    // adapter) rather than a bespoke fill function. The cost is a delayed-bane
+    // obligation paid out over the next 2 battles; the reward is a flat
+    // essence gain reusing the existing `essence_gain` reward source.
+    id: "bane_purge_plus_essence",
+    weight: 2,
+    fillKind: "compound_payload:bane_purge_plus_essence",
+    costSource: { kind: "delayed_bane", baneCount: 1, timing: "next_2_battles" },
+    rewardSource: { kind: "essence_gain", amount: 150 },
   },
 ];
 
@@ -184,6 +198,15 @@ function adaptPayload(payload: BundleOptionPayload): PayloadAdaptation {
         burdens: EMPTY,
         targets: EMPTY,
       };
+    case "delayed_bane_cost":
+      return {
+        role: "burden",
+        textSource: "burden",
+        costs: EMPTY,
+        effects: EMPTY,
+        burdens: [payload.burden],
+        targets: EMPTY,
+      };
   }
 }
 
@@ -277,6 +300,12 @@ function bundleCostBurdenValue(payload: BundleOptionPayload): number {
           ? "battle_reward_reduction"
           : "essence_site_reward_reduction",
       );
+    case "delayed_bane_cost":
+      return valueBaneBurden({
+        baneName: payload.baneName,
+        count: payload.baneCount,
+        delayed: true,
+      });
     case "essence_cost":
     case "card_draft":
     case "resource_cost_slot":
@@ -315,6 +344,7 @@ function bundleCostResourceValue(payload: BundleOptionPayload): number {
     case "random_card_gain":
     case "starter_cleanup":
     case "essence_gain":
+    case "delayed_bane_cost":
       return 0;
   }
 }
@@ -345,6 +375,7 @@ function bundleRewardEffectValue(
     case "card_purge":
     case "reward_reduction":
     case "resource_cost_slot":
+    case "delayed_bane_cost":
       return 0;
   }
 }
@@ -364,6 +395,7 @@ function adaptCostText(payload: BundleOptionPayload): string {
     case "random_card_gain":
     case "starter_cleanup":
     case "essence_gain":
+    case "delayed_bane_cost":
       return "";
   }
 }
@@ -388,6 +420,12 @@ function adaptRewardOrBurdenText(payload: BundleOptionPayload): string {
         : `Purge up to ${payload.count} chosen Starter cards.`;
     case "essence_gain":
       return `Gain ${payload.amount} essence.`;
+    case "delayed_bane_cost": {
+      const noun = payload.baneCount === 1
+        ? payload.baneName
+        : `${payload.baneName}s`;
+      return `Gain ${payload.baneCount} ${noun} over the ${payload.timingLabel}.`;
+    }
     case "essence_cost":
     case "resource_cost_slot":
       return "";
