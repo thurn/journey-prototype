@@ -279,7 +279,7 @@ export function fillOptions(
           },
         );
         const operations = compatibleDreamsignOperations(drawContext, {
-          topology: "one_target_many_operations",
+          slot: { provides: ["single_target", "named_target"] },
           targetSources: ["pool"],
           targetModes: ["chosen"],
           families: ["transform", "duplicate", "purge", "pool_edit"],
@@ -465,7 +465,13 @@ export function fillOptions(
 
       if (mirror === "dreamsign" && context.state.quest.dreamsignPoolIds.length > 0) {
         const operations = compatibleDreamsignOperations(drawContext, {
-          topology: "mirrored_operations",
+          slot: {
+            provides: [
+              "single_target",
+              "named_target",
+              "random_predicate_target",
+            ],
+          },
           targetSources: ["pool", "catalog"],
           targetModes: ["exact_named"],
           families: [

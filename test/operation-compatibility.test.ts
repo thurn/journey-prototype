@@ -3,6 +3,7 @@ import {
   CARD_OPERATION_CATALOG,
   compatibleCardOperations,
 } from "../src/journey/fillers/cardOperationCatalog.js";
+import { DREAMSIGN_OPERATION_CATALOG } from "../src/journey/fillers/dreamsignOperationCatalog.js";
 import {
   slotAcceptsOperation,
   type OperationCompatibilityTrait,
@@ -58,6 +59,17 @@ describe("CARD_OPERATION_CATALOG entries", () => {
 describe("CARD_OPERATION_CATALOG full migration", () => {
   it("every entry declares compatibilityTraits", () => {
     for (const entry of CARD_OPERATION_CATALOG) {
+      expect(
+        entry.compatibilityTraits,
+        `entry ${entry.key} missing compatibilityTraits`,
+      ).toBeDefined();
+    }
+  });
+});
+
+describe("DREAMSIGN_OPERATION_CATALOG full migration", () => {
+  it("every entry declares compatibilityTraits", () => {
+    for (const entry of DREAMSIGN_OPERATION_CATALOG) {
       expect(
         entry.compatibilityTraits,
         `entry ${entry.key} missing compatibilityTraits`,

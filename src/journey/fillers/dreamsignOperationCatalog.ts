@@ -7,6 +7,11 @@ import {
   DREAMSIGN_OPERATION_VALUE_CONSTANTS,
   valueDreamsignOperation,
 } from "../value.js";
+import {
+  slotAcceptsOperation,
+  type OperationCompatibilityTrait,
+  type SlotCapability,
+} from "./operationCompatibility.js";
 import { BATTLE_WINDOW_DURATION, cost } from "./shared.js";
 import {
   contentBackedDreamsignCandidates,
@@ -15,12 +20,6 @@ import {
   sourcePoolSizeForDreamsignSource,
   type DreamsignSelectionSource,
 } from "./dreamsignPayloads.js";
-
-export type DreamsignOperationTopology =
-  | "one_target_many_operations"
-  | "mirrored_operations"
-  | "one_operation_many_targets"
-  | "direct_menu";
 
 export type DreamsignOperationTargetMode =
   | "chosen"
@@ -69,14 +68,14 @@ type DreamsignOperationCatalogEntry = Omit<
   MaterializedDreamsignOperation,
   "targets"
 > & {
-  topologies: readonly DreamsignOperationTopology[];
+  compatibilityTraits: readonly OperationCompatibilityTrait[];
   materialize?: (
     args: DreamsignOperationMaterializerArgs,
   ) => MaterializedDreamsignOperation | undefined;
 };
 
 type DreamsignOperationRequest = {
-  topology: DreamsignOperationTopology;
+  slot: SlotCapability;
   targetSources?: readonly DreamsignSelectionSource[];
   targetModes?: readonly DreamsignOperationTargetMode[];
   families?: readonly DreamsignOperationFamily[];
@@ -96,13 +95,6 @@ type BattleWindowProfile = {
   label: string;
   count: number;
 };
-
-const ALL_TOPOLOGIES = [
-  "one_target_many_operations",
-  "mirrored_operations",
-  "one_operation_many_targets",
-  "direct_menu",
-] as const satisfies readonly DreamsignOperationTopology[];
 
 const ALL_SOURCES = [
   "catalog",
@@ -459,12 +451,12 @@ function materializeRandomReward(
   };
 }
 
-const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
+export const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
   {
     ...baseEntry({
       key: "exact-named-gain",
       family: "gain",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog", "pool"],
       renderText: (targetText) => `Gain ${targetText}.`,
       effect: { kind: "dreamsign_gain" },
@@ -476,7 +468,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "purchase-with-essence",
       family: "purchase",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog", "pool"],
       renderText: (targetText) => `Buy ${targetText} for 30 essence.`,
       effect: { kind: "dreamsign_purchase" },
@@ -490,7 +482,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "purchase-with-omen",
       family: "purchase",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog", "pool"],
       renderText: (targetText) => `Buy ${targetText} for 1 omen.`,
       effect: { kind: "dreamsign_purchase", purchaseCurrency: "omens", purchaseAmount: 1 },
@@ -509,7 +501,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "lose-active",
       family: "loss",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["active"],
       renderText: (targetText) => `Lose ${targetText}.`,
       effect: { kind: "dreamsign_loss" },
@@ -521,7 +513,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "purge",
       family: "purge",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["active", "pool"],
       renderText: (targetText) => `Purge ${targetText}.`,
       effect: { kind: "dreamsign_purge" },
@@ -533,7 +525,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "duplicate",
       family: "duplicate",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ALL_SOURCES,
       renderText: (targetText) => `Add another copy of ${targetText}.`,
       effect: { kind: "dreamsign_duplicate" },
@@ -546,7 +538,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "copy-gain",
       family: "copy_gain",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog", "pool"],
       renderText: (targetText) => `Gain a copied version of ${targetText}.`,
       effect: { kind: "dreamsign_copy_gain" },
@@ -559,7 +551,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "temporary-grant",
       family: "temporary_grant",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog", "pool"],
       renderText: (targetText) =>
         `Gain ${targetText} as a temporary Dreamsign for the next 3 battles.`,
@@ -591,7 +583,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "transform-to-named",
       family: "transform",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["active", "pool"],
       renderText: (targetText) => `Transform ${targetText} into a named Dreamsign.`,
       effect: { kind: "dreamsign_transform" },
@@ -603,7 +595,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "transform-to-random",
       family: "transform",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["active", "pool"],
       renderText: (targetText) => `Transform ${targetText} into a random Dreamsign.`,
       effect: { kind: "dreamsign_transform" },
@@ -620,7 +612,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "pool-add",
       family: "pool_edit",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["catalog"],
       renderText: (targetText) => `Add ${targetText} to your Dreamsign pool.`,
       effect: { kind: "dreamsign_pool_edit" },
@@ -632,7 +624,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "pool-remove",
       family: "pool_edit",
-      topologies: ["direct_menu", "mirrored_operations", "one_target_many_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["pool"],
       renderText: (targetText) => `Remove ${targetText} from your Dreamsign pool.`,
       effect: { kind: "dreamsign_pool_edit" },
@@ -644,7 +636,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "pool-replace",
       family: "pool_edit",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["pool"],
       renderText: (targetText) =>
         `Replace ${targetText} in your Dreamsign pool with a named catalog Dreamsign.`,
@@ -657,7 +649,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "random-pool-reward",
       family: "random_reward",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_random_predicate_target"],
       targetSources: ["pool"],
       targetModes: ["hidden_random", "predicate"],
       renderText: () => "Gain 1 random Dreamsign from your pool.",
@@ -672,7 +664,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "random-neutral-reward",
       family: "random_reward",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_random_predicate_target"],
       targetSources: ["catalog"],
       targetModes: ["hidden_random", "predicate"],
       renderText: () => "Gain 1 random neutral Dreamsign.",
@@ -687,7 +679,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "trade-hook",
       family: "trade_hook",
-      topologies: ["direct_menu", "mirrored_operations"],
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ["pool"],
       renderText: (targetText) =>
         `After next battle, trade ${targetText} for a named catalog Dreamsign.`,
@@ -735,7 +727,7 @@ const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntry[] = [
     ...baseEntry({
       key: "trigger-counter",
       family: "trigger_counter",
-      topologies: ALL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target"],
       targetSources: ALL_SOURCES,
       renderText: (targetText) =>
         `Count the next 2 triggers from ${targetText}; the second trigger repeats.`,
@@ -762,7 +754,7 @@ function matchesRequest(
   request: DreamsignOperationRequest,
 ): boolean {
   return (
-    entry.topologies.includes(request.topology) &&
+    slotAcceptsOperation(request.slot, entry) &&
     includesAny(entry.targetSources, request.targetSources) &&
     includesAll(entry.targetModes, request.targetModes) &&
     (!request.families || request.families.includes(entry.family))
@@ -805,7 +797,7 @@ export function compatibleDreamsignOperations(
 
   if (candidates.length < request.count) {
     throw new Error(
-      `Dreamsign operation catalog has ${candidates.length} compatible entries for ${request.topology}; ${request.count} required`,
+      `Dreamsign operation catalog has ${candidates.length} compatible entries for slot ${JSON.stringify(request.slot.provides)}; ${request.count} required`,
     );
   }
 

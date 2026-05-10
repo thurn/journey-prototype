@@ -4356,7 +4356,13 @@ describe.concurrent("generateNextJourney", () => {
       rootJourneyIndex: 0,
     };
     const activeOperations = compatibleDreamsignOperations(drawContext, {
-      topology: "one_target_many_operations",
+      slot: {
+        provides: [
+          "single_target",
+          "named_target",
+          "random_predicate_target",
+        ],
+      },
       targetSources: ["active"],
       families: ["loss", "purge", "duplicate", "transform", "trigger_counter"],
       context: journeyContext,
@@ -4365,7 +4371,13 @@ describe.concurrent("generateNextJourney", () => {
       count: 6,
     });
     const poolOperations = compatibleDreamsignOperations(drawContext, {
-      topology: "mirrored_operations",
+      slot: {
+        provides: [
+          "single_target",
+          "named_target",
+          "random_predicate_target",
+        ],
+      },
       targetSources: ["pool"],
       families: ["pool_edit", "copy_gain", "trade_hook", "random_reward"],
       context: journeyContext,
@@ -4374,7 +4386,13 @@ describe.concurrent("generateNextJourney", () => {
       count: 4,
     });
     const catalogOperations = compatibleDreamsignOperations(drawContext, {
-      topology: "direct_menu",
+      slot: {
+        provides: [
+          "single_target",
+          "named_target",
+          "random_predicate_target",
+        ],
+      },
       targetSources: ["catalog"],
       families: ["gain", "purchase", "temporary_grant", "random_reward"],
       context: journeyContext,
@@ -4410,7 +4428,7 @@ describe.concurrent("generateNextJourney", () => {
     };
     const operationFor = (stage: "early" | "mid" | "late", label: string) =>
       compatibleDreamsignOperations(drawContext, {
-        topology: "direct_menu",
+        slot: { provides: ["single_target", "named_target"] },
         targetSources: ["catalog"],
         families: ["temporary_grant"],
         context: journeyContext,
@@ -4567,7 +4585,13 @@ describe.concurrent("generateNextJourney", () => {
       family: DreamsignOperationFamily,
       label: string,
     ) => compatibleDreamsignOperations(drawContext, {
-      topology: "direct_menu",
+      slot: {
+        provides: [
+          "single_target",
+          "named_target",
+          "random_predicate_target",
+        ],
+      },
       targetSources: ["pool", "catalog", "active"],
       families: [family],
       context: journeyContext,
