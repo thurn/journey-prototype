@@ -901,6 +901,7 @@ export type JourneySymmetryContractDebug = {
     | "shared_burden_different_rewards"
     | "shared_operation_named_targets"
     | "shared_target_operations"
+    | "shared_axis_rotated_attribute"
     | "shared_source_site_destinations"
     | "shared_timing_different_rewards"
     | "shared_future_trigger_outcomes"
