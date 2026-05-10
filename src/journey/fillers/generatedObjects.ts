@@ -1,12 +1,76 @@
 import { drawInt, type DrawContext } from "../../util/rng.js";
 import type {
   GeneratedObjectDefinition,
+  HookTriggerSelector,
   JourneyOption,
   JourneyStage,
 } from "../manifest.js";
 import { BANE_NAMES } from "../effects.js";
 import type { JourneyShapeId } from "../shapes.js";
 import { option } from "./shared.js";
+
+export type GeneratedObjectLifetime = NonNullable<
+  GeneratedObjectDefinition["lifetime"]
+>;
+
+const TRIGGER_KIND_LABELS: Record<
+  HookTriggerSelector["triggerKind"],
+  string
+> = {
+  battle: "battle",
+  victory: "victory",
+  each_battle: "battle",
+  dreamscape: "dreamscape",
+  site_visit: "site visit",
+  named_card_play: "named card play",
+  dreamsign_trigger: "Dreamsign trigger",
+  card_added: "card add",
+  essence_payment: "essence payment",
+  future_shop: "future Shop",
+  future_dream_journey: "future Dream Journey",
+};
+
+function pluralize(label: string, count: number): string {
+  if (count === 1) {
+    return label;
+  }
+  if (label.endsWith("s")) {
+    return `${label}es`;
+  }
+  return `${label}s`;
+}
+
+export function renderLifetimeText(lifetime: GeneratedObjectLifetime): string {
+  if (typeof lifetime === "string") {
+    switch (lifetime) {
+      case "one_time":
+        return "resolves once, then dissolves";
+      case "temporary":
+        return "dissolves at the end of the active window";
+      case "persistent":
+        return "persists for the rest of the journey";
+      case "until_returned":
+        return "remains until returned at the next Dream Journey site";
+      case "journey_only":
+        return "lasts only within this journey";
+      default: {
+        const exhaustive: never = lifetime;
+        return exhaustive;
+      }
+    }
+  }
+
+  switch (lifetime.kind) {
+    case "trigger_count": {
+      const label = TRIGGER_KIND_LABELS[lifetime.triggerKind];
+      return `dissolves after ${lifetime.count} ${pluralize(label, lifetime.count)}`;
+    }
+    default: {
+      const exhaustive: never = lifetime.kind;
+      return exhaustive;
+    }
+  }
+}
 export { tradeTicketBody } from "./tradeTicket.js";
 export type { TradeTicketArgs, TradeTicketBody } from "./tradeTicket.js";
 

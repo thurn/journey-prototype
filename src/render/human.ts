@@ -1,3 +1,4 @@
+import { renderLifetimeText } from "../journey/fillers/generatedObjects.js";
 import type { JourneyManifest, JourneyOption } from "../journey/manifest.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import { ansiTruecolor } from "../util/ansi.js";
@@ -870,7 +871,10 @@ function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
         Array.isArray(values) && values.length > 0 ? [`${kind}=${values.join(",")}`] : []
       )
       .join("; ");
-    const duration = generatedObject.duration?.label ?? generatedObject.lifetime ?? "unspecified lifetime";
+    const lifetimeText = generatedObject.lifetime !== undefined
+      ? renderLifetimeText(generatedObject.lifetime)
+      : undefined;
+    const duration = generatedObject.duration?.label ?? lifetimeText ?? "unspecified lifetime";
 
     lines.push(
       `${generatedObject.generatedObjectId}: ${generatedObject.name} (${generatedObject.generatedObjectKind}; ${generatedObject.objectType}).`,

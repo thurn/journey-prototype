@@ -334,7 +334,17 @@ type GeneratedObjectDefinitionBase = {
     generatedObjects?: string[];
   };
   duration?: BoundedDuration;
-  lifetime?: "one_time" | "temporary" | "persistent" | "until_returned" | "journey_only";
+  lifetime?:
+    | "one_time"
+    | "temporary"
+    | "persistent"
+    | "until_returned"
+    | "journey_only"
+    | {
+        kind: "trigger_count";
+        triggerKind: HookTriggerSelector["triggerKind"];
+        count: number;
+      };
   valueEstimate: GeneratedObjectValueEstimate;
   validation: GeneratedObjectValidationMetadata;
   payload: Record<string, unknown>;

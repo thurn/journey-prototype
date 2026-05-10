@@ -140,11 +140,23 @@ export function validateGeneratedObjectDefinitions(
       }
     }
 
-    if (
-      generatedObject.lifetime !== undefined &&
-      !["one_time", "temporary", "persistent", "until_returned", "journey_only"].includes(generatedObject.lifetime)
-    ) {
-      return fail("invalid_generated_object_lifetime", `Generated object ${generatedObject.generatedObjectId} has an invalid lifetime`);
+    if (generatedObject.lifetime !== undefined) {
+      const lifetime = generatedObject.lifetime;
+      if (typeof lifetime === "string") {
+        if (
+          !["one_time", "temporary", "persistent", "until_returned", "journey_only"].includes(lifetime)
+        ) {
+          return fail("invalid_generated_object_lifetime", `Generated object ${generatedObject.generatedObjectId} has an invalid lifetime`);
+        }
+      } else if (
+        !isRecord(lifetime) ||
+        lifetime.kind !== "trigger_count" ||
+        typeof lifetime.triggerKind !== "string" ||
+        typeof lifetime.count !== "number" ||
+        lifetime.count < 1
+      ) {
+        return fail("invalid_generated_object_lifetime", `Generated object ${generatedObject.generatedObjectId} has an invalid lifetime`);
+      }
     }
 
     if (
