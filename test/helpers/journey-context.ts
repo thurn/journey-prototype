@@ -159,6 +159,102 @@ export function runShapeValidators(
 }
 
 /**
+ * Builds a minimal `independent_rows_menu` manifest claiming the
+ * `distinct_everything_trio` contract while embedding duplicate axis values.
+ * The manifest is intended for validator-isolation tests of the
+ * distinct-everything pairwise-distinctness rule and is not a fully valid
+ * manifest in any other respect.
+ */
+export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifest {
+  const sharedCost = { kind: "essence", amount: 80, timing: "immediate" };
+  const sharedEffect = {
+    kind: "card_draft",
+    takeCount: 1,
+    choiceCount: 4,
+    predicate: { source: "draftPool" },
+  };
+  const sharedOption = {
+    symbols: [],
+    text: "Pay 80 essence. Draft a card.",
+    operations: [],
+    costs: [sharedCost],
+    effects: [sharedEffect],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 80,
+    effectConvertedEssence: 400,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: 320,
+    pickBehavior: "record_and_generate_next" as const,
+  };
+
+  const duplicateKey = `essence_cost=${JSON.stringify({ amount: 80 })}`;
+
+  return {
+    schemaVersion: 2,
+    versions: {
+      contentVersion: TEST_CONTENT_VERSION,
+      shapeCatalogVersion: "journey-shapes:test",
+      effectCatalogVersion: "effects:test",
+      valueModelVersion: "value:test",
+      rendererVersion: "renderer:test",
+      manifestContractVersion: "manifest:test",
+      validationContractVersion: "validation:test",
+    },
+    journeyId: "J-000002",
+    seed: "synth-distinct-everything-dups",
+    rootJourneyIndex: 1,
+    shapeId: "independent_rows_menu",
+    stage: "mid",
+    dreamscape: 0,
+    selectedTags: [],
+    options: [
+      { ...sharedOption, number: 1 },
+      { ...sharedOption, number: 2 },
+    ],
+    generatedObjects: [],
+    precommitted: {},
+    debug: {
+      shapeScores: [],
+      selectedShapeId: "independent_rows_menu",
+      selectedTags: [],
+      optionValues: [],
+      symmetryContracts: [
+        {
+          contractKind: "distinct_everything_trio",
+          sharedProperty: "none",
+          variedProperty: "cost+reward",
+          sharedFirst: false,
+          optionNumbers: [1, 2],
+          variedPayloadKeys: [duplicateKey, duplicateKey],
+        },
+      ],
+      repairs: [],
+      semanticFingerprint: {
+        algorithm: "semantic-fingerprint:v1",
+        value: "synth",
+        components: [],
+      },
+      validation: { ok: true, passed: 0, failed: 0, rules: [] },
+      repair: {
+        status: "accepted_immediately",
+        forcedShape: false,
+        finalShapeId: "independent_rows_menu",
+      },
+    },
+    references: {
+      cardIds: [],
+      dreamsignIds: [],
+      dreamcallerIds: [],
+      baneNames: [],
+    },
+  } as unknown as JourneyManifest;
+}
+
+/**
  * Builds a minimal `independent_rows_menu` manifest where every option has
  * identical `(cost, reward)` payloads. The manifest only fills the fields
  * that the shape's validators inspect; other manifest invariants are not

@@ -132,7 +132,7 @@ export const independentRowsMenuPlugin = defineShapePlugin({
     menuValueChecks: {
       positiveBands: false,
       symmetricBands: false,
-      escalationOrRiskExempt: false,
+      escalationOrRiskExempt: true,
     },
     compoundCoherence: "skip",
     requiresPrecommittedRandom: false,

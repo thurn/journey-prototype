@@ -34,6 +34,14 @@ function rowSignature(
   return JSON.stringify([pool.id, cost, reward]);
 }
 
+function costAxisSignature(cost: BundleCostSource): string {
+  return JSON.stringify(["cost", cost]);
+}
+
+function rewardAxisSignature(reward: BundleRewardSource): string {
+  return JSON.stringify(["reward", reward]);
+}
+
 function pickPool(drawContext: DrawContext, label: string): RowPool {
   return weightedChoice(
     drawContext,
@@ -46,16 +54,21 @@ function pickPool(drawContext: DrawContext, label: string): RowPool {
 }
 
 /**
- * Picks a `(pool, cost, reward)` triple for the row at `index` whose
- * signature has not yet been seen. The function widens the search by
- * stepping through pools and source indices in a deterministic order so
- * that distinct rows are achievable as long as the registry holds enough
- * combinations.
+ * Picks a `(pool, cost, reward)` triple for the row at `index` such that
+ * neither the row tuple nor its individual cost/reward axis values have
+ * already been seen. The function widens the search by stepping through
+ * pools and source indices in a deterministic order so that distinct rows
+ * are achievable as long as the registry holds enough combinations.
+ *
+ * Per-axis distinctness aligns with the `distinct_everything_trio` symmetry
+ * contract emitted by the fill: every row varies on every declared axis.
  */
 function pickDistinctRow(
   drawContext: DrawContext,
   index: number,
-  seen: ReadonlySet<string>,
+  seenTuples: ReadonlySet<string>,
+  seenCosts: ReadonlySet<string>,
+  seenRewards: ReadonlySet<string>,
 ): { pool: RowPool; cost: BundleCostSource; reward: BundleRewardSource } | undefined {
   for (let attempt = 0; attempt < MAX_ROW_RESAMPLES; attempt += 1) {
     const attemptContext: DrawContext = {
@@ -81,17 +94,26 @@ function pickDistinctRow(
     const cost = pool.costSources[costIndex]!;
     const reward = pool.rewardSources[rewardIndex]!;
 
-    if (!seen.has(rowSignature(pool, cost, reward))) {
+    if (
+      !seenTuples.has(rowSignature(pool, cost, reward)) &&
+      !seenCosts.has(costAxisSignature(cost)) &&
+      !seenRewards.has(rewardAxisSignature(reward))
+    ) {
       return { pool, cost, reward };
     }
   }
 
   // Deterministic exhaustive fallback: walk the registry in declaration
-  // order and return the first triple whose signature is not in `seen`.
+  // order and return the first triple whose signature, cost axis, and
+  // reward axis are all unseen.
   for (const pool of ROW_POOL_CONFIGURATIONS) {
     for (const cost of pool.costSources) {
       for (const reward of pool.rewardSources) {
-        if (!seen.has(rowSignature(pool, cost, reward))) {
+        if (
+          !seenTuples.has(rowSignature(pool, cost, reward)) &&
+          !seenCosts.has(costAxisSignature(cost)) &&
+          !seenRewards.has(rewardAxisSignature(reward))
+        ) {
           return { pool, cost, reward };
         }
       }
@@ -119,9 +141,17 @@ export function independentRowsMenuFill(
   const options: JourneyOption[] = [];
   const optionPayloads: (readonly BundleOptionPayload[])[] = [];
   const seenSignatures = new Set<string>();
+  const seenCosts = new Set<string>();
+  const seenRewards = new Set<string>();
 
   for (let i = 0; i < rowCount; i += 1) {
-    const pick = pickDistinctRow(drawContext, i, seenSignatures);
+    const pick = pickDistinctRow(
+      drawContext,
+      i,
+      seenSignatures,
+      seenCosts,
+      seenRewards,
+    );
 
     if (pick === undefined) {
       return undefined;
@@ -129,6 +159,8 @@ export function independentRowsMenuFill(
 
     const { pool, cost, reward } = pick;
     seenSignatures.add(rowSignature(pool, cost, reward));
+    seenCosts.add(costAxisSignature(cost));
+    seenRewards.add(rewardAxisSignature(reward));
 
     const intermediate = genericBundleOption({
       context,

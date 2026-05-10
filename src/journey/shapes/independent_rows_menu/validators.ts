@@ -235,6 +235,34 @@ function validateEachRowDrawsFromConfiguredPool(
   return { ok: true };
 }
 
+function validateDistinctEverythingTrioAxes(
+  manifest: JourneyManifest,
+): ValidationResult {
+  const contracts = manifest.debug.symmetryContracts ?? [];
+  const contract = contracts.find(
+    (c) => c.contractKind === "distinct_everything_trio",
+  );
+
+  if (!contract) {
+    return { ok: true };
+  }
+
+  const seen = new Set<string>();
+
+  for (const key of contract.variedPayloadKeys ?? []) {
+    if (seen.has(key)) {
+      return fail(
+        "distinct_everything_trio_axes_are_pairwise_distinct",
+        `Duplicate axis value: ${key}`,
+      );
+    }
+
+    seen.add(key);
+  }
+
+  return { ok: true };
+}
+
 function validateRowsArePairwiseDistinct(
   manifest: JourneyManifest,
 ): ValidationResult {
@@ -286,7 +314,15 @@ const rowsArePairwiseDistinctOnAtLeastOneAxis: ShapeValidator = {
   validate: ({ manifest }) => validateRowsArePairwiseDistinct(manifest),
 };
 
+const distinctEverythingTrioAxesArePairwiseDistinct: ShapeValidator = {
+  ruleId: "distinct_everything_trio_axes_are_pairwise_distinct",
+  passMessage: "All rows differ on every payload axis declared by the contract.",
+  checkedPayloads: ({ optionChecked }) => optionChecked,
+  validate: ({ manifest }) => validateDistinctEverythingTrioAxes(manifest),
+};
+
 export const validators: readonly ShapeValidator[] = [
   eachRowDrawsFromConfiguredPool,
   rowsArePairwiseDistinctOnAtLeastOneAxis,
+  distinctEverythingTrioAxesArePairwiseDistinct,
 ];
