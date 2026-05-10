@@ -315,7 +315,14 @@ export function fillOptions(
 
         if (sharedTargetEntry) {
           const operations = compatibleCardOperations(drawContext, {
-            topology: "one_target_many_operations",
+            slot: {
+              provides: [
+                "single_target",
+                "named_target",
+                "deck_side",
+                "deck_mutation_consumer",
+              ],
+            },
             targetClasses: ["deck_card"],
             targetModes: ["exact_named"],
             families: ["transfiguration"],
@@ -377,7 +384,16 @@ export function fillOptions(
         },
       );
       const operations = compatibleCardOperations(drawContext, {
-        topology: "one_target_many_operations",
+        slot: {
+          provides: [
+            "single_target",
+            "drafted_target",
+            "deck_mutation_consumer",
+            "text_or_subtype_mutation_consumer",
+            "keyword_mutation_consumer",
+            "target_restriction_consumer",
+          ],
+        },
         targetClasses: ["draft_card"],
         targetModes: ["drafted_card"],
         valueBands: ["standard", "temporary"],
@@ -492,7 +508,14 @@ export function fillOptions(
           },
         );
         const operations = compatibleCardOperations(drawContext, {
-          topology: "mirrored_operations",
+          slot: {
+            provides: [
+              "single_target",
+              "drafted_target",
+              "text_or_subtype_mutation_consumer",
+              "keyword_mutation_consumer",
+            ],
+          },
           targetClasses: ["draft_card"],
           targetModes: ["drafted_card"],
           families: ["keyword", "cost", "text"],
@@ -546,7 +569,13 @@ export function fillOptions(
       }
 
       const operations = compatibleCardOperations(drawContext, {
-        topology: "mirrored_operations",
+        slot: {
+          provides: [
+            "single_target",
+            "drafted_target",
+            "deck_mutation_consumer",
+          ],
+        },
         targetClasses: ["draft_card"],
         targetModes: ["drafted_card"],
         families: ["transfiguration"],
@@ -601,7 +630,14 @@ export function fillOptions(
 
         if (targetEntries.length >= 3) {
           const operation = compatibleCardOperations(drawContext, {
-            topology: "one_operation_many_targets",
+            slot: {
+              provides: [
+                "single_target",
+                "named_target",
+                "deck_side",
+                "deck_mutation_consumer",
+              ],
+            },
             targetClasses: ["deck_card"],
             targetModes: ["exact_named"],
             families: ["transfiguration"],
@@ -685,7 +721,18 @@ export function fillOptions(
         (entry) => entry.targetClass,
       );
       const operation = compatibleCardOperations(drawContext, {
-        topology: "one_operation_many_targets",
+        slot: {
+          provides: [
+            "single_target",
+            "drafted_target",
+            "named_target",
+            "deck_side",
+            "deck_mutation_consumer",
+            "text_or_subtype_mutation_consumer",
+            "keyword_mutation_consumer",
+            "target_restriction_consumer",
+          ],
+        },
         targetClasses: requestedTargetClasses,
         targetModes: requestedTargetClasses.map(cardOperationTargetModeForClass),
         valueBands: ["standard", "premium"],

@@ -4100,7 +4100,16 @@ describe.concurrent("generateNextJourney", () => {
       rootJourneyIndex: 0,
     };
     const oneTargetOperations = compatibleCardOperations(drawContext, {
-      topology: "one_target_many_operations",
+      slot: {
+        provides: [
+          "single_target",
+          "drafted_target",
+          "deck_mutation_consumer",
+          "text_or_subtype_mutation_consumer",
+          "keyword_mutation_consumer",
+          "target_restriction_consumer",
+        ],
+      },
       targetClasses: ["draft_card"],
       valueBands: ["standard", "temporary"],
       timings: ["immediate", "battle_window"],
@@ -4108,7 +4117,14 @@ describe.concurrent("generateNextJourney", () => {
       count: 3,
     });
     const mirroredRewriteOperations = compatibleCardOperations(drawContext, {
-      topology: "mirrored_operations",
+      slot: {
+        provides: [
+          "single_target",
+          "drafted_target",
+          "text_or_subtype_mutation_consumer",
+          "keyword_mutation_consumer",
+        ],
+      },
       targetClasses: ["draft_card"],
       families: ["keyword", "cost", "text"],
       valueBands: ["standard"],
@@ -4117,7 +4133,18 @@ describe.concurrent("generateNextJourney", () => {
       count: 4,
     });
     const oneOperationOperations = compatibleCardOperations(drawContext, {
-      topology: "one_operation_many_targets",
+      slot: {
+        provides: [
+          "single_target",
+          "drafted_target",
+          "named_target",
+          "deck_side",
+          "deck_mutation_consumer",
+          "text_or_subtype_mutation_consumer",
+          "keyword_mutation_consumer",
+          "target_restriction_consumer",
+        ],
+      },
       targetClasses: ["draft_card", "starter_card", "deck_card"],
       targetModes: ["drafted_card", "chosen"],
       valueBands: ["standard", "premium"],
@@ -4126,7 +4153,14 @@ describe.concurrent("generateNextJourney", () => {
       count: 3,
     });
     const duplicateAcrossVisibleTargets = compatibleCardOperations(drawContext, {
-      topology: "one_operation_many_targets",
+      slot: {
+        provides: [
+          "single_target",
+          "drafted_target",
+          "named_target",
+          "deck_side",
+        ],
+      },
       targetClasses: ["draft_card", "starter_card", "deck_card"],
       targetModes: ["drafted_card", "chosen"],
       families: ["duplicate"],
@@ -4238,7 +4272,13 @@ describe.concurrent("generateNextJourney", () => {
         rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
       },
       {
-        topology: "one_target_many_operations",
+        slot: {
+          provides: [
+            "random_predicate_target",
+            "deck_side",
+            "deck_mutation_consumer",
+          ],
+        },
         targetClasses: ["starter_card"],
         targetModes: ["random_predicate"],
         families: ["transfiguration"],
@@ -4272,7 +4312,9 @@ describe.concurrent("generateNextJourney", () => {
     };
     const operationFor = (stage: "early" | "mid" | "late", label: string) =>
       compatibleCardOperations(drawContext, {
-        topology: "one_target_many_operations",
+        slot: {
+          provides: ["single_target", "drafted_target"],
+        },
         targetClasses: ["draft_card"],
         families: ["timing"],
         valueBands: ["temporary"],

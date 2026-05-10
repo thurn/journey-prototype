@@ -20,13 +20,12 @@ import {
   starterReplacementProfile,
   starterReplacementResultPredicate,
 } from "./namedCardPayloads.js";
-import type { OperationCompatibilityTrait } from "./operationCompatibility.js";
+import {
+  slotAcceptsOperation,
+  type OperationCompatibilityTrait,
+  type SlotCapability,
+} from "./operationCompatibility.js";
 import { BATTLE_WINDOW_DURATION, chosenCardText } from "./shared.js";
-
-export type CardOperationTopology =
-  | "one_target_many_operations"
-  | "mirrored_operations"
-  | "one_operation_many_targets";
 
 export type CardOperationTargetClass =
   | "draft_card"
@@ -82,8 +81,7 @@ type CardOperationMaterializerArgs = {
 };
 
 type CardOperationCatalogEntry = MaterializedCardOperation & {
-  topologies: readonly CardOperationTopology[]; // deprecated; remove in Task 3.4
-  compatibilityTraits?: readonly OperationCompatibilityTrait[];
+  compatibilityTraits: readonly OperationCompatibilityTrait[];
   targetClasses: readonly CardOperationTargetClass[];
   contextFree?: boolean;
   materialize?: (
@@ -92,7 +90,7 @@ type CardOperationCatalogEntry = MaterializedCardOperation & {
 };
 
 type CardOperationRequest = {
-  topology: CardOperationTopology;
+  slot: SlotCapability;
   targetClasses: readonly CardOperationTargetClass[];
   targetModes?: readonly CardOperationTargetMode[];
   valueBands?: readonly CardOperationValueBand[];
@@ -121,12 +119,6 @@ const DECK_TARGET_CLASSES = [
   "deck_card",
   "starter_card",
 ] as const satisfies readonly CardOperationTargetClass[];
-
-const ALL_NORMAL_TOPOLOGIES = [
-  "one_target_many_operations",
-  "mirrored_operations",
-  "one_operation_many_targets",
-] as const satisfies readonly CardOperationTopology[];
 
 const CHOSEN_OR_NAMED = [
   "chosen",
@@ -264,7 +256,6 @@ function transfigurationEntry(
     family: "transfiguration",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_deck_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -456,7 +447,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "purge",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: [
         "needs_named_target",
         "needs_deck_side",
@@ -474,7 +464,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "purge",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: [
       "needs_random_predicate_target",
       "needs_deck_side",
@@ -497,7 +486,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "purge",
     valueBand: "premium",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: [
       "needs_all_matching_scope",
       "needs_deck_side",
@@ -520,7 +508,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "replacement",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: ["starter_card"],
       targetModes: CHOSEN_OR_NAMED,
@@ -573,7 +560,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "replacement",
       valueBand: "premium",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: ["starter_card"],
       targetModes: CHOSEN_OR_NAMED,
@@ -592,7 +578,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "replacement",
       valueBand: "premium",
       timing: "immediate",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
       compatibilityTraits: ["needs_all_matching_scope", "needs_deck_side"],
       targetClasses: ["starter_card"],
       targetModes: ["all_matching"],
@@ -655,7 +640,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "replacement",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
       compatibilityTraits: [
         "needs_random_predicate_target",
         "needs_deck_side",
@@ -713,7 +697,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "purge",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
       compatibilityTraits: [
         "needs_random_predicate_target",
         "needs_deck_side",
@@ -746,7 +729,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "purge",
       valueBand: "premium",
       timing: "immediate",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
       compatibilityTraits: [
         "needs_all_matching_scope",
         "needs_deck_side",
@@ -795,7 +777,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "replacement",
       valueBand: "premium",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: DECK_TARGET_CLASSES,
       targetModes: CHOSEN_OR_NAMED,
@@ -814,7 +795,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "transform",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["needs_named_target", "needs_deck_side"],
     targetClasses: DECK_TARGET_CLASSES,
     targetModes: CHOSEN_OR_NAMED,
@@ -833,7 +813,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "transform",
       valueBand: "premium",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: DECK_TARGET_CLASSES,
       targetModes: CHOSEN_OR_NAMED,
@@ -852,7 +831,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "duplicate",
     valueBand: "premium",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: [],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -865,7 +843,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "duplicate",
     valueBand: "premium",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: ["needs_all_matching_scope", "needs_deck_side"],
     targetClasses: ["deck_card"],
     targetModes: ["all_matching"],
@@ -884,7 +861,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "merge_split",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["needs_named_target", "needs_deck_side"],
     targetClasses: DECK_TARGET_CLASSES,
     targetModes: CHOSEN_OR_NAMED,
@@ -898,7 +874,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "merge_split",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["needs_named_target", "needs_deck_side"],
     targetClasses: DECK_TARGET_CLASSES,
     targetModes: CHOSEN_OR_NAMED,
@@ -911,7 +886,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "keyword",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_keyword_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -924,7 +898,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "keyword",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_keyword_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -937,7 +910,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "keyword",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_keyword_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -950,7 +922,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "keyword",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_keyword_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -967,7 +938,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "cost",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: [],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -980,7 +950,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "type",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_text_or_subtype_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -993,7 +962,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "subtype",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_text_or_subtype_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1006,7 +974,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "text",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_text_or_subtype_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1022,7 +989,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "text",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_text_or_subtype_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1039,7 +1005,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "target_restriction",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_target_restriction"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1056,7 +1021,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "transfiguration",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: ["produces_deck_mutation"],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1073,7 +1037,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "opening_hand",
       valueBand: "temporary",
       timing: "battle_window",
-      topologies: ["one_operation_many_targets"],
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: ["deck_card", "starter_card"],
       targetModes: CHOSEN_OR_NAMED,
@@ -1097,7 +1060,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "duplicate",
       valueBand: "temporary",
       timing: "battle_window",
-      topologies: ["one_operation_many_targets"],
       compatibilityTraits: ["needs_named_target", "needs_deck_side"],
       targetClasses: ["deck_card", "starter_card"],
       targetModes: CHOSEN_OR_NAMED,
@@ -1126,7 +1088,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "timing",
       valueBand: "temporary",
       timing: "battle_window",
-      topologies: ["one_target_many_operations"],
       compatibilityTraits: [],
       targetClasses: ALL_TARGET_CLASSES,
       targetModes: VISIBLE_TARGET_MODES,
@@ -1154,7 +1115,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "materialized_ability",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ALL_NORMAL_TOPOLOGIES,
     compatibilityTraits: [],
     targetClasses: ALL_TARGET_CLASSES,
     targetModes: VISIBLE_TARGET_MODES,
@@ -1172,7 +1132,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "transfiguration",
     valueBand: "premium",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: [
       "needs_all_matching_scope",
       "needs_deck_side",
@@ -1196,7 +1155,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "transfiguration",
     valueBand: "premium",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: [
       "needs_all_matching_scope",
       "needs_deck_side",
@@ -1220,7 +1178,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     family: "transfiguration",
     valueBand: "standard",
     timing: "immediate",
-    topologies: ["one_target_many_operations", "mirrored_operations"],
     compatibilityTraits: [
       "needs_random_predicate_target",
       "needs_deck_side",
@@ -1246,7 +1203,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "transfiguration",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ["one_target_many_operations", "mirrored_operations"],
       compatibilityTraits: [
         "needs_random_predicate_target",
         "needs_deck_side",
@@ -1277,7 +1233,6 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       family: "transfiguration",
       valueBand: "standard",
       timing: "immediate",
-      topologies: ALL_NORMAL_TOPOLOGIES,
       compatibilityTraits: [
         "needs_named_target",
         "needs_deck_side",
@@ -1315,7 +1270,7 @@ function matchesRequest(
   request: CardOperationRequest,
 ): boolean {
   return (
-    entry.topologies.includes(request.topology) &&
+    slotAcceptsOperation(request.slot, entry) &&
     includesAll(entry.targetClasses, request.targetClasses) &&
     (!request.targetModes || includesAll(entry.targetModes, request.targetModes)) &&
     (!request.valueBands || request.valueBands.includes(entry.valueBand)) &&
@@ -1331,7 +1286,7 @@ function materializeOperation(
 ): MaterializedCardOperation | undefined {
   if (!entry.materialize) {
     const {
-      topologies: _topologies,
+      compatibilityTraits: _compatibilityTraits,
       targetClasses: _targetClasses,
       contextFree: _contextFree,
       materialize: _materialize,
@@ -1368,7 +1323,7 @@ export function compatibleCardOperations(
 
   if (candidates.length < request.count) {
     throw new Error(
-      `Card operation catalog has ${candidates.length} compatible entries for ${request.topology}; ${request.count} required`,
+      `Card operation catalog has ${candidates.length} compatible entries for slot ${JSON.stringify(request.slot.provides)}; ${request.count} required`,
     );
   }
 

@@ -30,7 +30,16 @@ export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
     1,
   );
   const companionCardOperation = compatibleCardOperations(drawContext, {
-    topology: "one_operation_many_targets",
+    slot: {
+      provides: [
+        "single_target",
+        "all_matching_scope",
+        "named_target",
+        "deck_side",
+        "deck_mutation_consumer",
+        "text_or_subtype_mutation_consumer",
+      ],
+    },
     targetClasses: ["deck_card"],
     targetModes: [cardOperationTargetModeForClass("deck_card")],
     valueBands: ["standard"],

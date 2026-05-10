@@ -487,7 +487,14 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
         return {
           id: family,
           rewards: compatibleCardOperations(drawContext, {
-            topology: "mirrored_operations",
+            slot: {
+              provides: [
+                "single_target",
+                "named_target",
+                "deck_side",
+                "deck_mutation_consumer",
+              ],
+            },
             targetClasses: ["starter_card"],
             targetModes: ["chosen"],
             timings: ["immediate"],
@@ -514,7 +521,14 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
         return {
           id: family,
           rewards: compatibleCardOperations(drawContext, {
-            topology: "mirrored_operations",
+            slot: {
+              provides: [
+                "single_target",
+                "named_target",
+                "deck_side",
+                "deck_mutation_consumer",
+              ],
+            },
             targetClasses: ["deck_card", "starter_card"],
             targetModes: ["chosen"],
             valueBands: ["standard", "premium"],
@@ -536,7 +550,14 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
       }
       case "battle_window": {
         const operations = compatibleCardOperations(drawContext, {
-          topology: "one_operation_many_targets",
+          slot: {
+            provides: [
+              "single_target",
+              "named_target",
+              "deck_side",
+              "deck_mutation_consumer",
+            ],
+          },
           targetClasses: ["deck_card", "starter_card"],
           targetModes: ["chosen"],
           valueBands: ["temporary"],

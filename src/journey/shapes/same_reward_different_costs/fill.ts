@@ -52,7 +52,13 @@ export function sameRewardDifferentCostsFill(
 
   if (family === "transfiguration") {
     const transfigurationOperation = compatibleCardOperations(drawContext, {
-      topology: "one_target_many_operations",
+      slot: {
+        provides: [
+          "single_target",
+          "drafted_target",
+          "deck_mutation_consumer",
+        ],
+      },
       targetClasses: ["draft_card"],
       targetModes: ["drafted_card"],
       valueBands: ["standard"],
