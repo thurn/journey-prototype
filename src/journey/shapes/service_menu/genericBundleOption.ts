@@ -55,7 +55,6 @@ export type BundleRewardSource =
 export type BundleOptionPayload =
   | {
       readonly kind: "essence_cost";
-      readonly amount: number;
       readonly cost: ReturnType<typeof cost>;
     }
   | {
@@ -103,7 +102,6 @@ function buildCostPayload(
     case "fixed_essence": {
       const payload: BundleOptionPayload = {
         kind: "essence_cost",
-        amount: source.amount,
         cost: cost("essence", source.amount),
       };
 
@@ -112,8 +110,10 @@ function buildCostPayload(
         renderText: `Pay ${source.amount} essence`,
       };
     }
-    default:
-      return undefined;
+    default: {
+      const _exhaustive: never = source.kind;
+      return _exhaustive;
+    }
   }
 }
 
@@ -142,8 +142,10 @@ function buildRewardPayload(
         ),
       };
     }
-    default:
-      return undefined;
+    default: {
+      const _exhaustive: never = source.kind;
+      return _exhaustive;
+    }
   }
 }
 
