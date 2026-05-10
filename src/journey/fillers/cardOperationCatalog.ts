@@ -20,6 +20,7 @@ import {
   starterReplacementProfile,
   starterReplacementResultPredicate,
 } from "./namedCardPayloads.js";
+import type { OperationCompatibilityTrait } from "./operationCompatibility.js";
 import { BATTLE_WINDOW_DURATION, chosenCardText } from "./shared.js";
 
 export type CardOperationTopology =
@@ -81,7 +82,8 @@ type CardOperationMaterializerArgs = {
 };
 
 type CardOperationCatalogEntry = MaterializedCardOperation & {
-  topologies: readonly CardOperationTopology[];
+  topologies: readonly CardOperationTopology[]; // deprecated; remove in Task 3.4
+  compatibilityTraits?: readonly OperationCompatibilityTrait[];
   targetClasses: readonly CardOperationTargetClass[];
   contextFree?: boolean;
   materialize?: (
@@ -444,7 +446,7 @@ function starterTransfigurationOperation(
   };
 }
 
-const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
+export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
   ...STANDARD_TRANSFIGURATIONS.map(transfigurationEntry),
   transfigurationEntry("Ivory"),
   {
@@ -454,6 +456,7 @@ const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       valueBand: "standard",
       timing: "immediate",
       topologies: ALL_NORMAL_TOPOLOGIES,
+      compatibilityTraits: ["needs_named_target", "produces_deck_mutation"],
       targetClasses: DECK_TARGET_CLASSES,
       targetModes: CHOSEN_OR_NAMED,
       renderText: (targetText) => `Purge ${targetText} from your deck.`,

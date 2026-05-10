@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CARD_OPERATION_CATALOG } from "../src/journey/fillers/cardOperationCatalog.js";
 import {
   slotAcceptsOperation,
   type OperationCompatibilityTrait,
@@ -31,5 +32,15 @@ describe("slotAcceptsOperation", () => {
     };
 
     expect(slotAcceptsOperation(slot, entry)).toBe(false);
+  });
+});
+
+describe("CARD_OPERATION_CATALOG entries", () => {
+  it("chosen-purge declares needs_named_target and produces_deck_mutation", () => {
+    const entry = CARD_OPERATION_CATALOG.find((e) => e.key === "chosen-purge");
+
+    expect(entry).toBeDefined();
+    expect(entry!.compatibilityTraits).toContain("needs_named_target");
+    expect(entry!.compatibilityTraits).toContain("produces_deck_mutation");
   });
 });
