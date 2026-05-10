@@ -74,6 +74,12 @@ export type ShapeFillArgs = {
   readonly context: JourneyContext;
   readonly drawContext: DrawContext;
   readonly stage: JourneyStage;
+  /**
+   * Optional shape-specific configuration. Each shape's fill function picks
+   * the keys it understands; unknown keys are ignored. Threading config this
+   * way avoids polluting the shared args type with shape-specific fields.
+   */
+  readonly shapeArgs?: Record<string, unknown>;
 };
 
 export type FilledJourney = {

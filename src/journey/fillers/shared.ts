@@ -262,6 +262,63 @@ export type BaneBurdenSlot = {
   burden: number;
 };
 
+/**
+ * Maps a `RewardSlot.key` to a coarse-grained family tag. The tag is used by
+ * the `homogeneous_family_trio` symmetry contract to detect and enforce
+ * scenarios in which all rows of a trio draw from the same reward family
+ * (e.g. resource-only, draft-only, dreamsign-only).
+ *
+ * Returns `undefined` for keys whose family is not yet classified; callers
+ * filtering on a specific family should treat those entries as non-matching.
+ */
+export function rewardFamilyTag(key: string): string | undefined {
+  if (key === "essence" || key === "omens") {
+    return "resource";
+  }
+  if (key.startsWith("resource:")) {
+    return "resource";
+  }
+  if (
+    key.startsWith("draft:") ||
+    key.startsWith("draft-transfigure:") ||
+    key.startsWith("multi-draft:") ||
+    key.startsWith("copy-draft:") ||
+    key.startsWith("random-card-gain:") ||
+    key === "random-transfiguration" ||
+    key.startsWith("named-card:") ||
+    key.startsWith("named-card-operation:")
+  ) {
+    return "draft";
+  }
+  if (key === "dreamsign-draft" || key.startsWith("named-dreamsign:")) {
+    return "dreamsign";
+  }
+  if (
+    key === "starter-cleanup" ||
+    key.startsWith("starter-cleanup") ||
+    key.startsWith("starter-replacement") ||
+    key.startsWith("starter-gain-") ||
+    key.startsWith("starter-two-") ||
+    key.startsWith("starter-random-") ||
+    key.startsWith("starter-door-")
+  ) {
+    return "starter";
+  }
+  if (
+    key.startsWith("bane-chosen-purge") ||
+    key.startsWith("bane-random-purge") ||
+    key.startsWith("bane-future-purge") ||
+    key.startsWith("bane-replace-card") ||
+    key.startsWith("bane-transform-card")
+  ) {
+    return "bane_relief";
+  }
+  if (key.startsWith("next-victory")) {
+    return "next_victory";
+  }
+  return undefined;
+}
+
 export function symmetryContract(
   args: JourneySymmetryContractDebug,
 ): JourneySymmetryContractDebug {
