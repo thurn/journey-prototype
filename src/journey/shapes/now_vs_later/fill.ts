@@ -36,8 +36,10 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
     label: `${SHAPE_ID}:expanded`,
     stage,
   });
-  const namedFuture = expandedHooks.find((entry) =>
-    entry.key === "victory:two:named-dreamsign"
+  const namedFuture = expandedHooks.find(
+    (entry) =>
+      entry.triggerKind === "victory" &&
+      entry.resolutionKind === "named_dreamsign_grant",
   );
   const immediateDreamsign = selectContentBackedDreamsign({
     context,

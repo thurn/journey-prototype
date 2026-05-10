@@ -22,8 +22,8 @@ export function commitNowFuturePayoffFill(args: ShapeFillArgs): FilledJourney {
     label: `${SHAPE_ID}:expanded`,
     stage,
   });
-  const delayedBaneHooks = expandedHooks.filter((entry) =>
-    entry.key.includes(":delayed-bane:"),
+  const delayedBaneHooks = expandedHooks.filter(
+    (entry) => entry.resolutionKind === "delayed_bane_arrival",
   );
 
   if (delayedBaneHooks.length === 3) {

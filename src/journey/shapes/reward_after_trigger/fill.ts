@@ -25,18 +25,18 @@ export function rewardAfterTriggerFill(args: ShapeFillArgs): FilledJourney {
     ] as const,
   );
   const selectedHooks = hookFamily === "site_visit_pair"
-    ? expandedHooks.filter((entry) =>
-        entry.triggerSelector.triggerKind === "site_visit",
-      )
+    ? expandedHooks.filter((entry) => entry.triggerKind === "site_visit")
     : hookFamily === "counter_pair"
       ? [
-          expandedHooks.find((entry) =>
-            entry.key.startsWith("named-card-play:") &&
-              entry.key.includes(":essence-"),
+          expandedHooks.find(
+            (entry) =>
+              entry.triggerKind === "named_card_play" &&
+              entry.resolutionKind === "essence_gain",
           ),
-          expandedHooks.find((entry) =>
-            entry.key.startsWith("dreamsign-trigger:") &&
-              entry.key.includes(":omens-"),
+          expandedHooks.find(
+            (entry) =>
+              entry.triggerKind === "dreamsign_trigger" &&
+              entry.resolutionKind === "omen_gain",
           ),
         ].filter((entry): entry is (typeof expandedHooks)[number] => Boolean(entry))
       : expandedHooks;

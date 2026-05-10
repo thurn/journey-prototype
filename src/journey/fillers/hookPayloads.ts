@@ -4,7 +4,7 @@ import {
   shuffleDeterministic,
   type DrawContext,
 } from "../../util/rng.js";
-import { BANE_NAMES, SITE_TYPES, type BaneName } from "../effects.js";
+import { BANE_NAMES } from "../effects.js";
 import type { JourneyOption } from "../manifest.js";
 import type { JourneyShapeId } from "../shapes.js";
 import {
@@ -12,16 +12,13 @@ import {
   valueBanePurge,
   valueCardDraft,
   valueDreamsignOperation,
-  valueOmenGain,
-  valueOmenLoss,
 } from "../value.js";
 import { baneGainPayload, banePurgePayload } from "./banePayloads.js";
 import {
   dreamsignExactTarget,
   namedDreamsignPayload,
 } from "./dreamsignPayloads.js";
-import { shopPayload, statusPayload } from "./environmentPayloads.js";
-import { catalogRewardCards, cardExactTarget, cardQualityValue, namedCardPayload } from "./namedCardPayloads.js";
+import { catalogRewardCards, namedCardPayload } from "./namedCardPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
 import {
   generatedObjectDefinition,
@@ -30,17 +27,18 @@ import {
 import {
   GENERIC_CARD_DRAFT_PROFILE,
   type RewardSlot,
-  baneBurden,
   baneTarget,
   cost,
   draftCards,
   gainEssence,
-  gainOmen,
   lowerFirst,
   option,
   selectedDreamsignTargets,
   target,
 } from "./shared.js";
+import { hookCompatibility } from "./hookCompatibility.js";
+import { TRIGGER_REGISTRY, type TriggerEntry } from "./hookTriggers.js";
+import { RESOLUTION_REGISTRY, type ResolutionEntry } from "./hookResolutions.js";
 
 type DelayedTimingSlot = {
   key: string;
@@ -62,47 +60,6 @@ type PairedReturnFamilyId =
 
 type HookStage = "early" | "mid" | "late";
 
-type NamedCardPlayEssenceHookProfile = {
-  triggerCount: number;
-  battleWindow: number;
-  essenceAmount: number;
-};
-
-type DreamsignTriggerOmenHookProfile = {
-  triggerCount: number;
-  battleWindow: number;
-  omenAmount: number;
-};
-
-type RandomPurgeHookProfile = {
-  battleWindow: number;
-  purgeCount: number;
-  effect: number;
-};
-
-type NamedCardDuplicateHookProfile = {
-  triggerCount: number;
-  battleWindow: number;
-  copyCount: number;
-  effect: number;
-};
-
-type EssencePaymentDreamsignTransformProfile = {
-  amount: number;
-  dreamscapeWindow: number;
-  effect: number;
-};
-
-type FutureShopDiscountHookProfile = {
-  amount: number;
-  effect: number;
-};
-
-type FutureJourneyOptionHookProfile = {
-  optionCount: number;
-  effect: number;
-};
-
 type BorrowedDreamsignLoanProfile = {
   battleWindow: number;
   essenceCost: number;
@@ -114,131 +71,6 @@ type BorrowedCardDraftLoanProfile = {
   takeCount: number;
   obligationValue: number;
 };
-
-type DelayedBaneTimingProfile = {
-  key: string;
-  triggerKind: "battle" | "victory" | "dreamscape";
-  triggerLabel: string;
-  triggerCount: number;
-  textPrefix: string;
-  trackedCondition: string;
-  resolutionPrefix: string;
-  expirationLabel: string;
-  durationKind: "battle_count" | "dreamscape_count";
-  durationLabel: string;
-  durationCount: number;
-  timingLabel: string;
-  uncertainty: number;
-};
-
-const NAMED_CARD_PLAY_ESSENCE_HOOK_BANDS = {
-  early: [
-    { triggerCount: 3, battleWindow: 2, essenceAmount: 90 },
-    { triggerCount: 4, battleWindow: 3, essenceAmount: 110 },
-  ],
-  mid: [
-    { triggerCount: 3, battleWindow: 3, essenceAmount: 100 },
-    { triggerCount: 4, battleWindow: 3, essenceAmount: 120 },
-    { triggerCount: 5, battleWindow: 3, essenceAmount: 150 },
-  ],
-  late: [
-    { triggerCount: 4, battleWindow: 3, essenceAmount: 130 },
-    { triggerCount: 5, battleWindow: 3, essenceAmount: 160 },
-    { triggerCount: 6, battleWindow: 3, essenceAmount: 190 },
-  ],
-} as const satisfies Record<HookStage, readonly NamedCardPlayEssenceHookProfile[]>;
-
-const DREAMSIGN_TRIGGER_OMEN_HOOK_BANDS = {
-  early: [
-    { triggerCount: 2, battleWindow: 2, omenAmount: 1 },
-    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
-  ],
-  mid: [
-    { triggerCount: 2, battleWindow: 2, omenAmount: 1 },
-    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
-    { triggerCount: 4, battleWindow: 3, omenAmount: 3 },
-  ],
-  late: [
-    { triggerCount: 3, battleWindow: 3, omenAmount: 2 },
-    { triggerCount: 4, battleWindow: 3, omenAmount: 3 },
-    { triggerCount: 5, battleWindow: 3, omenAmount: 4 },
-  ],
-} as const satisfies Record<HookStage, readonly DreamsignTriggerOmenHookProfile[]>;
-
-const RANDOM_PURGE_HOOK_BANDS = {
-  early: [
-    { battleWindow: 2, purgeCount: 1, effect: 95 },
-    { battleWindow: 2, purgeCount: 2, effect: 120 },
-  ],
-  mid: [
-    { battleWindow: 2, purgeCount: 2, effect: 125 },
-    { battleWindow: 3, purgeCount: 2, effect: 140 },
-  ],
-  late: [
-    { battleWindow: 3, purgeCount: 2, effect: 145 },
-    { battleWindow: 3, purgeCount: 3, effect: 165 },
-  ],
-} as const satisfies Record<HookStage, readonly RandomPurgeHookProfile[]>;
-
-const NAMED_CARD_DUPLICATE_HOOK_BANDS = {
-  early: [
-    { triggerCount: 3, battleWindow: 2, copyCount: 1, effect: 105 },
-    { triggerCount: 4, battleWindow: 3, copyCount: 1, effect: 115 },
-  ],
-  mid: [
-    { triggerCount: 4, battleWindow: 3, copyCount: 1, effect: 115 },
-    { triggerCount: 5, battleWindow: 3, copyCount: 1, effect: 120 },
-  ],
-  late: [
-    { triggerCount: 5, battleWindow: 3, copyCount: 1, effect: 125 },
-    { triggerCount: 6, battleWindow: 3, copyCount: 2, effect: 155 },
-  ],
-} as const satisfies Record<HookStage, readonly NamedCardDuplicateHookProfile[]>;
-
-const ESSENCE_PAYMENT_DREAMSIGN_TRANSFORM_BANDS = {
-  early: [
-    { amount: 30, dreamscapeWindow: 2, effect: 125 },
-    { amount: 40, dreamscapeWindow: 2, effect: 135 },
-  ],
-  mid: [
-    { amount: 40, dreamscapeWindow: 2, effect: 135 },
-    { amount: 55, dreamscapeWindow: 3, effect: 145 },
-  ],
-  late: [
-    { amount: 55, dreamscapeWindow: 2, effect: 145 },
-    { amount: 70, dreamscapeWindow: 3, effect: 160 },
-  ],
-} as const satisfies Record<HookStage, readonly EssencePaymentDreamsignTransformProfile[]>;
-
-const FUTURE_SHOP_DISCOUNT_HOOK_BANDS = {
-  early: [
-    { amount: 60, effect: 60 },
-    { amount: 80, effect: 80 },
-  ],
-  mid: [
-    { amount: 80, effect: 80 },
-    { amount: 100, effect: 100 },
-  ],
-  late: [
-    { amount: 100, effect: 100 },
-    { amount: 120, effect: 120 },
-  ],
-} as const satisfies Record<HookStage, readonly FutureShopDiscountHookProfile[]>;
-
-const FUTURE_JOURNEY_OPTION_HOOK_BANDS = {
-  early: [
-    { optionCount: 1, effect: 90 },
-    { optionCount: 2, effect: 130 },
-  ],
-  mid: [
-    { optionCount: 1, effect: 95 },
-    { optionCount: 2, effect: 135 },
-  ],
-  late: [
-    { optionCount: 2, effect: 140 },
-    { optionCount: 3, effect: 175 },
-  ],
-} as const satisfies Record<HookStage, readonly FutureJourneyOptionHookProfile[]>;
 
 const BORROWED_DREAMSIGN_LOAN_BANDS = {
   early: [
@@ -269,65 +101,6 @@ const BORROWED_CARD_DRAFT_LOAN_BANDS = {
     { battleWindow: 3, takeCount: 2, obligationValue: -70 },
   ],
 } as const satisfies Record<HookStage, readonly BorrowedCardDraftLoanProfile[]>;
-
-const SITE_VISIT_HOOK_SITES = Object.freeze(
-  SITE_TYPES.filter((siteType) =>
-    siteType !== "Battle" && siteType !== "Dream Journey"
-  ),
-);
-
-const DELAYED_BANE_HOOK_MIN_EFFECT = 135;
-
-const DELAYED_BANE_TIMING_PROFILES = Object.freeze([
-  {
-    key: "next-battle",
-    triggerKind: "battle",
-    triggerLabel: "after next battle",
-    triggerCount: 1,
-    textPrefix: "After next battle",
-    trackedCondition: "Track completion of the next battle.",
-    resolutionPrefix: "When the next battle ends",
-    expirationLabel:
-      "If no battle occurs within 2 dreamscapes, discard the Bane obligation.",
-    durationKind: "dreamscape_count",
-    durationLabel: "within 2 dreamscapes",
-    durationCount: 2,
-    timingLabel: "after next battle",
-    uncertainty: -8,
-  },
-  {
-    key: "next-victory",
-    triggerKind: "victory",
-    triggerLabel: "after your next victory",
-    triggerCount: 1,
-    textPrefix: "After your next victory",
-    trackedCondition: "Track your next victory.",
-    resolutionPrefix: "When your next victory is earned",
-    expirationLabel:
-      "If no victory occurs within 3 battles, discard the Bane obligation.",
-    durationKind: "battle_count",
-    durationLabel: "next 3 battles",
-    durationCount: 3,
-    timingLabel: "after your next victory",
-    uncertainty: -10,
-  },
-  {
-    key: "next-dreamscape",
-    triggerKind: "dreamscape",
-    triggerLabel: "at the next dreamscape",
-    triggerCount: 1,
-    textPrefix: "At the next dreamscape",
-    trackedCondition: "Track arrival at the next dreamscape.",
-    resolutionPrefix: "When the next dreamscape begins",
-    expirationLabel:
-      "If the next dreamscape is skipped, discard the Bane obligation.",
-    durationKind: "dreamscape_count",
-    durationLabel: "next dreamscape",
-    durationCount: 1,
-    timingLabel: "at the next dreamscape",
-    uncertainty: -8,
-  },
-] as const satisfies readonly DelayedBaneTimingProfile[]);
 
 export function hookTrigger(args: {
   triggerKind:
@@ -519,8 +292,10 @@ function timingExpiration(timing: DelayedTimingSlot): Record<string, unknown> {
   );
 }
 
-type ExpandedDelayedHookFill = {
+export type ExpandedDelayedHookFill = {
   key: string;
+  triggerKind: TriggerEntry["kind"];
+  resolutionKind: ResolutionEntry["kind"];
   text: string;
   triggerSelector: Record<string, unknown>;
   trackedCondition: string;
@@ -555,42 +330,8 @@ function namedDreamsignGrant(
   );
 }
 
-function namedCardGrant(
-  context: JourneyContext,
-  card: CardContent,
-  timing = "immediate",
-): Record<string, unknown> {
-  return namedCardPayload(
-    {
-      kind: "card_gain",
-      result: card,
-      source: "catalog",
-      extra: { timing },
-    },
-    context,
-  );
-}
-
-function ordinalWord(value: number): string {
-  return value === 1
-    ? "first"
-    : value === 2
-      ? "second"
-      : value === 3
-        ? "third"
-        : value === 4
-          ? "fourth"
-          : value === 5
-            ? "fifth"
-            : `${value}th`;
-}
-
 function battleWindowText(count: number): string {
   return count === 1 ? "next battle" : `next ${count} battles`;
-}
-
-function dreamscapeWindowText(count: number): string {
-  return count === 1 ? "next dreamscape" : `within ${count} dreamscapes`;
 }
 
 function afterBattleWindowText(count: number): string {
@@ -605,637 +346,66 @@ function temporaryCardsText(count: number): string {
   return count === 1 ? "the temporary card" : "both temporary cards";
 }
 
-function namedCardPlayEssenceHook(args: {
-  context: JourneyContext;
-  drawContext: DrawContext;
-  label: string;
-  stage: HookStage;
-  card: CardContent;
-}): ExpandedDelayedHookFill {
-  const profiles: readonly NamedCardPlayEssenceHookProfile[] =
-    NAMED_CARD_PLAY_ESSENCE_HOOK_BANDS[args.stage];
-  const profile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:named-card-play-essence-profile`,
-    profiles,
-  )[0]!;
-  const battleText = profile.battleWindow === 1
-    ? "next battle"
-    : `next ${profile.battleWindow} battles`;
-
+function expandDelayedHookCandidate(
+  trigger: TriggerEntry,
+  resolution: ResolutionEntry,
+  payload: import("./hookResolutions.js").ResolutionPayload,
+): ExpandedDelayedHookFill {
+  const keySuffix = payload.keySuffix ?? resolution.kind;
   return {
-    key: `named-card-play:${profile.triggerCount}:essence-${profile.essenceAmount}`,
-    text: `Once you play {${args.card.name}} ${profile.triggerCount} times, gain ${profile.essenceAmount} essence.`,
-    triggerSelector: hookTrigger({
-      triggerKind: "named_card_play",
-      label: `once you play ${args.card.name} ${profile.triggerCount} times`,
-      count: profile.triggerCount,
-      card: args.card,
-    }),
-    trackedCondition: `Track playing {${args.card.name}} ${profile.triggerCount} times.`,
-    resolution: `After the ${ordinalWord(profile.triggerCount)} {${args.card.name}} play, gain ${profile.essenceAmount} essence.`,
-    expiration: expiration(
-      "forfeit_reward",
-      `If it is not played ${profile.triggerCount} times within ${profile.battleWindow} battles, discard this hook.`,
-    ),
-    duration: boundedDuration("battle_count", battleText, profile.battleWindow),
-    controlledScene: controlledScene(
-      "reward",
-      `gain ${profile.essenceAmount} essence`,
-    ),
-    reward: gainEssence(profile.essenceAmount),
-    effects: [
-      namedCardGrant(args.context, args.card),
-      gainEssence(profile.essenceAmount),
-    ],
-    targets: [cardExactTarget(args.card, "catalog")],
-    effect: cardQualityValue(args.card) + profile.essenceAmount,
-    uncertainty: -14,
+    key: `${trigger.kind}:${keySuffix}`,
+    triggerKind: trigger.kind,
+    resolutionKind: resolution.kind,
+    text: payload.text,
+    triggerSelector:
+      payload.triggerSelector ??
+      hookTrigger({
+        triggerKind: trigger.kind,
+        label: trigger.defaultLabel,
+        count: trigger.defaultCount,
+      }),
+    trackedCondition:
+      payload.trackedCondition ?? trigger.trackText(trigger.defaultLabel),
+    resolution: payload.resolutionText,
+    expiration: payload.expiration,
+    duration: payload.duration,
+    controlledScene: payload.controlledScene,
+    visibilityPolicy: payload.visibilityPolicy,
+    reward: payload.reward,
+    effects: payload.effects,
+    burdens: payload.burdens,
+    targets: payload.targets,
+    effect: payload.effect,
+    burden: payload.burden,
+    uncertainty: payload.uncertainty,
+    hookBudgetCost: payload.hookBudgetCost,
   };
 }
 
-function dreamsignTriggerOmenHook(args: {
-  context: JourneyContext;
-  drawContext: DrawContext;
-  label: string;
-  stage: HookStage;
-  dreamsign: DreamsignContent;
-}): ExpandedDelayedHookFill {
-  const profiles: readonly DreamsignTriggerOmenHookProfile[] =
-    DREAMSIGN_TRIGGER_OMEN_HOOK_BANDS[args.stage];
-  const profile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:dreamsign-trigger-omen-profile`,
-    profiles,
-  )[0]!;
-  const battleText = profile.battleWindow === 1
-    ? "next battle"
-    : `next ${profile.battleWindow} battles`;
-
-  return {
-    key: `dreamsign-trigger:${profile.triggerCount}:omens-${profile.omenAmount}`,
-    text: `Once {${args.dreamsign.name}} triggers ${profile.triggerCount} times, gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}.`,
-    triggerSelector: hookTrigger({
-      triggerKind: "dreamsign_trigger",
-      label: `once ${args.dreamsign.name} triggers ${profile.triggerCount} times`,
-      count: profile.triggerCount,
-      dreamsign: args.dreamsign,
-    }),
-    trackedCondition: `Track {${args.dreamsign.name}} triggering ${profile.triggerCount} times.`,
-    resolution: `After the ${ordinalWord(profile.triggerCount)} {${args.dreamsign.name}} trigger, gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}.`,
-    expiration: expiration(
-      "forfeit_reward",
-      `If the Dreamsign does not trigger ${profile.triggerCount} times within ${profile.battleWindow} battles, discard this hook.`,
-    ),
-    duration: boundedDuration("battle_count", battleText, profile.battleWindow),
-    controlledScene: controlledScene(
-      "reward",
-      `gain ${profile.omenAmount} ${profile.omenAmount === 1 ? "omen" : "omens"}`,
-    ),
-    reward: gainOmen(profile.omenAmount),
-    effects: [
-      namedDreamsignGrant(args.context, args.dreamsign),
-      gainOmen(profile.omenAmount),
-    ],
-    targets: [dreamsignExactTarget(args.dreamsign, "catalog")],
-    effect: valueDreamsignOperation("gain", { tideOverlap: false }) +
-      valueOmenGain(profile.omenAmount),
-    uncertainty: -14,
-  };
-}
-
-function delayedBaneHook(args: {
-  context: JourneyContext;
-  card: CardContent;
-  baneName: BaneName;
-  timing: DelayedBaneTimingProfile;
-}): ExpandedDelayedHookFill {
-  const burden = baneBurden(args.baneName, 1, {
-    timing: args.timing.timingLabel,
-  });
-
-  return {
-    key: `${args.timing.key}:delayed-bane:${normalizedHookId(args.baneName)}`,
-    text: `Gain {${args.card.name}}. ${args.timing.textPrefix}, add {${args.baneName}}.`,
-    triggerSelector: hookTrigger({
-      triggerKind: args.timing.triggerKind,
-      label: args.timing.triggerLabel,
-      count: args.timing.triggerCount,
-    }),
-    trackedCondition: args.timing.trackedCondition,
-    resolution: `${args.timing.resolutionPrefix}, add {${args.baneName}}.`,
-    expiration: expiration("discard_obligation", args.timing.expirationLabel),
-    duration: boundedDuration(
-      args.timing.durationKind,
-      args.timing.durationLabel,
-      args.timing.durationCount,
-    ),
-    controlledScene: controlledScene("cost", `add ${args.baneName}`),
-    reward: burden,
-    effects: [namedCardGrant(args.context, args.card)],
-    targets: [cardExactTarget(args.card, "catalog")],
-    effect: Math.max(
-      DELAYED_BANE_HOOK_MIN_EFFECT,
-      cardQualityValue(args.card) +
-        valueBaneBurden({
-          baneName: args.baneName,
-          count: 1,
-          delayed: true,
-        }),
-    ),
-    uncertainty: args.timing.uncertainty,
-  };
-}
-
-function expandedDelayedHookCandidates(args: {
+export function expandedDelayedHookCandidates(args: {
   context: JourneyContext;
   drawContext: DrawContext;
   label: string;
   stage?: HookStage;
 }): ExpandedDelayedHookFill[] {
   const stage = args.stage ?? "mid";
-  const cards = catalogRewardCards(args.context, args.drawContext);
-  const cardAt = (index: number): CardContent =>
-    cards[index % Math.max(cards.length, 1)] ?? args.context.content.cards[0]!;
-  const cardA = cardAt(0);
-  const cardB = cardAt(1);
-  const cardC = cardAt(2);
-  const cardD = cardAt(3);
-  const cardE = cardAt(4);
-  const dreamsigns = [
-    ...selectedDreamsignTargets(args.context, args.drawContext),
-    ...shuffleDeterministic(
-      args.drawContext,
-      `${args.label}:catalog-dreamsign-fallbacks`,
-      args.context.content.dreamsigns,
-    ),
-  ].filter(
-    (dreamsign, index, entries) =>
-      entries.findIndex((entry) => entry.id === dreamsign.id) === index,
-  );
-  const dreamsignAt = (index: number): DreamsignContent =>
-    dreamsigns[index % Math.max(dreamsigns.length, 1)] ??
-    args.context.content.dreamsigns[0]!;
-  const dreamsignA = dreamsignAt(0);
-  const dreamsignB = dreamsignAt(1);
-  const dreamsignC = dreamsignAt(2);
-  const dreamsignD = dreamsignAt(3);
-  const delayedBaneCards = [cardC, cardD, cardE];
-  const delayedBaneNames = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:delayed-bane-names`,
-    BANE_NAMES,
-  );
-  const delayedBaneTiming = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:delayed-bane-timings`,
-    DELAYED_BANE_TIMING_PROFILES,
-  )[0]!;
-  const delayedBaneHooks = delayedBaneCards.map((card, index) =>
-    delayedBaneHook({
-      context: args.context,
-      card,
-      baneName: delayedBaneNames[index % delayedBaneNames.length]!,
-      timing: delayedBaneTiming,
-    })
-  );
-  const futureShopBaneName =
-    delayedBaneNames[delayedBaneCards.length % delayedBaneNames.length]!;
-  const randomPurgeProfile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:random-purge-profile`,
-    RANDOM_PURGE_HOOK_BANDS[stage] as readonly RandomPurgeHookProfile[],
-  )[0]!;
-  const namedCardDuplicateProfile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:named-card-duplicate-profile`,
-    NAMED_CARD_DUPLICATE_HOOK_BANDS[stage] as readonly NamedCardDuplicateHookProfile[],
-  )[0]!;
-  const essencePaymentTransformProfile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:essence-payment-transform-profile`,
-    ESSENCE_PAYMENT_DREAMSIGN_TRANSFORM_BANDS[stage] as readonly EssencePaymentDreamsignTransformProfile[],
-  )[0]!;
-  const futureShopDiscountProfile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:future-shop-discount-profile`,
-    FUTURE_SHOP_DISCOUNT_HOOK_BANDS[stage] as readonly FutureShopDiscountHookProfile[],
-  )[0]!;
-  const futureJourneyOptionProfile = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:future-journey-option-profile`,
-    FUTURE_JOURNEY_OPTION_HOOK_BANDS[stage] as readonly FutureJourneyOptionHookProfile[],
-  )[0]!;
-  const siteVisitTargets = shuffleDeterministic(
-    args.drawContext,
-    `${args.label}:site-visit-targets`,
-    SITE_VISIT_HOOK_SITES,
-  );
-  const firstSiteVisitTarget = siteVisitTargets[0]!;
-  const secondSiteVisitTarget = siteVisitTargets[1] ?? firstSiteVisitTarget;
-  const routeReward = routeEditRewards({
-    drawContext: args.drawContext,
-    label: `${args.label}:future-dream-journey-route`,
-    count: 1,
-    operationKinds: ["add_site"],
-    scopes: ["current_dreamscape"],
-    polarities: ["positive"],
-  })[0]!;
-
-  return [
-    ...delayedBaneHooks,
-    {
-      key: "victory:two:named-dreamsign",
-      text: `After 2 victories, gain {${dreamsignA.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "victory",
-        label: "after 2 victories",
-        count: 2,
-      }),
-      trackedCondition: "Track the next 2 victories.",
-      resolution: `After the second victory, gain {${dreamsignA.name}}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        "If 2 victories are not earned within 3 battles, discard this hook with no reward.",
-      ),
-      duration: boundedDuration("battle_count", "next 3 battles", 3),
-      controlledScene: controlledScene("reward", `gain ${dreamsignA.name}`),
-      reward: namedDreamsignGrant(args.context, dreamsignA, "after 2 victories"),
-      effects: [namedDreamsignGrant(args.context, dreamsignA, "after 2 victories")],
-      targets: [dreamsignExactTarget(dreamsignA, "catalog")],
-      effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.3,
-      uncertainty: -12,
-    },
-    {
-      key: "dreamscape:next:named-card",
-      text: `At the next dreamscape, gain {${cardD.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "dreamscape",
-        label: "at the next dreamscape",
-        count: 1,
-      }),
-      trackedCondition: "Track arrival at the next dreamscape.",
-      resolution: `At the next dreamscape, gain {${cardD.name}}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        "If the next dreamscape is skipped, discard this hook with no reward.",
-      ),
-      duration: boundedDuration("dreamscape_count", "next dreamscape", 1),
-      controlledScene: controlledScene("reward", `gain ${cardD.name}`),
-      reward: namedCardGrant(args.context, cardD, "at the next dreamscape"),
-      effects: [namedCardGrant(args.context, cardD, "at the next dreamscape")],
-      targets: [cardExactTarget(cardD, "catalog")],
-      effect: cardQualityValue(cardD) * 1.25,
-      uncertainty: -8,
-    },
-    {
-      key: `each-battle:${randomPurgeProfile.battleWindow}:random-purge-${randomPurgeProfile.purgeCount}`,
-      text: `After each of the ${battleWindowText(randomPurgeProfile.battleWindow)}, purge ${randomPurgeProfile.purgeCount} random card${randomPurgeProfile.purgeCount === 1 ? "" : "s"}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "each_battle",
-        label: `after each of the ${battleWindowText(randomPurgeProfile.battleWindow)}`,
-        count: randomPurgeProfile.battleWindow,
-      }),
-      trackedCondition: `Track each completed battle in a ${randomPurgeProfile.battleWindow}-battle window.`,
-      resolution: `After each tracked battle, purge ${randomPurgeProfile.purgeCount} random card${randomPurgeProfile.purgeCount === 1 ? "" : "s"}.`,
-      expiration: expiration(
-        "resolve_partial",
-        `If fewer than ${randomPurgeProfile.battleWindow} battles occur within ${randomPurgeProfile.battleWindow} dreamscapes, resolve the completed random purges.`,
-      ),
-      duration: boundedDuration(
-        "battle_count",
-        battleWindowText(randomPurgeProfile.battleWindow),
-        randomPurgeProfile.battleWindow,
-      ),
-      controlledScene: controlledScene("reward", "purge random cards"),
-      reward: {
-        kind: "card_purge",
-        cardOperationKind: "purge",
-        selection: "visible_random",
-        source: "deck",
-        count: randomPurgeProfile.purgeCount,
-        repetitions: randomPurgeProfile.battleWindow,
-        timing: `after each of the ${battleWindowText(randomPurgeProfile.battleWindow)}`,
-      },
-      effect: randomPurgeProfile.effect,
-      uncertainty: -12,
-    },
-    {
-      key: `site-visit:${normalizedHookId(firstSiteVisitTarget)}:named-dreamsign`,
-      text: `After you visit a {${firstSiteVisitTarget}} site, gain {${dreamsignB.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "site_visit",
-        label: `after you visit a ${firstSiteVisitTarget} site`,
-        siteType: firstSiteVisitTarget,
-      }),
-      trackedCondition: `Track the next ${firstSiteVisitTarget} site visit.`,
-      resolution: `After visiting a ${firstSiteVisitTarget} site, gain {${dreamsignB.name}}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        `If no ${firstSiteVisitTarget} site is visited within 2 dreamscapes, discard this hook.`,
-      ),
-      duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-      controlledScene: controlledScene("reward", `gain ${dreamsignB.name}`),
-      reward: namedDreamsignGrant(
-        args.context,
-        dreamsignB,
-        `after ${firstSiteVisitTarget} site visit`,
-      ),
-      effects: [
-        namedDreamsignGrant(
-          args.context,
-          dreamsignB,
-          `after ${firstSiteVisitTarget} site visit`,
-        ),
-      ],
-      targets: [dreamsignExactTarget(dreamsignB, "catalog")],
-      effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.2,
-      uncertainty: -10,
-    },
-    {
-      key: `site-visit:${normalizedHookId(secondSiteVisitTarget)}:named-dreamsign`,
-      text: `After you visit a {${secondSiteVisitTarget}} site, gain {${dreamsignC.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "site_visit",
-        label: `after you visit a ${secondSiteVisitTarget} site`,
-        siteType: secondSiteVisitTarget,
-      }),
-      trackedCondition: `Track the next ${secondSiteVisitTarget} site visit.`,
-      resolution: `After visiting a ${secondSiteVisitTarget} site, gain {${dreamsignC.name}}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        `If no ${secondSiteVisitTarget} site is visited within 2 dreamscapes, discard this hook.`,
-      ),
-      duration: boundedDuration("dreamscape_count", "within 2 dreamscapes", 2),
-      controlledScene: controlledScene("reward", `gain ${dreamsignC.name}`),
-      reward: namedDreamsignGrant(
-        args.context,
-        dreamsignC,
-        `after ${secondSiteVisitTarget} site visit`,
-      ),
-      effects: [
-        namedDreamsignGrant(
-          args.context,
-          dreamsignC,
-          `after ${secondSiteVisitTarget} site visit`,
-        ),
-      ],
-      targets: [dreamsignExactTarget(dreamsignC, "catalog")],
-      effect: valueDreamsignOperation("gain", { tideOverlap: false }) * 1.2,
-      uncertainty: -10,
-    },
-    namedCardPlayEssenceHook({
-      context: args.context,
-      drawContext: args.drawContext,
-      label: args.label,
-      stage,
-      card: cardA,
-    }),
-    dreamsignTriggerOmenHook({
-      context: args.context,
-      drawContext: args.drawContext,
-      label: args.label,
-      stage,
-      dreamsign: dreamsignD,
-    }),
-    {
-      key: `named-card-play:${namedCardDuplicateProfile.triggerCount}:duplicate-${namedCardDuplicateProfile.copyCount}`,
-      text: `Once you play {${cardB.name}} ${namedCardDuplicateProfile.triggerCount} times, duplicate it${namedCardDuplicateProfile.copyCount === 1 ? "" : ` ${namedCardDuplicateProfile.copyCount} times`}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "named_card_play",
-        label: `once you play ${cardB.name} ${namedCardDuplicateProfile.triggerCount} times`,
-        count: namedCardDuplicateProfile.triggerCount,
-        card: cardB,
-      }),
-      trackedCondition: `Track playing {${cardB.name}} ${namedCardDuplicateProfile.triggerCount} times.`,
-      resolution: `After the ${ordinalWord(namedCardDuplicateProfile.triggerCount)} {${cardB.name}} play, duplicate it${namedCardDuplicateProfile.copyCount === 1 ? "" : ` ${namedCardDuplicateProfile.copyCount} times`}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        `If it is not played ${namedCardDuplicateProfile.triggerCount} times within ${namedCardDuplicateProfile.battleWindow} battles, discard this hook.`,
-      ),
-      duration: boundedDuration(
-        "battle_count",
-        battleWindowText(namedCardDuplicateProfile.battleWindow),
-        namedCardDuplicateProfile.battleWindow,
-      ),
-      controlledScene: controlledScene("reward", `duplicate ${cardB.name}`),
-      reward: namedCardPayload(
-        {
-          kind: "card_duplicate",
-          target: cardB,
-          source: "catalog",
-          extra: {
-            timing: `after ${namedCardDuplicateProfile.triggerCount} named card plays`,
-            copyCount: namedCardDuplicateProfile.copyCount,
-          },
-        },
-        args.context,
-      ),
-      targets: [cardExactTarget(cardB, "catalog")],
-      effect: namedCardDuplicateProfile.effect,
-      uncertainty: -15,
-    },
-    {
-      key: "card-added:one:transform-card",
-      text: `When {${cardD.name}} is added, transform it into {${cardE.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "card_added",
-        label: `when ${cardD.name} is added`,
-        count: 1,
-        card: cardD,
-      }),
-      trackedCondition: `Track adding {${cardD.name}} to your deck.`,
-      resolution: `When added, transform it into {${cardE.name}}.`,
-      expiration: expiration(
-        "return_unchanged",
-        "If the card is not added before the next Dream Journey, keep it unchanged.",
-      ),
-      duration: boundedDuration("journey_count", "before the next Dream Journey", 1),
-      controlledScene: controlledScene("transformation", `${cardD.name} becomes ${cardE.name}`),
-      reward: namedCardPayload(
-        {
-          kind: "card_transform",
-          target: cardD,
-          result: cardE,
-          source: "catalog",
-          extra: { timing: "when named card is added" },
-        },
-        args.context,
-      ),
-      targets: [cardExactTarget(cardD, "catalog"), cardExactTarget(cardE, "catalog")],
-      effect: 130,
-      uncertainty: -12,
-    },
-    {
-      key: `essence-payment:${essencePaymentTransformProfile.amount}:transform-dreamsign`,
-      text: `When you next pay at least ${essencePaymentTransformProfile.amount} essence, transform {${dreamsignB.name}} into {${dreamsignC.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "essence_payment",
-        label: `when you next pay at least ${essencePaymentTransformProfile.amount} essence`,
-        amount: essencePaymentTransformProfile.amount,
-      }),
-      trackedCondition: `Track the next payment of at least ${essencePaymentTransformProfile.amount} essence.`,
-      resolution: `After paying, transform {${dreamsignB.name}} into {${dreamsignC.name}}.`,
-      expiration: expiration(
-        "forfeit_reward",
-        `If no qualifying payment happens ${dreamscapeWindowText(essencePaymentTransformProfile.dreamscapeWindow)}, discard the transformation.`,
-      ),
-      duration: boundedDuration(
-        "dreamscape_count",
-        dreamscapeWindowText(essencePaymentTransformProfile.dreamscapeWindow),
-        essencePaymentTransformProfile.dreamscapeWindow,
-      ),
-      controlledScene: controlledScene(
-        "transformation",
-        `${dreamsignB.name} becomes ${dreamsignC.name}`,
-      ),
-      visibilityPolicy: hookVisibility(
-        "hidden_until_resolution",
-        "The named transformation is precommitted in JSON/debug and summarized before choosing.",
-      ),
-      reward: namedDreamsignPayload(
-        {
-          kind: "dreamsign_transform",
-          dreamsign: dreamsignB,
-          source: "catalog",
-          result: dreamsignC,
-          resultSource: "catalog",
-          extra: {
-            timing: "after essence payment",
-            minimumEssencePayment: essencePaymentTransformProfile.amount,
-          },
-        },
-        args.context,
-      ),
-      targets: [dreamsignExactTarget(dreamsignB, "catalog"), dreamsignExactTarget(dreamsignC, "catalog")],
-      effect: essencePaymentTransformProfile.effect,
-      uncertainty: -15,
-    },
-    {
-      key: "future-shop:bane-to-card",
-      text: `At the next future Shop, transform {${futureShopBaneName}} into {${cardE.name}}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "future_shop",
-        label: "at the next future shop",
-        count: 1,
-      }),
-      trackedCondition: "Track the next future Shop site.",
-      resolution: `At the next future Shop, transform {${futureShopBaneName}} into {${cardE.name}}.`,
-      expiration: expiration(
-        "discard_obligation",
-        "If no future Shop appears within 2 dreamscapes, discard this hook.",
-      ),
-      duration: boundedDuration("shop_count", "next future shop", 1),
-      controlledScene: controlledScene("transformation", `${futureShopBaneName} becomes ${cardE.name}`),
-      reward: {
-        kind: "bane_transform_to_card",
-        baneName: futureShopBaneName,
-        count: 1,
-        baneTargetContext: "manifest_obligation",
-        selection: "exact",
-        timing: "at the next future shop",
-        cardId: cardE.id,
-        cardName: cardE.name,
-        source: "catalog",
-        delayed: true,
-      },
-      targets: [
-        baneTarget(
-          `${futureShopBaneName} obligation`,
-          [futureShopBaneName],
-          "manifest_obligation",
-        ),
-        cardExactTarget(cardE, "catalog"),
-      ],
-      effect: 130,
-      uncertainty: -13,
-    },
-    {
-      key: `future-dream-journey:${routeReward.key}`,
-      text: `At the next Dream Journey site, ${lowerFirst(routeReward.text)}`,
-      triggerSelector: hookTrigger({
-        triggerKind: "future_dream_journey",
-        label: "at the next Dream Journey site",
-        count: 1,
-      }),
-      trackedCondition: "Track the next Dream Journey site you enter.",
-      resolution: `At the next Dream Journey site, ${lowerFirst(routeReward.text)}`,
-      expiration: expiration(
-        "discard_obligation",
-        "If no Dream Journey site appears within 2 dreamscapes, discard this hook.",
-      ),
-      duration: boundedDuration("journey_count", "next Dream Journey site", 1),
-      controlledScene: controlledScene(
-        "reward",
-        lowerFirst(routeReward.text).replace(/\.$/u, ""),
-      ),
-      reward: routeReward.payload,
-      effect: routeReward.effect,
-      uncertainty: -12,
-    },
-    {
-      key: `future-shop:discount-${futureShopDiscountProfile.amount}`,
-      text: `At the next future Shop, trade this hook for a ${futureShopDiscountProfile.amount} essence discount.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "future_shop",
-        label: "at the next future shop",
-        count: 1,
-      }),
-      trackedCondition: "Track the next future Shop site.",
-      resolution: `At that shop, trade this hook for a ${futureShopDiscountProfile.amount} essence discount.`,
-      expiration: expiration(
-        "discard_obligation",
-        "If no future Shop appears within 2 dreamscapes, discard this hook.",
-      ),
-      duration: boundedDuration("shop_count", "next future shop", 1),
-      controlledScene: controlledScene(
-        "trade",
-        `${futureShopDiscountProfile.amount} essence Shop discount`,
-      ),
-      reward: shopPayload({
-        kind: "future_shop_trade_hook",
-        scope: "future_shops",
-        duration: "next future shop",
-        amount: futureShopDiscountProfile.amount,
-        count: 1,
-        siteType: "Shop",
-        hook: `spend this hook for a ${futureShopDiscountProfile.amount} essence discount`,
-      }),
-      effect: futureShopDiscountProfile.effect,
-      uncertainty: -14,
-    },
-    {
-      key: `future-dream-journey:extra-options-${futureJourneyOptionProfile.optionCount}`,
-      text: `At the next Dream Journey site, start with ${futureJourneyOptionProfile.optionCount} extra option${futureJourneyOptionProfile.optionCount === 1 ? "" : "s"}.`,
-      triggerSelector: hookTrigger({
-        triggerKind: "future_dream_journey",
-        label: "at the next Dream Journey site",
-        count: 1,
-      }),
-      trackedCondition: "Track the next Dream Journey site you enter.",
-      resolution: `The next Dream Journey starts with ${futureJourneyOptionProfile.optionCount} extra option${futureJourneyOptionProfile.optionCount === 1 ? "" : "s"}.`,
-      expiration: expiration(
-        "discard_obligation",
-        "If no Dream Journey site appears within 2 dreamscapes, discard this hook.",
-      ),
-      duration: boundedDuration("journey_count", "next Dream Journey site", 1),
-      controlledScene: controlledScene(
-        "reward",
-        `next Dream Journey has ${futureJourneyOptionProfile.optionCount} extra option${futureJourneyOptionProfile.optionCount === 1 ? "" : "s"}`,
-      ),
-      reward: statusPayload({
-        kind: "status_reward_replacement",
-        statusName: "Widened Journey",
-        statusScope: "quest",
-        duration: "one_time",
-        ruleMutationKind: "reward_replacement",
-        replacement: `${futureJourneyOptionProfile.optionCount} extra Dream Journey option${futureJourneyOptionProfile.optionCount === 1 ? "" : "s"}`,
-        amount: futureJourneyOptionProfile.optionCount,
-      }),
-      effect: futureJourneyOptionProfile.effect,
-      uncertainty: -12,
-    },
-  ];
+  const candidates: ExpandedDelayedHookFill[] = [];
+  for (const trigger of TRIGGER_REGISTRY) {
+    for (const resolution of RESOLUTION_REGISTRY) {
+      if (!hookCompatibility(trigger, resolution, stage)) continue;
+      const label = `${args.label}:${trigger.kind}:${resolution.kind}`;
+      const payload = resolution.producesPayload({
+        context: args.context,
+        drawContext: args.drawContext,
+        label,
+        stage,
+        trigger,
+      });
+      if (!payload) continue;
+      candidates.push(expandDelayedHookCandidate(trigger, resolution, payload));
+    }
+  }
+  return candidates;
 }
 
 export function expandedDelayedHookFills(args: {

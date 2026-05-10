@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { TRIGGER_REGISTRY } from "../src/journey/fillers/hookTriggers.js";
 import { RESOLUTION_REGISTRY } from "../src/journey/fillers/hookResolutions.js";
 import { hookCompatibility } from "../src/journey/fillers/hookCompatibility.js";
+import { expandedDelayedHookCandidates } from "../src/journey/fillers/hookPayloads.js";
+import { loadContent } from "../src/content/loadToml.js";
+import { buildJourneyContext } from "../src/quest/context.js";
+import { createInitialJourneyState } from "../src/quest/init.js";
 
 describe("TRIGGER_REGISTRY", () => {
   it("contains every trigger kind from the manifest", () => {
@@ -83,5 +87,57 @@ describe("hookCompatibility", () => {
     }
     expect(permitted).toBeGreaterThan(20);
     expect(permitted).toBeLessThan(total);
+  });
+});
+
+describe("expandedDelayedHookCandidates (cartesian)", () => {
+  async function buildContext(seed: string) {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const state = createInitialJourneyState({
+      seed,
+      content,
+      contentVersion,
+    });
+    const context = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+    const drawContext = {
+      seed,
+      contentVersion,
+      rootJourneyIndex: 1,
+    };
+    return { context, drawContext };
+  }
+
+  it("produces at least 20 candidates from the registries", async () => {
+    const { context, drawContext } = await buildContext("hook-cart-1");
+    const out = expandedDelayedHookCandidates({
+      context,
+      drawContext,
+      label: "test",
+      stage: "mid",
+    });
+    expect(out.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("includes a card_added x bane_transform_to_card composition", async () => {
+    const { context, drawContext } = await buildContext("hook-cart-2");
+    const out = expandedDelayedHookCandidates({
+      context,
+      drawContext,
+      label: "test",
+      stage: "mid",
+    });
+    expect(
+      out.some(
+        (c) =>
+          c.triggerKind === "card_added" &&
+          c.resolutionKind === "bane_transform_to_card",
+      ),
+    ).toBe(true);
   });
 });
