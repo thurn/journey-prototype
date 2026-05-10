@@ -408,6 +408,42 @@ function naturalDreamsignBody(
   };
 }
 
+type TradeTicketArgs = {
+  drawContext: DrawContext;
+  label: string;
+  flavour: "Key" | "Parchment" | "Token";
+};
+
+export function tradeTicketBody(args: TradeTicketArgs): GeneratedObjectBody {
+  const idPart = `trade-ticket-${kebab(args.flavour)}`;
+  return {
+    idPart,
+    name: `${args.flavour} of Passage`,
+    objectType: "Quest Ticket",
+    rulesText: `Hold this ${args.flavour} until the next eligible trade; then exchange it for the promised reward.`,
+    tags: ["journey-only", "ticket", "trade"],
+    references: { rules: [args.flavour, "trade"] },
+    duration: generatedObjectDuration("until traded", 1, "until_trigger"),
+    lifetime: "until_returned",
+    valueEstimate: {
+      convertedEssence: 90,
+      confidence: "medium",
+      basis: "Trade-ticket anchor for a deferred named-object exchange.",
+    },
+    payload: {
+      ticketKind: args.flavour,
+      ticketLabel: args.label,
+      source: "manifest_generated",
+    },
+    ruleIds: [
+      "stable_id",
+      "duration",
+      "value_estimate",
+      "manifest_local",
+    ],
+  };
+}
+
 function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody {
   const anchorCard = referencedName(
     args.drawContext,
