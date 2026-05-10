@@ -38,7 +38,12 @@ import {
 } from "./shared.js";
 import { hookCompatibility } from "./hookCompatibility.js";
 import { TRIGGER_REGISTRY, type TriggerEntry } from "./hookTriggers.js";
-import { RESOLUTION_REGISTRY, type ResolutionEntry } from "./hookResolutions.js";
+import {
+  RESOLUTION_REGISTRY,
+  battleWindowText,
+  type HookStage,
+  type ResolutionEntry,
+} from "./hookResolutions.js";
 
 type DelayedTimingSlot = {
   key: string;
@@ -57,8 +62,6 @@ type PairedReturnFamilyId =
   | "return_for_resource"
   | "return_for_card_operation"
   | "return_for_route_edit";
-
-type HookStage = "early" | "mid" | "late";
 
 type BorrowedDreamsignLoanProfile = {
   battleWindow: number;
@@ -328,10 +331,6 @@ function namedDreamsignGrant(
     },
     context,
   );
-}
-
-function battleWindowText(count: number): string {
-  return count === 1 ? "next battle" : `next ${count} battles`;
 }
 
 function afterBattleWindowText(count: number): string {

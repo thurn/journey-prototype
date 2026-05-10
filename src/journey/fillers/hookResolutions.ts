@@ -300,7 +300,7 @@ function ordinalWord(value: number): string {
             : `${value}th`;
 }
 
-function battleWindowText(count: number): string {
+export function battleWindowText(count: number): string {
   return count === 1 ? "next battle" : `next ${count} battles`;
 }
 
@@ -1052,7 +1052,14 @@ function statusRewardReplacement(args: ResolutionPayloadArgs): ResolutionPayload
   // Reuse the future-journey-option resolution as the canonical
   // status_reward_replacement, but expose it under a distinct kind so consumers
   // can target the rule-mutation surface directly.
-  return futureJourneyOption(args);
+  const payload = futureJourneyOption(args);
+  if (!payload) return undefined;
+  const reward = payload.reward as { amount?: unknown } | undefined;
+  const optionCount = typeof reward?.amount === "number" ? reward.amount : 0;
+  return {
+    ...payload,
+    keySuffix: `status-widened-journey-${optionCount}`,
+  };
 }
 
 function futureJourneyRouteEdit(args: ResolutionPayloadArgs): ResolutionPayload | undefined {
