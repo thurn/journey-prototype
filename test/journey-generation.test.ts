@@ -3849,8 +3849,8 @@ describe.concurrent("generateNextJourney", () => {
       (candidate) =>
         candidate.debug.symmetryContracts?.some(
           (contract) =>
-            contract.contractKind === "shared_operation_named_targets" &&
-            contract.variedProperty === "visible named card target",
+            contract.contractKind === "shared_axis_rotated_attribute" &&
+            contract.variedProperty === "visible_named_card_target",
         ) === true,
     );
     const rewardOperations = manifest.options.map((journeyOption) =>
@@ -3938,8 +3938,8 @@ describe.concurrent("generateNextJourney", () => {
       (candidate) =>
         candidate.debug.symmetryContracts?.some(
           (contract) =>
-            contract.contractKind === "shared_target_operations" &&
-            contract.variedProperty === "transfiguration operation",
+            contract.contractKind === "shared_axis_rotated_attribute" &&
+            contract.variedProperty === "transfiguration_operation",
         ) === true,
     );
     const rewardOperations = manifest.options.map((journeyOption) =>
@@ -9164,7 +9164,7 @@ describe.concurrent("validateJourneyManifest", () => {
           timingFamilies: ["immediate"],
         },
         operationEvidence: ["reward:card_transfigure", "target:card:exact"],
-        symmetryContracts: ["shared_operation_named_targets"],
+        symmetryContracts: ["shared_axis_rotated_attribute"],
       },
       {
         example: "Equal Shadow",
@@ -9195,7 +9195,7 @@ describe.concurrent("validateJourneyManifest", () => {
           timingFamilies: ["immediate"],
         },
         operationEvidence: ["reward:card_transfigure", "target:card:exact"],
-        symmetryContracts: ["shared_target_operations"],
+        symmetryContracts: ["shared_axis_rotated_attribute"],
       },
       {
         example: "Narrow Reservoir",

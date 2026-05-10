@@ -86,6 +86,7 @@ import {
   randomVisibility,
 } from "./randomPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
+import { buildSharedAxisRotatedAttributeContract } from "./sharedAxisRotatedAttribute.js";
 import { sameCostDifferentRewardsFill } from "../shapes/same_cost_different_rewards/fill.js";
 
 export { sharedBaneBurdenRewardFill } from "./shared.js";
@@ -334,6 +335,19 @@ export function fillOptions(
             count: 3,
           });
 
+          const sharedTargetContract = buildSharedAxisRotatedAttributeContract({
+            options: operations.map((operation, index) => ({
+              number: index + 1,
+              sharedValue: sharedTargetEntry.key,
+              rotatedValue: operation.key,
+            })),
+            sharedAxis: {
+              kind: "named_target",
+              value: sharedTargetEntry.key,
+            },
+            rotatedAxis: { kind: "transfiguration_operation" },
+            weight: 1,
+          });
           return {
             options: operations.map((operation, index) =>
               option({
@@ -346,18 +360,7 @@ export function fillOptions(
               }),
             ),
             precommitted: {},
-            symmetryContracts: [
-              symmetryContract({
-                contractKind: "shared_target_operations",
-                sharedProperty: sharedTargetEntry.key,
-                variedProperty: "transfiguration operation",
-                sharedFirst: true,
-                optionNumbers: [1, 2, 3],
-                sharedPayloadKeys: [sharedTargetEntry.key],
-                variedPayloadKeys: operations.map((operation) => operation.key),
-                weight: 1,
-              }),
-            ],
+            symmetryContracts: sharedTargetContract ? [sharedTargetContract] : [],
           };
         }
       }
@@ -655,6 +658,16 @@ export function fillOptions(
             count: 1,
           })[0]!;
 
+          const sharedOperationContract = buildSharedAxisRotatedAttributeContract({
+            options: targetEntries.map((entry, index) => ({
+              number: index + 1,
+              sharedValue: operation.key,
+              rotatedValue: entry.key,
+            })),
+            sharedAxis: { kind: "operation", value: operation.key },
+            rotatedAxis: { kind: "visible_named_card_target" },
+            weight: 1,
+          });
           return {
             options: targetEntries.map((entry, index) =>
               option({
@@ -667,18 +680,9 @@ export function fillOptions(
               }),
             ),
             precommitted: {},
-            symmetryContracts: [
-              symmetryContract({
-                contractKind: "shared_operation_named_targets",
-                sharedProperty: operation.key,
-                variedProperty: "visible named card target",
-                sharedFirst: true,
-                optionNumbers: [1, 2, 3],
-                sharedPayloadKeys: [operation.key],
-                variedPayloadKeys: targetEntries.map((entry) => entry.key),
-                weight: 1,
-              }),
-            ],
+            symmetryContracts: sharedOperationContract
+              ? [sharedOperationContract]
+              : [],
           };
         }
       }
@@ -793,23 +797,25 @@ export function fillOptions(
         })),
       } satisfies ResolvedShapeFill;
 
+      const sharedOperationTargetClassContract =
+        buildSharedAxisRotatedAttributeContract({
+          options: targetFill.options.map((fill, index) => ({
+            number: fill.number,
+            sharedValue: operation.key,
+            rotatedValue: targetEntries[index]!.targetClass,
+          })),
+          sharedAxis: { kind: "operation", value: operation.key },
+          rotatedAxis: { kind: "target_class" },
+          weight: 4,
+        });
       return {
         options: targetFill.options.map((fill) =>
           optionFromResolvedShapeFill(fill),
         ),
         precommitted: {},
-        symmetryContracts: [
-          symmetryContract({
-            contractKind: "shared_operation_named_targets",
-            sharedProperty: operation.key,
-            variedProperty: "target selector class",
-            sharedFirst: true,
-            optionNumbers: targetFill.options.map((fill) => fill.number),
-            sharedPayloadKeys: [operation.key],
-            variedPayloadKeys: targetEntries.map((entry) => entry.targetClass),
-            weight: 4,
-          }),
-        ],
+        symmetryContracts: sharedOperationTargetClassContract
+          ? [sharedOperationTargetClassContract]
+          : [],
       };
     }
     case "paired_return": {
