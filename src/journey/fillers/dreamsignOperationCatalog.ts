@@ -618,7 +618,7 @@ export const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntr
       targetSources: ["active", "pool"],
       renderText: (targetText) =>
         `Reveal 3 Dreamsigns; transform ${targetText} into 1 of them.`,
-      effect: { kind: "transform_dreamsign", revealCount: 3, chooseCount: 1 },
+      effect: { kind: "dreamsign_transform", revealCount: 3, chooseCount: 1 },
       value: 130,
       uncertainty: DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomUncertainty,
     }),

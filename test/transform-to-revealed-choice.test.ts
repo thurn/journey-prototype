@@ -6,7 +6,7 @@ describe("transform_to_revealed_choice", () => {
     const entry = DREAMSIGN_OPERATION_CATALOG.find((e) => e.key === "transform_to_revealed_choice");
     expect(entry).toBeDefined();
     expect(entry!.effect).toMatchObject({
-      kind: "transform_dreamsign",
+      kind: "dreamsign_transform",
       revealCount: 3,
       chooseCount: 1,
     });
