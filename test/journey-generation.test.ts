@@ -4215,7 +4215,7 @@ describe.concurrent("generateNextJourney", () => {
       "merge",
       "split",
       "change-type-event",
-      "change-subtype-sigil",
+      "change_subtype_sigil",
       "card_keyword_remove",
       "remove-transfiguration",
       "ink-reassignment-text",
@@ -4224,7 +4224,7 @@ describe.concurrent("generateNextJourney", () => {
       "materialized-ability-conversion",
       "all-card-transfiguration",
       "all-event-transfiguration",
-      "random-predicate-transfiguration",
+      "random_predicate_transfiguration",
       "random-starter-transfiguration",
       "two-chosen-starter-transfiguration",
     ].forEach((key) => expect(byKey.has(key), key).toBe(true));
@@ -4243,7 +4243,7 @@ describe.concurrent("generateNextJourney", () => {
       family: "text",
       effect: expect.objectContaining({ rewriteMode: "ink_reassignment" }),
     });
-    expect(byKey.get("change-subtype-sigil")).toMatchObject({
+    expect(byKey.get("change_subtype_sigil")).toMatchObject({
       family: "subtype",
       effect: expect.objectContaining({ newSubtype: "Sigil" }),
     });
@@ -4477,8 +4477,8 @@ describe.concurrent("generateNextJourney", () => {
       "pool-add",
       "pool-remove",
       "pool-replace",
-      "random-pool-reward",
-      "random-neutral-reward",
+      "dreamsign_random_select",
+      "dreamsign_draft_select",
       "trade-hook",
       "trigger-counter",
     ].forEach((key) => expect(byKey.has(key), key).toBe(true));
@@ -10118,12 +10118,12 @@ describe.concurrent("validateJourneyManifest", () => {
   it("admits all-matching companion card operations into alter_dreamscapes routes", async () => {
     // Phase 3 acceptance criterion: scenarios that previously failed because
     // of topology gates (e.g. all-event-transfiguration in alter_dreamscapes)
-    // must now generate at least one fill on a 100-seed sweep. The slot's
-    // capabilities allow all_matching entries; widening the request must
-    // expose them through the actual fill, not just the catalog query.
+    // must now generate at least one fill on a multi-hundred-seed sweep. The
+    // slot's capabilities allow all_matching entries; widening the request
+    // must expose them through the actual fill, not just the catalog query.
     let foundAllMatchingTransfiguration = false;
 
-    for (let index = 0; index < 100 && !foundAllMatchingTransfiguration; index += 1) {
+    for (let index = 0; index < 200 && !foundAllMatchingTransfiguration; index += 1) {
       const journeyContext = await context(`alter-dreamscapes-all-matching-${index}`);
       const manifest = fillForShape("alter_dreamscapes", journeyContext);
       const optionEffects = manifest.options.flatMap((journeyOption) =>

@@ -12,6 +12,7 @@ import {
   type OperationCompatibilityTrait,
   type SlotCapability,
 } from "./operationCompatibility.js";
+import { pickAxisPoint, type PredicateAxis } from "./predicateAxes.js";
 import { BATTLE_WINDOW_DURATION, cost } from "./shared.js";
 import {
   contentBackedDreamsignCandidates,
@@ -69,6 +70,7 @@ type DreamsignOperationCatalogEntry = Omit<
   "targets"
 > & {
   compatibilityTraits: readonly OperationCompatibilityTrait[];
+  predicateAxes?: readonly PredicateAxis[];
   materialize?: (
     args: DreamsignOperationMaterializerArgs,
   ) => MaterializedDreamsignOperation | undefined;
@@ -647,33 +649,79 @@ export const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntr
   },
   {
     ...baseEntry({
-      key: "random-pool-reward",
+      key: "dreamsign_random_select",
       family: "random_reward",
       compatibilityTraits: ["needs_random_predicate_target"],
       targetSources: ["pool"],
       targetModes: ["hidden_random", "predicate"],
-      renderText: () => "Gain 1 random Dreamsign from your pool.",
+      renderText: () => "Gain 1 random quest-oriented Dreamsign from your pool.",
       effect: { kind: "dreamsign_random_reward" },
       value: valueDreamsignOperation("random_reward", { random: true }),
       uncertainty: DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomUncertainty,
     }),
-    materialize: (args) =>
-      materializeRandomReward(args, { source: "pool", tideOverlap: "selected" }),
+    predicateAxes: [
+      {
+        name: "orientation",
+        values: ["quest", "battle"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const orientation = point.orientation as "quest" | "battle";
+      const operation = materializeRandomReward(args, {
+        source: "pool",
+        orientation,
+        tideOverlap: "selected",
+      });
+      if (!operation) return undefined;
+      return {
+        ...operation,
+        key: `${args.entry.key}:${orientation}`,
+        renderText: () =>
+          `Gain 1 random ${orientation}-oriented Dreamsign from your pool.`,
+      };
+    },
   },
   {
     ...baseEntry({
-      key: "random-neutral-reward",
+      key: "dreamsign_draft_select",
       family: "random_reward",
       compatibilityTraits: ["needs_random_predicate_target"],
       targetSources: ["catalog"],
       targetModes: ["hidden_random", "predicate"],
-      renderText: () => "Gain 1 random neutral Dreamsign.",
-      effect: { kind: "dreamsign_random_reward" },
+      renderText: () =>
+        "Draft 1 quest-oriented Dreamsign from a choice of three.",
+      effect: { kind: "dreamsign_random_reward", draftMode: "draft" },
       value: valueDreamsignOperation("random_reward", { random: true }),
       uncertainty: DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomUncertainty,
     }),
-    materialize: (args) =>
-      materializeRandomReward(args, { source: "catalog", kind: "neutral" }),
+    predicateAxes: [
+      {
+        name: "orientation",
+        values: ["quest", "battle"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const orientation = point.orientation as "quest" | "battle";
+      const operation = materializeRandomReward(args, {
+        source: "catalog",
+        orientation,
+      });
+      if (!operation) return undefined;
+      return {
+        ...operation,
+        key: `${args.entry.key}:${orientation}`,
+        effect: {
+          ...operation.effect,
+          draftMode: "draft",
+          choiceCount: 3,
+          takeCount: 1,
+        },
+        renderText: () =>
+          `Draft 1 ${orientation}-oriented Dreamsign from a choice of three.`,
+      };
+    },
   },
   {
     ...baseEntry({

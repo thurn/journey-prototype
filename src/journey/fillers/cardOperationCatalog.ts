@@ -483,6 +483,64 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     value: 65,
     uncertainty: -10,
   }),
+  {
+    ...baseEntry({
+      key: "deck_card_cost_predicate_purge",
+      family: "purge",
+      valueBand: "standard",
+      timing: "immediate",
+      compatibilityTraits: [
+        "needs_random_predicate_target",
+        "needs_deck_side",
+        "produces_deck_mutation",
+      ],
+      targetClasses: ["deck_card"],
+      targetModes: ["random_predicate"],
+      renderText: () => "Purge a random low-cost card in your deck.",
+      effect: {
+        kind: "card_purge",
+        purgeMode: "random",
+        selection: "hidden_random",
+        predicate: { source: "deck", maxEnergyCost: 1 },
+      },
+      value: 70,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    predicateAxes: [
+      {
+        name: "cost_band",
+        values: ["low", "mid", "high"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const band = point.cost_band as "low" | "mid" | "high";
+      const previousPredicate =
+        (args.entry.effect.predicate as Record<string, unknown> | undefined) ??
+        {};
+      const { maxEnergyCost: _max, minEnergyCost: _min, ...basePredicate } =
+        previousPredicate;
+      const predicate: Record<string, unknown> =
+        band === "low"
+          ? { ...basePredicate, maxEnergyCost: 1 }
+          : band === "mid"
+            ? { ...basePredicate, minEnergyCost: 2, maxEnergyCost: 3 }
+            : { ...basePredicate, minEnergyCost: 4 };
+      const description =
+        band === "low"
+          ? "low-cost"
+          : band === "mid"
+            ? "mid-cost"
+            : "high-cost";
+      return {
+        ...args.entry,
+        key: `${args.entry.key}:${band}`,
+        effect: { ...args.entry.effect, predicate },
+        renderText: () => `Purge a random ${description} card in your deck.`,
+      };
+    },
+  },
   baseEntry({
     key: "all-duplicate-purge",
     family: "purge",
@@ -978,18 +1036,38 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     effect: { kind: "card_type_change", newCardType: "Event" },
     value: 95,
   }),
-  baseEntry({
-    key: "change-subtype-sigil",
-    family: "subtype",
-    valueBand: "standard",
-    timing: "immediate",
-    compatibilityTraits: ["produces_text_or_subtype_mutation"],
-    targetClasses: ALL_TARGET_CLASSES,
-    targetModes: VISIBLE_TARGET_MODES,
-    renderText: (targetText) => `Change ${targetText} to the Sigil subtype.`,
-    effect: { kind: "card_type_change", newSubtype: "Sigil" },
-    value: 90,
-  }),
+  {
+    ...baseEntry({
+      key: "change_subtype_sigil",
+      family: "subtype",
+      valueBand: "standard",
+      timing: "immediate",
+      compatibilityTraits: ["produces_text_or_subtype_mutation"],
+      targetClasses: ALL_TARGET_CLASSES,
+      targetModes: VISIBLE_TARGET_MODES,
+      renderText: (targetText) => `Change ${targetText} to the Sigil subtype.`,
+      effect: { kind: "card_type_change", newSubtype: "Sigil" },
+      value: 90,
+    }),
+    contextFree: true,
+    predicateAxes: [
+      {
+        name: "sigil_target",
+        values: ["Sigil", "Glyph", "Mark", "Rune", "Token"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const subtype = point.sigil_target as string;
+      return {
+        ...args.entry,
+        key: `${args.entry.key}:${subtype}`,
+        effect: { ...args.entry.effect, newSubtype: subtype },
+        renderText: (targetText) =>
+          `Change ${targetText} to the ${subtype} subtype.`,
+      };
+    },
+  },
   baseEntry({
     key: "add-foresee",
     family: "text",
@@ -1194,30 +1272,64 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     },
     value: 145,
   }),
-  baseEntry({
-    key: "random-predicate-transfiguration",
-    family: "transfiguration",
-    valueBand: "standard",
-    timing: "immediate",
-    compatibilityTraits: [
-      "needs_random_predicate_target",
-      "needs_deck_side",
-      "produces_deck_mutation",
+  {
+    ...baseEntry({
+      key: "random_predicate_transfiguration",
+      family: "transfiguration",
+      valueBand: "standard",
+      timing: "immediate",
+      compatibilityTraits: [
+        "needs_random_predicate_target",
+        "needs_deck_side",
+        "produces_deck_mutation",
+      ],
+      targetClasses: ["deck_card"],
+      targetModes: ["random_predicate"],
+      renderText: () =>
+        "Apply {Glass Transfiguration} to a random Event in your deck.",
+      effect: {
+        kind: "card_transfigure",
+        transfigurationName: "Glass",
+        selection: "hidden_random",
+        predicate: { source: "deck", cardType: "Event" },
+        transfigurationScope: "random_predicate",
+      },
+      value: TRANSFIGURATION_VALUE_CONSTANTS.random,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    predicateAxes: [
+      {
+        name: "card_subtype",
+        values: ["Event", "Character"] as const,
+      },
+      {
+        name: "card_count",
+        values: [1, 2, 3] as const,
+      },
     ],
-    targetClasses: ["deck_card"],
-    targetModes: ["random_predicate"],
-    renderText: () =>
-      "Apply {Glass Transfiguration} to a random Event in your deck.",
-    effect: {
-      kind: "card_transfigure",
-      transfigurationName: "Glass",
-      selection: "hidden_random",
-      predicate: { source: "deck", cardType: "Event" },
-      transfigurationScope: "random_predicate",
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const subtype = point.card_subtype as string;
+      const count = point.card_count as number;
+      const previousPredicate =
+        (args.entry.effect.predicate as Record<string, unknown> | undefined) ??
+        {};
+      return {
+        ...args.entry,
+        key: `${args.entry.key}:${subtype}:${count}`,
+        effect: {
+          ...args.entry.effect,
+          predicate: { ...previousPredicate, cardType: subtype },
+          targetCount: count,
+        },
+        renderText: () =>
+          count === 1
+            ? `Apply {Glass Transfiguration} to a random ${subtype} in your deck.`
+            : `Apply {Glass Transfiguration} to ${count} random ${subtype} cards in your deck.`,
+      };
     },
-    value: TRANSFIGURATION_VALUE_CONSTANTS.random,
-    uncertainty: -10,
-  }),
+  },
   {
     ...baseEntry({
       key: "random-starter-transfiguration",
@@ -1275,6 +1387,67 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     }),
     materialize: (args) => {
       return starterTransfigurationOperation(args, "chosen");
+    },
+  },
+  {
+    ...baseEntry({
+      key: "any_card_transfiguration",
+      family: "transfiguration",
+      valueBand: "standard",
+      timing: "immediate",
+      compatibilityTraits: [
+        "needs_named_target",
+        "needs_deck_side",
+        "produces_deck_mutation",
+      ],
+      targetClasses: ALL_TARGET_CLASSES,
+      targetModes: CHOSEN_OR_NAMED,
+      renderText: (targetText) =>
+        `Apply a generated Transfiguration to ${targetText}.`,
+      effect: {
+        kind: "card_transfigure",
+        transfigurationName: "generated",
+        selection: "chosen_after_commitment",
+        transfigurationScope: "any_card",
+        minRequiredTargets: 1,
+        targetCount: 1,
+      },
+      value: 110,
+      uncertainty: -10,
+    }),
+    contextFree: true,
+    predicateAxes: [
+      {
+        name: "target_class",
+        values: ["draft_card", "deck_card", "starter_card"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const targetClass = point.target_class as CardOperationTargetClass;
+      const transfigurationName = shuffleDeterministic(
+        args.drawContext,
+        `${args.label}:${args.entry.key}:transfiguration`,
+        ALLOWED_TRANSFIGURATIONS,
+      )[0]!;
+      const description =
+        targetClass === "draft_card"
+          ? "a drafted card"
+          : targetClass === "starter_card"
+            ? "a Starter card"
+            : "a card in your deck";
+      return {
+        ...args.entry,
+        key: `${args.entry.key}:${targetClass}:${transfigurationName.toLowerCase()}`,
+        targetClasses: [targetClass],
+        effect: {
+          ...args.entry.effect,
+          targetClass,
+          transfigurationName,
+        },
+        renderText: (targetText) =>
+          `Apply {${transfigurationName} Transfiguration} to ${targetText || description}.`,
+      };
     },
   },
 ];

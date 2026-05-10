@@ -4,6 +4,7 @@ import {
   type PredicateAxis,
 } from "../src/journey/fillers/predicateAxes.js";
 import { CARD_OPERATION_CATALOG } from "../src/journey/fillers/cardOperationCatalog.js";
+import { DREAMSIGN_OPERATION_CATALOG } from "../src/journey/fillers/dreamsignOperationCatalog.js";
 import { makeTestContext } from "./helpers/journey-context.js";
 
 describe("expandPredicateAxes", () => {
@@ -48,5 +49,27 @@ describe("card_keyword_remove migration", () => {
     });
     expect(materialized).toBeDefined();
     expect(materialized!.effect.keyword).toBeDefined();
+  });
+});
+
+describe("predicate-axis migrations", () => {
+  it.each([
+    ["random_predicate_transfiguration", ["card_subtype", "card_count"]],
+    ["dreamsign_random_select", ["orientation"]],
+    ["dreamsign_draft_select", ["orientation"]],
+    ["deck_card_cost_predicate_purge", ["cost_band"]],
+    ["change_subtype_sigil", ["sigil_target"]],
+    ["any_card_transfiguration", ["target_class"]],
+  ])("entry %s declares axes %j", (key, axisNames) => {
+    const entry =
+      CARD_OPERATION_CATALOG.find((e) => e.key === key) ??
+      DREAMSIGN_OPERATION_CATALOG.find((e) => e.key === key);
+    expect(entry, `entry ${key}`).toBeDefined();
+    for (const axisName of axisNames) {
+      expect(
+        entry!.predicateAxes?.some((a) => a.name === axisName),
+        `entry ${key} missing axis ${axisName}`,
+      ).toBe(true);
+    }
   });
 });
