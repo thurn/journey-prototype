@@ -100,11 +100,6 @@
 - Pay 25 essence. Apply {Viridian Transfiguration} to a chosen card.
 - Pay 25 essence. Choose 1 of 3 Dreamsigns.
 
-## Bounded Wheel
-
-- Roll for 150 essence, {Flash Powder}, a random Bane purge, or 1 {Nightmare}.
-- Pay 1 omen. Roll twice and keep one result.
-
 ## Lantern Budget
 
 - Gain 90 essence.
@@ -171,12 +166,6 @@
 - Change {Nocturne Strummer} to become a warrior.
 - Make a chosen event Fast.
 
-## Quickening Spill
-
-- Change {Beacon of Tomorrow} to have Fast.
-- Change 2 random cards to have Fast.
-- Modify 3 random cards to become events.
-
 ## First Breath
 
 - Draw 1 additional card in your opening hand for 3 battles.
@@ -197,7 +186,6 @@
 
 ## Pool Compass
 
-- Remove neutral Dreamsigns from the pool.
 - Gain a copy of a chosen Dreamsign.
 
 ## Promise Card
