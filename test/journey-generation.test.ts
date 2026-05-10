@@ -4216,7 +4216,7 @@ describe.concurrent("generateNextJourney", () => {
       "split",
       "change-type-event",
       "change-subtype-sigil",
-      "remove-dissolve",
+      "card_keyword_remove",
       "remove-transfiguration",
       "ink-reassignment-text",
       "remove-target-restriction",

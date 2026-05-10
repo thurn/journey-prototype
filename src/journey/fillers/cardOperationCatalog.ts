@@ -25,6 +25,7 @@ import {
   type OperationCompatibilityTrait,
   type SlotCapability,
 } from "./operationCompatibility.js";
+import { pickAxisPoint, type PredicateAxis } from "./predicateAxes.js";
 import { BATTLE_WINDOW_DURATION, chosenCardText } from "./shared.js";
 
 export type CardOperationTargetClass =
@@ -84,6 +85,7 @@ type CardOperationCatalogEntry = MaterializedCardOperation & {
   compatibilityTraits: readonly OperationCompatibilityTrait[];
   targetClasses: readonly CardOperationTargetClass[];
   contextFree?: boolean;
+  predicateAxes?: readonly PredicateAxis[];
   materialize?: (
     args: CardOperationMaterializerArgs,
   ) => MaterializedCardOperation | undefined;
@@ -905,18 +907,37 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     effect: { kind: "card_keyword_add", keyword: "Reclaim", amount: 1 },
     value: CARD_MODIFICATION_VALUE_CONSTANTS.lowerCostOrAddFastOrReclaim,
   }),
-  baseEntry({
-    key: "remove-dissolve",
-    family: "keyword",
-    valueBand: "standard",
-    timing: "immediate",
-    compatibilityTraits: ["produces_keyword_mutation"],
-    targetClasses: ALL_TARGET_CLASSES,
-    targetModes: VISIBLE_TARGET_MODES,
-    renderText: (targetText) => `Remove Dissolve from ${targetText}.`,
-    effect: { kind: "card_keyword_remove", keyword: "Dissolve" },
-    value: 85,
-  }),
+  {
+    ...baseEntry({
+      key: "card_keyword_remove",
+      family: "keyword",
+      valueBand: "standard",
+      timing: "immediate",
+      compatibilityTraits: ["produces_keyword_mutation"],
+      targetClasses: ALL_TARGET_CLASSES,
+      targetModes: VISIBLE_TARGET_MODES,
+      renderText: (targetText) => `Remove Dissolve from ${targetText}.`,
+      effect: { kind: "card_keyword_remove", keyword: "Dissolve" },
+      value: 85,
+    }),
+    contextFree: true,
+    predicateAxes: [
+      {
+        name: "keyword",
+        values: ["Dissolve", "Banish", "Echo", "Kindle", "Discover"] as const,
+      },
+    ],
+    materialize: (args) => {
+      const point = pickAxisPoint(args.drawContext, args.entry.predicateAxes!);
+      const keyword = point.keyword as string;
+      return {
+        ...args.entry,
+        key: `${args.entry.key}:${keyword}`,
+        effect: { ...args.entry.effect, keyword },
+        renderText: (targetText) => `Remove ${keyword} from ${targetText}.`,
+      };
+    },
+  },
   baseEntry({
     key: "event-keyword-rewrite",
     family: "keyword",
