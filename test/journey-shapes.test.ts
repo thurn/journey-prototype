@@ -30,6 +30,7 @@ const expectedShapeIds = [
   "choose_your_loss",
   "single_reward",
   "single_offer",
+  "single_rule_trial",
   "risk_or_skip",
   "single_wager",
   "now_vs_later",
@@ -85,7 +86,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(33);
+    expect(actualShapeIds).toHaveLength(34);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -216,6 +217,13 @@ describe("JOURNEY_SHAPES", () => {
   it("requires non-tree shapes to expose a root choice", () => {
     for (const definition of JOURNEY_SHAPES) {
       if (definition.topology === "decision_tree") {
+        continue;
+      }
+
+      // single_rule_trial intentionally has no root choice; it applies a
+      // single rule deterministically. All other non-tree shapes still
+      // require a meaningful choice surface (>= 2 root options).
+      if (definition.topology === "single_rule_trial") {
         continue;
       }
 

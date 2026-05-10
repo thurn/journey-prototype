@@ -27,6 +27,7 @@ import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome/index.js";
 import { singleRewardPlugin } from "./single_reward/index.js";
+import { singleRuleTrialPlugin } from "./single_rule_trial/index.js";
 import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu/index.js";
@@ -54,6 +55,7 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   chooseYourLossPlugin,
   singleRewardPlugin,
   singleOfferPlugin,
+  singleRuleTrialPlugin,
   riskOrSkipPlugin,
   singleWagerPlugin,
   nowVsLaterPlugin,
