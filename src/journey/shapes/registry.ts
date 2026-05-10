@@ -5,6 +5,7 @@ import { curatedRewardTrioPlugin } from "./curated_reward_trio/index.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain/index.js";
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
+import { independentRowsMenuPlugin } from "./independent_rows_menu/index.js";
 import { mirroredOperationsPlugin } from "./mirrored_operations.js";
 import { nowVsLaterPlugin } from "./now_vs_later/index.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
@@ -46,6 +47,7 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   shopRowPlugin,
   curatedRewardTrioPlugin,
   heterogeneousPairPlugin,
+  independentRowsMenuPlugin,
   oneTargetManyOperationsPlugin,
   mirroredOperationsPlugin,
   oneOperationManyTargetsPlugin,
