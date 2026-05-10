@@ -1469,6 +1469,27 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       };
     },
   },
+  baseEntry({
+    key: "peek_deck_then_mutate_one",
+    family: "transfiguration",
+    targetModes: ["drafted_card"],
+    targetClasses: ["deck_card"],
+    valueBand: "standard",
+    timing: "immediate",
+    renderText: () => `Look at 3 cards from your deck; transfigure 1 of them.`,
+    effect: {
+      kind: "peek_then_mutate",
+      source: "deck",
+      peekCount: 3,
+      mutationKind: "transfiguration",
+    },
+    value: 110,
+    compatibilityTraits: [
+      "needs_drafted_target",
+      "needs_deck_side",
+      "produces_deck_mutation",
+    ],
+  }),
 ];
 
 function includesAll<T>(
