@@ -43,6 +43,18 @@ export type BundleCardDraftProfileId =
 export type BundleRewardReductionTrigger = "battle" | "essence_site";
 
 /**
+ * Identifier for a flavor pool used by the `burden_pool` cost source. The
+ * composer maps each pool id onto a deterministic Bane name and a flavor
+ * label so that independent rows can advertise distinct burden archetypes
+ * (e.g. `scissor_saint_burdens` versus `withered_orchard_burdens`) without
+ * each row having to specify its bane name explicitly.
+ */
+export type BundleBurdenPoolId =
+  | "scissor_saint_burdens"
+  | "withered_orchard_burdens"
+  | "molting_archive_burdens";
+
+/**
  * Timing window for the `delayed_bane` cost source. Values match the
  * `next_N_battles` literals already used by `statusPayload.duration`, the
  * shared "battle window" vocabulary surfaced by `REWARD_REDUCTION_DURATIONS`,
@@ -90,6 +102,10 @@ export type BundleCostSource =
       readonly baneCount: number;
       readonly timing: BundleDelayedBaneTiming;
       readonly baneName?: BaneName;
+    }
+  | {
+      readonly kind: "burden_pool";
+      readonly pool: BundleBurdenPoolId;
     };
 
 /**
@@ -117,7 +133,12 @@ export type BundleRewardSource =
       readonly count: number;
     }
   | { readonly kind: "starter_cleanup"; readonly count: number }
-  | { readonly kind: "essence_gain"; readonly amount: number };
+  | { readonly kind: "essence_gain"; readonly amount: number }
+  | {
+      readonly kind: "named_card_grant";
+      readonly profileId: BundleCardDraftProfileId;
+      readonly count?: number;
+    };
 
 export type BundleOptionPayload =
   | {
@@ -170,6 +191,19 @@ export type BundleOptionPayload =
       readonly timingLabel: string;
       readonly burdenText: string;
       readonly burden: Record<string, unknown>;
+    }
+  | {
+      readonly kind: "burden_pool_cost";
+      readonly pool: BundleBurdenPoolId;
+      readonly baneName: BaneName;
+      readonly burden: Record<string, unknown>;
+      readonly burdenText: string;
+    }
+  | {
+      readonly kind: "named_card_grant";
+      readonly profileId: BundleCardDraftProfileId;
+      readonly count: number;
+      readonly gain: ReturnType<typeof randomCardGain>;
     };
 
 /**
@@ -231,6 +265,18 @@ const DELAYED_BANE_TIMING_LABELS: Record<BundleDelayedBaneTiming, string> = {
   next_2_battles: "next 2 battles",
   next_3_battles: "next 3 battles",
   next_4_battles: "next 4 battles",
+};
+
+/**
+ * Static mapping from a burden-pool id to the Bane name that pool advertises.
+ * Each entry pairs a flavor label (used to differentiate independent rows
+ * during fill) with a concrete `BaneName` so the resulting payload reads as
+ * a normal Bane gain.
+ */
+const BURDEN_POOL_BANE_NAMES: Record<BundleBurdenPoolId, BaneName> = {
+  scissor_saint_burdens: "Doubt",
+  withered_orchard_burdens: "Despair",
+  molting_archive_burdens: "Oblivion",
 };
 
 function resolveCardDraftProfile(
@@ -394,6 +440,22 @@ function buildCostPayload(
         renderText: burdenText.slice(0, -1),
       };
     }
+    case "burden_pool": {
+      const baneName = BURDEN_POOL_BANE_NAMES[source.pool];
+      const burden = baneBurden(baneName, 1);
+      const burdenText = `Gain 1 ${baneName}.`;
+
+      return {
+        payload: {
+          kind: "burden_pool_cost",
+          pool: source.pool,
+          baneName,
+          burden: burden as Record<string, unknown>,
+          burdenText,
+        },
+        renderText: burdenText.slice(0, -1),
+      };
+    }
     default: {
       const _exhaustive: never = source;
       return _exhaustive;
@@ -465,6 +527,28 @@ function buildRewardPayload(
           effect,
         },
         renderText: `Gain ${source.amount} essence.`,
+      };
+    }
+    case "named_card_grant": {
+      const profile = resolveCardDraftProfile(source.profileId);
+      const count = source.count ?? 1;
+      // The "named" card is selected by the recipient at runtime from the
+      // profile's pool; at composer time we surface the grant using the same
+      // hidden-random `card_gain` payload shape used by `random_card_gain`,
+      // which is the closest existing primitive for "pick a card matching
+      // this profile" without a content lookup.
+      const gain = randomCardGain(profile, count);
+
+      return {
+        payload: {
+          kind: "named_card_grant",
+          profileId: source.profileId,
+          count,
+          gain,
+        },
+        renderText: count === 1
+          ? `Gain a named ${profile.label} card.`
+          : `Gain ${count} named ${profile.label} cards.`,
       };
     }
     default: {

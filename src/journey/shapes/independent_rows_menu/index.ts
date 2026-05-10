@@ -12,7 +12,7 @@ function fillOrThrow(args: ShapeFillArgs): FilledJourney {
 
   if (!filled) {
     throw new Error(
-      "independent_rows_menu fill is not yet implemented (Task 2.2).",
+      "independent_rows_menu fill produced no result for the given draw context.",
     );
   }
 

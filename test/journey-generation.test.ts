@@ -801,12 +801,7 @@ describe.concurrent("generateNextJourney", () => {
 
   slowIt("keeps every canonical shape eligible for a fresh first Journey", async () => {
     const journeyContext = await context();
-    const expectedShapeIds = new Set(
-      JOURNEY_SHAPES.map((shape) => shape.id).filter(
-        // independent_rows_menu fill lands in Task 2.2; skip until then.
-        (id) => id !== "independent_rows_menu",
-      ),
-    );
+    const expectedShapeIds = new Set(JOURNEY_SHAPES.map((shape) => shape.id));
     const seenShapeIds = new Set<JourneyShapeId>();
 
     for (
@@ -825,27 +820,12 @@ describe.concurrent("generateNextJourney", () => {
       seededState.pendingJourney = null;
       seededState.history = [];
 
-      let manifest;
-      try {
-        manifest = generateNextJourney({
-          context: {
-            ...journeyContext,
-            state: seededState,
-          },
-        });
-      } catch (error) {
-        // independent_rows_menu fill lands in Task 2.2; skip until then.
-        if (
-          error instanceof Error &&
-          error.message.includes("independent_rows_menu fill is not yet implemented")
-        ) {
-          continue;
-        }
-        throw error;
-      }
-
-      // independent_rows_menu fill lands in Task 2.2; skip until then.
-      if (manifest.shapeId === "independent_rows_menu") continue;
+      const manifest = generateNextJourney({
+        context: {
+          ...journeyContext,
+          state: seededState,
+        },
+      });
 
       seenShapeIds.add(manifest.shapeId);
       expect(manifest.debug.shapeScores).toHaveLength(JOURNEY_SHAPES.length);
@@ -3364,8 +3344,6 @@ describe.concurrent("generateNextJourney", () => {
     const journeyContext = await context();
 
     for (const shape of JOURNEY_SHAPES) {
-      // independent_rows_menu fill lands in Task 2.2; skip until then.
-      if (shape.id === "independent_rows_menu") continue;
       const manifest = fillForShape(shape.id, journeyContext);
 
       expect(
@@ -3537,8 +3515,6 @@ describe.concurrent("generateNextJourney", () => {
       );
 
       for (const shape of JOURNEY_SHAPES) {
-        // independent_rows_menu fill lands in Task 2.2; skip until then.
-        if (shape.id === "independent_rows_menu") continue;
         const exact = new Set<string>();
         const mechanical = new Set<string>();
 
@@ -3589,29 +3565,17 @@ describe.concurrent("generateNextJourney", () => {
             `audit:${stage}:${index}`,
             stage,
           );
-          let manifest;
-          try {
-            manifest = generateNextJourney({
-              context: journeyContext,
-              forcedStage: stage,
-            });
-          } catch (error) {
-            // independent_rows_menu fill lands in Task 2.2; skip until then.
-            if (
-              error instanceof Error &&
-              error.message.includes("independent_rows_menu fill is not yet implemented")
-            ) {
-              return undefined;
-            }
-            throw error;
-          }
+          const manifest = generateNextJourney({
+            context: journeyContext,
+            forcedStage: stage,
+          });
 
           expect(
             validateJourneyManifest(manifest, journeyContext),
             `${stage}:${index}`,
           ).toEqual({ ok: true });
           return manifest;
-        }).filter((manifest): manifest is JourneyManifest => manifest !== undefined);
+        });
         const exact = manifests.map(exactVisibleSignature);
         const mechanical = manifests.map(mechanicalSignature);
         const structural = manifests.map(structuralSignature);
@@ -3644,29 +3608,17 @@ describe.concurrent("generateNextJourney", () => {
         `smoke:early:${index}`,
         "early",
       );
-      let manifest;
-      try {
-        manifest = generateNextJourney({
-          context: journeyContext,
-          forcedStage: "early",
-        });
-      } catch (error) {
-        // independent_rows_menu fill lands in Task 2.2; skip until then.
-        if (
-          error instanceof Error &&
-          error.message.includes("independent_rows_menu fill is not yet implemented")
-        ) {
-          return undefined;
-        }
-        throw error;
-      }
+      const manifest = generateNextJourney({
+        context: journeyContext,
+        forcedStage: "early",
+      });
 
       expect(
         validateJourneyManifest(manifest, journeyContext),
         `smoke:early:${index}`,
       ).toEqual({ ok: true });
       return manifest;
-    }).filter((manifest): manifest is JourneyManifest => manifest !== undefined);
+    });
 
     expect(
       new Set(manifests.map(exactVisibleSignature)).size,
@@ -5527,8 +5479,6 @@ describe.concurrent("generateNextJourney", () => {
     const journeyContext = await context();
 
     for (const shape of JOURNEY_SHAPES) {
-      // independent_rows_menu fill lands in Task 2.2; skip until then.
-      if (shape.id === "independent_rows_menu") continue;
       const manifest = fillForShape(shape.id, journeyContext);
 
       expect(generatedOptionText(manifest), shape.id).not.toEqual(
@@ -5543,8 +5493,6 @@ describe.concurrent("generateNextJourney", () => {
     const journeyContext = await context();
 
     for (const shape of JOURNEY_SHAPES) {
-      // independent_rows_menu fill lands in Task 2.2; skip until then.
-      if (shape.id === "independent_rows_menu") continue;
       const manifest = fillForShape(shape.id, journeyContext);
       const targetDescriptions = manifest.options.flatMap((option) =>
         option.targets
@@ -5677,8 +5625,6 @@ describe.concurrent("generateNextJourney", () => {
     const journeyContext = await context();
 
     for (const shape of JOURNEY_SHAPES) {
-      // independent_rows_menu fill lands in Task 2.2; skip until then.
-      if (shape.id === "independent_rows_menu") continue;
       const manifest = fillForShape(shape.id, journeyContext);
       const allEffects = [
         ...manifest.options.flatMap((option) => option.effects),
@@ -9430,28 +9376,16 @@ describe.concurrent("validateJourneyManifest", () => {
           `m24-diversity-${stage}-${index}`,
           stage,
         );
-        let manifest;
-        try {
-          manifest = generateNextJourney({
-            context: journeyContext,
-            forcedStage: stage,
-          });
-        } catch (error) {
-          // independent_rows_menu fill lands in Task 2.2; skip until then.
-          if (
-            error instanceof Error &&
-            error.message.includes("independent_rows_menu fill is not yet implemented")
-          ) {
-            return undefined;
-          }
-          throw error;
-        }
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: stage,
+        });
 
         expect(validateJourneyManifest(manifest, journeyContext), `${stage}:${index}`).toEqual({
           ok: true,
         });
         return manifest;
-      }).filter((manifest): manifest is JourneyManifest => manifest !== undefined);
+      });
       const fingerprints = manifests.map((manifest) => manifest.distinctness.value);
       const payloadFamilies = new Set(
         manifests.flatMap((manifest) =>
@@ -9496,22 +9430,10 @@ describe.concurrent("validateJourneyManifest", () => {
           `m24-anti-hardcoding-${stage}-${index}`,
           stage as JourneyStage,
         );
-        let manifest;
-        try {
-          manifest = generateNextJourney({
-            context: journeyContext,
-            forcedStage: stage as JourneyStage,
-          });
-        } catch (error) {
-          // independent_rows_menu fill lands in Task 2.2; skip until then.
-          if (
-            error instanceof Error &&
-            error.message.includes("independent_rows_menu fill is not yet implemented")
-          ) {
-            return [] as string[];
-          }
-          throw error;
-        }
+        const manifest = generateNextJourney({
+          context: journeyContext,
+          forcedStage: stage as JourneyStage,
+        });
 
         expect(validateJourneyManifest(manifest, journeyContext), `${stage}:${index}`).toEqual({
           ok: true,
@@ -9660,8 +9582,6 @@ describe.concurrent("validateJourneyManifest", () => {
         } satisfies DebugPayloadSelection;
 
         for (const shapeId of supportedShapes) {
-          // independent_rows_menu fill lands in Task 2.2; skip until then.
-          if (shapeId === "independent_rows_menu") continue;
           const state = createInitialJourneyState({
             seed: `debug-payload-matrix:${variant.qaId}:${shapeId}`,
             content,
