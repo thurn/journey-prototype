@@ -44,3 +44,14 @@ describe("CARD_OPERATION_CATALOG entries", () => {
     expect(entry!.compatibilityTraits).toContain("produces_deck_mutation");
   });
 });
+
+describe("CARD_OPERATION_CATALOG full migration", () => {
+  it("every entry declares compatibilityTraits", () => {
+    for (const entry of CARD_OPERATION_CATALOG) {
+      expect(
+        entry.compatibilityTraits,
+        `entry ${entry.key} missing compatibilityTraits`,
+      ).toBeDefined();
+    }
+  });
+});
