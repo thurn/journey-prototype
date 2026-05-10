@@ -1,9 +1,14 @@
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
-import { optionFromResolvedShapeFill } from "../../fillers/shared.js";
+import {
+  optionFromResolvedShapeFill,
+  stableSignature,
+  symmetryContract,
+} from "../../fillers/shared.js";
 import { adaptGenericBundleToFillOption } from "../service_menu/genericBundleAdapter.js";
 import {
   genericBundleOption,
   type BundleCostSource,
+  type BundleOptionPayload,
   type BundleRewardSource,
 } from "../service_menu/genericBundleOption.js";
 import type { JourneyOption } from "../../manifest.js";
@@ -112,6 +117,7 @@ export function independentRowsMenuFill(
   const { context, drawContext, stage } = args;
   const rowCount = drawInt(drawContext, `${SHAPE_LABEL}:row-count`, 2, 3);
   const options: JourneyOption[] = [];
+  const optionPayloads: (readonly BundleOptionPayload[])[] = [];
   const seenSignatures = new Set<string>();
 
   for (let i = 0; i < rowCount; i += 1) {
@@ -144,7 +150,21 @@ export function independentRowsMenuFill(
       number: i + 1,
     });
     options.push(optionFromResolvedShapeFill(fillOption));
+    optionPayloads.push(intermediate.payloads);
   }
 
-  return { options, precommitted: {} };
+  const contract = symmetryContract({
+    contractKind: "distinct_everything_trio",
+    sharedProperty: "none",
+    variedProperty: "cost+reward",
+    sharedFirst: false,
+    optionNumbers: options.map((o) => o.number),
+    variedPayloadKeys: optionPayloads.flatMap((payloads) =>
+      payloads.map(
+        (p) => `${p.kind}=${stableSignature(p as unknown as Record<string, unknown>)}`,
+      ),
+    ),
+  });
+
+  return { options, precommitted: {}, symmetryContracts: [contract] };
 }

@@ -905,7 +905,8 @@ export type JourneySymmetryContractDebug = {
     | "shared_future_trigger_outcomes"
     | "shared_cleanup_followup_rewards"
     | "flat_escalating_trade"
-    | "homogeneous_family_trio";
+    | "homogeneous_family_trio"
+    | "distinct_everything_trio";
   sharedProperty: string;
   variedProperty: string;
   sharedFirst: boolean;

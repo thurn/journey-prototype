@@ -334,6 +334,22 @@ export function symmetryContract(
   };
 }
 
+/**
+ * Produces a stable, content-addressable signature for a payload-like record.
+ * The result JSON-stringifies the payload's identity-relevant keys with the
+ * keys sorted, so two payloads that describe the same identity produce the
+ * same signature regardless of property declaration order.
+ *
+ * The `kind` field is intentionally excluded — callers that want kind in the
+ * signature should prefix with `${p.kind}=...` themselves, matching the
+ * pattern used by `variedPayloadKeys` consumers.
+ */
+export function stableSignature(payload: Record<string, unknown>): string {
+  const entries = Object.entries(payload).filter(([key]) => key !== "kind");
+  entries.sort(([a], [b]) => a.localeCompare(b, "en-US"));
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
 export function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) =>
     left.localeCompare(right, "en-US"),
