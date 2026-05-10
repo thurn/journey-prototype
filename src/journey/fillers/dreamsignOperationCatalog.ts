@@ -612,6 +612,24 @@ export const DREAMSIGN_OPERATION_CATALOG: readonly DreamsignOperationCatalogEntr
   },
   {
     ...baseEntry({
+      key: "transform_to_revealed_choice",
+      family: "transform",
+      compatibilityTraits: ["needs_named_target", "produces_deck_mutation"],
+      targetSources: ["active", "pool"],
+      renderText: (targetText) =>
+        `Reveal 3 Dreamsigns; transform ${targetText} into 1 of them.`,
+      effect: { kind: "transform_dreamsign", revealCount: 3, chooseCount: 1 },
+      value: 130,
+      uncertainty: DREAMSIGN_OPERATION_VALUE_CONSTANTS.randomUncertainty,
+    }),
+    materialize: (args) =>
+      materializeSourceOperation(args, {
+        result: "random",
+        extra: { revealCount: 3, chooseCount: 1 },
+      }),
+  },
+  {
+    ...baseEntry({
       key: "pool-add",
       family: "pool_edit",
       compatibilityTraits: ["needs_named_target"],
