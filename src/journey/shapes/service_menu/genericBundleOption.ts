@@ -168,6 +168,7 @@ export type BundleOptionPayload =
       readonly baneCount: number;
       readonly timing: BundleDelayedBaneTiming;
       readonly timingLabel: string;
+      readonly burdenText: string;
       readonly burden: Record<string, unknown>;
     };
 
@@ -231,10 +232,6 @@ const DELAYED_BANE_TIMING_LABELS: Record<BundleDelayedBaneTiming, string> = {
   next_3_battles: "next 3 battles",
   next_4_battles: "next 4 battles",
 };
-
-function delayedBaneTimingLabel(timing: BundleDelayedBaneTiming): string {
-  return DELAYED_BANE_TIMING_LABELS[timing];
-}
 
 function resolveCardDraftProfile(
   profileId: BundleCardDraftProfileId,
@@ -376,13 +373,13 @@ function buildCostPayload(
     }
     case "delayed_bane": {
       const baneName = source.baneName ?? DEFAULT_BANE_NAME;
-      const timingLabel = delayedBaneTimingLabel(source.timing);
+      const timingLabel = DELAYED_BANE_TIMING_LABELS[source.timing];
       const burden = baneBurden(baneName, source.baneCount, {
         timing: timingLabel,
         duration: timingLabel,
       });
       const noun = source.baneCount === 1 ? baneName : `${baneName}s`;
-      const renderText = `Gain ${source.baneCount} ${noun} over the ${timingLabel}`;
+      const burdenText = `Gain ${source.baneCount} ${noun} over the ${timingLabel}.`;
 
       return {
         payload: {
@@ -391,9 +388,10 @@ function buildCostPayload(
           baneCount: source.baneCount,
           timing: source.timing,
           timingLabel,
+          burdenText,
           burden: burden as Record<string, unknown>,
         },
-        renderText,
+        renderText: burdenText.slice(0, -1),
       };
     }
     default: {

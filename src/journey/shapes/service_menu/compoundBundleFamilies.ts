@@ -420,12 +420,8 @@ function adaptRewardOrBurdenText(payload: BundleOptionPayload): string {
         : `Purge up to ${payload.count} chosen Starter cards.`;
     case "essence_gain":
       return `Gain ${payload.amount} essence.`;
-    case "delayed_bane_cost": {
-      const noun = payload.baneCount === 1
-        ? payload.baneName
-        : `${payload.baneName}s`;
-      return `Gain ${payload.baneCount} ${noun} over the ${payload.timingLabel}.`;
-    }
+    case "delayed_bane_cost":
+      return payload.burdenText;
     case "essence_cost":
     case "resource_cost_slot":
       return "";
