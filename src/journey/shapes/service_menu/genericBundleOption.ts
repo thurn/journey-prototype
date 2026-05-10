@@ -5,9 +5,22 @@ import {
   GENERIC_CARD_DRAFT_PROFILE,
   cardDraftText,
   cost,
+  costSlots,
   draftCards,
+  gainEssence,
+  pickSequentialVariant,
+  randomCardGain,
+  randomCardGainText,
+  starterCleanup,
   type CardDraftProfile,
 } from "../../fillers/shared.js";
+import { statusPayload } from "../../fillers/environmentPayloads.js";
+import {
+  valueRandomCardGain,
+  valueStarterCleanup,
+  valueStatusRuleMutation,
+  valueUsefulNonStarterCardSacrifice,
+} from "../../value.js";
 import type { DrawContext } from "../../../util/rng.js";
 
 /**
@@ -26,23 +39,49 @@ export type BundleCardDraftProfileId =
   | keyof typeof CARD_DRAFT_PROFILES;
 
 /**
+ * Trigger axis for the `reward_reduction_burden` cost source. Battles and
+ * essence sites use distinct status archetypes; the union keeps this explicit
+ * so that the renderer can choose appropriate copy and the value model can
+ * pick the matching rule mutation kind.
+ */
+export type BundleRewardReductionTrigger = "battle" | "essence_site";
+
+/**
  * Declarative descriptor for the cost half of a generic bundle option.
  *
- * Subsequent tasks (1.2 / 1.4) will extend this union as they translate the
- * existing `scissorSaintCompoundFill`, `moltingArchiveCompoundFill`,
- * `witheredOrchardCompoundFill`, and `mixedServiceCompoundFill` selection
- * logic into source records (e.g. `{ kind: "burden_pool", ... }`,
- * `{ kind: "delayed_bane", ... }`).
+ * Each kind names a self-contained selection strategy. `fixed_essence`
+ * encodes a constant essence cost; the remaining kinds reproduce the cost
+ * shapes used by the four legacy compound families:
+ *
+ * - `card_purge_random` matches `cardSacrificeComponent`: purge either a
+ *   random Character (when `randomCharacter` is true) or any random deck card.
+ * - `reward_reduction_burden` matches `rewardReductionBurdenComponent`: emit a
+ *   status that reduces battle or essence-site rewards for a sequenced
+ *   duration; amount and duration are picked deterministically from the
+ *   `drawContext` at build time.
+ * - `low_essence_cost_slot` matches the `mixed_service` shared cost: pick the
+ *   `low-essence` slot from `costSlots(...)`.
  */
 export type BundleCostSource =
-  | { readonly kind: "fixed_essence"; readonly amount: number };
+  | { readonly kind: "fixed_essence"; readonly amount: number }
+  | { readonly kind: "card_purge_random"; readonly randomCharacter?: boolean }
+  | {
+      readonly kind: "reward_reduction_burden";
+      readonly trigger: BundleRewardReductionTrigger;
+    }
+  | { readonly kind: "low_essence_cost_slot" };
 
 /**
  * Declarative descriptor for the reward half of a generic bundle option.
  *
- * Subsequent tasks will extend this union with `named_card_grant`,
- * `card_operation`, and other reward kinds as the four legacy fill functions
- * are translated into registry entries.
+ * - `fixed_card_draft` matches `cardDraftRewardComponent` / generic drafts:
+ *   draft 1-of-N from a profile.
+ * - `random_card_gain` matches `randomCardGainRewardComponent`: hidden-random
+ *   gain from a profile.
+ * - `starter_cleanup` matches `starterCleanupRewardComponent`: purge up to N
+ *   chosen Starter cards from the deck.
+ * - `essence_gain` matches `resourceRewardFollowUp`: gain a flat amount of
+ *   essence (used by `mixed_service`).
  */
 export type BundleRewardSource =
   | {
@@ -50,7 +89,14 @@ export type BundleRewardSource =
       readonly profileId: BundleCardDraftProfileId;
       readonly takeCount?: number;
       readonly copyCount?: number;
-    };
+    }
+  | {
+      readonly kind: "random_card_gain";
+      readonly profileId: BundleCardDraftProfileId;
+      readonly count: number;
+    }
+  | { readonly kind: "starter_cleanup"; readonly count: number }
+  | { readonly kind: "essence_gain"; readonly amount: number };
 
 export type BundleOptionPayload =
   | {
@@ -61,11 +107,44 @@ export type BundleOptionPayload =
       readonly kind: "card_draft";
       readonly profileId: BundleCardDraftProfileId;
       readonly draft: ReturnType<typeof draftCards>;
+    }
+  | {
+      readonly kind: "card_purge";
+      readonly randomCharacter: boolean;
+      readonly burden: Record<string, unknown>;
+      readonly target: Record<string, unknown>;
+    }
+  | {
+      readonly kind: "reward_reduction";
+      readonly trigger: BundleRewardReductionTrigger;
+      readonly amount: number;
+      readonly burden: Record<string, unknown>;
+    }
+  | {
+      readonly kind: "resource_cost_slot";
+      readonly slotKey: string;
+      readonly costs: readonly unknown[];
+    }
+  | {
+      readonly kind: "random_card_gain";
+      readonly profileId: BundleCardDraftProfileId;
+      readonly count: number;
+      readonly gain: ReturnType<typeof randomCardGain>;
+    }
+  | {
+      readonly kind: "starter_cleanup";
+      readonly count: number;
+      readonly effect: ReturnType<typeof starterCleanup>;
+    }
+  | {
+      readonly kind: "essence_gain";
+      readonly amount: number;
+      readonly effect: ReturnType<typeof gainEssence>;
     };
 
 /**
  * The intermediate option shape produced by `genericBundleOption`. Task 1.2
- * (`buildBundleFamilyOption`) will adapt this into a `ResolvedShapeFillOption`
+ * (`buildBundleFamilyOption`) adapts this into a `ResolvedShapeFillOption`
  * for use by `compoundPayloadMenuFill`; keeping the composer's output
  * declarative makes it easier to inspect and to compose alternative renderers.
  */
@@ -85,6 +164,39 @@ export type GenericBundleOptionArgs = {
   readonly rewardSource: BundleRewardSource;
 };
 
+type RewardReductionStatusDuration = Parameters<
+  typeof statusPayload
+>[0]["duration"];
+
+type RewardReductionDuration = {
+  readonly label: string;
+  readonly statusDuration: RewardReductionStatusDuration;
+};
+
+const REWARD_REDUCTION_DURATIONS: Record<
+  BundleRewardReductionTrigger,
+  readonly RewardReductionDuration[]
+> = {
+  battle: [
+    { label: "next 2 battles", statusDuration: "next_2_battles" },
+    { label: "next 3 battles", statusDuration: "next_3_battles" },
+    { label: "next 4 battles", statusDuration: "next_4_battles" },
+  ],
+  essence_site: [
+    { label: "next 2 dreamscapes", statusDuration: "next_2_dreamscapes" },
+    { label: "next 3 dreamscapes", statusDuration: "next_3_dreamscapes" },
+    { label: "next 4 dreamscapes", statusDuration: "next_4_dreamscapes" },
+  ],
+};
+
+const REWARD_REDUCTION_AMOUNTS: Record<
+  BundleRewardReductionTrigger,
+  readonly number[]
+> = {
+  battle: [1, 1, 2],
+  essence_site: [20, 30, 40],
+};
+
 function resolveCardDraftProfile(
   profileId: BundleCardDraftProfileId,
 ): CardDraftProfile {
@@ -95,9 +207,22 @@ function resolveCardDraftProfile(
   return CARD_DRAFT_PROFILES[profileId];
 }
 
+type CostPartArgs = {
+  readonly source: BundleCostSource;
+  readonly context: JourneyContext;
+  readonly drawContext: DrawContext;
+  readonly label: string;
+};
+
+type RewardPartArgs = {
+  readonly source: BundleRewardSource;
+  readonly stage: JourneyStage;
+};
+
 function buildCostPayload(
-  source: BundleCostSource,
+  args: CostPartArgs,
 ): { payload: BundleOptionPayload; renderText: string } | undefined {
+  const { source } = args;
   switch (source.kind) {
     case "fixed_essence": {
       const payload: BundleOptionPayload = {
@@ -110,16 +235,117 @@ function buildCostPayload(
         renderText: `Pay ${source.amount} essence`,
       };
     }
+    case "card_purge_random": {
+      const randomCharacter = source.randomCharacter === true;
+      const burden: Record<string, unknown> = {
+        kind: "card_purge",
+        purgeMode: "random",
+        selection: "hidden_random",
+        predicate: {
+          source: "deck",
+          ...(randomCharacter ? { cardType: "Character" } : {}),
+        },
+        cardOperationFamily: "purge",
+        compoundComponentRole: "burden",
+      };
+      const target: Record<string, unknown> = {
+        kind: "card",
+        description: randomCharacter
+          ? "random Character cards in deck"
+          : "random cards in deck",
+        predicate: {
+          source: "deck",
+          ...(randomCharacter ? { cardType: "Character" } : {}),
+        },
+        selection: "hidden_random",
+        required: true,
+      };
+
+      return {
+        payload: {
+          kind: "card_purge",
+          randomCharacter,
+          burden,
+          target,
+        },
+        renderText: randomCharacter
+          ? "Purge a random character"
+          : "Purge a random card",
+      };
+    }
+    case "reward_reduction_burden": {
+      const amounts = REWARD_REDUCTION_AMOUNTS[source.trigger];
+      const durations = REWARD_REDUCTION_DURATIONS[source.trigger];
+      const amount = pickSequentialVariant(
+        args.drawContext,
+        `${args.label}:reward-reduction:${source.trigger}:amount`,
+        amounts,
+      );
+      const duration = pickSequentialVariant(
+        args.drawContext,
+        `${args.label}:reward-reduction:${source.trigger}:duration`,
+        durations,
+      );
+      const isBattle = source.trigger === "battle";
+      const burden = statusPayload({
+        kind: "status_reward_reduction",
+        statusName: isBattle ? "Withered Orchard" : "Dry Orchard",
+        statusScope: "reward",
+        duration: duration.statusDuration,
+        ruleMutationKind: isBattle
+          ? "battle_reward_reduction"
+          : "essence_site_reward_reduction",
+        polarity: "negative",
+        rewardTrigger: source.trigger,
+        replacedRewardKind: isBattle
+          ? "battle_rewards"
+          : "essence_site_rewards",
+        resource: isBattle ? undefined : "essence",
+        amount,
+      });
+      const renderText = isBattle
+        ? `For the ${duration.label}, Battle rewards offer ${amount} fewer card choice${amount === 1 ? "" : "s"}.`
+        : `For the ${duration.label}, Essence sites yield ${amount} less essence.`;
+
+      return {
+        payload: {
+          kind: "reward_reduction",
+          trigger: source.trigger,
+          amount,
+          burden: burden as Record<string, unknown>,
+        },
+        renderText,
+      };
+    }
+    case "low_essence_cost_slot": {
+      const slots = costSlots(args.context, args.drawContext, args.label);
+      const slot = slots.find((entry) => entry.key === "low-essence")
+        ?? slots.find((entry) => (entry.cost ?? 0) > 0);
+
+      if (!slot) {
+        return undefined;
+      }
+
+      return {
+        payload: {
+          kind: "resource_cost_slot",
+          slotKey: slot.key,
+          costs: slot.costs ?? [],
+        },
+        renderText: slot.prefix,
+      };
+    }
     default: {
-      const _exhaustive: never = source.kind;
+      const _exhaustive: never = source;
       return _exhaustive;
     }
   }
 }
 
 function buildRewardPayload(
-  source: BundleRewardSource,
+  args: RewardPartArgs,
 ): { payload: BundleOptionPayload; renderText: string } | undefined {
+  const { source } = args;
   switch (source.kind) {
     case "fixed_card_draft": {
       const profile = resolveCardDraftProfile(source.profileId);
@@ -142,24 +368,159 @@ function buildRewardPayload(
         ),
       };
     }
+    case "random_card_gain": {
+      const profile = resolveCardDraftProfile(source.profileId);
+      const gain = randomCardGain(profile, source.count);
+
+      return {
+        payload: {
+          kind: "random_card_gain",
+          profileId: source.profileId,
+          count: source.count,
+          gain,
+        },
+        renderText: randomCardGainText(profile, source.count),
+      };
+    }
+    case "starter_cleanup": {
+      const effect = starterCleanup(source.count);
+
+      return {
+        payload: {
+          kind: "starter_cleanup",
+          count: source.count,
+          effect,
+        },
+        renderText: source.count === 1
+          ? "Purge up to 1 chosen Starter card."
+          : `Purge up to ${source.count} chosen Starter cards.`,
+      };
+    }
+    case "essence_gain": {
+      const effect = gainEssence(source.amount);
+
+      return {
+        payload: {
+          kind: "essence_gain",
+          amount: source.amount,
+          effect,
+        },
+        renderText: `Gain ${source.amount} essence.`,
+      };
+    }
     default: {
-      const _exhaustive: never = source.kind;
+      const _exhaustive: never = source;
       return _exhaustive;
     }
   }
 }
 
 /**
+ * Computes a coarse value estimate for the burden component of a cost
+ * payload. Used by the family adapter to populate
+ * `ResolvedShapeFillOption.valueEstimate.burden`. Only the kinds that map to
+ * the burden role here contribute non-zero values.
+ */
+export function bundleCostBurdenValue(payload: BundleOptionPayload): number {
+  switch (payload.kind) {
+    case "card_purge":
+      return valueUsefulNonStarterCardSacrifice(1);
+    case "reward_reduction":
+      return valueStatusRuleMutation(
+        payload.trigger === "battle"
+          ? "battle_reward_reduction"
+          : "essence_site_reward_reduction",
+      );
+    case "essence_cost":
+    case "card_draft":
+    case "resource_cost_slot":
+    case "random_card_gain":
+    case "starter_cleanup":
+    case "essence_gain":
+      return 0;
+  }
+}
+
+/**
+ * Computes a coarse value estimate for the cost component of a payload (i.e.
+ * resource expenditure rather than burden).
+ */
+export function bundleCostResourceValue(payload: BundleOptionPayload): number {
+  switch (payload.kind) {
+    case "essence_cost":
+      return payload.cost.amount;
+    case "resource_cost_slot": {
+      let total = 0;
+      for (const entry of payload.costs) {
+        if (
+          entry !== null &&
+          typeof entry === "object" &&
+          "amount" in entry &&
+          typeof (entry as { amount: unknown }).amount === "number"
+        ) {
+          total += (entry as { amount: number }).amount;
+        }
+      }
+      return total;
+    }
+    case "card_purge":
+    case "card_draft":
+    case "reward_reduction":
+    case "random_card_gain":
+    case "starter_cleanup":
+    case "essence_gain":
+      return 0;
+  }
+}
+
+/**
+ * Computes a coarse value estimate for the reward effect of a payload.
+ */
+export function bundleRewardEffectValue(
+  payload: BundleOptionPayload,
+  stage: JourneyStage,
+): number {
+  switch (payload.kind) {
+    case "card_draft":
+      return Math.max(400, 0);
+    case "random_card_gain":
+      return Math.max(
+        420,
+        valueRandomCardGain({
+          count: payload.count,
+          predicate: payload.gain.predicate,
+        }),
+      );
+    case "starter_cleanup":
+      return Math.max(320, valueStarterCleanup({ count: payload.count, stage }));
+    case "essence_gain":
+      return payload.amount;
+    case "essence_cost":
+    case "card_purge":
+    case "reward_reduction":
+    case "resource_cost_slot":
+      return 0;
+  }
+}
+
+/**
  * Composes a single bundled option from one cost source and one reward
- * source. Returns `undefined` when either source kind is not yet supported,
- * which lets callers gracefully skip families whose source kinds will be
- * implemented in later tasks.
+ * source. Returns `undefined` when either source kind is not yet supported
+ * or fails to produce a payload (e.g. a cost slot is unavailable).
  */
 export function genericBundleOption(
   args: GenericBundleOptionArgs,
 ): GenericBundleOption | undefined {
-  const costPart = buildCostPayload(args.costSource);
-  const rewardPart = buildRewardPayload(args.rewardSource);
+  const costPart = buildCostPayload({
+    source: args.costSource,
+    context: args.context,
+    drawContext: args.drawContext,
+    label: args.label,
+  });
+  const rewardPart = buildRewardPayload({
+    source: args.rewardSource,
+    stage: args.stage,
+  });
 
   if (costPart === undefined || rewardPart === undefined) {
     return undefined;
