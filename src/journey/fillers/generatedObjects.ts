@@ -7,6 +7,8 @@ import type {
 import { BANE_NAMES } from "../effects.js";
 import type { JourneyShapeId } from "../shapes.js";
 import { option } from "./shared.js";
+export { tradeTicketBody } from "./tradeTicket.js";
+export type { TradeTicketArgs, TradeTicketBody } from "./tradeTicket.js";
 
 type GeneratedObjectKind = GeneratedObjectDefinition["generatedObjectKind"];
 type GeneratedObjectReference = {
@@ -402,42 +404,6 @@ function naturalDreamsignBody(
       "dreamsign_rules_text",
       "duration",
       "content_reference",
-      "value_estimate",
-      "manifest_local",
-    ],
-  };
-}
-
-type TradeTicketArgs = {
-  drawContext: DrawContext;
-  label: string;
-  flavour: "Key" | "Parchment" | "Token";
-};
-
-export function tradeTicketBody(args: TradeTicketArgs): GeneratedObjectBody {
-  const idPart = `trade-ticket-${kebab(args.flavour)}`;
-  return {
-    idPart,
-    name: `${args.flavour} of Passage`,
-    objectType: "Quest Ticket",
-    rulesText: `Hold this ${args.flavour} until the next eligible trade; then exchange it for the promised reward.`,
-    tags: ["journey-only", "ticket", "trade"],
-    references: { rules: [args.flavour, "trade"] },
-    duration: generatedObjectDuration("until traded", 1, "until_trigger"),
-    lifetime: "until_returned",
-    valueEstimate: {
-      convertedEssence: 90,
-      confidence: "medium",
-      basis: "Trade-ticket anchor for a deferred named-object exchange.",
-    },
-    payload: {
-      ticketKind: args.flavour,
-      ticketLabel: args.label,
-      source: "manifest_generated",
-    },
-    ruleIds: [
-      "stable_id",
-      "duration",
       "value_estimate",
       "manifest_local",
     ],
