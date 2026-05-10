@@ -2,6 +2,7 @@ import { weightedChoice } from "../../../util/rng.js";
 import {
   costSlots,
   costedRewardOption,
+  rewardFamilyTag,
   rewardSlots,
   sharedBaneBurdenRewardFill,
   symmetryContract,
@@ -13,7 +14,54 @@ const SHAPE_LABEL = "same_cost_different_rewards";
 export function sameCostDifferentRewardsFill(
   args: ShapeFillArgs,
 ): FilledJourney {
-  const { context, drawContext, stage } = args;
+  const { context, drawContext, stage, shapeArgs } = args;
+  const familyRestriction =
+    typeof shapeArgs?.familyRestriction === "string"
+      ? shapeArgs.familyRestriction
+      : undefined;
+
+  if (familyRestriction) {
+    const sharedCost = costSlots(
+      context,
+      drawContext,
+      `${SHAPE_LABEL}:shared-cost`,
+    )[0]!;
+    const restricted = rewardSlots(
+      context,
+      drawContext,
+      `${SHAPE_LABEL}:rewards`,
+    ).filter(
+      (reward) =>
+        reward.routeEffects === undefined &&
+        rewardFamilyTag(reward.key) === familyRestriction,
+    );
+    const chosen = restricted.slice(0, 3);
+    const options = chosen.map((reward, index) =>
+      costedRewardOption(index + 1, sharedCost, reward),
+    );
+
+    if (options.length === 3) {
+      return {
+        options,
+        precommitted: {},
+        symmetryContracts: [
+          symmetryContract({
+            contractKind: "homogeneous_family_trio",
+            sharedProperty: "rewardFamily",
+            variedProperty: "rewardSpecific",
+            sharedFirst: true,
+            optionNumbers: options.map((opt) => opt.number),
+            sharedPayloadKeys: [`rewardFamily=${familyRestriction}`],
+          }),
+        ],
+      };
+    }
+
+    return {
+      options,
+      precommitted: {},
+    };
+  }
 
   const contractVariant = weightedChoice(
     drawContext,
