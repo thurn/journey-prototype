@@ -10135,6 +10135,36 @@ describe.concurrent("validateJourneyManifest", () => {
     });
   });
 
+  it("admits all-matching companion card operations into alter_dreamscapes routes", async () => {
+    // Phase 3 acceptance criterion: scenarios that previously failed because
+    // of topology gates (e.g. all-event-transfiguration in alter_dreamscapes)
+    // must now generate at least one fill on a 100-seed sweep. The slot's
+    // capabilities allow all_matching entries; widening the request must
+    // expose them through the actual fill, not just the catalog query.
+    let foundAllMatchingTransfiguration = false;
+
+    for (let index = 0; index < 100 && !foundAllMatchingTransfiguration; index += 1) {
+      const journeyContext = await context(`alter-dreamscapes-all-matching-${index}`);
+      const manifest = fillForShape("alter_dreamscapes", journeyContext);
+      const optionEffects = manifest.options.flatMap((journeyOption) =>
+        journeyOption.effects ?? []
+      ) as Record<string, unknown>[];
+
+      if (
+        optionEffects.some(
+          (effect) =>
+            effect.kind === "card_transfigure" &&
+            (effect.transfigurationScope === "all_events" ||
+              effect.transfigurationScope === "all_cards"),
+        )
+      ) {
+        foundAllMatchingTransfiguration = true;
+      }
+    }
+
+    expect(foundAllMatchingTransfiguration).toBe(true);
+  });
+
   it("fills normal route edits from a reusable legal transition catalog", async () => {
     const catalog = routeEditCatalog();
     const catalogPayloads = catalog.map((entry) => entry.payload);

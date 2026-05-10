@@ -1,7 +1,7 @@
 import {
-  cardOperationTargetModeForClass,
   compatibleCardOperations,
   renderChosenCardOperationText,
+  type MaterializedCardOperation,
 } from "../../fillers/cardOperationCatalog.js";
 import { routeEditMenuRewards } from "../../fillers/routeEditCatalog.js";
 import {
@@ -18,6 +18,31 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_LABEL = "alter_dreamscapes";
 
+function companionCardTargetFor(operation: MaterializedCardOperation) {
+  if (operation.targetModes.includes("all_matching")) {
+    const predicate =
+      typeof operation.effect.predicate === "object" &&
+      operation.effect.predicate !== null
+        ? operation.effect.predicate
+        : { source: "deck" };
+
+    return target("card", "matching cards in deck", predicate, {
+      selection: "predicate",
+      cardOperationTargetMode: "all_matching",
+    });
+  }
+
+  return target(
+    "card",
+    chosenCardText(),
+    { source: "deck" },
+    {
+      selection: "chosen_after_commitment",
+      cardOperationTargetMode: "chosen",
+    },
+  );
+}
+
 export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
   const { context, drawContext, stage } = args;
   const routeMenu = routeEditMenuRewards({
@@ -29,6 +54,12 @@ export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
     `${SHAPE_LABEL}:route-bane`,
     1,
   );
+  // Slot capabilities already encode the deck-side / mutation-consumer
+  // constraints, so we deliberately do NOT pass `targetModes` or `valueBands`
+  // here: that would re-narrow the candidate set and re-introduce the same
+  // gate the topology allow-list used to apply. In particular, all-matching
+  // entries (e.g. `all-event-transfiguration`) and premium entries are
+  // legal companions for this slot and must remain reachable.
   const companionCardOperation = compatibleCardOperations(drawContext, {
     slot: {
       provides: [
@@ -41,23 +72,13 @@ export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
       ],
     },
     targetClasses: ["deck_card"],
-    targetModes: [cardOperationTargetModeForClass("deck_card")],
-    valueBands: ["standard"],
     timings: ["immediate"],
     context,
     stage,
     label: `${SHAPE_LABEL}:route-card-operation`,
     count: 1,
   })[0]!;
-  const companionCardTarget = target(
-    "card",
-    chosenCardText(),
-    { source: "deck" },
-    {
-      selection: "chosen_after_commitment",
-      cardOperationTargetMode: "chosen",
-    },
-  );
+  const companionCardTarget = companionCardTargetFor(companionCardOperation);
   const routeOptions = routeMenu.rewards.map((reward, index) => {
     const effects: unknown[] = [];
     const targets: unknown[] = [];

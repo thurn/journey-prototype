@@ -119,4 +119,47 @@ describe("catalog query (slot-driven)", () => {
       matches.find((match) => match.key === "chosen-purge"),
     ).toBeUndefined();
   });
+
+  it("admits all-event-transfiguration into the alter_dreamscapes slot", () => {
+    // The alter_dreamscapes slot provides all_matching_scope and consumes deck
+    // mutations, so all-event-transfiguration (targetModes: ["all_matching"])
+    // must be a candidate alongside chosen-mode entries. This is the slot/
+    // request the alter_dreamscapes fill issues; the request must not over-
+    // constrain targetModes such that all_matching entries are excluded.
+    // Iterate enough seeds to make the random shuffle deterministically expose
+    // the entry given that several other entries also pass the filter.
+    let foundAllEventTransfiguration = false;
+
+    for (let index = 0; index < 50 && !foundAllEventTransfiguration; index += 1) {
+      const matches = compatibleCardOperations(
+        {
+          seed: `alter-dreamscapes-coverage-${index}`,
+          contentVersion: "test",
+          rootJourneyIndex: 0,
+        },
+        {
+          slot: {
+            provides: [
+              "single_target",
+              "all_matching_scope",
+              "named_target",
+              "deck_side",
+              "deck_mutation_consumer",
+              "text_or_subtype_mutation_consumer",
+            ],
+          },
+          targetClasses: ["deck_card"],
+          timings: ["immediate"],
+          label: `test:alter-dreamscapes-all-event-${index}`,
+          count: 1,
+        },
+      );
+
+      if (matches.some((match) => match.key === "all-event-transfiguration")) {
+        foundAllEventTransfiguration = true;
+      }
+    }
+
+    expect(foundAllEventTransfiguration).toBe(true);
+  });
 });
