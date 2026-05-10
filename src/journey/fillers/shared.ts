@@ -472,6 +472,7 @@ export const BATTLE_WINDOW_DURATION = "next 3 battles";
 export type CardDraftProfile = {
   label: string;
   targetDescription: string;
+  source?: "deck" | "pool" | "catalog";
   predicate: Omit<CardTargetPredicate, "source">;
 };
 
@@ -594,8 +595,12 @@ export const CARD_PREDICATE_CATALOG = CARD_DRAFT_PROFILES;
 export function cardDraftPredicate(
   profile: CardDraftProfile,
 ): CardTargetPredicate {
+  const profileSource = profile.source ?? "pool";
+  const predicateSource: CardTargetPredicate["source"] =
+    profileSource === "pool" ? "draftPool" : profileSource;
+
   return {
-    source: "draftPool",
+    source: predicateSource,
     ...profile.predicate,
   };
 }
