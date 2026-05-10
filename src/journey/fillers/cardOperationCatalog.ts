@@ -1,6 +1,7 @@
 import type { CardContent } from "../../content/model.js";
 import type { JourneyContext } from "../../quest/context.js";
 import { shuffleDeterministic, type DrawContext } from "../../util/rng.js";
+import { REMOVABLE_KEYWORDS } from "../content/keywords.js";
 import {
   ALLOWED_TRANSFIGURATIONS,
   BATTLE_KEYWORDS,
@@ -982,7 +983,9 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     predicateAxes: [
       {
         name: "keyword",
-        values: ["Dissolve", "Banish", "Echo", "Kindle", "Discover"] as const,
+        values: REMOVABLE_KEYWORDS.filter((kw) =>
+          (BATTLE_KEYWORDS as readonly string[]).includes(kw),
+        ),
       },
     ],
     materialize: (args) => {
