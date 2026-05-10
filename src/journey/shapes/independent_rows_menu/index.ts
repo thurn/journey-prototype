@@ -122,6 +122,7 @@ export const independentRowsMenuPlugin = defineShapePlugin({
       ...commonValidationRules,
       "each_row_draws_from_configured_pool",
       "rows_are_pairwise_distinct_on_at_least_one_axis",
+      "distinct_everything_trio_axes_are_pairwise_distinct",
     ],
     repairPreferences: ["resample_distinct_row", "swap_pool_assignment"],
     debugLabel: "Independent rows menu",

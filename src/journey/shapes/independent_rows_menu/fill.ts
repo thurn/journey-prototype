@@ -193,7 +193,7 @@ export function independentRowsMenuFill(
     optionNumbers: options.map((o) => o.number),
     variedPayloadKeys: optionPayloads.flatMap((payloads) =>
       payloads.map(
-        (p) => `${p.kind}=${stableSignature(p as unknown as Record<string, unknown>)}`,
+        (p) => `${p.kind}=${stableSignature(p)}`,
       ),
     ),
   });

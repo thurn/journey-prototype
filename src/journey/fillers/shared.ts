@@ -344,7 +344,7 @@ export function symmetryContract(
  * signature should prefix with `${p.kind}=...` themselves, matching the
  * pattern used by `variedPayloadKeys` consumers.
  */
-export function stableSignature(payload: Record<string, unknown>): string {
+export function stableSignature(payload: object): string {
   const entries = Object.entries(payload).filter(([key]) => key !== "kind");
   entries.sort(([a], [b]) => a.localeCompare(b, "en-US"));
   return JSON.stringify(Object.fromEntries(entries));
