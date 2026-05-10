@@ -33,6 +33,12 @@ export type PairedReturnFillResult = {
  * catalog Dreamsign or a manifest-local generated trade ticket produced by
  * {@link tradeTicketBody}. The result exposes the chosen anchor through a
  * `trade_anchor` payload on each option so callers can introspect it.
+ *
+ * NOTE: this helper is a *companion* introspection skeleton; it is not the
+ * production `paired_return` fill. The production fill lives in
+ * `legacyFillOptions` (see `shapeFills.ts`) and delegates per-option to
+ * `pairedReturnHookFill`, which performs an equivalent ticket coin-flip on the
+ * `future_named_object_trade` branch.
  */
 export function pairedReturnFill(args: {
   context: JourneyContext;
@@ -76,7 +82,7 @@ export function pairedReturnFill(args: {
             source: "manifest_generated",
             anchorLabel: ticket.name,
             ticketKind: flavour,
-            generatedObjectId: `generated-status-${ticket.idPart}`,
+            generatedObjectId: `generated-trade-ticket-${ticket.idPart}`,
           },
         ],
       });

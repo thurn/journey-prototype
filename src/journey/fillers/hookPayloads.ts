@@ -1,9 +1,11 @@
 import type { CardContent, DreamsignContent } from "../../content/model.js";
 import type { JourneyContext } from "../../quest/context.js";
 import {
+  drawInt,
   shuffleDeterministic,
   type DrawContext,
 } from "../../util/rng.js";
+import { tradeTicketBody } from "./tradeTicket.js";
 import { BANE_NAMES } from "../effects.js";
 import type { JourneyOption } from "../manifest.js";
 import type { JourneyShapeId } from "../shapes.js";
@@ -1255,6 +1257,40 @@ export function pairedReturnHookFill(args: {
   }
 
   const createdId = `${pairedReturnId}-future-trade`;
+  // For `future_named_object_trade`, the anchor is normally a catalog Dreamsign
+  // exchanged at the return scene. We coin-flip per option between that and a
+  // manifest-local generated trade ticket (Key, Parchment, or Token) produced
+  // by `tradeTicketBody`. The ticket variant tags the contract's `created` and
+  // `returnScene` references with `source: "manifest_generated"` so the trade
+  // anchor can be observed downstream without disturbing the catalog
+  // Dreamsign reference paths the validation pipeline already exercises.
+  const tradeTicketFlavours = ["Key", "Parchment", "Token"] as const;
+  const useTradeTicket =
+    family === "future_named_object_trade" &&
+    drawInt(
+      args.drawContext,
+      `${args.shapeId}:${args.optionNumber}:trade-anchor-source`,
+      0,
+      1,
+    ) === 1;
+  const tradeTicket = useTradeTicket
+    ? tradeTicketBody({
+        drawContext: args.drawContext,
+        label: `${args.shapeId}-${args.optionNumber}-${args.stage ?? "mid"}`,
+        flavour:
+          tradeTicketFlavours[
+            drawInt(
+              args.drawContext,
+              `${args.shapeId}:${args.optionNumber}:trade-ticket-flavour`,
+              0,
+              tradeTicketFlavours.length - 1,
+            )!
+          ]!,
+      })
+    : undefined;
+  const tradeTicketGeneratedObjectId = tradeTicket
+    ? `generated-trade-ticket-${tradeTicket.idPart}`
+    : undefined;
   const tradePayload = namedDreamsignPayload(
     {
       kind: "dreamsign_trade_hook",
@@ -1269,6 +1305,14 @@ export function pairedReturnHookFill(args: {
         giveDreamsignName: tradeDreamsign.name,
         receiveDreamsignId: receiveDreamsign.id,
         receiveDreamsignName: receiveDreamsign.name,
+        ...(tradeTicket
+          ? {
+              tradeAnchorSource: "manifest_generated",
+              tradeTicketKind: tradeTicket.payload.ticketKind,
+              tradeTicketName: tradeTicket.name,
+              tradeTicketGeneratedObjectId,
+            }
+          : { tradeAnchorSource: "catalog" }),
       },
     },
     args.context,
@@ -1292,24 +1336,41 @@ export function pairedReturnHookFill(args: {
         });
   const futureCost = [tradePayload];
   const returnReward = rewardPayload;
+  const anchorLabel = tradeTicket
+    ? `${tradeTicket.name} trade ticket`
+    : `${tradeDreamsign.name} trade hook`;
+  const createdLabel = tradeTicket
+    ? `Hold a {${tradeTicket.name}} as a future trade ticket.`
+    : `Gain {${tradeDreamsign.name}} as a future trade hook.`;
+  const resolution = tradeTicket
+    ? `Trade {${tradeTicket.name}} for ${reward.text}.`
+    : `Trade {${tradeDreamsign.name}} for ${reward.text}.`;
   const precommit = {
     ...pairedReturnContract({
       pairedReturnId,
       optionNumber: args.optionNumber,
-      anchor: `${tradeDreamsign.name} trade hook`,
+      anchor: anchorLabel,
       created: {
         referenceKind: "trade_promise",
         referenceId: createdId,
-        label: `Gain {${tradeDreamsign.name}} as a future trade hook.`,
-        objectKind: "dreamsign",
+        label: createdLabel,
+        objectKind: tradeTicket ? "trade_ticket" : "dreamsign",
         dreamsignId: tradeDreamsign.id,
         dreamsignName: tradeDreamsign.name,
+        ...(tradeTicket && tradeTicketGeneratedObjectId
+          ? {
+              source: "manifest_generated",
+              ticketKind: tradeTicket.payload.ticketKind,
+              ticketName: tradeTicket.name,
+              tradeTicketGeneratedObjectId,
+            }
+          : { source: "catalog" }),
       },
       returnScene: {
         returnSceneKind: "future_trade",
         triggerSelector,
         referencesCreatedId: createdId,
-        resolution: `Trade {${tradeDreamsign.name}} for ${reward.text}.`,
+        resolution,
         expiration: expiration(
           "discard_obligation",
           "If the named future site or battle window does not arrive within 2 dreamscapes, discard the trade hook.",
