@@ -1,8 +1,15 @@
-import { drawInt } from "../../util/rng.js";
-import { STAGE_MULTIPLIER } from "./cec.js";
-import { essenceAmount, maxEssence, omenAmount } from "./content.js";
+import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
+import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
+import {
+  cardMatches,
+  essenceAmount,
+  maxEssence,
+  omenAmount,
+  pickFromList,
+} from "./content.js";
+import { PREDICATES, getPredicate } from "./predicates.js";
 import { withLockedPrefix } from "./text.js";
-import type { Cost } from "./types.js";
+import type { Cost, Predicate } from "./types.js";
 
 type PayEssenceParams = { x: number };
 const payEssence: Cost<PayEssenceParams> = {
@@ -101,6 +108,84 @@ const battleRewardReductionPercent: Cost<BattleRedPctParams> = {
     `Battle essence rewards are reduced by ${p.percent}% for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
+function rollPredicate(draw: DrawContext, label: string): Predicate {
+  return weightedChoice(
+    draw,
+    label,
+    PREDICATES.map((p) => ({ item: p, weight: 1 })),
+  );
+}
+
+type PurgeNamedCardParams = { cardName: string };
+const purgeNamedCard: Cost<PurgeNamedCardParams> = {
+  id: "purge_named_card",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "purge_named:c", ctx.content.cards).name
+      : "Placeholder Card",
+  }),
+  cec: () => CARD_CEC * 0.5,
+  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  render: (p) => `Purge ${p.cardName}`,
+};
+
+type PurgeRandomPredCardParams = { predicateId: string };
+const purgeRandomPredicateCard: Cost<PurgeRandomPredCardParams> = {
+  id: "purge_random_predicate_card",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "purge_random_pred:p").id }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.5, 1, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+  render: (p) => `Purge a random ${getPredicate(p.predicateId).text.singular}`,
+};
+
+type PurgeChosenPredCardParams = { predicateId: string };
+const purgeChosenPredicateCard: Cost<PurgeChosenPredCardParams> = {
+  id: "purge_chosen_predicate_card",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "purge_chosen_pred_c:p").id }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.5, 1, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+  render: (p) => `Purge a chosen ${getPredicate(p.predicateId).text.singular}`,
+};
+
+type GainRandomFromPoolParams = { count: number };
+const gainRandomCardsFromPool: Cost<GainRandomFromPoolParams> = {
+  id: "gain_random_cards_from_pool",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "gain_random_pool:n", 1, 3) }),
+  cec: (p) => CARD_CEC * 0.4 * p.count,
+  viable: () => true,
+  render: (p) => `Gain ${p.count} random card${p.count === 1 ? "" : "s"} from the card pool`,
+};
+
+type TransformCardToRandomParams = { cardName: string };
+const transformCardToRandomPool: Cost<TransformCardToRandomParams> = {
+  id: "transform_card_to_random_pool",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "xform_random:c", ctx.content.cards).name
+      : "Placeholder Card",
+  }),
+  cec: () => CARD_CEC * 0.5,
+  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  render: (p) => `Transform ${p.cardName} into a random card from the pool`,
+};
+
+type PurgeAllDuplicatesParams = Record<string, never>;
+const purgeAllDuplicateCards: Cost<PurgeAllDuplicatesParams> = {
+  id: "purge_all_duplicate_cards",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => CARD_CEC * 1.5,
+  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 2,
+  render: () => "Purge all duplicate cards from your deck",
+};
+
 export const COSTS: readonly Cost[] = Object.freeze([
   payEssence,
   payOmens,
@@ -110,6 +195,12 @@ export const COSTS: readonly Cost[] = Object.freeze([
   payAllRemainingEssence,
   battleRewardReductionFlat,
   battleRewardReductionPercent,
+  purgeNamedCard,
+  purgeRandomPredicateCard,
+  purgeChosenPredicateCard,
+  gainRandomCardsFromPool,
+  transformCardToRandomPool,
+  purgeAllDuplicateCards,
 ] as unknown as Cost[]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));

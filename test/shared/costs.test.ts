@@ -99,3 +99,18 @@ describe("costs table (resource family)", () => {
     expect(ids.length).toBe(new Set(ids).size);
   });
 });
+
+describe("costs table (card family)", () => {
+  it("registers card-purge / transform templates", () => {
+    for (const id of [
+      "purge_named_card", "purge_random_predicate_card", "purge_chosen_predicate_card",
+      "gain_random_cards_from_pool", "transform_card_to_random_pool",
+      "purge_all_duplicate_cards",
+    ]) {
+      const t = getCost(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThanOrEqual(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});
