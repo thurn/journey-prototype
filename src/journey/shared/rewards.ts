@@ -578,9 +578,9 @@ const gainCopyOfRandomDreamsign: Reward<GainCopyRandomDreamsignParams> = {
   id: "gain_copy_of_random_dreamsign",
   weight: 1.0,
   rollParams: () => ({}),
-  cec: () => DREAMSIGN_CEC * 0.7,
+  cec: () => DREAMSIGN_CEC * 2.5,
   viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
-  render: () => "Gain a copy of a random dreamsign",
+  render: () => "Gain a copy of one of your dreamsigns chosen at random",
 };
 
 type GainCopyChosenDreamsignParams = Record<string, never>;
@@ -588,9 +588,9 @@ const gainCopyOfChosenDreamsign: Reward<GainCopyChosenDreamsignParams> = {
   id: "gain_copy_of_chosen_dreamsign",
   weight: 1.0,
   rollParams: () => ({}),
-  cec: () => DREAMSIGN_CEC * 0.9,
+  cec: () => DREAMSIGN_CEC * 3.0,
   viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
-  render: () => "Gain a copy of a chosen dreamsign",
+  render: () => "Gain a copy of one of your dreamsigns of your choice",
 };
 
 type AddSiteParams = { siteType: string };

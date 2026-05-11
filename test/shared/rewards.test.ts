@@ -303,6 +303,30 @@ describe("rewards table (dreamsign family)", () => {
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
   });
+
+  it("gain_copy_of_random_dreamsign makes clear the copy is of an active dreamsign", () => {
+    const t = getReward("gain_copy_of_random_dreamsign");
+    const text = t.render({} as never, fakeCtx());
+    expect(text).toBe("Gain a copy of one of your dreamsigns chosen at random");
+    expect(text).toMatch(/your dreamsigns/);
+  });
+
+  it("gain_copy_of_random_dreamsign has CEC around 200 reflecting copy value", () => {
+    const t = getReward("gain_copy_of_random_dreamsign");
+    const cec = t.cec({} as never, fakeCtx());
+    expect(cec).toBeGreaterThanOrEqual(180);
+    expect(cec).toBeLessThanOrEqual(220);
+  });
+
+  it("gain_copy_of_chosen_dreamsign uses chosen wording and CEC >= random variant", () => {
+    const chosen = getReward("gain_copy_of_chosen_dreamsign");
+    const random = getReward("gain_copy_of_random_dreamsign");
+    const text = chosen.render({} as never, fakeCtx());
+    expect(text).toBe("Gain a copy of one of your dreamsigns of your choice");
+    expect(chosen.cec({} as never, fakeCtx())).toBeGreaterThanOrEqual(
+      random.cec({} as never, fakeCtx()),
+    );
+  });
 });
 
 describe("rewards table (site/dreamwell/misc family)", () => {
