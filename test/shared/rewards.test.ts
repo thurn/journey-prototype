@@ -202,6 +202,16 @@ describe("rewards table (purge/transform family)", () => {
       .toBe("Apply Lock-In to 2 random cards with an event-copying ability");
   });
 
+  it("apply_random_transfigurations_to_random_cards omits redundant count when count > 1", () => {
+    const t = getReward("apply_random_transfigurations_to_random_cards");
+    expect(t.render({ count: 1 } as never, fakeCtx()))
+      .toBe("Apply a random transfiguration to 1 random card");
+    expect(t.render({ count: 2 } as never, fakeCtx()))
+      .toBe("Apply random transfigurations to 2 random cards");
+    expect(t.render({ count: 3 } as never, fakeCtx()))
+      .toBe("Apply random transfigurations to 3 random cards");
+  });
+
   it("purge_chosen_predicate_cards uses singular noun when count is 1", () => {
     const t = getReward("purge_chosen_predicate_cards");
     expect(t.render({ predicateId: "reclaim", count: 1 } as never, fakeCtx()))

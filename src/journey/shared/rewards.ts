@@ -846,7 +846,9 @@ const applyRandomTransfigurationsToRandomCards: Reward<ApplyRandomTransfiguratio
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.count,
   render: (p) =>
-    `Apply ${p.count} random transfiguration${p.count === 1 ? "" : "s"} to ${p.count} random card${p.count === 1 ? "" : "s"}`,
+    p.count === 1
+      ? "Apply a random transfiguration to 1 random card"
+      : `Apply random transfigurations to ${p.count} random cards`,
 };
 
 type TransformDreamsignToNamedParams = { name: string };
