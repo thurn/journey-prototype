@@ -181,14 +181,17 @@ type ApplyNamedTransfigCardNameParams = { transfiguration: string; cardName: str
 const applyNamedTransfigurationToCardName: Reward<ApplyNamedTransfigCardNameParams> = {
   id: "apply_named_transfiguration_to_card_name",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    transfiguration: pickFromList(draw, "named_transfig_named:t", ALLOWED_TRANSFIGURATIONS),
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "named_transfig_named:c", ctx.content.cards).name
-      : "Placeholder Card",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      transfiguration: pickFromList(draw, "named_transfig_named:t", ALLOWED_TRANSFIGURATIONS),
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "named_transfig_named:c", deckCards).name
+        : "Placeholder Card",
+    };
+  },
   cec: () => CARD_CEC * 0.8,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Apply ${p.transfiguration} to ${p.cardName}`,
 };
 
@@ -232,14 +235,17 @@ type ModifyCardRefTypeParams = { cardName: string; cardType: string };
 const modifyCardToReferenceType: Reward<ModifyCardRefTypeParams> = {
   id: "modify_card_to_reference_type",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "modify_ref:c", ctx.content.cards).name
-      : "Placeholder Card",
-    cardType: pickFromList(draw, "modify_ref:t", CARD_TYPES),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "modify_ref:c", deckCards).name
+        : "Placeholder Card",
+      cardType: pickFromList(draw, "modify_ref:t", CARD_TYPES),
+    };
+  },
   cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Modify ${p.cardName}'s text to reference ${p.cardType}`,
 };
 
@@ -247,14 +253,17 @@ type ChangeCardBecomeTypeParams = { cardName: string; cardType: string };
 const changeCardToBecomeType: Reward<ChangeCardBecomeTypeParams> = {
   id: "change_card_to_become_type",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "change_become:c", ctx.content.cards).name
-      : "Placeholder Card",
-    cardType: pickFromList(draw, "change_become:t", CARD_TYPES),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "change_become:c", deckCards).name
+        : "Placeholder Card",
+      cardType: pickFromList(draw, "change_become:t", CARD_TYPES),
+    };
+  },
   cec: () => CARD_CEC * 0.6,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Change ${p.cardName} to become a ${p.cardType}`,
 };
 
@@ -275,13 +284,16 @@ type MakeCardFastParams = { cardName: string };
 const makeCardFast: Reward<MakeCardFastParams> = {
   id: "make_card_fast",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "make_fast:c", ctx.content.cards).name
-      : "Placeholder Card",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "make_fast:c", deckCards).name
+        : "Placeholder Card",
+    };
+  },
   cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Change ${p.cardName} to have fast`,
 };
 
@@ -332,13 +344,16 @@ type PurgeNamedStarterParams = { cardName: string };
 const purgeNamedStarter: Reward<PurgeNamedStarterParams> = {
   id: "purge_named_starter",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "purge_named_starter:c", ctx.content.cards).name
-      : "Placeholder Starter",
-  }),
+  rollParams: (ctx, draw) => {
+    const starters = cardMatches(ctx, { starter: true });
+    return {
+      cardName: starters.length > 0
+        ? pickFromList(draw, "purge_named_starter:c", starters).name
+        : "Placeholder Starter",
+    };
+  },
   cec: () => CARD_CEC * 0.4,
-  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  viable: (_p, ctx) => cardMatches(ctx, { starter: true }).length >= 1,
   render: (p) => `Purge ${p.cardName}`,
 };
 
@@ -430,14 +445,17 @@ type DupNamedCardParams = { cardName: string; count: number };
 const duplicateNamedCardX: Reward<DupNamedCardParams> = {
   id: "duplicate_named_card_X",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "dup_named:c", ctx.content.cards).name
-      : "Placeholder Card",
-    count: drawInt(draw, "dup_named:n", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "dup_named:c", deckCards).name
+        : "Placeholder Card",
+      count: drawInt(draw, "dup_named:n", 1, 3),
+    };
+  },
   cec: (p) => CARD_CEC * p.count,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Create ${p.count} duplicate${p.count === 1 ? "" : "s"} of ${p.cardName}`,
 };
 
@@ -667,14 +685,17 @@ type MakeCardReclaimParams = { cardName: string; count: number };
 const makeCardReclaim: Reward<MakeCardReclaimParams> = {
   id: "make_card_reclaim",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "make_reclaim:c", ctx.content.cards).name
-      : "Placeholder Card",
-    count: drawInt(draw, "make_reclaim:n", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "make_reclaim:c", deckCards).name
+        : "Placeholder Card",
+      count: drawInt(draw, "make_reclaim:n", 1, 3),
+    };
+  },
   cec: (p) => CARD_CEC * 0.5 * p.count,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Add Reclaim ${p.count} to ${p.cardName}`,
 };
 
@@ -696,14 +717,17 @@ type OpeningHandGrantParams = { cardName: string; battles: number };
 const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
   id: "opening_hand_grant_for_X_battles",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "oh_grant:c", ctx.content.cards).name
-      : "Placeholder Card",
-    battles: drawInt(draw, "oh_grant:b", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "oh_grant:c", deckCards).name
+        : "Placeholder Card",
+      battles: drawInt(draw, "oh_grant:b", 1, 3),
+    };
+  },
   cec: (p) => CARD_CEC * 0.6 * p.battles,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) =>
     `Your opening hand contains ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
@@ -712,14 +736,17 @@ type TemporaryCardCopyParams = { cardName: string; battles: number };
 const temporaryCardCopyForXBattles: Reward<TemporaryCardCopyParams> = {
   id: "temporary_card_copy_for_X_battles",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "temp_copy:c", ctx.content.cards).name
-      : "Placeholder Card",
-    battles: drawInt(draw, "temp_copy:b", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "temp_copy:c", deckCards).name
+        : "Placeholder Card",
+      battles: drawInt(draw, "temp_copy:b", 1, 3),
+    };
+  },
   cec: (p) => CARD_CEC * 0.5 * p.battles,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) =>
     `Gain a temporary copy of ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
