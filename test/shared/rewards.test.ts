@@ -79,3 +79,21 @@ describe("rewards table (resource family)", () => {
     expect(ids.length).toBe(new Set(ids).size);
   });
 });
+
+describe("rewards table (card-pool family)", () => {
+  it("registers gain_random_predicate_cards / draft_predicate_cards_from_4 / take_any_from_predicate_choices / gain_named_card", () => {
+    for (const id of [
+      "gain_random_predicate_cards",
+      "draft_predicate_cards_from_4",
+      "take_any_from_predicate_choices",
+      "gain_named_card",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      // viable() may be false when the fake content bundle is empty; that's fine.
+      // We're just checking the template is registered and the methods don't throw.
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});
