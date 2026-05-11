@@ -159,3 +159,40 @@ describe("costs table (misc family)", () => {
     }
   });
 });
+
+describe("meta_pay_2_costs", () => {
+  it("rolls two non-meta sub-template ids", () => {
+    const t = getCost("meta_pay_2_costs");
+    for (let i = 0; i < 20; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { subIds: [string, string] };
+      expect(p.subIds[0]).not.toMatch(/^meta_/);
+      expect(p.subIds[1]).not.toMatch(/^meta_/);
+    }
+  });
+
+  it("cec sums the sub-template CECs", () => {
+    const t = getCost("meta_pay_2_costs");
+    const p = t.rollParams(fakeCtx(), draw);
+    expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+  });
+
+  it("render prefixes [LOCKED] iff any sub-cost would lock", () => {
+    const t = getCost("meta_pay_2_costs");
+    let foundLocked = false;
+    for (let i = 0; i < 80; i += 1) {
+      const ctx = fakeCtx(50, 0);
+      const p = t.rollParams(ctx, { ...draw, sequenceStep: i }) as {
+        subIds: readonly [string, string];
+        subParams: readonly [Record<string, unknown>, Record<string, unknown>];
+      };
+      const txt = t.render(p, ctx);
+      // Probe each sub-cost to see if it would lock independently
+      const subATxt = getCost(p.subIds[0]).render(p.subParams[0] as never, ctx);
+      const subBTxt = getCost(p.subIds[1]).render(p.subParams[1] as never, ctx);
+      const subLocked = subATxt.startsWith("[LOCKED]") || subBTxt.startsWith("[LOCKED]");
+      expect(txt.startsWith("[LOCKED] ")).toBe(subLocked);
+      if (subLocked) foundLocked = true;
+    }
+    expect(foundLocked).toBe(true);
+  });
+});

@@ -378,6 +378,52 @@ const removeDreamsignSitesFromNextDreamscapes: Cost<RemoveDsSitesParams> = {
     `Remove all dreamsign sites from the next ${p.dreamscapes} dreamscape${p.dreamscapes === 1 ? "" : "s"} you visit`,
 };
 
+type MetaPay2Params = {
+  subIds: readonly [string, string];
+  subParams: readonly [Record<string, unknown>, Record<string, unknown>];
+};
+
+function nonMetaCosts(): readonly Cost[] {
+  return COSTS.filter((c) => !c.id.startsWith("meta_"));
+}
+
+const metaPay2Costs: Cost<MetaPay2Params> = {
+  id: "meta_pay_2_costs",
+  weight: 1.0,
+  rollParams: (ctx, draw) => {
+    const pool = nonMetaCosts();
+    const firstIndex = drawInt(draw, "meta_pay_2:i1", 0, pool.length - 1);
+    let secondIndex = drawInt(draw, "meta_pay_2:i2", 0, pool.length - 2);
+    if (secondIndex >= firstIndex) secondIndex += 1;
+    const first = pool[firstIndex]!;
+    const second = pool[secondIndex]!;
+    return {
+      subIds: [first.id, second.id] as readonly [string, string],
+      subParams: [
+        first.rollParams(ctx, { ...draw, selectionAttempt: (draw.selectionAttempt ?? 0) * 10 + 1 }) as Record<string, unknown>,
+        second.rollParams(ctx, { ...draw, selectionAttempt: (draw.selectionAttempt ?? 0) * 10 + 2 }) as Record<string, unknown>,
+      ] as readonly [Record<string, unknown>, Record<string, unknown>],
+    };
+  },
+  cec: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getCost(id));
+    return a!.cec(p.subParams[0] as never, ctx) + b!.cec(p.subParams[1] as never, ctx);
+  },
+  viable: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getCost(id));
+    return a!.viable(p.subParams[0] as never, ctx) && b!.viable(p.subParams[1] as never, ctx);
+  },
+  render: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getCost(id));
+    const aText = a!.render(p.subParams[0] as never, ctx);
+    const bText = b!.render(p.subParams[1] as never, ctx);
+    const aLocked = aText.startsWith("[LOCKED] ");
+    const bLocked = bText.startsWith("[LOCKED] ");
+    const stripped = (s: string) => s.startsWith("[LOCKED] ") ? s.slice("[LOCKED] ".length) : s;
+    return withLockedPrefix(`${stripped(aText)}. ${stripped(bText)}`, aLocked || bLocked);
+  },
+};
+
 export const COSTS: readonly Cost[] = Object.freeze([
   payEssence,
   payOmens,
@@ -408,6 +454,7 @@ export const COSTS: readonly Cost[] = Object.freeze([
   drawXPurgeChosen,
   removeShopSitesFromNextDreamscapes,
   removeDreamsignSitesFromNextDreamscapes,
+  metaPay2Costs,
 ] as unknown as Cost[]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));
