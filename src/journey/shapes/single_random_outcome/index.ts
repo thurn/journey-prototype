@@ -124,7 +124,6 @@ export const singleRandomOutcomePlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.95,
   repair: {
     actions: [
       { action: "bound_random_table", kind: "repair_payload_family" },

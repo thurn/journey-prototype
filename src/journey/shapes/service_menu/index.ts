@@ -125,7 +125,6 @@ export const serviceMenuPlugin = defineShapePlugin({
     allowsRouteReward: true,
     allowsRouteSideEffects: true,
   },
-  scoreWeight: 1.3,
   generatedObjects: { natural: true },
   repair: {
     fallbackRank: 2,

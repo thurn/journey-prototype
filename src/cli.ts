@@ -16,6 +16,7 @@ import {
 export type RawCommonOptions = {
   json?: boolean;
   debug?: boolean;
+  verbose?: boolean;
   debugContext?: boolean;
   color?: boolean;
   seed?: string;
@@ -41,6 +42,7 @@ export function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandO
   return {
     json,
     debug: rawOptions.debug ?? false,
+    verbose: rawOptions.verbose ?? false,
     debugContext: rawOptions.debugContext ?? false,
     color,
     stderrColor,
@@ -75,6 +77,7 @@ function addGenerationFlags(command: Command): Command {
     .option("--json", "print JSON output")
     .option("--no-color", "disable colored output")
     .option("--debug", "print generation metadata")
+    .option("--verbose", "include exhaustive --debug detail (fingerprint components, all validation, all operations)")
     .option("--debug-context", "print generated quest context")
     .option("--seed <seed>", "seed for deterministic generation")
     .addOption(

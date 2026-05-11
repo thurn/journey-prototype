@@ -117,7 +117,6 @@ export const sameRewardDifferentCostsPlugin = defineShapePlugin({
       "direct_menu",
     ),
   },
-  scoreWeight: 1.25,
   generatedObjects: { natural: true },
   repair: {
     actions: [

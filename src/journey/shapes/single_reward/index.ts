@@ -115,7 +115,6 @@ export const singleRewardPlugin = defineShapePlugin({
       escalationOrRiskExempt: false,
     },
   },
-  scoreWeight: 0.65,
   repair: {
     fallbackRank: 1,
     actions: [

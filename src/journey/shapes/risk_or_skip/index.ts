@@ -134,7 +134,6 @@ export const riskOrSkipPlugin = defineShapePlugin({
     },
     requiresPrecommittedRandom: true,
   },
-  scoreWeight: 0.75,
   repair: {
     actions: [
       { action: "add_skip_option", kind: "repair_payload_family" },

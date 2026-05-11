@@ -1,5 +1,10 @@
 # Early-Stage Journey Shape Distribution
 
+> **Note (2026-05-10):** The per-shape `scoreWeight` values were retuned
+> after this measurement. Numbers below reflect catalog `journey-shapes:v14`;
+> the current catalog is `v15` with weights driven by
+> `src/journey/shapes/scoreWeights.ts`. Re-run the Monte Carlo to refresh.
+
 Empirical distribution of `manifest.shapeId` from 3000 fresh-seed runs of
 `npm run journey -- --stage early` (the `--debug` flag only changes
 rendering — it does not influence shape selection). Sampling error is

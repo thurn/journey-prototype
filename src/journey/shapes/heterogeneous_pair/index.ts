@@ -32,7 +32,6 @@ export const heterogeneousPairPlugin = defineShapePlugin({
       escalationOrRiskExempt: false,
     },
   },
-  scoreWeight: 1.25,
   repair: {
     actions: [
       { action: "replace_matching_axis_option", kind: "repair_payload_family" },

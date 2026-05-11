@@ -328,7 +328,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v14;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v15;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

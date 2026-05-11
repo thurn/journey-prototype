@@ -130,7 +130,6 @@ export const pairedReturnPlugin = defineShapePlugin({
       debugLabel: "Paired return",
       versionContribution: versionContribution("paired_return", "delayed_hook"),
     },
-  scoreWeight: 1,
   repair: { actions: [{ action: "store_paired_return_metadata", kind: "repair_payload_family" }, { action: "clarify_callback_anchor", kind: "repair_payload_family" }, { action: "fall_back_to_reward_after_trigger", kind: "switch_to_shape", targetShapeId: "reward_after_trigger" }] },
   precommitValidator: (manifest) => {
     if (!hasPrecommitted(manifest.precommitted.pairedReturn)) {

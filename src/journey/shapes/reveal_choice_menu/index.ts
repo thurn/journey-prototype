@@ -33,7 +33,6 @@ export const revealChoiceMenuPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.6,
   repair: {
     actions: [
       {

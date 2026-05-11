@@ -117,7 +117,6 @@ export const chooseYourLossPlugin = defineShapePlugin({
     versionContribution: versionContribution("choose_your_loss", "direct_menu"),
     compoundCoherence: "skip",
   },
-  scoreWeight: 0.85,
   repair: {
     actions: [
       {

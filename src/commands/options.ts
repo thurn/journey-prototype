@@ -1,6 +1,7 @@
 export type CommonCommandOptions = {
   json: boolean;
   debug: boolean;
+  verbose: boolean;
   debugContext: boolean;
   color: boolean;
   stderrColor: boolean;

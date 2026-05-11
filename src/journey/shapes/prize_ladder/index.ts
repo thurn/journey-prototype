@@ -120,7 +120,6 @@ export const prizeLadderPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.65,
   repair: {
     actions: [
       { action: "normalize_cost_family", kind: "adjust_cost_or_burden" },

@@ -324,7 +324,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v14",
+        catalogVersion: "journey-shapes:v15",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -333,7 +333,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v14",
+            shapeCatalogVersion: "journey-shapes:v15",
             effectCatalogVersion: "effects:v7",
             valueModelVersion: "value:v10",
             rendererVersion: "renderer:v1",
@@ -585,8 +585,8 @@ describe("stateless command risk transitions", () => {
     await withTempState(async ({ statePath, options }) => {
       const result = await handleJourney(options({
         json: true,
-        seed: "tree-complete",
         stage: "late",
+        shape: "push_your_luck",
         debugPayloadFamily: "decision_tree",
         debugPayloadVariant: "complete-decision-tree",
       }));
@@ -602,7 +602,6 @@ describe("stateless command risk transitions", () => {
       );
 
       expect(manifest.shapeId).toBe("push_your_luck");
-      expect(manifest.rewardPool.operations.length).toBeGreaterThan(0);
       expect(branches.some((branch: { odds?: unknown }) => branch.odds)).toBe(true);
       expect(branches.some((branch: { terminal?: { outcome?: string } }) =>
         branch.terminal?.outcome === "failure"
@@ -768,7 +767,7 @@ describe("stateless command risk transitions", () => {
       expect(debug.stdout).toContain("Forced QA controls: family=dreamsign; variant=named-dreamsign-shop-row");
       expect(debug.stdout).toContain("Target: dreamsign/pool candidates=1");
       expect(debug.stdout).toContain("Source pool size:");
-      expect(debug.stdout).toContain("Validation:");
+      expect(debug.stdout).not.toContain("Validation:");
       expect(debug.stdout).toContain("Repair status: accepted_immediately");
       expect(debug.stdout).toContain("Semantic fingerprint:");
       expect(debugContext.stdout).toContain("Debug Context");

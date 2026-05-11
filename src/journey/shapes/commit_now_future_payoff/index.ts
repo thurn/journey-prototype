@@ -28,7 +28,6 @@ export const commitNowFuturePayoffPlugin = defineShapePlugin({
       "delayed_hook",
     ),
   },
-  scoreWeight: 1.2,
   repair: {
     actions: [
       { action: "clarify_commitment_terms", kind: "repair_payload_family" },

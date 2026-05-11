@@ -117,7 +117,6 @@ export const nowVsLaterPlugin = defineShapePlugin({
     debugLabel: "Now versus later",
     versionContribution: versionContribution("now_vs_later", "delayed_hook"),
   },
-  scoreWeight: 0.85,
   repair: {
     actions: [
       { action: "increase_delayed_payoff", kind: "repair_payload_family" },

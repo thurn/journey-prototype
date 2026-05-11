@@ -46,7 +46,6 @@ export const probabilityLadderPlugin = defineShapePlugin({
       versionContribution: versionContribution("probability_ladder", "decision_tree"),
       menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
-  scoreWeight: 0.6,
   repair: { actions: [{ action: "normalize_attempt_costs", kind: "adjust_cost_or_burden" }, { action: "make_success_terminal", kind: "repair_payload_family" }, { action: "simplify_ladder_level_count", kind: "simplify_fill" }] },
   validators: [decisionTreeValidator],
   treeValidator: (manifest) => validateProbabilityLadder(manifest),

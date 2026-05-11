@@ -8,6 +8,7 @@ import { THEME } from "./theme.js";
 export type RenderOptions = {
   json: boolean;
   debug: boolean;
+  verbose?: boolean;
   debugContext?: boolean;
   color: boolean;
 };
@@ -536,24 +537,50 @@ function committedOutcomeLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
+const CONVERTED_ESSENCE_LINE = /^(Cost|Effect|Burden|Uncertainty|Net): ([+-]?\d+) converted essence\.$/u;
+
+function highlightConvertedEssence(line: string, options: RenderOptions): string {
+  const match = CONVERTED_ESSENCE_LINE.exec(line);
+  if (!match) {
+    return color(line, "debug", options);
+  }
+
+  const [, label, amountText] = match;
+  const amount = Number.parseInt(amountText!, 10);
+  const tone: keyof typeof THEME = amount > 0
+    ? "positive"
+    : amount < 0
+      ? "warning"
+      : "resourceValue";
+
+  return `${color(`${label}: `, "debug", options)}${color(amountText!, tone, options)}${color(" converted essence.", "debug", options)}`;
+}
+
 function optionValueDebugLines(
   value: JourneyManifest["debug"]["optionValues"][number],
+  options: RenderOptions,
 ): string[] {
   const [firstLine, ...remainingLines] = value.detail;
 
   if (!firstLine) {
-    return [`${value.optionNumber}.`];
+    return [color(`${value.optionNumber}.`, "debug", options)];
   }
 
   return [
-    `${value.optionNumber}. ${firstLine}`,
-    ...remainingLines.map((line) => `   ${line}`),
+    `${color(`${value.optionNumber}. `, "debug", options)}${highlightConvertedEssence(firstLine, options)}`,
+    ...remainingLines.map(
+      (line) => `${color("   ", "debug", options)}${highlightConvertedEssence(line, options)}`,
+    ),
   ];
 }
 
-function validationDebugLines(manifest: JourneyManifest): string[] {
+function validationDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
   const validation = manifest.debug.validation;
   if (!validation) {
+    return [];
+  }
+
+  if (!verbose && validation.ok) {
     return [];
   }
 
@@ -564,6 +591,10 @@ function validationDebugLines(manifest: JourneyManifest): string[] {
   ];
 
   for (const rule of validation.rules) {
+    if (!verbose && rule.status === "pass") {
+      continue;
+    }
+
     const checked = rule.checked[0];
     const payload = checked?.payloadFamily ? ` payload ${checked.payloadFamily}` : "";
     const target = checked?.targetResolution
@@ -730,8 +761,18 @@ function operationContractDebugText(operation: JourneyOption["operations"][numbe
   return lines;
 }
 
-function operationDebugLines(manifest: JourneyManifest): string[] {
-  const lines: string[] = [];
+function isInterestingOperation(
+  operation: JourneyOption["operations"][number],
+  details: { target?: string; pool?: string; contract: string[] },
+): boolean {
+  if (details.target || details.pool || details.contract.length > 0) {
+    return true;
+  }
+
+  return operation.timing !== undefined;
+}
+
+function operationDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
   const optionOperations = manifest.options.flatMap((option) =>
     option.operations.map((operation) => ({ location: `Option ${option.number}`, operation }))
   );
@@ -763,42 +804,60 @@ function operationDebugLines(manifest: JourneyManifest): string[] {
     return [];
   }
 
-  lines.push("", "Operations:");
-
+  const entries: { header: string; details: string[] }[] = [];
   for (const { location, operation } of operations) {
-    lines.push(
-      `${location} ${operation.operationId}: ${operation.operationKind} role=${operation.role} visibility=${operation.visibility}; ${timingDebugText(operation)}.`,
-    );
-
     const target = operationTargetDebugText(operation);
-    if (target) {
-      lines.push(`  ${target}`);
-    }
-
     const pool = operationPoolDebugText(operation);
-    if (pool) {
-      lines.push(`  ${pool}`);
-    }
-
     const value = operationValueDebugText(operation);
-    if (value) {
-      lines.push(`  ${value}`);
+    const contract = operationContractDebugText(operation);
+
+    if (!verbose && !isInterestingOperation(operation, { target, pool, contract })) {
+      continue;
     }
 
-    lines.push(...operationContractDebugText(operation));
+    const details: string[] = [];
+    if (target) {
+      details.push(`  ${target}`);
+    }
+    if (pool) {
+      details.push(`  ${pool}`);
+    }
+    if (verbose && value) {
+      details.push(`  ${value}`);
+    }
+    details.push(...contract);
+
+    entries.push({
+      header: `${location} ${operation.operationId}: ${operation.operationKind} role=${operation.role} visibility=${operation.visibility}; ${timingDebugText(operation)}.`,
+      details,
+    });
+  }
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const lines: string[] = ["", "Operations:"];
+  for (const entry of entries) {
+    lines.push(entry.header, ...entry.details);
   }
 
   return lines;
 }
 
-function fingerprintDebugLines(manifest: JourneyManifest): string[] {
+function fingerprintDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
   const fingerprint = manifest.distinctness ?? manifest.debug.semanticFingerprint;
-  const components = fingerprint.components ?? [];
-  const equivalenceBands = fingerprint.equivalenceBands ?? [];
   const lines = [
     `Semantic fingerprint: ${fingerprint.value} (${fingerprint.algorithm}).`,
-    "Fingerprint components:",
   ];
+
+  if (!verbose) {
+    return lines;
+  }
+
+  const components = fingerprint.components ?? [];
+  const equivalenceBands = fingerprint.equivalenceBands ?? [];
+  lines.push("Fingerprint components:");
 
   if (components.length === 0) {
     lines.push("  none");
@@ -820,14 +879,14 @@ function fingerprintDebugLines(manifest: JourneyManifest): string[] {
   return lines;
 }
 
-function reachabilityDebugLines(manifest: JourneyManifest): string[] {
+function reachabilityDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
   const reachability = manifest.debug.reachability;
 
   if (!reachability) {
     return [];
   }
 
-  return [
+  const lines: string[] = [
     "",
     "Reachability:",
     `Mode: ${reachability.generatorMode}; evidence=${reachability.evidenceSource}.`,
@@ -835,13 +894,21 @@ function reachabilityDebugLines(manifest: JourneyManifest): string[] {
     `Payload families: ${reachability.payloadFamilies.join(", ") || "none"}.`,
     `Selector families: ${reachability.selectorFamilies.join(", ") || "none"}.`,
     `Timing families: ${reachability.timingFamilies.join(", ") || "none"}.`,
-    ...(reachability.debugFixture
-      ? [
-          `Debug fixture: ${reachability.debugFixture.qaId}; coverage=${reachability.debugFixture.coverageKind ?? "debug_fixture"}.`,
-        ]
-      : []),
-    "Feature decisions:",
-    ...reachability.featureDecisions.map((decision) => {
+  ];
+
+  if (reachability.debugFixture) {
+    lines.push(
+      `Debug fixture: ${reachability.debugFixture.qaId}; coverage=${reachability.debugFixture.coverageKind ?? "debug_fixture"}.`,
+    );
+  }
+
+  const decisions = verbose
+    ? reachability.featureDecisions
+    : reachability.featureDecisions.filter((decision) => decision.status !== "skipped");
+
+  if (decisions.length > 0) {
+    lines.push("Feature decisions:");
+    for (const decision of decisions) {
       const families = decision.evidenceFamilies.length > 0
         ? ` families=${decision.evidenceFamilies.join(",")}`
         : "";
@@ -849,9 +916,11 @@ function reachabilityDebugLines(manifest: JourneyManifest): string[] {
         ? ` paths=${decision.evidencePaths.join(",")}`
         : "";
 
-      return `  ${decision.family}: ${decision.status}; ${decision.reason}${families}${paths}`;
-    }),
-  ];
+      lines.push(`  ${decision.family}: ${decision.status}; ${decision.reason}${families}${paths}`);
+    }
+  }
+
+  return lines;
 }
 
 function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
@@ -907,62 +976,76 @@ function previousPickFor(state: JourneyState, manifest: JourneyManifest): PickHi
 }
 
 function debugLines(state: JourneyState, manifest: JourneyManifest, options: RenderOptions): string[] {
-  const lines = ["", "Debug", `Seed: ${manifest.seed}`];
+  const verbose = options.verbose === true;
+  const paint = (line: string): string => (line.length === 0 ? line : color(line, "debug", options));
+  const highlight = (text: string): string => color(text, "resourceValue", options);
+  const out: string[] = ["", color("Debug", "heading", options), paint(`Seed: ${manifest.seed}`)];
   const previousPick = previousPickFor(state, manifest);
 
   if (previousPick) {
-    lines.push(
-      `Previous journey: ${previousPick.journeyId}`,
-      `Previous shape: ${previousPick.shapeId}`,
-      `Recorded pick: ${previousPick.selectedOptionNumber}`,
-      "Effect simulation: not applied",
+    out.push(
+      paint(`Previous journey: ${previousPick.journeyId}`),
+      paint(`Previous shape: ${previousPick.shapeId}`),
+      paint(`Recorded pick: ${previousPick.selectedOptionNumber}`),
+      paint("Effect simulation: not applied"),
     );
 
     if (previousPick.sequenceStep !== undefined) {
-      lines.push(`Recorded step: ${previousPick.sequenceStep}`);
+      out.push(paint(`Recorded step: ${previousPick.sequenceStep}`));
     }
 
     if (previousPick.sequenceStatus !== undefined) {
-      lines.push(`Sequence status: ${previousPick.sequenceStatus}`);
+      out.push(paint(`Sequence status: ${previousPick.sequenceStatus}`));
     }
   }
 
-  lines.push(
-    `Journey: ${manifest.journeyId}`,
-    `Stage: ${manifest.stage}`,
-    `Selected shape: ${manifest.debug.selectedShapeId}`,
-    `Selected tags: ${manifest.selectedTags.join(", ")}`,
-    `Selected payload family: ${manifest.debug.debugPayload?.familyId ?? "adapter"}`,
+  out.push(
+    paint(`Journey: ${manifest.journeyId}`),
+    paint(`Stage: ${manifest.stage}`),
+    `${paint("Selected shape: ")}${highlight(manifest.debug.selectedShapeId)}`,
+    paint(`Selected tags: ${manifest.selectedTags.join(", ")}`),
+    paint(`Selected payload family: ${manifest.debug.debugPayload?.familyId ?? "adapter"}`),
   );
 
   if (manifest.debug.debugPayload) {
-    lines.push(
-      `Debug payload: ${manifest.debug.debugPayload.qaId}`,
-      `Payload source: ${manifest.debug.debugPayload.source}`,
-      `Forced QA controls: family=${manifest.debug.debugPayload.familyId}; variant=${manifest.debug.debugPayload.variantId}; shapes=${manifest.debug.debugPayload.supportedShapes === "all" ? "all" : manifest.debug.debugPayload.supportedShapes.join(",")}; stages=${manifest.debug.debugPayload.supportedStages === "all" ? "all" : manifest.debug.debugPayload.supportedStages.join(",")}`,
+    out.push(
+      paint(`Debug payload: ${manifest.debug.debugPayload.qaId}`),
+      paint(`Payload source: ${manifest.debug.debugPayload.source}`),
+      paint(`Forced QA controls: family=${manifest.debug.debugPayload.familyId}; variant=${manifest.debug.debugPayload.variantId}; shapes=${manifest.debug.debugPayload.supportedShapes === "all" ? "all" : manifest.debug.debugPayload.supportedShapes.join(",")}; stages=${manifest.debug.debugPayload.supportedStages === "all" ? "all" : manifest.debug.debugPayload.supportedStages.join(",")}`),
     );
   }
 
   if (manifest.sequence) {
     const max = manifest.sequence.maxSteps ? ` of ${manifest.sequence.maxSteps}` : "";
-    lines.push(`Sequence: step ${manifest.sequence.step}${max}, ${manifest.sequence.status}`);
+    out.push(paint(`Sequence: step ${manifest.sequence.step}${max}, ${manifest.sequence.status}`));
   }
 
   const topScore = manifest.debug.shapeScores[0];
   if (topScore) {
-    lines.push(`Shape scoring: ${topScore.shapeId} ${topScore.score}`);
+    out.push(
+      `${paint("Shape scoring: ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`,
+    );
   }
 
   const outcomes = committedOutcomeLines(manifest);
   if (outcomes.length > 0) {
-    lines.push("", "Precommitted outcomes:", ...outcomes);
+    out.push("", paint("Precommitted outcomes:"), ...outcomes.map(paint));
   }
 
-  lines.push(...fingerprintDebugLines(manifest));
-  lines.push(...reachabilityDebugLines(manifest));
+  out.push(...fingerprintDebugLines(manifest, verbose).map(paint));
+
+  const reachability = manifest.debug.reachability;
+  const reachabilityRaw = reachabilityDebugLines(manifest, verbose);
+  for (const line of reachabilityRaw) {
+    if (reachability && line === `Shape topology: ${reachability.shapeTopology}.`) {
+      out.push(`${paint("Shape topology: ")}${highlight(reachability.shapeTopology)}${paint(".")}`);
+    } else {
+      out.push(paint(line));
+    }
+  }
 
   if (manifest.debug.symmetryContracts?.length) {
-    lines.push("", "Symmetry contracts:");
+    out.push("", paint("Symmetry contracts:"));
     for (const contract of manifest.debug.symmetryContracts) {
       const sharedKeys = contract.sharedPayloadKeys?.length
         ? ` shared=${contract.sharedPayloadKeys.join(",")}`
@@ -971,29 +1054,26 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
         ? ` varied=${contract.variedPayloadKeys.join(",")}`
         : "";
 
-      lines.push(
+      out.push(paint(
         `${contract.contractKind}: shared ${contract.sharedProperty}; varied ${contract.variedProperty}; options ${contract.optionNumbers.join(",")}.${sharedKeys}${variedKeys}`,
-      );
+      ));
     }
   }
 
-  lines.push(...operationDebugLines(manifest));
-  lines.push(...generatedObjectDebugLines(manifest));
-  lines.push(...validationDebugLines(manifest));
+  out.push(...operationDebugLines(manifest, verbose).map(paint));
+  out.push(...generatedObjectDebugLines(manifest).map(paint));
+  out.push(...validationDebugLines(manifest, verbose).map(paint));
 
   for (const optionValue of manifest.debug.optionValues) {
-    lines.push(
-      "",
-      ...optionValueDebugLines(optionValue),
-    );
+    out.push("", ...optionValueDebugLines(optionValue, options));
   }
 
   if (manifest.debug.repairs.length > 0) {
-    lines.push("", "Repairs:");
+    out.push("", paint("Repairs:"));
     for (const repair of manifest.debug.repairs) {
-      lines.push(
+      out.push(paint(
         `Attempt ${repair.attempt}: ${repair.failedRule}; ${repair.actionCategory}; ${repair.action}; ${repair.result}.`,
-      );
+      ));
 
       if (repair.validation) {
         const checked = repair.validation.checked[0];
@@ -1002,25 +1082,19 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
           ? ` target ${checked.targetResolution.selectorKind}/${checked.targetResolution.sourcePool} candidates=${checked.targetResolution.candidateCount}`
           : "";
 
-        lines.push(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}${payload}${target}.`);
+        out.push(paint(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}${payload}${target}.`));
       }
     }
   }
 
   if (manifest.debug.repair) {
-    lines.push(
+    out.push(
       "",
-      `Repair status: ${manifest.debug.repair.status}; forced shape: ${manifest.debug.repair.forcedShape ? "yes" : "no"}.`,
+      paint(`Repair status: ${manifest.debug.repair.status}; forced shape: ${manifest.debug.repair.forcedShape ? "yes" : "no"}.`),
     );
   }
 
-  return lines.map((line) => {
-    if (line === "Debug") {
-      return color(line, "heading", options);
-    }
-
-    return line.length === 0 ? line : color(line, "debug", options);
-  });
+  return out;
 }
 
 function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] {
@@ -1076,7 +1150,25 @@ export function renderJourneyHuman(
   manifest: JourneyManifest,
   options: RenderOptions,
 ): string {
-  const lines = [
+  const lines: string[] = [];
+
+  if (options.debug) {
+    lines.push(...debugLines(state, manifest, options));
+  }
+
+  if (options.debugContext) {
+    lines.push(...debugContextLines(state, options));
+  }
+
+  while (lines[0] === "") {
+    lines.shift();
+  }
+
+  if (lines.length > 0) {
+    lines.push("");
+  }
+
+  lines.push(
     color("Dream Journey", "heading", options),
     `Quest: ${state.quest.dreamcaller.name}, ${state.quest.dreamcaller.title}`,
     journeyResourceLine(state, manifest, options),
@@ -1084,15 +1176,7 @@ export function renderJourneyHuman(
     ...(manifest.tree
       ? treeLines(manifest, options)
       : manifest.options.map((option) => optionLine(option, options))),
-  ];
-
-  if (options.debugContext) {
-    lines.push(...debugContextLines(state, options));
-  }
-
-  if (options.debug) {
-    lines.push(...debugLines(state, manifest, options));
-  }
+  );
 
   return `${lines.join("\n")}\n`;
 }

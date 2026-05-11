@@ -23,7 +23,6 @@ export const oneOperationManyTargetsPlugin = defineShapePlugin({
       ),
       menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
     },
-  scoreWeight: 1.4,
   generatedObjects: { natural: true, highWeirdness: true },
   repair: { actions: [{ action: "replace_invalid_target", kind: "repair_payload_family" }, { action: "align_operation_across_options", kind: "repair_payload_family" }, { action: "rebalance_target_values", kind: "repair_payload_family" }] },
 });

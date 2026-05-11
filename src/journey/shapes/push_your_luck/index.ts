@@ -121,7 +121,6 @@ export const pushYourLuckPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.65,
   repair: {
     actions: [
       { action: "make_failure_terminal", kind: "repair_payload_family" },

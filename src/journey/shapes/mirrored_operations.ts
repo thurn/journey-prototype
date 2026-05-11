@@ -23,7 +23,6 @@ export const mirroredOperationsPlugin = defineShapePlugin({
       ),
       menuValueChecks: { positiveBands: true, symmetricBands: true, escalationOrRiskExempt: false },
     },
-  scoreWeight: 0.75,
   generatedObjects: { natural: true, highWeirdness: true },
   repair: { actions: [{ action: "restore_operation_symmetry", kind: "repair_payload_family" }, { action: "replace_polarity_mismatch", kind: "repair_payload_family" }, { action: "rebalance_mirrored_values", kind: "repair_payload_family" }] },
 });

@@ -123,7 +123,6 @@ export const sharedPrefixMenuPlugin = defineShapePlugin({
     },
     allowsRouteReward: true,
   },
-  scoreWeight: 0.8,
   repair: {
     actions: [
       { action: "restore_shared_prefix", kind: "repair_payload_family" },

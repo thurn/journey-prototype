@@ -118,7 +118,6 @@ export const alterDreamscapesPlugin = defineShapePlugin({
     allowsRouteSideEffects: true,
     compoundAllowsRouteOnlyReward: true,
   },
-  scoreWeight: 0.6,
   repair: {
     actions: [
       {

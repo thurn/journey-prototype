@@ -749,7 +749,7 @@ describe.concurrent("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v14",
+      shapeCatalogVersion: "journey-shapes:v15",
       effectCatalogVersion: "effects:v7",
       valueModelVersion: "value:v10",
       rendererVersion: "renderer:v1",
@@ -3357,7 +3357,13 @@ describe.concurrent("generateNextJourney", () => {
 
   it("adapts current root option payloads into typed semantic operations", async () => {
     const journeyContext = await context();
-    const manifest = generateNextJourney({ context: journeyContext });
+    // Force a shape that's guaranteed to produce visible reward operations so
+    // the assertion isn't seed-dependent. `curated_reward_trio` always emits
+    // direct reward operations on each option.
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "curated_reward_trio",
+    });
 
     expectManifestPayloadsHaveTypedOperations(manifest);
     expect(manifest.options.flatMap((option) => option.operations)).toEqual(

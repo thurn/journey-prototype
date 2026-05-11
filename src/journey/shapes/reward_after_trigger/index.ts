@@ -23,7 +23,6 @@ export const rewardAfterTriggerPlugin = defineShapePlugin({
       "delayed_hook",
     ),
   },
-  scoreWeight: 1,
   repair: {
     actions: [
       { action: "add_visible_trigger", kind: "reveal_hidden_target_or_outcome" },

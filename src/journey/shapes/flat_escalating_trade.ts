@@ -21,6 +21,5 @@ export const flatEscalatingTradePlugin = defineShapePlugin({
       versionContribution: versionContribution("flat_escalating_trade", "direct_menu"),
       menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
-  scoreWeight: 0.7,
   repair: { actions: [{ action: "normalize_escalating_costs", kind: "adjust_cost_or_burden" }, { action: "align_reward_family", kind: "repair_payload_family" }, { action: "rebalance_escalating_values", kind: "repair_payload_family" }] },
 });

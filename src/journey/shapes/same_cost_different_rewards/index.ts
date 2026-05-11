@@ -123,7 +123,6 @@ export const sameCostDifferentRewardsPlugin = defineShapePlugin({
     },
     allowsRouteReward: true,
   },
-  scoreWeight: 1.3,
   generatedObjects: { natural: true },
   repair: {
     actions: [

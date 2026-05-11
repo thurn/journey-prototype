@@ -134,7 +134,6 @@ export const curatedRewardTrioPlugin = defineShapePlugin({
       escalationOrRiskExempt: false,
     },
   },
-  scoreWeight: 1.35,
   generatedObjects: { natural: true },
   repair: {
     fallbackRank: 0,

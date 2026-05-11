@@ -78,6 +78,8 @@ export type TestContextOptions = {
   seed: string;
   stage?: JourneyStage;
   rootJourneyIndex?: number;
+  content?: ContentBundle;
+  stateOverrides?: Partial<JourneyState["quest"]>;
 };
 
 export type TestContextBundle = {
@@ -97,10 +99,16 @@ export type TestContextBundle = {
  */
 export function makeTestContext(options: TestContextOptions): TestContextBundle {
   const stage: JourneyStage = options.stage ?? "mid";
-  const state = makeStubState(options.seed);
+  const baseState = makeStubState(options.seed);
+  const state: JourneyState = options.stateOverrides
+    ? {
+        ...baseState,
+        quest: { ...baseState.quest, ...options.stateOverrides },
+      }
+    : baseState;
   const context: JourneyContext = {
     projectRoot: process.cwd(),
-    content: EMPTY_CONTENT_BUNDLE,
+    content: options.content ?? EMPTY_CONTENT_BUNDLE,
     state,
     contentVersion: TEST_CONTENT_VERSION,
   };

@@ -23,6 +23,5 @@ export const resolvedRandomSeriesPlugin = defineShapePlugin({
       ),
       menuValueChecks: { positiveBands: false, symmetricBands: false, escalationOrRiskExempt: true },
     },
-  scoreWeight: 1.2,
   repair: { actions: [{ action: "bound_series_length", kind: "repair_payload_family" }, { action: "precommit_random_outcomes", kind: "repair_payload_family" }, { action: "remove_stop_or_continue_loop", kind: "repair_payload_family" }] },
 });

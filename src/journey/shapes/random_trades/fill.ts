@@ -1,5 +1,10 @@
+import { resolveCardTargets } from "../../effects.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
 import {
+  CARD_DRAFT_CHOICE_COUNT,
+  CARD_DRAFT_PROFILES,
+  GENERIC_CARD_DRAFT_PROFILE,
+  cardDraftPredicate,
   optionFromResolvedShapeFill,
   stableSignature,
   symmetryContract,
@@ -11,6 +16,7 @@ import {
   type BundleOptionPayload,
   type BundleRewardSource,
 } from "../service_menu/genericBundleOption.js";
+import type { JourneyContext } from "../../../quest/context.js";
 import type { JourneyOption } from "../../manifest.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { ROW_POOL_CONFIGURATIONS, type RowPool } from "./rowPools.js";
@@ -44,15 +50,80 @@ function rewardAxisSignature(reward: BundleRewardSource): string {
   return JSON.stringify(["reward", reward]);
 }
 
-function pickPool(drawContext: DrawContext, label: string): RowPool {
+function pickPool(
+  drawContext: DrawContext,
+  label: string,
+  pools: readonly RowPool[],
+): RowPool {
   return weightedChoice(
     drawContext,
     label,
-    ROW_POOL_CONFIGURATIONS.map((entry) => ({
+    pools.map((entry) => ({
       item: entry,
       weight: entry.weight,
     })),
   );
+}
+
+function costIsViable(
+  cost: BundleCostSource,
+  context: JourneyContext,
+): boolean {
+  switch (cost.kind) {
+    case "fixed_essence":
+      return context.state.quest.resources.essence >= cost.amount;
+    case "delayed_bane":
+    case "burden_pool":
+      return true;
+    default:
+      return true;
+  }
+}
+
+function rewardIsViable(
+  reward: BundleRewardSource,
+  context: JourneyContext,
+): boolean {
+  switch (reward.kind) {
+    case "fixed_card_draft":
+    case "random_card_gain":
+    case "named_card_grant": {
+      const profile =
+        reward.profileId === "any_basic"
+          ? GENERIC_CARD_DRAFT_PROFILE
+          : CARD_DRAFT_PROFILES[reward.profileId];
+      const matches = resolveCardTargets(
+        context.content,
+        context.state.quest,
+        cardDraftPredicate(profile),
+      );
+      return matches.length >= CARD_DRAFT_CHOICE_COUNT;
+    }
+    case "starter_cleanup":
+      return context.state.quest.deck.summary.starterCards >= reward.count;
+    case "essence_gain":
+      return true;
+    default:
+      return true;
+  }
+}
+
+type ViablePool = {
+  readonly pool: RowPool;
+  readonly costSources: readonly BundleCostSource[];
+  readonly rewardSources: readonly BundleRewardSource[];
+};
+
+function viablePoolsFor(context: JourneyContext): readonly ViablePool[] {
+  const viable: ViablePool[] = [];
+  for (const pool of ROW_POOL_CONFIGURATIONS) {
+    const costSources = pool.costSources.filter((c) => costIsViable(c, context));
+    const rewardSources = pool.rewardSources.filter((r) => rewardIsViable(r, context));
+    if (costSources.length > 0 && rewardSources.length > 0) {
+      viable.push({ pool, costSources, rewardSources });
+    }
+  }
+  return viable;
 }
 
 /**
@@ -68,10 +139,17 @@ function pickPool(drawContext: DrawContext, label: string): RowPool {
 function pickDistinctRow(
   drawContext: DrawContext,
   index: number,
+  viablePools: readonly ViablePool[],
   seenTuples: ReadonlySet<string>,
   seenCosts: ReadonlySet<string>,
   seenRewards: ReadonlySet<string>,
 ): { pool: RowPool; cost: BundleCostSource; reward: BundleRewardSource } | undefined {
+  if (viablePools.length === 0) {
+    return undefined;
+  }
+
+  const pools = viablePools.map((v) => v.pool);
+
   for (let attempt = 0; attempt < MAX_ROW_RESAMPLES; attempt += 1) {
     const attemptContext: DrawContext = {
       ...drawContext,
@@ -80,21 +158,23 @@ function pickDistinctRow(
     const pool = pickPool(
       attemptContext,
       `${SHAPE_LABEL}:pool:${index}`,
+      pools,
     );
+    const viable = viablePools.find((v) => v.pool === pool)!;
     const costIndex = drawInt(
       attemptContext,
       `${SHAPE_LABEL}:cost:${index}`,
       0,
-      pool.costSources.length - 1,
+      viable.costSources.length - 1,
     );
     const rewardIndex = drawInt(
       attemptContext,
       `${SHAPE_LABEL}:reward:${index}`,
       0,
-      pool.rewardSources.length - 1,
+      viable.rewardSources.length - 1,
     );
-    const cost = pool.costSources[costIndex]!;
-    const reward = pool.rewardSources[rewardIndex]!;
+    const cost = viable.costSources[costIndex]!;
+    const reward = viable.rewardSources[rewardIndex]!;
 
     if (
       !seenTuples.has(rowSignature(pool, cost, reward)) &&
@@ -105,12 +185,12 @@ function pickDistinctRow(
     }
   }
 
-  // Deterministic exhaustive fallback: walk the registry in declaration
-  // order and return the first triple whose signature, cost axis, and
-  // reward axis are all unseen.
-  for (const pool of ROW_POOL_CONFIGURATIONS) {
-    for (const cost of pool.costSources) {
-      for (const reward of pool.rewardSources) {
+  // Deterministic exhaustive fallback: walk viable triples in declaration
+  // order and return the first whose signature, cost axis, and reward axis
+  // are all unseen.
+  for (const { pool, costSources, rewardSources } of viablePools) {
+    for (const cost of costSources) {
+      for (const reward of rewardSources) {
         if (
           !seenTuples.has(rowSignature(pool, cost, reward)) &&
           !seenCosts.has(costAxisSignature(cost)) &&
@@ -139,6 +219,10 @@ export function randomTradesFill(
   args: ShapeFillArgs,
 ): FilledJourney | undefined {
   const { context, drawContext, stage } = args;
+  const viablePools = viablePoolsFor(context);
+  if (viablePools.length === 0) {
+    return undefined;
+  }
   const rowCount = drawInt(drawContext, `${SHAPE_LABEL}:row-count`, 2, 3);
   const options: JourneyOption[] = [];
   const optionPayloads: (readonly BundleOptionPayload[])[] = [];
@@ -150,6 +234,7 @@ export function randomTradesFill(
     const pick = pickDistinctRow(
       drawContext,
       i,
+      viablePools,
       seenSignatures,
       seenCosts,
       seenRewards,

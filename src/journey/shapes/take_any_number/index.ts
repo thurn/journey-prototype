@@ -27,7 +27,6 @@ export const takeAnyNumberPlugin = defineShapePlugin({
     debugLabel: "Take any number",
     versionContribution: versionContribution("take_any_number", "repeatable_menu"),
   },
-  scoreWeight: 1.25,
   repair: {
     actions: [
       { action: "add_leave_option", kind: "repair_payload_family" },

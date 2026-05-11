@@ -1,5 +1,6 @@
 import { fillOptions as legacyFillOptions } from "../fillers/shapeFills.js";
 import { validateDecisionTree } from "../validate/tree.js";
+import { getShapeScoreWeight } from "./scoreWeights.js";
 import type {
   JourneyPayloadCompatibility,
   JourneyShapeDefinition,
@@ -9,7 +10,7 @@ import type {
   ShapeValidator,
 } from "./types.js";
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v14";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v15";
 
 export const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -292,10 +293,13 @@ export function freezeShapeDefinition(
 
 export type DefineShapePluginInput = Omit<
   JourneyShapePlugin,
-  "id" | "definition" | "fill"
+  "id" | "definition" | "fill" | "scoreWeight"
 > & {
   readonly definition: RawJourneyShapeDefinition;
   readonly fill?: JourneyShapePlugin["fill"];
+  // Production shapes get their weight from `scoreWeights.ts`. This override
+  // exists only for test fixtures whose IDs aren't in the table.
+  readonly scoreWeight?: number;
 };
 
 export function defineShapePlugin(
@@ -305,7 +309,7 @@ export function defineShapePlugin(
   const plugin: JourneyShapePlugin = {
     id: definition.id,
     definition,
-    scoreWeight: input.scoreWeight,
+    scoreWeight: input.scoreWeight ?? getShapeScoreWeight(definition.id),
     fill:
       input.fill ??
       ((args) =>

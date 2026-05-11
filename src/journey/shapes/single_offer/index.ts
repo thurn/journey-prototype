@@ -117,7 +117,6 @@ export const singleOfferPlugin = defineShapePlugin({
       "single_offer_refusal",
     ),
   },
-  scoreWeight: 0.65,
   repair: {
     actions: [
       { action: "add_refusal_option", kind: "repair_payload_family" },

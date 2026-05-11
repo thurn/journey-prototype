@@ -119,7 +119,6 @@ export const randomRewardsPlugin = defineShapePlugin({
       escalationOrRiskExempt: false,
     },
   },
-  scoreWeight: 1.35,
   generatedObjects: { natural: true, highWeirdness: true },
   repair: {
     actions: [

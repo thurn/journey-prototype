@@ -122,7 +122,6 @@ export const randomPoolDrawsPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.6,
   repair: {
     actions: [
       { action: "restore_fixed_pool", kind: "repair_payload_family" },

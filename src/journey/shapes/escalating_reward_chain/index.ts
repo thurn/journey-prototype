@@ -123,7 +123,6 @@ export const escalatingRewardChainPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.5,
   repair: {
     actions: [
       { action: "align_reward_family", kind: "repair_payload_family" },

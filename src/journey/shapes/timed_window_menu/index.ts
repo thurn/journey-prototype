@@ -128,7 +128,6 @@ export const timedWindowMenuPlugin = defineShapePlugin({
     },
     allowsRouteReward: true,
   },
-  scoreWeight: 0.85,
   repair: {
     actions: [
       { action: "align_option_timing_window", kind: "repair_payload_family" },

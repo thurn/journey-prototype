@@ -138,7 +138,6 @@ export const randomTradesPlugin = defineShapePlugin({
     compoundCoherence: "skip",
     requiresPrecommittedRandom: false,
   },
-  scoreWeight: 1.0,
   repair: {
     actions: [
       { action: "resample_distinct_row", kind: "repair_payload_family" },

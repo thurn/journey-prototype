@@ -125,7 +125,6 @@ export const shopRowPlugin = defineShapePlugin({
       escalationOrRiskExempt: false,
     },
   },
-  scoreWeight: 1.25,
   generatedObjects: { natural: true },
   validators: [
     {

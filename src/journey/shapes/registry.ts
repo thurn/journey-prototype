@@ -32,6 +32,7 @@ import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
 import { timedWindowMenuPlugin } from "./timed_window_menu/index.js";
 import { revealChoiceMenuPlugin } from "./reveal_choice_menu/index.js";
+import { shapeScoreWeightIds } from "./scoreWeights.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
 import type {
   JourneyShapeDefinition,
@@ -93,6 +94,22 @@ function validatePlugins(
     }
 
     seen.add(plugin.id);
+  }
+
+  const weightedIds = new Set(shapeScoreWeightIds());
+  for (const id of weightedIds) {
+    if (!seen.has(id)) {
+      throw new Error(
+        `Score-weight table references unknown Journey shape '${id}'.`,
+      );
+    }
+  }
+  for (const plugin of plugins) {
+    if (!weightedIds.has(plugin.id)) {
+      throw new Error(
+        `Journey shape '${plugin.id}' is missing from the score-weight table.`,
+      );
+    }
   }
 
   return plugins;

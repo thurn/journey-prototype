@@ -121,7 +121,6 @@ export const singleRuleTrialPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.65,
   repair: {
     actions: [
       { action: "remove_extra_options", kind: "simplify_fill" },

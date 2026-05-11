@@ -130,7 +130,6 @@ export const singleWagerPlugin = defineShapePlugin({
       escalationOrRiskExempt: true,
     },
   },
-  scoreWeight: 0.75,
   repair: {
     actions: [
       { action: "make_stake_visible", kind: "adjust_cost_or_burden" },
