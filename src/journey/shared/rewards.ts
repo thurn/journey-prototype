@@ -962,15 +962,51 @@ const vendorHookBonus: Reward<VendorHookBonusParams> = {
     `Vendor hooks award ${p.amount} additional choice${p.amount === 1 ? "" : "s"}`,
 };
 
+// Site types eligible for `boost_site_appearance_chance`. Battle is excluded
+// because every dreamscape already has exactly one Battle site by
+// construction (see `docs/quests.md` § Dreamscape Generation), and Draft is
+// excluded because draft counts are deterministic per completion level —
+// boosting either of those would mis-price the reward or break intended
+// pacing.
+const BOOSTABLE_SITE_TYPES: readonly string[] = Object.freeze(
+  SITE_TYPES.filter((t) => t !== "Battle" && t !== "Draft"),
+);
+
+// Per-site-type CEC multipliers. High-impact site types (Purge, Duplication,
+// Dreamsign Draft) compress the player's deck or directly add dreamsigns and
+// are valued higher than weak utility sites (Essence, Shop, Specialty Shop,
+// Transfiguration, Dreamsign Offering, Dream Journey).
+const BOOST_SITE_TYPE_MULTIPLIER: Readonly<Record<string, number>> = Object.freeze({
+  "Purge": 1.25,
+  "Duplication": 1.25,
+  "Dreamsign Draft": 1.25,
+  "Essence": 0.75,
+  "Shop": 0.75,
+  "Specialty Shop": 0.75,
+  "Transfiguration": 0.75,
+  "Dreamsign Offering": 0.75,
+  "Dream Journey": 0.75,
+});
+
+function boostSiteCec(siteType: string, percent: number): number {
+  // Baseline pins percent=20 at 75 CEC and grows linearly with percent: at
+  // percent=50 the baseline is 150 CEC. A per-site-type multiplier (see
+  // BOOST_SITE_TYPE_MULTIPLIER) then scales the result up for high-impact
+  // sites and down for weak utility sites.
+  const baseline = 75 + (percent - 20) * 2.5;
+  const multiplier = BOOST_SITE_TYPE_MULTIPLIER[siteType] ?? 1.0;
+  return baseline * multiplier;
+}
+
 type BoostSiteParams = { siteType: string; percent: number };
 const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
   id: "boost_site_appearance_chance",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    siteType: pickFromList(draw, "boost_site:t", SITE_TYPES),
+    siteType: pickFromList(draw, "boost_site:t", BOOSTABLE_SITE_TYPES),
     percent: 10 + 10 * drawInt(draw, "boost_site:p", 0, 4),
   }),
-  cec: (p) => p.percent * 0.8,
+  cec: (p) => boostSiteCec(p.siteType, p.percent),
   viable: () => true,
   render: (p) => `${p.percent}% higher chance to see ${p.siteType} sites in future dreamscapes`,
 };

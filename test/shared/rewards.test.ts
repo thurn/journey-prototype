@@ -402,6 +402,49 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(openingHand.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(36);
   });
 
+  it("boost_site_appearance_chance pins CEC to ~75 at percent=20 and scales up to percent=50", () => {
+    // Boosting future-dreamscape site appearance is a strong, permanent effect
+    // (especially for high-impact site types). The baseline CEC is pinned to
+    // 75 at percent=20 and scales linearly to 150 at percent=50.
+    const t = getReward("boost_site_appearance_chance");
+    // Use a neutral (multiplier 1.0) site type for the baseline tier.
+    const baseline20 = t.cec({ siteType: "Vendor Hook", percent: 20 } as never, fakeCtx());
+    const baseline50 = t.cec({ siteType: "Vendor Hook", percent: 50 } as never, fakeCtx());
+    expect(baseline20).toBe(75);
+    expect(baseline50).toBe(150);
+    expect(baseline50).toBeGreaterThan(baseline20 * 1.5);
+  });
+
+  it("boost_site_appearance_chance applies per-site-type multipliers", () => {
+    // Purge, Duplication, and Dreamsign Draft are high-impact site types and
+    // receive a 1.25x multiplier; weak utility sites (Essence, Shop,
+    // Transfiguration, etc.) receive 0.75x.
+    const t = getReward("boost_site_appearance_chance");
+    const purge20 = t.cec({ siteType: "Purge", percent: 20 } as never, fakeCtx());
+    const duplication20 = t.cec({ siteType: "Duplication", percent: 20 } as never, fakeCtx());
+    const dreamsignDraft20 = t.cec({ siteType: "Dreamsign Draft", percent: 20 } as never, fakeCtx());
+    const shop20 = t.cec({ siteType: "Shop", percent: 20 } as never, fakeCtx());
+    const essence20 = t.cec({ siteType: "Essence", percent: 20 } as never, fakeCtx());
+    expect(purge20).toBeCloseTo(75 * 1.25);
+    expect(duplication20).toBeCloseTo(75 * 1.25);
+    expect(dreamsignDraft20).toBeCloseTo(75 * 1.25);
+    expect(shop20).toBeCloseTo(75 * 0.75);
+    expect(essence20).toBeCloseTo(75 * 0.75);
+    expect(purge20).toBeGreaterThan(shop20);
+  });
+
+  it("boost_site_appearance_chance never picks Battle or Draft as the site type", () => {
+    // Every dreamscape has exactly one Battle site by construction, and Draft
+    // counts are deterministic per completion level (see docs/quests.md), so
+    // boosting either type is invalid and must never be generated.
+    const t = getReward("boost_site_appearance_chance");
+    for (let i = 0; i < 200; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { siteType: string; percent: number };
+      expect(p.siteType).not.toBe("Battle");
+      expect(p.siteType).not.toBe("Draft");
+    }
+  });
+
   it("temporary_dreamsign_for_X_battles is rare and pinned to a low CEC", () => {
     // A random dreamsign that lasts only 1-3 battles is weak and situational,
     // so this reward is in the rare tier (weight 0.25) and its CEC is pinned
