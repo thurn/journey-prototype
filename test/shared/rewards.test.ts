@@ -327,6 +327,23 @@ describe("rewards table (dreamsign family)", () => {
       random.cec({} as never, fakeCtx()),
     );
   });
+
+  it("choose_1_of_X_dreamsigns clarifies that the player gains the chosen dreamsign", () => {
+    const t = getReward("choose_1_of_X_dreamsigns");
+    expect(t.render({ choices: 2 } as never, fakeCtx())).toBe("Choose 1 of 2 dreamsigns to gain");
+    expect(t.render({ choices: 4 } as never, fakeCtx())).toBe("Choose 1 of 4 dreamsigns to gain");
+  });
+
+  it("choose_1_of_X_dreamsigns CEC is ~150 at choices=2 and scales upward with more choices", () => {
+    const t = getReward("choose_1_of_X_dreamsigns");
+    const cec2 = t.cec({ choices: 2 } as never, fakeCtx());
+    const cec3 = t.cec({ choices: 3 } as never, fakeCtx());
+    const cec4 = t.cec({ choices: 4 } as never, fakeCtx());
+    expect(cec2).toBeGreaterThanOrEqual(140);
+    expect(cec2).toBeLessThanOrEqual(170);
+    expect(cec3).toBeGreaterThan(cec2);
+    expect(cec4).toBeGreaterThan(cec3);
+  });
 });
 
 describe("rewards table (site/dreamwell/misc family)", () => {

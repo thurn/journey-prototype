@@ -568,9 +568,9 @@ const choose1OfXDreamsigns: Reward<Choose1OfXDreamsignsParams> = {
   id: "choose_1_of_X_dreamsigns",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({ choices: drawInt(draw, "choose_ds:n", 2, 4) }),
-  cec: (p) => DREAMSIGN_CEC * 1.3 * Math.log2(p.choices),
+  cec: (p) => DREAMSIGN_CEC * (1 + Math.log2(p.choices)),
   viable: (p, ctx) => dreamsignMatches(ctx).length >= p.choices,
-  render: (p) => `Choose 1 of ${p.choices} dreamsigns`,
+  render: (p) => `Choose 1 of ${p.choices} dreamsigns to gain`,
 };
 
 type GainCopyRandomDreamsignParams = Record<string, never>;
