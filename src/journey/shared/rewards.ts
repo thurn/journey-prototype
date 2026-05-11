@@ -149,7 +149,7 @@ const gainNamedCard: Reward<GainNamedCardParams> = {
   render: (p) => `Gain ${p.name}`,
 };
 
-const CARD_TYPES = ["warriors", "survivors", "spirit animals"] as const;
+const CARD_TYPE_PREDICATE_IDS = ["warriors", "survivors", "spirit_animals"] as const;
 
 type ApplyChosenTransfigChosenCardParams = Record<string, never>;
 const applyChosenTransfigurationToChosenCard: Reward<ApplyChosenTransfigChosenCardParams> = {
@@ -240,7 +240,7 @@ const transfigureAllStarters: Reward<TransfigureAllStartersParams> = {
   render: () => "Apply a random transfiguration to each starter card",
 };
 
-type ModifyCardRefTypeParams = { cardName: string; cardType: string };
+type ModifyCardRefTypeParams = { cardName: string; cardTypePredicateId: string };
 const modifyCardToReferenceType: Reward<ModifyCardRefTypeParams> = {
   id: "modify_card_to_reference_type",
   weight: 1.0,
@@ -250,15 +250,16 @@ const modifyCardToReferenceType: Reward<ModifyCardRefTypeParams> = {
       cardName: deckCards.length > 0
         ? pickFromList(draw, "modify_ref:c", deckCards).name
         : "Placeholder Card",
-      cardType: pickFromList(draw, "modify_ref:t", CARD_TYPES),
+      cardTypePredicateId: pickFromList(draw, "modify_ref:t", CARD_TYPE_PREDICATE_IDS),
     };
   },
   cec: () => CARD_CEC * 0.5,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Modify ${p.cardName}'s text to reference ${p.cardType}`,
+  render: (p) =>
+    `Modify ${p.cardName}'s text to reference ${getPredicate(p.cardTypePredicateId).text.plural}`,
 };
 
-type ChangeCardBecomeTypeParams = { cardName: string; cardType: string };
+type ChangeCardBecomeTypeParams = { cardName: string; cardTypePredicateId: string };
 const changeCardToBecomeType: Reward<ChangeCardBecomeTypeParams> = {
   id: "change_card_to_become_type",
   weight: 1.0,
@@ -268,25 +269,30 @@ const changeCardToBecomeType: Reward<ChangeCardBecomeTypeParams> = {
       cardName: deckCards.length > 0
         ? pickFromList(draw, "change_become:c", deckCards).name
         : "Placeholder Card",
-      cardType: pickFromList(draw, "change_become:t", CARD_TYPES),
+      cardTypePredicateId: pickFromList(draw, "change_become:t", CARD_TYPE_PREDICATE_IDS),
     };
   },
   cec: () => CARD_CEC * 0.6,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Change ${p.cardName} to become a ${p.cardType}`,
+  render: (p) => {
+    const singular = getPredicate(p.cardTypePredicateId).text.singular;
+    const article = /^[aeiou]/i.test(singular) ? "an" : "a";
+    return `Change ${p.cardName} to become ${article} ${singular}`;
+  },
 };
 
-type ModifyRandomCardsToTypesParams = { count: number; cardType: string };
+type ModifyRandomCardsToTypesParams = { count: number; cardTypePredicateId: string };
 const modifyRandomCardsToTypes: Reward<ModifyRandomCardsToTypesParams> = {
   id: "modify_random_cards_to_types",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
     count: drawInt(draw, "modify_random_types:n", 1, 3),
-    cardType: pickFromList(draw, "modify_random_types:t", CARD_TYPES),
+    cardTypePredicateId: pickFromList(draw, "modify_random_types:t", CARD_TYPE_PREDICATE_IDS),
   }),
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: (p, ctx) => ctx.content.cards.length >= p.count,
-  render: (p) => `Modify ${p.count} random cards to become ${p.cardType}`,
+  render: (p) =>
+    `Modify ${p.count} random cards to become ${getPredicate(p.cardTypePredicateId).text.plural}`,
 };
 
 type MakeCardFastParams = { cardName: string };

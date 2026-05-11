@@ -212,6 +212,45 @@ describe("rewards table (purge/transform family)", () => {
       .toBe("Apply random transfigurations to 3 random cards");
   });
 
+  it("change_card_to_become_type renders with a singular capitalized card type and matching article", () => {
+    const t = getReward("change_card_to_become_type");
+    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "warriors" } as never, fakeCtx()))
+      .toBe("Change Nocturne Strummer to become a Warrior");
+    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "survivors" } as never, fakeCtx()))
+      .toBe("Change Nocturne Strummer to become a Survivor");
+    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
+      .toBe("Change Nocturne Strummer to become a Spirit Animal");
+  });
+
+  it("change_card_to_become_type only picks predicate ids known to the predicate table", () => {
+    const t = getReward("change_card_to_become_type");
+    for (let i = 0; i < 30; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as {
+        cardTypePredicateId: string;
+      };
+      // Must render without throwing — i.e. the predicate id must be valid.
+      expect(t.render(p as never, fakeCtx())).toMatch(
+        /^Change .+ to become an? (Warrior|Survivor|Spirit Animal)$/,
+      );
+    }
+  });
+
+  it("modify_random_cards_to_types renders with a plural capitalized card type", () => {
+    const t = getReward("modify_random_cards_to_types");
+    expect(t.render({ count: 2, cardTypePredicateId: "warriors" } as never, fakeCtx()))
+      .toBe("Modify 2 random cards to become Warriors");
+    expect(t.render({ count: 3, cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
+      .toBe("Modify 3 random cards to become Spirit Animals");
+  });
+
+  it("modify_card_to_reference_type renders with the plural capitalized card type", () => {
+    const t = getReward("modify_card_to_reference_type");
+    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "warriors" } as never, fakeCtx()))
+      .toBe("Modify Nocturne Strummer's text to reference Warriors");
+    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
+      .toBe("Modify Nocturne Strummer's text to reference Spirit Animals");
+  });
+
   it("purge_chosen_predicate_cards uses singular noun when count is 1", () => {
     const t = getReward("purge_chosen_predicate_cards");
     expect(t.render({ predicateId: "reclaim", count: 1 } as never, fakeCtx()))
