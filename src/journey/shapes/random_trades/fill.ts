@@ -1,289 +1,207 @@
-import { resolveCardTargets } from "../../effects.js";
-import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
-import {
-  CARD_DRAFT_CHOICE_COUNT,
-  CARD_DRAFT_PROFILES,
-  GENERIC_CARD_DRAFT_PROFILE,
-  cardDraftPredicate,
-  optionFromResolvedShapeFill,
-  stableSignature,
-  symmetryContract,
-} from "../../fillers/shared.js";
-import { adaptGenericBundleToFillOption } from "../service_menu/genericBundleAdapter.js";
-import {
-  genericBundleOption,
-  type BundleCostSource,
-  type BundleOptionPayload,
-  type BundleRewardSource,
-} from "../service_menu/genericBundleOption.js";
+// src/journey/shapes/random_trades/fill.ts
 import type { JourneyContext } from "../../../quest/context.js";
 import type { JourneyOption } from "../../manifest.js";
+import { COSTS, getCost } from "../../shared/costs.js";
+import { REWARDS } from "../../shared/rewards.js";
+import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
+import { essenceAmount } from "../../shared/content.js";
+import { withLockedPrefix } from "../../shared/text.js";
+import type { Cost, Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
-import { ROW_POOL_CONFIGURATIONS, type RowPool } from "./rowPools.js";
 
-// Stable RNG namespace — kept at the original shape ID to preserve seed
-// determinism across the rename to `random_trades`.
-const SHAPE_LABEL = "independent_rows_menu";
+const TOLERANCE_INITIAL = 15;
+const TOLERANCE_WIDEN_STEP = 10;
+const PAY_FLOOR = 10;
 
-const MAX_ROW_RESAMPLES = 8;
+type RolledReward = { template: Reward; params: unknown; cec: number };
+type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
 
-function childContext(parent: DrawContext, step: number): DrawContext {
+function emptyOption(
+  number: number,
+  text: string,
+  symbols: readonly string[],
+  effectCec: number,
+  costCec: number,
+): JourneyOption {
+  const net = effectCec - costCec;
   return {
-    ...parent,
-    sequenceStep: (parent.sequenceStep ?? 0) * 100 + step + 1,
+    number,
+    symbols: [...symbols],
+    text,
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: costCec,
+    effectConvertedEssence: effectCec,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: net,
+    pickBehavior: "record_and_generate_next",
   };
 }
 
-function rowSignature(
-  pool: RowPool,
-  cost: BundleCostSource,
-  reward: BundleRewardSource,
-): string {
-  return JSON.stringify([pool.id, cost, reward]);
+function rewardSubIds(rolled: RolledReward): readonly string[] {
+  if (rolled.template.id === "meta_gain_2_rewards") {
+    const p = rolled.params as { subIds: readonly [string, string] };
+    return p.subIds;
+  }
+  return [];
 }
 
-function costAxisSignature(cost: BundleCostSource): string {
-  return JSON.stringify(["cost", cost]);
+function consumedRewardIds(rolled: RolledReward): readonly string[] {
+  return [rolled.template.id, ...rewardSubIds(rolled)];
 }
 
-function rewardAxisSignature(reward: BundleRewardSource): string {
-  return JSON.stringify(["reward", reward]);
+function meetsRewardDistinctness(rolled: RolledReward, used: ReadonlySet<string>): boolean {
+  for (const id of consumedRewardIds(rolled)) {
+    if (used.has(id)) return false;
+  }
+  return true;
 }
 
-function pickPool(
-  drawContext: DrawContext,
+function rollReward(
+  ctx: JourneyContext,
+  draw: DrawContext,
   label: string,
-  pools: readonly RowPool[],
-): RowPool {
-  return weightedChoice(
-    drawContext,
-    label,
-    pools.map((entry) => ({
-      item: entry,
-      weight: entry.weight,
-    })),
-  );
+  pool: readonly Reward[],
+  used: ReadonlySet<string>,
+): RolledReward | undefined {
+  const candidates: Array<{ rolled: RolledReward; weight: number }> = [];
+  for (const template of pool) {
+    if (used.has(template.id)) continue;
+    const params = template.rollParams(ctx, {
+      ...draw,
+      selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
+    });
+    if (!template.viable(params as never, ctx)) continue;
+    const rolled: RolledReward = { template, params, cec: template.cec(params as never, ctx) };
+    if (!meetsRewardDistinctness(rolled, used)) continue;
+    candidates.push({ rolled, weight: template.weight });
+  }
+  if (candidates.length === 0) return undefined;
+  return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
 }
 
-function costIsViable(
-  cost: BundleCostSource,
-  context: JourneyContext,
-): boolean {
-  switch (cost.kind) {
-    case "fixed_essence":
-      return context.state.quest.resources.essence >= cost.amount;
-    case "delayed_bane":
-    case "burden_pool":
-      return true;
-    default:
-      return true;
+function pickCostForReward(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  label: string,
+  rewardCec: number,
+): RolledCost | undefined {
+  const cap = 0.5 * rewardCec;
+  const candidates: Array<{ rolled: RolledCost; weight: number }> = [];
+  for (const template of COSTS) {
+    const params = template.rollParams(ctx, {
+      ...draw,
+      selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
+    });
+    if (!template.viable(params as never, ctx)) continue;
+    const cec = template.cec(params as never, ctx);
+    if (cec > cap) continue;
+    candidates.push({
+      rolled: { template, params, cec, rendered: template.render(params as never, ctx) },
+      weight: template.weight,
+    });
   }
-}
-
-function rewardIsViable(
-  reward: BundleRewardSource,
-  context: JourneyContext,
-): boolean {
-  switch (reward.kind) {
-    case "fixed_card_draft":
-    case "random_card_gain":
-    case "named_card_grant": {
-      const profile =
-        reward.profileId === "any_basic"
-          ? GENERIC_CARD_DRAFT_PROFILE
-          : CARD_DRAFT_PROFILES[reward.profileId];
-      const matches = resolveCardTargets(
-        context.content,
-        context.state.quest,
-        cardDraftPredicate(profile),
-      );
-      return matches.length >= CARD_DRAFT_CHOICE_COUNT;
-    }
-    case "starter_cleanup":
-      return context.state.quest.deck.summary.starterCards >= reward.count;
-    case "essence_gain":
-      return true;
-    default:
-      return true;
+  if (candidates.length > 0) {
+    return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
   }
-}
-
-type ViablePool = {
-  readonly pool: RowPool;
-  readonly costSources: readonly BundleCostSource[];
-  readonly rewardSources: readonly BundleRewardSource[];
-};
-
-function viablePoolsFor(context: JourneyContext): readonly ViablePool[] {
-  const viable: ViablePool[] = [];
-  for (const pool of ROW_POOL_CONFIGURATIONS) {
-    const costSources = pool.costSources.filter((c) => costIsViable(c, context));
-    const rewardSources = pool.rewardSources.filter((r) => rewardIsViable(r, context));
-    if (costSources.length > 0 && rewardSources.length > 0) {
-      viable.push({ pool, costSources, rewardSources });
-    }
+  if (cap >= PAY_FLOOR) {
+    const ceiling = Math.max(PAY_FLOOR, Math.floor(cap));
+    const x = drawInt(draw, `${label}:fallback`, PAY_FLOOR, ceiling);
+    const params = { x };
+    const cec = x;
+    const rendered = withLockedPrefix(`Pay ${x} essence`, x > essenceAmount(ctx));
+    return { template: getCost("pay_essence"), params, cec, rendered };
   }
-  return viable;
-}
-
-/**
- * Picks a `(pool, cost, reward)` triple for the row at `index` such that
- * neither the row tuple nor its individual cost/reward axis values have
- * already been seen. The function widens the search by stepping through
- * pools and source indices in a deterministic order so that distinct rows
- * are achievable as long as the registry holds enough combinations.
- *
- * Per-axis distinctness aligns with the `distinct_everything_trio` symmetry
- * contract emitted by the fill: every row varies on every declared axis.
- */
-function pickDistinctRow(
-  drawContext: DrawContext,
-  index: number,
-  viablePools: readonly ViablePool[],
-  seenTuples: ReadonlySet<string>,
-  seenCosts: ReadonlySet<string>,
-  seenRewards: ReadonlySet<string>,
-): { pool: RowPool; cost: BundleCostSource; reward: BundleRewardSource } | undefined {
-  if (viablePools.length === 0) {
-    return undefined;
-  }
-
-  const pools = viablePools.map((v) => v.pool);
-
-  for (let attempt = 0; attempt < MAX_ROW_RESAMPLES; attempt += 1) {
-    const attemptContext: DrawContext = {
-      ...drawContext,
-      selectionAttempt: (drawContext.selectionAttempt ?? 0) * 100 + attempt + 1,
-    };
-    const pool = pickPool(
-      attemptContext,
-      `${SHAPE_LABEL}:pool:${index}`,
-      pools,
-    );
-    const viable = viablePools.find((v) => v.pool === pool)!;
-    const costIndex = drawInt(
-      attemptContext,
-      `${SHAPE_LABEL}:cost:${index}`,
-      0,
-      viable.costSources.length - 1,
-    );
-    const rewardIndex = drawInt(
-      attemptContext,
-      `${SHAPE_LABEL}:reward:${index}`,
-      0,
-      viable.rewardSources.length - 1,
-    );
-    const cost = viable.costSources[costIndex]!;
-    const reward = viable.rewardSources[rewardIndex]!;
-
-    if (
-      !seenTuples.has(rowSignature(pool, cost, reward)) &&
-      !seenCosts.has(costAxisSignature(cost)) &&
-      !seenRewards.has(rewardAxisSignature(reward))
-    ) {
-      return { pool, cost, reward };
-    }
-  }
-
-  // Deterministic exhaustive fallback: walk viable triples in declaration
-  // order and return the first whose signature, cost axis, and reward axis
-  // are all unseen.
-  for (const { pool, costSources, rewardSources } of viablePools) {
-    for (const cost of costSources) {
-      for (const reward of rewardSources) {
-        if (
-          !seenTuples.has(rowSignature(pool, cost, reward)) &&
-          !seenCosts.has(costAxisSignature(cost)) &&
-          !seenRewards.has(rewardAxisSignature(reward))
-        ) {
-          return { pool, cost, reward };
-        }
-      }
-    }
-  }
-
   return undefined;
 }
 
-/**
- * Fill function for the `random_trades` shape. Each row independently
- * chooses a pool from `ROW_POOL_CONFIGURATIONS`, then picks one cost source
- * and one reward source from that pool. Rows are guaranteed pairwise
- * distinct on the (pool, cost, reward) tuple via deterministic resampling.
- *
- * Returns `undefined` only in pathological cases: the underlying composer
- * cannot produce a payload (e.g. a needed cost slot is unavailable) or the
- * registry is too narrow to satisfy the requested row count distinctly.
- */
-export function randomTradesFill(
-  args: ShapeFillArgs,
-): FilledJourney | undefined {
-  const { context, drawContext, stage } = args;
-  const viablePools = viablePoolsFor(context);
-  if (viablePools.length === 0) {
-    return undefined;
-  }
-  const rowCount = drawInt(drawContext, `${SHAPE_LABEL}:row-count`, 2, 3);
-  const options: JourneyOption[] = [];
-  const optionPayloads: (readonly BundleOptionPayload[])[] = [];
-  const seenSignatures = new Set<string>();
-  const seenCosts = new Set<string>();
-  const seenRewards = new Set<string>();
+function renderRow(reward: RolledReward, cost: RolledCost | undefined, ctx: JourneyContext): string {
+  const rewardText = reward.template.render(reward.params as never, ctx);
+  if (!cost) return rewardText;
+  return `${rewardText}. ${cost.rendered}`;
+}
 
-  for (let i = 0; i < rowCount; i += 1) {
-    const pick = pickDistinctRow(
-      drawContext,
-      i,
-      viablePools,
-      seenSignatures,
-      seenCosts,
-      seenRewards,
+export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
+  const { context, drawContext } = args;
+  const used = new Set<string>();
+
+  const row1Reward = rollReward(context, drawContext, "rt:row1:reward", REWARDS, used);
+  if (!row1Reward) {
+    throw new Error("random_trades fill could not roll a viable first reward");
+  }
+  for (const id of consumedRewardIds(row1Reward)) used.add(id);
+  const row1Cost = pickCostForReward(context, drawContext, "rt:row1:cost", row1Reward.cec);
+  const anchorNet = row1Reward.cec - (row1Cost?.cec ?? 0);
+
+  function rollFurtherRow(rowIndex: number): { reward: RolledReward; cost: RolledCost | undefined } {
+    let tol = TOLERANCE_INITIAL;
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const lo = anchorNet - tol;
+      const hi = anchorNet + tol;
+      const candidates: Array<{ reward: RolledReward; cost: RolledCost | undefined; weight: number }> = [];
+      for (const template of REWARDS) {
+        if (used.has(template.id)) continue;
+        const params = template.rollParams(context, {
+          ...drawContext,
+          sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+          selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + template.id.length,
+        });
+        if (!template.viable(params as never, context)) continue;
+        const rCec = template.cec(params as never, context);
+        const reward: RolledReward = { template, params, cec: rCec };
+        if (!meetsRewardDistinctness(reward, used)) continue;
+        const cost = pickCostForReward(context, {
+          ...drawContext,
+          sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+          selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + 1000,
+        }, `rt:row${rowIndex}:cost:${template.id}`, rCec);
+        const net = rCec - (cost?.cec ?? 0);
+        if (net < lo || net > hi) continue;
+        candidates.push({ reward, cost, weight: template.weight });
+      }
+      if (candidates.length > 0) {
+        const picked = weightedChoice(
+          { ...drawContext, sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex },
+          `rt:row${rowIndex}:attempt${attempt}`,
+          candidates.map((c) => ({ item: c, weight: c.weight })),
+        );
+        return { reward: picked.reward, cost: picked.cost };
+      }
+      tol += TOLERANCE_WIDEN_STEP;
+    }
+    throw new Error(`random_trades fill failed to find row ${rowIndex} after widening`);
+  }
+
+  const row2 = rollFurtherRow(2);
+  for (const id of consumedRewardIds(row2.reward)) used.add(id);
+  const row3 = rollFurtherRow(3);
+
+  const rows = [
+    { reward: row1Reward, cost: row1Cost },
+    row2,
+    row3,
+  ];
+
+  const options: JourneyOption[] = rows.map((row, index) => {
+    const text = renderRow(row.reward, row.cost, context);
+    const lockedRow = text.includes("[LOCKED]");
+    const finalText = lockedRow && !text.startsWith("[LOCKED] ")
+      ? `[LOCKED] ${text.replace(/\[LOCKED\] /g, "")}`
+      : text;
+    return emptyOption(
+      index + 1,
+      finalText,
+      row.cost ? ["cost", "reward"] : ["reward"],
+      row.reward.cec,
+      row.cost?.cec ?? 0,
     );
-
-    if (pick === undefined) {
-      return undefined;
-    }
-
-    const { pool, cost, reward } = pick;
-    seenSignatures.add(rowSignature(pool, cost, reward));
-    seenCosts.add(costAxisSignature(cost));
-    seenRewards.add(rewardAxisSignature(reward));
-
-    const intermediate = genericBundleOption({
-      context,
-      drawContext: childContext(drawContext, i),
-      label: `${SHAPE_LABEL}-${i}`,
-      stage,
-      costSource: cost,
-      rewardSource: reward,
-    });
-
-    if (intermediate === undefined) {
-      return undefined;
-    }
-
-    const fillOption = adaptGenericBundleToFillOption({
-      identity: { fillKind: `independent_rows_menu:${pool.id}` },
-      intermediate,
-      stage,
-      number: i + 1,
-    });
-    options.push(optionFromResolvedShapeFill(fillOption));
-    optionPayloads.push(intermediate.payloads);
-  }
-
-  const contract = symmetryContract({
-    contractKind: "distinct_everything_trio",
-    sharedProperty: "none",
-    variedProperty: "cost+reward",
-    sharedFirst: false,
-    optionNumbers: options.map((o) => o.number),
-    variedPayloadKeys: optionPayloads.flatMap((payloads) =>
-      payloads.map(
-        (p) => `${p.kind}=${stableSignature(p)}`,
-      ),
-    ),
   });
 
-  return { options, precommitted: {}, symmetryContracts: [contract] };
+  return { options, precommitted: {} };
 }
