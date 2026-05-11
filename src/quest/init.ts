@@ -1,4 +1,5 @@
 import type { ContentBundle } from "../content/model.js";
+import { BANE_NAMES } from "../journey/effects.js";
 import type { JourneyStage } from "../journey/manifest.js";
 import type { JourneyState, QuestState } from "../state/schema.js";
 import { type DrawContext, shuffleDeterministic } from "../util/rng.js";
@@ -44,14 +45,35 @@ function buildStarterDeck(content: ContentBundle): QuestState["deck"] {
 }
 
 type StageProgress = {
+  essence: number;
+  starterCardsKept: number;
   additionalCards: number;
   additionalDreamsigns: number;
+  banes: number;
 };
 
 const STAGE_PROGRESS: Record<JourneyStage, StageProgress> = {
-  early: { additionalCards: 10, additionalDreamsigns: 1 },
-  mid: { additionalCards: 0, additionalDreamsigns: 0 },
-  late: { additionalCards: 0, additionalDreamsigns: 0 },
+  early: {
+    essence: 120,
+    starterCardsKept: 10,
+    additionalCards: 10,
+    additionalDreamsigns: 1,
+    banes: 0,
+  },
+  mid: {
+    essence: 400,
+    starterCardsKept: 5,
+    additionalCards: 25,
+    additionalDreamsigns: 3,
+    banes: 0,
+  },
+  late: {
+    essence: 400,
+    starterCardsKept: 0,
+    additionalCards: 35,
+    additionalDreamsigns: 5,
+    banes: 2,
+  },
 };
 
 function recomputeDeckSummary(deck: QuestState["deck"], starterUnique: number): void {
@@ -60,6 +82,32 @@ function recomputeDeckSummary(deck: QuestState["deck"], starterUnique: number): 
     starterCards: starterUnique,
     uniqueCards: deck.entries.length,
   };
+}
+
+function purgeStarterCardsTo(
+  state: JourneyState,
+  drawContext: DrawContext,
+  starterCardsKept: number,
+): void {
+  const entries = state.quest.deck.entries;
+  const currentStarters = state.quest.deck.summary.starterCards;
+
+  if (starterCardsKept >= currentStarters) {
+    return;
+  }
+
+  const starterIndices = Array.from({ length: currentStarters }, (_, index) => index);
+  const shuffled = shuffleDeterministic(
+    drawContext,
+    "stage-simulation:starter-purge",
+    starterIndices,
+  );
+  const keepSet = new Set(shuffled.slice(0, Math.max(starterCardsKept, 0)));
+
+  state.quest.deck.entries = entries.filter(
+    (_, index) => index >= currentStarters || keepSet.has(index),
+  );
+  recomputeDeckSummary(state.quest.deck, Math.max(starterCardsKept, 0));
 }
 
 function appendDeterministicDraftPicks(
@@ -115,6 +163,28 @@ function appendDeterministicDreamsigns(
   }
 }
 
+function appendDeterministicBanes(
+  state: JourneyState,
+  drawContext: DrawContext,
+  count: number,
+): void {
+  if (count <= 0) {
+    return;
+  }
+
+  const shuffled = shuffleDeterministic(
+    drawContext,
+    "stage-simulation:bane-additions",
+    BANE_NAMES,
+  );
+
+  for (let index = 0; index < count; index += 1) {
+    const baneName = shuffled[index % shuffled.length]!;
+
+    state.quest.banes.push({ baneName });
+  }
+}
+
 export function simulateQuestStateForStage(args: {
   state: JourneyState;
   stage: JourneyStage;
@@ -122,8 +192,14 @@ export function simulateQuestStateForStage(args: {
 }): void {
   const progress = STAGE_PROGRESS[args.stage];
 
+  args.state.quest.resources.essence = Math.min(
+    progress.essence,
+    args.state.quest.resources.maxEssence,
+  );
+  purgeStarterCardsTo(args.state, args.drawContext, progress.starterCardsKept);
   appendDeterministicDraftPicks(args.state, args.drawContext, progress.additionalCards);
   appendDeterministicDreamsigns(args.state, args.drawContext, progress.additionalDreamsigns);
+  appendDeterministicBanes(args.state, args.drawContext, progress.banes);
 }
 
 export function createInitialJourneyState(
@@ -154,6 +230,7 @@ export function createInitialJourneyState(
       optionalSubset: packageResolution.optionalSubset,
       deck: buildStarterDeck(args.content),
       activeDreamsigns: [],
+      banes: [],
       dreamsignPoolIds: packageResolution.dreamsignPoolIds,
       dreamsignPoolSummary: packageResolution.dreamsignPoolSummary,
       draftPool: packageResolution.draftPool,

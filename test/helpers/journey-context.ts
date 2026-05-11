@@ -53,6 +53,7 @@ function makeStubState(seed: string): JourneyState {
         summary: { totalCards: 0, starterCards: 0, uniqueCards: 0 },
       },
       activeDreamsigns: [],
+      banes: [],
       dreamsignPoolIds: [],
       dreamsignPoolSummary: { tidalPoolCount: 0, neutralCatalogCount: 0 },
       draftPool: [],

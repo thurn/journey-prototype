@@ -1138,7 +1138,7 @@ function debugContextLines(state: JourneyState, options: RenderOptions): string[
     `Deck summary: ${state.quest.deck.summary.totalCards} cards, ${state.quest.deck.summary.starterCards} starters, ${state.quest.deck.summary.uniqueCards} unique`,
     "Deck list:",
     ...(deckEntries.length === 0 ? ["none"] : deckEntries),
-    `Banes: ${state.quest.deck.entries.filter((entry) => entry.cardId.toLowerCase().includes("bane")).length}`,
+    `Banes: ${state.quest.banes.length}${state.quest.banes.length === 0 ? "" : ` (${state.quest.banes.map((entry) => entry.baneName).join(", ")})`}`,
     `Starter count: ${state.quest.deck.summary.starterCards}`,
     `Draft pool: ${state.quest.draftPoolSummary.totalCopies} copies, ${state.quest.draftPoolSummary.uniqueCards} unique`,
     `Dreamsign pool: ${state.quest.dreamsignPoolSummary.tidalPoolCount} in pool, ${state.quest.dreamsignPoolSummary.neutralCatalogCount} neutral in catalog`,
@@ -1209,6 +1209,11 @@ export function renderStateHuman(
     "",
     "Dreamsign summary",
     `${state.quest.activeDreamsigns.length} active, ${state.quest.dreamsignPoolSummary.tidalPoolCount} in pool, ${state.quest.dreamsignPoolSummary.neutralCatalogCount} neutral in catalog`,
+    "",
+    "Banes",
+    state.quest.banes.length === 0
+      ? "none"
+      : `${state.quest.banes.length} (${state.quest.banes.map((entry) => entry.baneName).join(", ")})`,
     "",
     "Draft pool summary",
     `${state.quest.draftPoolSummary.totalCopies} copies, ${state.quest.draftPoolSummary.uniqueCards} unique, ${state.quest.draftPoolSummary.oneCopyCards} one-copy, ${state.quest.draftPoolSummary.twoCopyCards} two-copy`,

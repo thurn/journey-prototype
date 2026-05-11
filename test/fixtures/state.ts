@@ -32,6 +32,7 @@ export function minimalState(
         },
       },
       activeDreamsigns: [],
+      banes: [],
       dreamsignPoolIds: ["dreamsign-1"],
       dreamsignPoolSummary: {
         tidalPoolCount: 1,

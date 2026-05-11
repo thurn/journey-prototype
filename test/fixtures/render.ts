@@ -36,6 +36,7 @@ export function fixtureState(): JourneyState {
         },
       },
       activeDreamsigns: [],
+      banes: [],
       dreamsignPoolIds: [],
       dreamsignPoolSummary: {
         tidalPoolCount: 0,

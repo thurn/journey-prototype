@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { isBaneName } from "../journey/effects.js";
 import {
   MANIFEST_SCHEMA_VERSION,
   type JourneyManifest,
@@ -117,6 +118,28 @@ function validateDreamsignRefs(
     }
 
     requireString(errors, entry.dreamsignId, `${path}[${index}].dreamsignId`);
+  });
+}
+
+function validateBaneRefs(
+  errors: string[],
+  value: unknown,
+  path: string,
+): void {
+  if (!Array.isArray(value)) {
+    errors.push(`${path} must be an array`);
+    return;
+  }
+
+  value.forEach((entry, index) => {
+    if (!isRecord(entry)) {
+      errors.push(`${path}[${index}] must be an object`);
+      return;
+    }
+
+    if (typeof entry.baneName !== "string" || !isBaneName(entry.baneName)) {
+      errors.push(`${path}[${index}].baneName must be a known Bane name`);
+    }
   });
 }
 
@@ -276,6 +299,7 @@ function validateQuest(errors: string[], value: unknown): void {
   }
 
   validateDreamsignRefs(errors, value.activeDreamsigns, "quest.activeDreamsigns");
+  validateBaneRefs(errors, value.banes, "quest.banes");
   requireStringArray(errors, value.dreamsignPoolIds, "quest.dreamsignPoolIds");
 
   if (isRecord(value.dreamsignPoolSummary)) {

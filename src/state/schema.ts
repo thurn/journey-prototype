@@ -1,3 +1,4 @@
+import type { BaneName } from "../journey/effects.js";
 import type { JourneyManifest } from "../journey/manifest.js";
 import type { JourneyShapeId } from "../journey/shapes.js";
 
@@ -29,6 +30,7 @@ export type QuestState = {
     };
   };
   activeDreamsigns: { dreamsignId: string }[];
+  banes: { baneName: BaneName }[];
   dreamsignPoolIds: string[];
   dreamsignPoolSummary: {
     tidalPoolCount: number;
