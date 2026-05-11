@@ -4,7 +4,7 @@ import { ExitCode } from "../util/exitCodes.js";
 import { generateNextJourney } from "../journey/generate.js";
 import type { JourneyStage } from "../journey/manifest.js";
 import type { JourneyState } from "../state/schema.js";
-import { createInitialJourneyState } from "../quest/init.js";
+import { createInitialJourneyState, simulateQuestStateForStage } from "../quest/init.js";
 import { renderJourneyHuman } from "../render/human.js";
 import {
   journeyBatchCommandPayload,
@@ -117,6 +117,15 @@ export async function handleJourney(
 
         state.generator.rootJourneyIndex = rootJourneyIndex;
         state.quest.resources.dreamscape = dreamscapeForStage(stage);
+        simulateQuestStateForStage({
+          state,
+          stage,
+          drawContext: {
+            seed,
+            contentVersion: loadedContent.contentVersion,
+            rootJourneyIndex,
+          },
+        });
 
         const context = buildContext(options, loadedContent, state);
         const manifest = generateNextJourney({

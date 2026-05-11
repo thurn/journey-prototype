@@ -1,5 +1,7 @@
 import type { ContentBundle } from "../content/model.js";
+import type { JourneyStage } from "../journey/manifest.js";
 import type { JourneyState, QuestState } from "../state/schema.js";
+import { type DrawContext, shuffleDeterministic } from "../util/rng.js";
 import {
   resolvePackageForDreamcaller,
   selectDreamcallerForSeed,
@@ -39,6 +41,89 @@ function buildStarterDeck(content: ContentBundle): QuestState["deck"] {
       uniqueCards: entries.length,
     },
   };
+}
+
+type StageProgress = {
+  additionalCards: number;
+  additionalDreamsigns: number;
+};
+
+const STAGE_PROGRESS: Record<JourneyStage, StageProgress> = {
+  early: { additionalCards: 10, additionalDreamsigns: 1 },
+  mid: { additionalCards: 0, additionalDreamsigns: 0 },
+  late: { additionalCards: 0, additionalDreamsigns: 0 },
+};
+
+function recomputeDeckSummary(deck: QuestState["deck"], starterUnique: number): void {
+  deck.summary = {
+    totalCards: deck.entries.reduce((total, entry) => total + entry.copies, 0),
+    starterCards: starterUnique,
+    uniqueCards: deck.entries.length,
+  };
+}
+
+function appendDeterministicDraftPicks(
+  state: JourneyState,
+  drawContext: DrawContext,
+  count: number,
+): void {
+  const draftPool = state.quest.draftPool;
+
+  if (count <= 0 || draftPool.length === 0) {
+    return;
+  }
+
+  const indices = Array.from({ length: draftPool.length }, (_, index) => index);
+  const shuffledIndices = shuffleDeterministic(
+    drawContext,
+    "stage-simulation:deck-additions",
+    indices,
+  );
+  const picked = shuffledIndices
+    .slice(0, Math.min(count, draftPool.length))
+    .sort((left, right) => left - right);
+  const starterUnique = state.quest.deck.summary.starterCards;
+
+  for (const index of picked) {
+    const entry = draftPool[index]!;
+
+    state.quest.deck.entries.push({ cardId: entry.cardId, copies: 1 });
+  }
+
+  recomputeDeckSummary(state.quest.deck, starterUnique);
+}
+
+function appendDeterministicDreamsigns(
+  state: JourneyState,
+  drawContext: DrawContext,
+  count: number,
+): void {
+  const pool = state.quest.dreamsignPoolIds;
+
+  if (count <= 0 || pool.length === 0) {
+    return;
+  }
+
+  const shuffled = shuffleDeterministic(
+    drawContext,
+    "stage-simulation:dreamsign-additions",
+    pool,
+  );
+
+  for (const dreamsignId of shuffled.slice(0, Math.min(count, pool.length))) {
+    state.quest.activeDreamsigns.push({ dreamsignId });
+  }
+}
+
+export function simulateQuestStateForStage(args: {
+  state: JourneyState;
+  stage: JourneyStage;
+  drawContext: DrawContext;
+}): void {
+  const progress = STAGE_PROGRESS[args.stage];
+
+  appendDeterministicDraftPicks(args.state, args.drawContext, progress.additionalCards);
+  appendDeterministicDreamsigns(args.state, args.drawContext, progress.additionalDreamsigns);
 }
 
 export function createInitialJourneyState(
