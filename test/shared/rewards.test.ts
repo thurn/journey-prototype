@@ -445,6 +445,32 @@ describe("rewards table (newly added)", () => {
     }
   });
 
+  it("draft-from-4 rewards pin CEC to 25 for low_spark/high_spark predicates only", () => {
+    // low_spark / high_spark each match roughly half the card universe, so a
+    // draft-from-4 reward keyed on them offers little selection pressure and
+    // should be priced at a flat low CEC rather than the breadth-scaled
+    // formula used for narrower predicates. Other predicates keep their
+    // standard scaling, so the special-case must not bleed over.
+    const draftIds = [
+      "draft_predicate_cards_from_4",
+      "draft_2_predicate_cards_from_4",
+      "draft_predicate_card_with_copies",
+      "draft_predicate_card_with_transfiguration",
+    ];
+    for (const id of draftIds) {
+      const t = getReward(id);
+      // Probe params: only predicateId matters for the flat-CEC branch; the
+      // other fields are supplied with reasonable defaults so the non-flat
+      // branch still computes a sensible number.
+      const baseParams = { predicateId: "low_spark", copies: 2, transfiguration: "Bronze" };
+      expect(t.cec({ ...baseParams, predicateId: "low_spark" } as never, fakeCtx())).toBe(25);
+      expect(t.cec({ ...baseParams, predicateId: "high_spark" } as never, fakeCtx())).toBe(25);
+      // Warriors keeps its scaled CEC.
+      const warriorsCec = t.cec({ ...baseParams, predicateId: "warriors" } as never, fakeCtx());
+      expect(warriorsCec).toBeGreaterThan(25);
+    }
+  });
+
   it("transform_dreamsign_to_named is registered and renders non-empty", () => {
     const t = getReward("transform_dreamsign_to_named");
     const p = t.rollParams(fakeCtx(), draw);

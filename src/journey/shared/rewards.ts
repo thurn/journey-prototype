@@ -90,6 +90,17 @@ function rollPredicate(draw: DrawContext, label: string): Predicate {
   );
 }
 
+// Predicates whose match pool spans a huge portion of the card universe
+// (~half the cards each). Drafting from such a pool offers little selection
+// pressure, so draft-from-pool rewards keyed on these predicates are valued
+// at a fixed flat CEC rather than the usual breadth-scaled formula.
+const FLAT_DRAFT_PREDICATE_IDS = new Set(["low_spark", "high_spark"]);
+const FLAT_DRAFT_CEC = 25;
+
+function isFlatDraftPredicate(predicateId: string): boolean {
+  return FLAT_DRAFT_PREDICATE_IDS.has(predicateId);
+}
+
 type GainRandomCardsParams = { predicateId: string; count: number };
 const gainRandomPredicateCards: Reward<GainRandomCardsParams> = {
   id: "gain_random_predicate_cards",
@@ -113,7 +124,10 @@ const draftPredicateCardsFrom4: Reward<DraftPredicateParams> = {
   id: "draft_predicate_cards_from_4",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "draft_predicate:pred").id }),
-  cec: (p) => cardPoolCEC(CARD_CEC * 1.5, 1, getPredicate(p.predicateId)),
+  cec: (p) =>
+    isFlatDraftPredicate(p.predicateId)
+      ? FLAT_DRAFT_CEC
+      : cardPoolCEC(CARD_CEC * 1.5, 1, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
   render: (p) => `Draft 1 of 4 ${getPredicate(p.predicateId).text.plural}`,
@@ -668,7 +682,10 @@ const draft2PredicateCardsFrom4: Reward<Draft2PredicateParams> = {
   id: "draft_2_predicate_cards_from_4",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "draft2_predicate:pred").id }),
-  cec: (p) => cardPoolCEC(CARD_CEC * 1.4, 2, getPredicate(p.predicateId)),
+  cec: (p) =>
+    isFlatDraftPredicate(p.predicateId)
+      ? FLAT_DRAFT_CEC
+      : cardPoolCEC(CARD_CEC * 1.4, 2, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
   render: (p) => `Draft 2 of 4 ${getPredicate(p.predicateId).text.plural}`,
@@ -682,7 +699,10 @@ const draftPredicateCardWithCopies: Reward<DraftPredicateCardWithCopiesParams> =
     predicateId: rollPredicate(draw, "draft_pred_copies:pred").id,
     copies: drawInt(draw, "draft_pred_copies:n", 2, 3),
   }),
-  cec: (p) => cardPoolCEC(CARD_CEC * 1.3, p.copies, getPredicate(p.predicateId)),
+  cec: (p) =>
+    isFlatDraftPredicate(p.predicateId)
+      ? FLAT_DRAFT_CEC
+      : cardPoolCEC(CARD_CEC * 1.3, p.copies, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
   render: (p) =>
@@ -697,7 +717,10 @@ const draftPredicateCardWithTransfiguration: Reward<DraftPredicateCardWithTransf
     predicateId: rollPredicate(draw, "draft_pred_xfig:pred").id,
     transfiguration: pickFromList(draw, "draft_pred_xfig:t", ALLOWED_TRANSFIGURATIONS),
   }),
-  cec: (p) => cardPoolCEC(CARD_CEC * 1.8, 1, getPredicate(p.predicateId)),
+  cec: (p) =>
+    isFlatDraftPredicate(p.predicateId)
+      ? FLAT_DRAFT_CEC
+      : cardPoolCEC(CARD_CEC * 1.8, 1, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
   render: (p) =>
