@@ -600,7 +600,7 @@ const addSiteToDreamscape: Reward<AddSiteParams> = {
   rollParams: (_ctx, draw) => ({
     siteType: pickFromList(draw, "add_site:t", SITE_TYPES),
   }),
-  cec: () => 40,
+  cec: () => 100,
   viable: () => true,
   render: (p) => `Add a ${p.siteType} site to this dreamscape`,
 };
@@ -611,7 +611,7 @@ const addSiteToNextDreamscape: Reward<AddSiteParams> = {
   rollParams: (_ctx, draw) => ({
     siteType: pickFromList(draw, "add_site_next:t", SITE_TYPES),
   }),
-  cec: () => 30,
+  cec: () => 75,
   viable: () => true,
   render: (p) => `Add a ${p.siteType} site to the next dreamscape you visit`,
 };

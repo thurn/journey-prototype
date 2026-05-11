@@ -363,6 +363,21 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     }
   });
 
+  it("add_site_to_dreamscape has CEC pinned to 100 and add_site_to_next_dreamscape to 75", () => {
+    // Adding a site is a strong, permanent change to the dreamscape (and
+    // can include valuable site types like Vendor or Travel), so its CEC is
+    // pinned to 100. Adding a site to the *next* dreamscape is proportionally
+    // weaker because the site only takes effect after travelling, so it is
+    // pinned to 75.
+    const here = getReward("add_site_to_dreamscape");
+    const next = getReward("add_site_to_next_dreamscape");
+    expect(here.cec({ siteType: "Purge" } as never, fakeCtx())).toBe(100);
+    expect(next.cec({ siteType: "Purge" } as never, fakeCtx())).toBe(75);
+    expect(here.cec({ siteType: "Vendor" } as never, fakeCtx())).toBeGreaterThan(
+      next.cec({ siteType: "Vendor" } as never, fakeCtx()),
+    );
+  });
+
   it("dreamwell rewards are down-weighted to 0.25 so they appear less often", () => {
     // Dreamwell rewards otherwise crowd the random_rewards pool; their pool
     // weight is reduced to a quarter of the default to thin out their
