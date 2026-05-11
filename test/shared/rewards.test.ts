@@ -120,3 +120,36 @@ describe("rewards table (modification family)", () => {
     }
   });
 });
+
+describe("rewards table (purge/transform family)", () => {
+  it("registers purge/transform/duplicate templates", () => {
+    for (const id of [
+      "purge_chosen_predicate_cards",
+      "purge_chosen_predicate_with_replacement",
+      "purge_named_starter",
+      "purge_random_starter",
+      "purge_random_starter_with_predicate_replacement",
+      "purge_all_starters_replace",
+      "transform_starter_into_named_card",
+      "transform_card_in_deck_into_named",
+      "transform_chosen_predicate_into_named",
+      "duplicate_named_card_X",
+      "duplicate_chosen_cards",
+      "duplicate_random_predicate",
+      "draw_X_and_duplicate_chosen",
+      "purge_X_banes",
+      "purge_all_banes",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+
+  it("purge_X_banes is not viable when bane count is 0 (v1 stop-gap)", () => {
+    const t = getReward("purge_X_banes");
+    const p = t.rollParams(fakeCtx(), draw);
+    expect(t.viable(p, fakeCtx())).toBe(false);
+  });
+});

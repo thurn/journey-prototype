@@ -2,6 +2,7 @@ import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
   ALLOWED_TRANSFIGURATIONS,
+  baneCount,
   cardMatches,
   essenceAmount,
   maxEssence,
@@ -291,6 +292,204 @@ const makeRandomCardsFast: Reward<MakeRandomCardsFastParams> = {
   render: (p) => `Change ${p.count} random card${p.count === 1 ? "" : "s"} to have fast`,
 };
 
+type PurgeChosenPredCardsParams = { predicateId: string; count: number };
+const purgeChosenPredicateCards: Reward<PurgeChosenPredCardsParams> = {
+  id: "purge_chosen_predicate_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "purge_chosen_pred:p").id,
+    count: drawInt(draw, "purge_chosen_pred:n", 1, 3),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.3, p.count, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+  render: (p) =>
+    `Purge up to ${p.count} chosen ${getPredicate(p.predicateId).text.plural}`,
+};
+
+type PurgeChosenPredWithReplParams = { predicateId: string; count: number };
+const purgeChosenPredicateWithReplacement: Reward<PurgeChosenPredWithReplParams> = {
+  id: "purge_chosen_predicate_with_replacement",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "purge_repl:p").id,
+    count: drawInt(draw, "purge_repl:n", 1, 2),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.6, p.count, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+  render: (p) => {
+    const pred = getPredicate(p.predicateId);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
+    return `Purge up to ${p.count} chosen ${noun} and gain a random ${pred.text.singular} replacement`;
+  },
+};
+
+type PurgeNamedStarterParams = { cardName: string };
+const purgeNamedStarter: Reward<PurgeNamedStarterParams> = {
+  id: "purge_named_starter",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "purge_named_starter:c", ctx.content.cards).name
+      : "Placeholder Starter",
+  }),
+  cec: () => CARD_CEC * 0.4,
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: (p) => `Purge ${p.cardName}`,
+};
+
+type PurgeRandomStarterParams = Record<string, never>;
+const purgeRandomStarter: Reward<PurgeRandomStarterParams> = {
+  id: "purge_random_starter",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => CARD_CEC * 0.4,
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: () => "Purge a random starter card",
+};
+
+type PurgeRandomStarterReplParams = { predicateId: string };
+const purgeRandomStarterWithPredicateReplacement: Reward<PurgeRandomStarterReplParams> = {
+  id: "purge_random_starter_with_predicate_replacement",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "purge_starter_repl:p").id }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.7, 1, getPredicate(p.predicateId)),
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: (p) =>
+    `Purge a random starter card and gain a ${getPredicate(p.predicateId).text.singular} replacement`,
+};
+
+type PurgeAllStartersReplParams = Record<string, never>;
+const purgeAllStartersReplace: Reward<PurgeAllStartersReplParams> = {
+  id: "purge_all_starters_replace",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: (_p, ctx) => CARD_CEC * 0.8 * Math.max(1, starterCardCount(ctx)),
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: () => "Purge all starter cards and replace them with new starter cards",
+};
+
+type TransformStarterParams = { newCardName: string };
+const transformStarterIntoNamedCard: Reward<TransformStarterParams> = {
+  id: "transform_starter_into_named_card",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    newCardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "xform_starter:c", ctx.content.cards).name
+      : "Placeholder Card",
+  }),
+  cec: () => CARD_CEC * 0.8,
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1 && ctx.content.cards.length > 0,
+  render: (p) => `Choose a starter card to transform into ${p.newCardName}`,
+};
+
+type TransformDeckCardParams = { oldCardName: string; newCardName: string };
+const transformCardInDeckIntoNamed: Reward<TransformDeckCardParams> = {
+  id: "transform_card_in_deck_into_named",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    oldCardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "xform_deck:old", ctx.content.cards).name
+      : "Placeholder Card A",
+    newCardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "xform_deck:new", ctx.content.cards).name
+      : "Placeholder Card B",
+  }),
+  cec: () => CARD_CEC,
+  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  render: (p) => `Transform ${p.oldCardName} into ${p.newCardName}`,
+};
+
+type TransformPredCardParams = { predicateId: string; newCardName: string };
+const transformChosenPredicateIntoNamed: Reward<TransformPredCardParams> = {
+  id: "transform_chosen_predicate_into_named",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    predicateId: rollPredicate(draw, "xform_pred:pred").id,
+    newCardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "xform_pred:new", ctx.content.cards).name
+      : "Placeholder Card",
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 1.2, 1, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1
+    && ctx.content.cards.length > 0,
+  render: (p) =>
+    `Transform a chosen ${getPredicate(p.predicateId).text.singular} into ${p.newCardName}`,
+};
+
+type DupNamedCardParams = { cardName: string; count: number };
+const duplicateNamedCardX: Reward<DupNamedCardParams> = {
+  id: "duplicate_named_card_X",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "dup_named:c", ctx.content.cards).name
+      : "Placeholder Card",
+    count: drawInt(draw, "dup_named:n", 1, 3),
+  }),
+  cec: (p) => CARD_CEC * p.count,
+  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  render: (p) => `Create ${p.count} duplicate${p.count === 1 ? "" : "s"} of ${p.cardName}`,
+};
+
+type DupChosenParams = { count: number };
+const duplicateChosenCards: Reward<DupChosenParams> = {
+  id: "duplicate_chosen_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "dup_chosen:n", 1, 3) }),
+  cec: (p) => CARD_CEC * 1.1 * p.count,
+  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1,
+  render: (p) => `Duplicate ${p.count} chosen card${p.count === 1 ? "" : "s"}`,
+};
+
+type DupRandomPredParams = { predicateId: string; count: number };
+const duplicateRandomPredicate: Reward<DupRandomPredParams> = {
+  id: "duplicate_random_predicate",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "dup_random_pred:p").id,
+    count: drawInt(draw, "dup_random_pred:n", 1, 3),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.9, p.count, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
+  render: (p) =>
+    `Duplicate ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
+};
+
+type DrawDupParams = { drawCount: number };
+const drawXAndDuplicateChosen: Reward<DrawDupParams> = {
+  id: "draw_X_and_duplicate_chosen",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ drawCount: drawInt(draw, "draw_dup:n", 2, 4) }),
+  cec: () => CARD_CEC * 1.0,
+  viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.drawCount,
+  render: (p) =>
+    `Draw ${p.drawCount} cards from your deck and duplicate one of them of your choice`,
+};
+
+type PurgeXBanesParams = { count: number };
+const purgeXBanes: Reward<PurgeXBanesParams> = {
+  id: "purge_X_banes",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "purge_banes:n", 1, 3) }),
+  cec: (p) => p.count * 30,
+  viable: (p, ctx) => baneCount(ctx) >= p.count,
+  render: (p) => `Purge ${p.count} bane card${p.count === 1 ? "" : "s"}`,
+};
+
+type PurgeAllBanesParams = Record<string, never>;
+const purgeAllBanes: Reward<PurgeAllBanesParams> = {
+  id: "purge_all_banes",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: (_p, ctx) => Math.max(1, baneCount(ctx)) * 30,
+  viable: (_p, ctx) => baneCount(ctx) >= 1,
+  render: () => "Purge all bane cards",
+};
+
 export const REWARDS: readonly Reward[] = Object.freeze([
   gainEssence,
   gainOmens,
@@ -313,6 +512,21 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   modifyRandomCardsToTypes,
   makeCardFast,
   makeRandomCardsFast,
+  purgeChosenPredicateCards,
+  purgeChosenPredicateWithReplacement,
+  purgeNamedStarter,
+  purgeRandomStarter,
+  purgeRandomStarterWithPredicateReplacement,
+  purgeAllStartersReplace,
+  transformStarterIntoNamedCard,
+  transformCardInDeckIntoNamed,
+  transformChosenPredicateIntoNamed,
+  duplicateNamedCardX,
+  duplicateChosenCards,
+  duplicateRandomPredicate,
+  drawXAndDuplicateChosen,
+  purgeXBanes,
+  purgeAllBanes,
 ] as unknown as Reward[]);
 
 const BY_ID = new Map(REWARDS.map((r) => [r.id, r]));
