@@ -158,6 +158,7 @@ export async function handlePick(
             nextState,
             nextManifest,
             options,
+            loadedContent.content,
           )}`,
         stderr: "",
       };

@@ -161,7 +161,7 @@ export async function handleJourney(
               : journeyBatchCommandPayload(generated, command, options),
           )
         : generated.map((entry) =>
-            renderJourneyHuman(entry.state, entry.manifest, options).trimEnd()
+            renderJourneyHuman(entry.state, entry.manifest, options, loadedContent.content).trimEnd()
           ).join("\n\n") + "\n",
       stderr: "",
     };

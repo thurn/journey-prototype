@@ -3,6 +3,7 @@ export type CommonCommandOptions = {
   debug: boolean;
   verbose: boolean;
   debugContext: boolean;
+  showDeck: boolean;
   color: boolean;
   stderrColor: boolean;
   projectRoot: string;

@@ -18,6 +18,7 @@ export type RawCommonOptions = {
   debug?: boolean;
   verbose?: boolean;
   debugContext?: boolean;
+  showDeck?: boolean;
   color?: boolean;
   seed?: string;
   stage?: "early" | "mid" | "late";
@@ -44,6 +45,7 @@ export function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandO
     debug: rawOptions.debug ?? false,
     verbose: rawOptions.verbose ?? false,
     debugContext: rawOptions.debugContext ?? false,
+    showDeck: rawOptions.showDeck ?? false,
     color,
     stderrColor,
     projectRoot,
@@ -79,6 +81,7 @@ function addGenerationFlags(command: Command): Command {
     .option("--debug", "print generation metadata")
     .option("--verbose", "include exhaustive --debug detail (fingerprint components, all validation, all operations)")
     .option("--debug-context", "print generated quest context")
+    .option("--show-deck", "print deck cards and active dreamsigns (comma separated, wrapped)")
     .option("--seed <seed>", "seed for deterministic generation")
     .addOption(
       new Option("--debug-payload-family <family>", "force a debug payload family")

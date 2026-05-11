@@ -1,3 +1,4 @@
+import type { ContentBundle } from "../content/model.js";
 import { renderLifetimeText } from "../journey/fillers/generatedObjects.js";
 import type { JourneyManifest, JourneyOption } from "../journey/manifest.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
@@ -10,6 +11,7 @@ export type RenderOptions = {
   debug: boolean;
   verbose?: boolean;
   debugContext?: boolean;
+  showDeck?: boolean;
   color: boolean;
 };
 
@@ -1124,6 +1126,77 @@ function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] 
   return lines;
 }
 
+function wrapCommaList(items: string[], width: number, indent: string): string[] {
+  if (items.length === 0) {
+    return [`${indent}none`];
+  }
+
+  const limit = Math.max(width - indent.length, 20);
+  const lines: string[] = [];
+  let current = "";
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]!;
+    const separator = index === items.length - 1 ? "" : ",";
+    const piece = item + separator;
+
+    if (current.length === 0) {
+      current = piece;
+    } else if (current.length + 1 + piece.length <= limit) {
+      current = `${current} ${piece}`;
+    } else {
+      lines.push(`${indent}${current}`);
+      current = piece;
+    }
+  }
+
+  if (current.length > 0) {
+    lines.push(`${indent}${current}`);
+  }
+
+  return lines;
+}
+
+function terminalWidth(): number {
+  const columns = process.stdout.columns;
+
+  return typeof columns === "number" && columns > 0 ? columns : 100;
+}
+
+function showDeckLines(
+  state: JourneyState,
+  content: ContentBundle,
+  options: RenderOptions,
+): string[] {
+  const cardNamesById = new Map(content.cards.map((card) => [card.id, card.name]));
+  const dreamsignNamesById = new Map(
+    content.dreamsigns.map((dreamsign) => [dreamsign.id, dreamsign.name]),
+  );
+
+  const deckItems = state.quest.deck.entries
+    .map((entry) => {
+      const name = cardNamesById.get(entry.cardId) ?? entry.cardId;
+
+      return entry.copies > 1 ? `${name} x${entry.copies}` : name;
+    })
+    .sort((left, right) => left.localeCompare(right));
+  const dreamsignItems = state.quest.activeDreamsigns
+    .map((entry) => dreamsignNamesById.get(entry.dreamsignId) ?? entry.dreamsignId)
+    .sort((left, right) => left.localeCompare(right));
+
+  const width = terminalWidth();
+  const indent = "  ";
+
+  return [
+    "",
+    color(`Deck (${state.quest.deck.summary.totalCards} cards)`, "heading", options),
+    ...wrapCommaList(deckItems, width, indent),
+    "",
+    color(`Active Dreamsigns (${dreamsignItems.length})`, "heading", options),
+    ...wrapCommaList(dreamsignItems, width, indent),
+  ];
+}
+
 function debugContextLines(state: JourneyState, options: RenderOptions): string[] {
   const deckEntries = state.quest.deck.entries.map((entry) => `${entry.cardId} x${entry.copies}`);
 
@@ -1149,6 +1222,7 @@ export function renderJourneyHuman(
   state: JourneyState,
   manifest: JourneyManifest,
   options: RenderOptions,
+  content?: ContentBundle,
 ): string {
   const lines: string[] = [];
 
@@ -1158,6 +1232,10 @@ export function renderJourneyHuman(
 
   if (options.debugContext) {
     lines.push(...debugContextLines(state, options));
+  }
+
+  if (options.showDeck && content) {
+    lines.push(...showDeckLines(state, content, options));
   }
 
   while (lines[0] === "") {
