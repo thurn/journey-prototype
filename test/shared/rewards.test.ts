@@ -110,7 +110,6 @@ describe("rewards table (modification family)", () => {
       "modify_card_to_reference_type",
       "change_card_to_become_type",
       "modify_random_cards_to_types",
-      "make_card_fast",
       "make_random_cards_fast",
     ]) {
       const t = getReward(id);
@@ -118,6 +117,39 @@ describe("rewards table (modification family)", () => {
       expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
+  });
+});
+
+describe("make_random_cards_fast tuning", () => {
+  // Granting "fast" to a single card is much weaker than the other rewards
+  // sharing the same CEC band, so the count must never roll to 1 and the
+  // named-single variant (make_card_fast) is intentionally not registered.
+  it("rolls counts in 2..4 across many seeded draws", () => {
+    const t = getReward("make_random_cards_fast");
+    const seen = new Set<number>();
+    for (let i = 0; i < 200; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { count: number };
+      expect(p.count).toBeGreaterThanOrEqual(2);
+      expect(p.count).toBeLessThanOrEqual(4);
+      seen.add(p.count);
+    }
+    // The full range should be hit across 200 draws.
+    expect(seen).toEqual(new Set([2, 3, 4]));
+  });
+
+  it("CEC scales with count and starts at 40 (count=2)", () => {
+    const t = getReward("make_random_cards_fast");
+    expect(t.cec({ count: 2 } as never, fakeCtx())).toBe(40);
+    expect(t.cec({ count: 3 } as never, fakeCtx())).toBe(60);
+    expect(t.cec({ count: 4 } as never, fakeCtx())).toBe(80);
+  });
+
+  it("the named-single make_card_fast variant is not registered", () => {
+    // make_card_fast was the weakest formulation (one specific named card
+    // gets fast, no player choice or randomness benefit) and is dropped from
+    // the pool. Confirm both the lookup map and the public list omit it.
+    expect(() => getReward("make_card_fast")).toThrow();
+    expect(REWARDS.find((r) => r.id === "make_card_fast")).toBeUndefined();
   });
 });
 

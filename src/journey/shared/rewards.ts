@@ -309,28 +309,18 @@ const modifyRandomCardsToTypes: Reward<ModifyRandomCardsToTypesParams> = {
     `Modify ${p.count} random cards to become ${getPredicate(p.cardTypePredicateId).text.plural}`,
 };
 
-type MakeCardFastParams = { cardName: string };
-const makeCardFast: Reward<MakeCardFastParams> = {
-  id: "make_card_fast",
-  weight: 1.0,
-  rollParams: (ctx, draw) => {
-    const deckCards = cardMatches(ctx, { source: "deck" });
-    return {
-      cardName: deckCards.length > 0
-        ? pickFromList(draw, "make_fast:c", deckCards).name
-        : "Placeholder Card",
-    };
-  },
-  cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Change ${p.cardName} to have fast`,
-};
-
 type MakeRandomCardsFastParams = { count: number };
+// `makeRandomCardsFast` grants the keyword "fast" to N random cards. Granting
+// fast to a single card is much weaker than other trio rewards at the same
+// CEC, so the count rolls in 2-4 (never 1) and the per-card CEC keeps the
+// trio matcher pairing this with similar-strength rewards. The named-single
+// variant (`make_card_fast`) is dropped from the pool — picking one specific
+// card by name to receive fast is the weakest formulation and offered no
+// counterplay or selection value to the player.
 const makeRandomCardsFast: Reward<MakeRandomCardsFastParams> = {
   id: "make_random_cards_fast",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "make_random_fast:n", 1, 3) }),
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "make_random_fast:n", 2, 4) }),
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: (p, ctx) => ctx.content.cards.length >= p.count,
   render: (p) => `Change ${p.count} random card${p.count === 1 ? "" : "s"} to have fast`,
@@ -1089,7 +1079,6 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   modifyCardToReferenceType,
   changeCardToBecomeType,
   modifyRandomCardsToTypes,
-  makeCardFast,
   makeRandomCardsFast,
   purgeChosenPredicateCards,
   purgeChosenPredicateWithReplacement,
