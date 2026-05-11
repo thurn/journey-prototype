@@ -408,6 +408,18 @@ describe("rewards table (newly added)", () => {
     expect(p.amount).toBeGreaterThan(0);
     expect(t.render(p, fakeCtx())).toMatch(/Increase your maximum essence by \d+/);
   });
+
+  it("shop_essence_discount renders the discount as permanent", () => {
+    // The shop essence discount applies for the rest of the quest, so the
+    // render must explicitly say "permanently" to avoid the player reading it
+    // as a single-shop or single-purchase effect.
+    const t = getReward("shop_essence_discount");
+    const p = t.rollParams(fakeCtx(), draw) as { percent: number };
+    expect(p.percent).toBeGreaterThan(0);
+    expect(t.render(p, fakeCtx())).toBe(
+      `Shop essence costs are permanently reduced by ${p.percent}%`,
+    );
+  });
 });
 
 describe("starter-card transfiguration rewards do not use 'Transfigure' as a verb", () => {

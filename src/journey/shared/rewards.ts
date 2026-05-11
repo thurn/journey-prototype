@@ -911,7 +911,7 @@ const shopEssenceDiscount: Reward<ShopEssenceDiscountParams> = {
   rollParams: (_ctx, draw) => ({ percent: 10 + 10 * drawInt(draw, "shop_e_disc:p", 0, 4) }),
   cec: (p) => p.percent * 1.0,
   viable: () => true,
-  render: (p) => `Shop essence costs are reduced by ${p.percent}%`,
+  render: (p) => `Shop essence costs are permanently reduced by ${p.percent}%`,
 };
 
 type ShopOmenDiscountParams = { count: number };
