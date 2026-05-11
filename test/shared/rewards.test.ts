@@ -211,6 +211,52 @@ describe("rewards table (site/dreamwell/misc family)", () => {
   });
 });
 
+describe("rewards table (newly added)", () => {
+  it("registers max-essence, draft variants, reclaim, battle-window, transfiguration-all, starter, site/shop templates", () => {
+    for (const id of [
+      "increase_max_essence",
+      "draft_2_predicate_cards_from_4",
+      "draft_predicate_card_with_copies",
+      "draft_predicate_card_with_transfiguration",
+      "make_card_reclaim",
+      "make_random_cards_reclaim",
+      "opening_hand_grant_for_X_battles",
+      "temporary_card_copy_for_X_battles",
+      "card_cost_reduction_for_X_battles",
+      "apply_named_transfiguration_to_all_predicate_cards",
+      "transfigure_chosen_starters",
+      "purge_chosen_starters",
+      "purge_all_starters",
+      "replace_starter_via_draft",
+      "apply_random_transfigurations_to_random_cards",
+      "temporary_dreamsign_for_X_battles",
+      "replace_site_type",
+      "shop_essence_discount",
+      "shop_omen_discount",
+      "vendor_hook_bonus",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+
+  it("transform_dreamsign_to_named is registered and renders non-empty", () => {
+    const t = getReward("transform_dreamsign_to_named");
+    const p = t.rollParams(fakeCtx(), draw);
+    expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+    expect(t.render(p, fakeCtx())).not.toBe("");
+  });
+
+  it("increase_max_essence renders with positive integer", () => {
+    const t = getReward("increase_max_essence");
+    const p = t.rollParams(fakeCtx(), draw) as { amount: number };
+    expect(p.amount).toBeGreaterThan(0);
+    expect(t.render(p, fakeCtx())).toMatch(/Increase your maximum essence by \d+/);
+  });
+});
+
 describe("meta_gain_2_rewards", () => {
   it("rolls two distinct non-meta sub-template ids", () => {
     const t = getReward("meta_gain_2_rewards");

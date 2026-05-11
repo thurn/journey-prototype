@@ -160,6 +160,23 @@ describe("costs table (misc family)", () => {
   });
 });
 
+describe("costs table (status-burden family)", () => {
+  it("registers lose_max_essence", () => {
+    const t = getCost("lose_max_essence");
+    const p = t.rollParams(fakeCtx(), draw);
+    expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+    expect(t.render(p, fakeCtx())).not.toBe("");
+  });
+
+  it("lose_max_essence is not viable when amount > max essence", () => {
+    const t = getCost("lose_max_essence");
+    const ctx = fakeCtx();
+    ctx.state.quest.resources.maxEssence = 10;
+    const p = t.rollParams(ctx, draw) as { amount: number };
+    expect(t.viable(p, ctx)).toBe(false);
+  });
+});
+
 describe("meta_pay_2_costs", () => {
   it("rolls two non-meta sub-template ids", () => {
     const t = getCost("meta_pay_2_costs");

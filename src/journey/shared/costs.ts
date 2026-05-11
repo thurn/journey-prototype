@@ -378,6 +378,16 @@ const removeDreamsignSitesFromNextDreamscapes: Cost<RemoveDsSitesParams> = {
     `Remove all dreamsign sites from the next ${p.dreamscapes} dreamscape${p.dreamscapes === 1 ? "" : "s"} you visit`,
 };
 
+type LoseMaxEssenceParams = { amount: number };
+const loseMaxEssence: Cost<LoseMaxEssenceParams> = {
+  id: "lose_max_essence",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ amount: 25 + 25 * drawInt(draw, "lose_max:a", 0, 4) }),
+  cec: (p) => p.amount * 1.5 * STAGE_MULTIPLIER,
+  viable: (p, ctx) => maxEssence(ctx) > p.amount,
+  render: (p) => `Lose ${p.amount} maximum essence`,
+};
+
 type MetaPay2Params = {
   subIds: readonly [string, string];
   subParams: readonly [Record<string, unknown>, Record<string, unknown>];
@@ -454,6 +464,7 @@ export const COSTS: readonly Cost[] = Object.freeze([
   drawXPurgeChosen,
   removeShopSitesFromNextDreamscapes,
   removeDreamsignSitesFromNextDreamscapes,
+  loseMaxEssence,
   metaPay2Costs,
 ] as unknown as Cost[]);
 

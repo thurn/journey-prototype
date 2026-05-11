@@ -7,6 +7,8 @@ describe("predicates", () => {
       "events", "characters", "warriors", "survivors", "spirit_animals",
       "low_cost", "high_cost", "low_spark", "high_spark",
       "materialized", "judgment", "fast", "starter", "legendary", "transfigured",
+      "discard_text", "abandon", "event_copying", "energy_generation",
+      "dissolve", "reclaim",
     ].sort();
     expect(PREDICATES.map((p) => p.id).sort()).toEqual(expected);
   });

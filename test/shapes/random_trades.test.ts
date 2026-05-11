@@ -81,7 +81,7 @@ describe("random_trades fill", () => {
 
   it("[LOCKED] appears for unaffordable pay_essence rolls", () => {
     let saw = false;
-    for (let i = 0; i < 80 && !saw; i += 1) {
+    for (let i = 0; i < 400 && !saw; i += 1) {
       const fill = randomTradesPlugin.fill({
         context: fakeCtx(0),
         drawContext: fakeDraw(`rt-lock-${i}`),

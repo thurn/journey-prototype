@@ -608,6 +608,275 @@ const nextXShopRerollsFree: Reward<NextRerollsParams> = {
     `Your next ${p.count} shop reroll${p.count === 1 ? "" : "s"} ${p.count === 1 ? "is" : "are"} free`,
 };
 
+type IncreaseMaxEssenceParams = { amount: number };
+const increaseMaxEssence: Reward<IncreaseMaxEssenceParams> = {
+  id: "increase_max_essence",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ amount: 25 + 25 * drawInt(draw, "inc_max_essence:a", 0, 4) }),
+  cec: (p) => p.amount * 1.5 * STAGE_MULTIPLIER,
+  viable: () => true,
+  render: (p) => `Increase your maximum essence by ${p.amount}`,
+};
+
+type Draft2PredicateParams = { predicateId: string };
+const draft2PredicateCardsFrom4: Reward<Draft2PredicateParams> = {
+  id: "draft_2_predicate_cards_from_4",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "draft2_predicate:pred").id }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 1.4, 2, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
+  render: (p) => `Draft 2 of 4 ${getPredicate(p.predicateId).text.plural}`,
+};
+
+type DraftPredicateCardWithCopiesParams = { predicateId: string; copies: number };
+const draftPredicateCardWithCopies: Reward<DraftPredicateCardWithCopiesParams> = {
+  id: "draft_predicate_card_with_copies",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "draft_pred_copies:pred").id,
+    copies: drawInt(draw, "draft_pred_copies:n", 2, 3),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 1.3, p.copies, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
+  render: (p) =>
+    `Draft 1 of 4 ${getPredicate(p.predicateId).text.plural} and gain ${p.copies} copies of it`,
+};
+
+type DraftPredicateCardWithTransfigurationParams = { predicateId: string; transfiguration: string };
+const draftPredicateCardWithTransfiguration: Reward<DraftPredicateCardWithTransfigurationParams> = {
+  id: "draft_predicate_card_with_transfiguration",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "draft_pred_xfig:pred").id,
+    transfiguration: pickFromList(draw, "draft_pred_xfig:t", ALLOWED_TRANSFIGURATIONS),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 1.8, 1, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
+  render: (p) =>
+    `Draft 1 of 4 ${getPredicate(p.predicateId).text.plural} and apply ${p.transfiguration} to it`,
+};
+
+type MakeCardReclaimParams = { cardName: string; count: number };
+const makeCardReclaim: Reward<MakeCardReclaimParams> = {
+  id: "make_card_reclaim",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "make_reclaim:c", ctx.content.cards).name
+      : "Placeholder Card",
+    count: drawInt(draw, "make_reclaim:n", 1, 3),
+  }),
+  cec: (p) => CARD_CEC * 0.5 * p.count,
+  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  render: (p) => `Add Reclaim ${p.count} to ${p.cardName}`,
+};
+
+type MakeRandomCardsReclaimParams = { count: number; reclaim: number };
+const makeRandomCardsReclaim: Reward<MakeRandomCardsReclaimParams> = {
+  id: "make_random_cards_reclaim",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    count: drawInt(draw, "make_random_reclaim:n", 1, 3),
+    reclaim: drawInt(draw, "make_random_reclaim:r", 1, 2),
+  }),
+  cec: (p) => CARD_CEC * 0.5 * p.count * p.reclaim,
+  viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.count,
+  render: (p) =>
+    `Add Reclaim ${p.reclaim} to ${p.count} random card${p.count === 1 ? "" : "s"}`,
+};
+
+type OpeningHandGrantParams = { cardName: string; battles: number };
+const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
+  id: "opening_hand_grant_for_X_battles",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "oh_grant:c", ctx.content.cards).name
+      : "Placeholder Card",
+    battles: drawInt(draw, "oh_grant:b", 1, 3),
+  }),
+  cec: (p) => CARD_CEC * 0.6 * p.battles,
+  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  render: (p) =>
+    `Your opening hand contains ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type TemporaryCardCopyParams = { cardName: string; battles: number };
+const temporaryCardCopyForXBattles: Reward<TemporaryCardCopyParams> = {
+  id: "temporary_card_copy_for_X_battles",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "temp_copy:c", ctx.content.cards).name
+      : "Placeholder Card",
+    battles: drawInt(draw, "temp_copy:b", 1, 3),
+  }),
+  cec: (p) => CARD_CEC * 0.5 * p.battles,
+  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  render: (p) =>
+    `Gain a temporary copy of ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type CostReductionParams = { predicateId: string; amount: number; battles: number };
+const cardCostReductionForXBattles: Reward<CostReductionParams> = {
+  id: "card_cost_reduction_for_X_battles",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "cost_red:p").id,
+    amount: drawInt(draw, "cost_red:a", 1, 2),
+    battles: drawInt(draw, "cost_red:b", 1, 3),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.3 * p.amount * p.battles, 1, getPredicate(p.predicateId)),
+  viable: () => true,
+  render: (p) =>
+    `${getPredicate(p.predicateId).text.plural} cost ${p.amount} less for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type ApplyNamedTransfigAllPredParams = { transfiguration: string; predicateId: string };
+const applyNamedTransfigurationToAllPredicateCards: Reward<ApplyNamedTransfigAllPredParams> = {
+  id: "apply_named_transfiguration_to_all_predicate_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    transfiguration: pickFromList(draw, "named_transfig_all:t", ALLOWED_TRANSFIGURATIONS),
+    predicateId: rollPredicate(draw, "named_transfig_all:p").id,
+  }),
+  cec: (p, ctx) => {
+    const matches = cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length;
+    return CARD_CEC * 0.6 * Math.max(1, matches) * getPredicate(p.predicateId).multiplier;
+  },
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+  render: (p) =>
+    `Apply ${p.transfiguration} to all ${getPredicate(p.predicateId).text.plural}`,
+};
+
+type TransfigureChosenStartersParams = { count: number };
+const transfigureChosenStarters: Reward<TransfigureChosenStartersParams> = {
+  id: "transfigure_chosen_starters",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "transfig_chosen_starters:n", 1, 2) }),
+  cec: (p) => CARD_CEC * 0.9 * p.count,
+  viable: (p, ctx) => starterCardCount(ctx) >= p.count,
+  render: (p) => `Transfigure ${p.count} chosen starter card${p.count === 1 ? "" : "s"}`,
+};
+
+type PurgeChosenStartersParams = { count: number };
+const purgeChosenStarters: Reward<PurgeChosenStartersParams> = {
+  id: "purge_chosen_starters",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "purge_chosen_starters:n", 1, 3) }),
+  cec: (p) => CARD_CEC * 0.45 * p.count,
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: (p) => `Purge up to ${p.count} chosen starter card${p.count === 1 ? "" : "s"}`,
+};
+
+type PurgeAllStartersParams = Record<string, never>;
+const purgeAllStarters: Reward<PurgeAllStartersParams> = {
+  id: "purge_all_starters",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: (_p, ctx) => CARD_CEC * 0.6 * Math.max(1, starterCardCount(ctx)),
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
+  render: () => "Purge all starter cards",
+};
+
+type ReplaceStarterViaDraftParams = Record<string, never>;
+const replaceStarterViaDraft: Reward<ReplaceStarterViaDraftParams> = {
+  id: "replace_starter_via_draft",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => CARD_CEC * 1.0,
+  viable: (_p, ctx) => starterCardCount(ctx) >= 1 && ctx.content.cards.length >= 4,
+  render: () => "Replace a chosen starter card with 1 of 4 drafted cards",
+};
+
+type ApplyRandomTransfigurationsToRandomCardsParams = { count: number };
+const applyRandomTransfigurationsToRandomCards: Reward<ApplyRandomTransfigurationsToRandomCardsParams> = {
+  id: "apply_random_transfigurations_to_random_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "random_transfig_random:n", 1, 3) }),
+  cec: (p) => CARD_CEC * 0.5 * p.count,
+  viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.count,
+  render: (p) =>
+    `Apply ${p.count} random transfiguration${p.count === 1 ? "" : "s"} to ${p.count} random card${p.count === 1 ? "" : "s"}`,
+};
+
+type TransformDreamsignToNamedParams = { name: string };
+const transformDreamsignToNamed: Reward<TransformDreamsignToNamedParams> = {
+  id: "transform_dreamsign_to_named",
+  weight: 1.0,
+  rollParams: (ctx, draw) => {
+    const pool = dreamsignMatches(ctx);
+    return { name: pool.length > 0 ? pickFromList(draw, "xform_ds_named:c", pool).name : "Placeholder Dreamsign" };
+  },
+  cec: () => DREAMSIGN_CEC * 0.6,
+  viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1 && dreamsignMatches(ctx).length >= 1,
+  render: (p) => `Transform a chosen dreamsign into ${p.name}`,
+};
+
+type TemporaryDreamsignParams = { battles: number };
+const temporaryDreamsignForXBattles: Reward<TemporaryDreamsignParams> = {
+  id: "temporary_dreamsign_for_X_battles",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ battles: drawInt(draw, "temp_ds:b", 1, 3) }),
+  cec: (p) => DREAMSIGN_CEC * 0.5 * p.battles,
+  viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
+  render: (p) =>
+    `Gain a random dreamsign for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type ReplaceSiteTypeParams = { fromType: string; toType: string };
+const replaceSiteType: Reward<ReplaceSiteTypeParams> = {
+  id: "replace_site_type",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => {
+    const fromType = pickFromList(draw, "replace_site:from", SITE_TYPES);
+    const options = SITE_TYPES.filter((t) => t !== fromType);
+    const toType = options.length > 0
+      ? pickFromList(draw, "replace_site:to", options)
+      : fromType;
+    return { fromType, toType };
+  },
+  cec: () => 35,
+  viable: () => true,
+  render: (p) => `Replace a ${p.fromType} site in this dreamscape with a ${p.toType} site`,
+};
+
+type ShopEssenceDiscountParams = { percent: number };
+const shopEssenceDiscount: Reward<ShopEssenceDiscountParams> = {
+  id: "shop_essence_discount",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ percent: 10 + 10 * drawInt(draw, "shop_e_disc:p", 0, 4) }),
+  cec: (p) => p.percent * 1.0,
+  viable: () => true,
+  render: (p) => `Shop essence costs are reduced by ${p.percent}%`,
+};
+
+type ShopOmenDiscountParams = { count: number };
+const shopOmenDiscount: Reward<ShopOmenDiscountParams> = {
+  id: "shop_omen_discount",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "shop_o_disc:n", 1, 3) }),
+  cec: (p) => p.count * 25,
+  viable: () => true,
+  render: (p) =>
+    `Your next ${p.count} shop purchase${p.count === 1 ? "" : "s"} cost${p.count === 1 ? "s" : ""} 1 fewer omen`,
+};
+
+type VendorHookBonusParams = { amount: number };
+const vendorHookBonus: Reward<VendorHookBonusParams> = {
+  id: "vendor_hook_bonus",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ amount: drawInt(draw, "vendor_hook:a", 1, 3) }),
+  cec: (p) => p.amount * 20,
+  viable: () => true,
+  render: (p) =>
+    `Vendor hooks award ${p.amount} additional choice${p.amount === 1 ? "" : "s"}`,
+};
+
 type BoostSiteParams = { siteType: string; percent: number };
 const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
   id: "boost_site_appearance_chance",
@@ -727,6 +996,27 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   shufflePositiveDreamwellCards,
   nextXShopRerollsFree,
   boostSiteAppearanceChance,
+  increaseMaxEssence,
+  draft2PredicateCardsFrom4,
+  draftPredicateCardWithCopies,
+  draftPredicateCardWithTransfiguration,
+  makeCardReclaim,
+  makeRandomCardsReclaim,
+  openingHandGrantForXBattles,
+  temporaryCardCopyForXBattles,
+  cardCostReductionForXBattles,
+  applyNamedTransfigurationToAllPredicateCards,
+  transfigureChosenStarters,
+  purgeChosenStarters,
+  purgeAllStarters,
+  replaceStarterViaDraft,
+  applyRandomTransfigurationsToRandomCards,
+  transformDreamsignToNamed,
+  temporaryDreamsignForXBattles,
+  replaceSiteType,
+  shopEssenceDiscount,
+  shopOmenDiscount,
+  vendorHookBonus,
   metaGain2Rewards,
 ] as unknown as Reward[]);
 
