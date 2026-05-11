@@ -167,3 +167,21 @@ describe("rewards table (dreamsign family)", () => {
     }
   });
 });
+
+describe("rewards table (site/dreamwell/misc family)", () => {
+  it("registers site/dreamwell/misc templates", () => {
+    for (const id of [
+      "add_site_to_dreamscape",
+      "add_site_to_next_dreamscape",
+      "set_starting_dreamwell_positive",
+      "shuffle_positive_dreamwell_cards",
+      "next_X_shop_rerolls_free",
+      "boost_site_appearance_chance",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});

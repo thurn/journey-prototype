@@ -2,6 +2,8 @@ import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
   ALLOWED_TRANSFIGURATIONS,
+  POSITIVE_DREAMWELL_CARDS,
+  SITE_TYPES,
   baneCount,
   cardMatches,
   dreamsignMatches,
@@ -546,6 +548,79 @@ const gainCopyOfChosenDreamsign: Reward<GainCopyChosenDreamsignParams> = {
   render: () => "Gain a copy of a chosen dreamsign",
 };
 
+type AddSiteParams = { siteType: string };
+const addSiteToDreamscape: Reward<AddSiteParams> = {
+  id: "add_site_to_dreamscape",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    siteType: pickFromList(draw, "add_site:t", SITE_TYPES),
+  }),
+  cec: () => 40,
+  viable: () => true,
+  render: (p) => `Add a ${p.siteType} site to this dreamscape`,
+};
+
+const addSiteToNextDreamscape: Reward<AddSiteParams> = {
+  id: "add_site_to_next_dreamscape",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    siteType: pickFromList(draw, "add_site_next:t", SITE_TYPES),
+  }),
+  cec: () => 30,
+  viable: () => true,
+  render: (p) => `Add a ${p.siteType} site to the next dreamscape you visit`,
+};
+
+type StartingDreamwellPosParams = { cardName: string };
+const setStartingDreamwellPositive: Reward<StartingDreamwellPosParams> = {
+  id: "set_starting_dreamwell_positive",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    cardName: pickFromList(draw, "start_dw_pos:c", POSITIVE_DREAMWELL_CARDS),
+  }),
+  cec: () => 60,
+  viable: () => true,
+  render: (p) => `Your starting dreamwell card is ${p.cardName}`,
+};
+
+type ShufflePosDreamwellParams = { cardName: string; count: number };
+const shufflePositiveDreamwellCards: Reward<ShufflePosDreamwellParams> = {
+  id: "shuffle_positive_dreamwell_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    cardName: pickFromList(draw, "shuffle_dw_pos:c", POSITIVE_DREAMWELL_CARDS),
+    count: drawInt(draw, "shuffle_dw_pos:n", 1, 3),
+  }),
+  cec: (p) => 25 * p.count,
+  viable: () => true,
+  render: (p) =>
+    `Shuffle ${p.count} ${p.cardName}${p.count === 1 ? "" : " copies"} into your dreamwell`,
+};
+
+type NextRerollsParams = { count: number };
+const nextXShopRerollsFree: Reward<NextRerollsParams> = {
+  id: "next_X_shop_rerolls_free",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "rerolls:n", 1, 3) }),
+  cec: (p) => 15 * p.count,
+  viable: () => true,
+  render: (p) =>
+    `Your next ${p.count} shop reroll${p.count === 1 ? "" : "s"} ${p.count === 1 ? "is" : "are"} free`,
+};
+
+type BoostSiteParams = { siteType: string; percent: number };
+const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
+  id: "boost_site_appearance_chance",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    siteType: pickFromList(draw, "boost_site:t", SITE_TYPES),
+    percent: 10 + 10 * drawInt(draw, "boost_site:p", 0, 4),
+  }),
+  cec: (p) => p.percent * 0.8,
+  viable: () => true,
+  render: (p) => `${p.percent}% higher chance to see ${p.siteType} sites in future dreamscapes`,
+};
+
 export const REWARDS: readonly Reward[] = Object.freeze([
   gainEssence,
   gainOmens,
@@ -588,6 +663,12 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   choose1OfXDreamsigns,
   gainCopyOfRandomDreamsign,
   gainCopyOfChosenDreamsign,
+  addSiteToDreamscape,
+  addSiteToNextDreamscape,
+  setStartingDreamwellPositive,
+  shufflePositiveDreamwellCards,
+  nextXShopRerollsFree,
+  boostSiteAppearanceChance,
 ] as unknown as Reward[]);
 
 const BY_ID = new Map(REWARDS.map((r) => [r.id, r]));
