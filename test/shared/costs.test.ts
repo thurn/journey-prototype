@@ -128,3 +128,19 @@ describe("costs table (dreamsign family)", () => {
     }
   });
 });
+
+describe("costs table (bane/dreamwell/starter family)", () => {
+  it("registers bane/dreamwell/starter cost templates", () => {
+    for (const id of [
+      "gain_random_banes", "gain_named_banes", "gain_named_banes_for_X_battles",
+      "gain_additional_starters",
+      "set_starting_dreamwell_negative", "shuffle_negative_dreamwell_cards",
+      "remove_transfiguration_from_card", "remove_transfigurations_from_random_predicate",
+    ]) {
+      const t = getCost(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});

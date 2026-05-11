@@ -2,9 +2,11 @@ import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
   activeDreamsignCount,
+  BANE_NAMES,
   cardMatches,
   essenceAmount,
   maxEssence,
+  NEGATIVE_DREAMWELL_CARDS,
   omenAmount,
   pickFromList,
 } from "./content.js";
@@ -236,6 +238,113 @@ const transformDreamsignToRandom: Cost<XformDreamsignParams> = {
   render: () => "Transform a chosen dreamsign into a random dreamsign",
 };
 
+type GainRandomBanesParams = { count: number };
+const gainRandomBanes: Cost<GainRandomBanesParams> = {
+  id: "gain_random_banes",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "gain_random_banes:n", 1, 3) }),
+  cec: (p) => p.count * 30,
+  viable: () => true,
+  render: (p) => `Gain ${p.count} random bane${p.count === 1 ? "" : "s"}`,
+};
+
+type GainNamedBanesParams = { baneName: string; count: number };
+const gainNamedBanes: Cost<GainNamedBanesParams> = {
+  id: "gain_named_banes",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    baneName: pickFromList(draw, "gain_named_banes:b", BANE_NAMES),
+    count: drawInt(draw, "gain_named_banes:n", 1, 3),
+  }),
+  cec: (p) => p.count * 30,
+  viable: () => true,
+  render: (p) => `Gain ${p.count} ${p.baneName}`,
+};
+
+type GainNamedBanesXBattlesParams = { baneName: string; count: number; battles: number };
+const gainNamedBanesForXBattles: Cost<GainNamedBanesXBattlesParams> = {
+  id: "gain_named_banes_for_X_battles",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    baneName: pickFromList(draw, "gain_named_banes_t:b", BANE_NAMES),
+    count: drawInt(draw, "gain_named_banes_t:n", 1, 2),
+    battles: drawInt(draw, "gain_named_banes_t:t", 1, 3),
+  }),
+  cec: (p) => p.count * 25 * p.battles * 0.5,
+  viable: () => true,
+  render: (p) =>
+    `Gain ${p.count} ${p.baneName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type GainAdditionalStartersParams = { count: number };
+const gainAdditionalStarters: Cost<GainAdditionalStartersParams> = {
+  id: "gain_additional_starters",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ count: drawInt(draw, "extra_starters:n", 1, 3) }),
+  cec: (p) => CARD_CEC * 0.5 * p.count,
+  viable: () => true,
+  render: (p) =>
+    `Gain ${p.count} additional starter card${p.count === 1 ? "" : "s"}`,
+};
+
+type StartingDreamwellNegParams = { cardName: string; battles: number };
+const setStartingDreamwellNegative: Cost<StartingDreamwellNegParams> = {
+  id: "set_starting_dreamwell_negative",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    cardName: pickFromList(draw, "start_dw_neg:c", NEGATIVE_DREAMWELL_CARDS),
+    battles: drawInt(draw, "start_dw_neg:b", 1, 3),
+  }),
+  cec: (p) => 60 * p.battles * 0.5,
+  viable: () => true,
+  render: (p) =>
+    `Your starting dreamwell card is ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type ShuffleNegDreamwellParams = { cardName: string; count: number; battles: number };
+const shuffleNegativeDreamwellCards: Cost<ShuffleNegDreamwellParams> = {
+  id: "shuffle_negative_dreamwell_cards",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    cardName: pickFromList(draw, "shuffle_dw_neg:c", NEGATIVE_DREAMWELL_CARDS),
+    count: drawInt(draw, "shuffle_dw_neg:n", 1, 3),
+    battles: drawInt(draw, "shuffle_dw_neg:b", 1, 3),
+  }),
+  cec: (p) => 25 * p.count * p.battles * 0.5,
+  viable: () => true,
+  render: (p) =>
+    `Shuffle ${p.count} ${p.cardName} into your dreamwell for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+};
+
+type RemoveTransfigCardParams = { cardName: string };
+const removeTransfigurationFromCard: Cost<RemoveTransfigCardParams> = {
+  id: "remove_transfiguration_from_card",
+  weight: 1.0,
+  rollParams: (ctx, draw) => ({
+    cardName: ctx.content.cards.length > 0
+      ? pickFromList(draw, "rem_transfig:c", ctx.content.cards).name
+      : "Placeholder Card",
+  }),
+  cec: () => CARD_CEC * 0.6,
+  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  render: (p) => `Remove the transfiguration from ${p.cardName}`,
+};
+
+type RemoveTransfigRandomPredParams = { predicateId: string; count: number };
+const removeTransfigurationsFromRandomPredicate: Cost<RemoveTransfigRandomPredParams> = {
+  id: "remove_transfigurations_from_random_predicate",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({
+    predicateId: rollPredicate(draw, "rem_transfig_rand:p").id,
+    count: drawInt(draw, "rem_transfig_rand:n", 1, 3),
+  }),
+  cec: (p) => cardPoolCEC(CARD_CEC * 0.5, p.count, getPredicate(p.predicateId)),
+  viable: (p, ctx) =>
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
+  render: (p) =>
+    `Remove the transfigurations from ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
+};
+
 export const COSTS: readonly Cost[] = Object.freeze([
   payEssence,
   payOmens,
@@ -255,6 +364,14 @@ export const COSTS: readonly Cost[] = Object.freeze([
   purgeRandomDreamsign,
   purgeChosenDreamsign,
   transformDreamsignToRandom,
+  gainRandomBanes,
+  gainNamedBanes,
+  gainNamedBanesForXBattles,
+  gainAdditionalStarters,
+  setStartingDreamwellNegative,
+  shuffleNegativeDreamwellCards,
+  removeTransfigurationFromCard,
+  removeTransfigurationsFromRandomPredicate,
 ] as unknown as Cost[]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));
