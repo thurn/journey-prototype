@@ -739,7 +739,7 @@ const makeRandomCardsReclaim: Reward<MakeRandomCardsReclaimParams> = {
 type OpeningHandGrantParams = { cardName: string; battles: number };
 const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
   id: "opening_hand_grant_for_X_battles",
-  weight: 1.0,
+  weight: 0.5,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
@@ -749,7 +749,7 @@ const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
       battles: drawInt(draw, "oh_grant:b", 1, 3),
     };
   },
-  cec: (p) => CARD_CEC * 0.6 * p.battles,
+  cec: (p) => CARD_CEC * 0.3 * p.battles,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) =>
     `Your opening hand contains ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
@@ -758,7 +758,7 @@ const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
 type TemporaryCardCopyParams = { cardName: string; battles: number };
 const temporaryCardCopyForXBattles: Reward<TemporaryCardCopyParams> = {
   id: "temporary_card_copy_for_X_battles",
-  weight: 1.0,
+  weight: 0.5,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
@@ -768,7 +768,7 @@ const temporaryCardCopyForXBattles: Reward<TemporaryCardCopyParams> = {
       battles: drawInt(draw, "temp_copy:b", 1, 3),
     };
   },
-  cec: (p) => CARD_CEC * 0.5 * p.battles,
+  cec: (p) => CARD_CEC * 0.25 * p.battles,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) =>
     `Gain a temporary copy of ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,

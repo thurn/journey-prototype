@@ -370,6 +370,22 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(getReward("set_starting_dreamwell_positive").weight).toBe(0.25);
     expect(getReward("shuffle_positive_dreamwell_cards").weight).toBe(0.25);
   });
+
+  it("battle-window card rewards are down-weighted and have reduced CEC", () => {
+    // `temporary_card_copy_for_X_battles` and `opening_hand_grant_for_X_battles`
+    // are weak/situational since their effects evaporate after a small number
+    // of battles. They appear at half the default weight and use a lower CEC
+    // multiplier than permanent card rewards.
+    const tempCopy = getReward("temporary_card_copy_for_X_battles");
+    expect(tempCopy.weight).toBe(0.5);
+    expect(tempCopy.cec({ cardName: "x", battles: 1 }, fakeCtx())).toBe(10);
+    expect(tempCopy.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(30);
+
+    const openingHand = getReward("opening_hand_grant_for_X_battles");
+    expect(openingHand.weight).toBe(0.5);
+    expect(openingHand.cec({ cardName: "x", battles: 1 }, fakeCtx())).toBe(12);
+    expect(openingHand.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(36);
+  });
 });
 
 describe("rewards table (newly added)", () => {
