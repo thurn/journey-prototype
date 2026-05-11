@@ -308,6 +308,50 @@ describe("JOURNEY_SHAPES", () => {
     });
   });
 
+  it("propagates bypassStandardValidation through defineShapePlugin", () => {
+    const plugin = defineShapePlugin({
+      definition: {
+        id: "bypass_fixture_shape",
+        topology: "direct_menu",
+        rootOptionCount: { min: 1, max: 1 },
+        supportedTags: [],
+        validationRules: [
+          "manifest_schema_version",
+          "manifest_version_metadata",
+          "journey_id_format",
+          "root_option_count_within_bounds",
+        ],
+        repairPreferences: [],
+        debugLabel: "Bypass fixture",
+        versionContribution: { catalogVersion: "test", id: "bypass_fixture_shape" },
+        bypassStandardValidation: true,
+      },
+      scoreWeight: 0,
+      fill: () => ({ options: [], precommitted: {} }),
+    });
+
+    expect(plugin.definition.bypassStandardValidation).toBe(true);
+  });
+
+  it("defaults bypassStandardValidation to false when not specified", () => {
+    const plugin = defineShapePlugin({
+      definition: {
+        id: "default_bypass_fixture",
+        topology: "direct_menu",
+        rootOptionCount: { min: 1, max: 1 },
+        supportedTags: [],
+        validationRules: ["root_option_count_within_bounds"],
+        repairPreferences: [],
+        debugLabel: "Default fixture",
+        versionContribution: { catalogVersion: "test", id: "default_bypass_fixture" },
+      },
+      scoreWeight: 0,
+      fill: () => ({ options: [], precommitted: {} }),
+    });
+
+    expect(plugin.definition.bypassStandardValidation).toBe(false);
+  });
+
   it("returns deterministic canonical definitions for fingerprinting", () => {
     expect(canonicalShapeDefinitions()).toEqual(canonicalShapeDefinitions());
   });

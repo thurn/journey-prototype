@@ -121,6 +121,10 @@ export function validationRuleOutcomes(
     return rules;
   }
 
+  if (definition.bypassStandardValidation) {
+    return rules;
+  }
+
   const typedPayloadContractResult = validateTypedPayloadContracts(manifest, context);
   if (!pushRule(
     typedPayloadContractResult.ok ? "typed_payload_contracts" : typedPayloadContractResult.rule,
