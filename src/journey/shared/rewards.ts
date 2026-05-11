@@ -224,7 +224,10 @@ const transfigureRandomStarters: Reward<TransfigureRandomStartersParams> = {
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "transfig_random_starters:n", 1, 3) }),
   cec: (p) => CARD_CEC * 0.7 * p.count,
   viable: (p, ctx) => starterCardCount(ctx) >= p.count,
-  render: (p) => `Transfigure ${p.count} random starter card${p.count === 1 ? "" : "s"}`,
+  render: (p) =>
+    p.count === 1
+      ? "Apply a random transfiguration to 1 random starter card"
+      : `Apply random transfigurations to ${p.count} random starter cards`,
 };
 
 type TransfigureAllStartersParams = Record<string, never>;
@@ -234,7 +237,7 @@ const transfigureAllStarters: Reward<TransfigureAllStartersParams> = {
   rollParams: () => ({}),
   cec: (_p, ctx) => CARD_CEC * 0.7 * Math.max(1, starterCardCount(ctx)),
   viable: (_p, ctx) => starterCardCount(ctx) >= 1,
-  render: () => "Transfigure all starter cards",
+  render: () => "Apply a random transfiguration to each starter card",
 };
 
 type ModifyCardRefTypeParams = { cardName: string; cardType: string };
@@ -805,7 +808,10 @@ const transfigureChosenStarters: Reward<TransfigureChosenStartersParams> = {
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "transfig_chosen_starters:n", 1, 2) }),
   cec: (p) => CARD_CEC * 0.9 * p.count,
   viable: (p, ctx) => starterCardCount(ctx) >= p.count,
-  render: (p) => `Transfigure ${p.count} chosen starter card${p.count === 1 ? "" : "s"}`,
+  render: (p) =>
+    p.count === 1
+      ? "Apply a random transfiguration to 1 chosen starter card"
+      : `Apply random transfigurations to ${p.count} chosen starter cards`,
 };
 
 type PurgeChosenStartersParams = { count: number };

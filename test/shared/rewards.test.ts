@@ -330,6 +330,53 @@ describe("rewards table (newly added)", () => {
   });
 });
 
+describe("starter-card transfiguration rewards do not use 'Transfigure' as a verb", () => {
+  // "Transfiguration" is the noun for named, color-coded modifications in
+  // Dreamtides; "Transfigure" is not a player-facing verb. These rewards must
+  // describe what actually happens (applying a random transfiguration to
+  // starter cards) rather than using a synthetic verb.
+  const STARTER_TRANSFIG_REWARD_IDS = [
+    "transfigure_random_starters",
+    "transfigure_all_starters",
+    "transfigure_chosen_starters",
+  ];
+
+  it("does not render the verb 'Transfigure' for any starter-transfiguration reward", () => {
+    for (const id of STARTER_TRANSFIG_REWARD_IDS) {
+      const t = getReward(id);
+      // Sweep a handful of seeded rolls so we cover every count branch.
+      for (let i = 0; i < 10; i += 1) {
+        const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i });
+        const rendered = t.render(p, fakeCtx());
+        expect(rendered).not.toMatch(/\bTransfigure\b/);
+        expect(rendered).toMatch(/transfiguration/i);
+      }
+    }
+  });
+
+  it("renders starter-transfiguration rewards as 'Apply ... transfiguration ... starter card(s)'", () => {
+    const randomStarters = getReward("transfigure_random_starters");
+    const allStarters = getReward("transfigure_all_starters");
+    const chosenStarters = getReward("transfigure_chosen_starters");
+
+    expect(randomStarters.render({ count: 1 } as never, fakeCtx())).toBe(
+      "Apply a random transfiguration to 1 random starter card",
+    );
+    expect(randomStarters.render({ count: 3 } as never, fakeCtx())).toBe(
+      "Apply random transfigurations to 3 random starter cards",
+    );
+    expect(allStarters.render({} as never, fakeCtx())).toBe(
+      "Apply a random transfiguration to each starter card",
+    );
+    expect(chosenStarters.render({ count: 1 } as never, fakeCtx())).toBe(
+      "Apply a random transfiguration to 1 chosen starter card",
+    );
+    expect(chosenStarters.render({ count: 2 } as never, fakeCtx())).toBe(
+      "Apply random transfigurations to 2 chosen starter cards",
+    );
+  });
+});
+
 describe("meta_gain_2_rewards", () => {
   it("rolls two distinct non-meta sub-template ids", () => {
     const t = getReward("meta_gain_2_rewards");
