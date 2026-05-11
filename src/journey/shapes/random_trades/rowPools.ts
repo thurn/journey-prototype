@@ -5,7 +5,7 @@ import type {
 
 /**
  * Declarative configuration for a single "row pool" used by the
- * `independent_rows_menu` shape. Each row in the assembled menu picks one
+ * `random_trades` shape. Each row in the assembled menu picks one
  * pool, then independently selects one cost source and one reward source
  * from that pool. Pools are weighted so the registry can bias the menu's
  * archetype mix without forcing per-row coupling.

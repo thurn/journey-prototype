@@ -3,28 +3,14 @@ import {
   defineShapePlugin,
   versionContribution,
 } from "../shared.js";
-import type { FilledJourney, ShapeFillArgs } from "../types.js";
-import { independentRowsMenuFill } from "./fill.js";
-import { validators } from "./validators.js";
+import { randomRewardsFill } from "./fill.js";
 
-function fillOrThrow(args: ShapeFillArgs): FilledJourney {
-  const filled = independentRowsMenuFill(args);
-
-  if (!filled) {
-    throw new Error(
-      "independent_rows_menu fill produced no result for the given draw context.",
-    );
-  }
-
-  return filled;
-}
-
-export const independentRowsMenuPlugin = defineShapePlugin({
+export const randomRewardsPlugin = defineShapePlugin({
   definition: {
-    id: "independent_rows_menu",
+    id: "random_rewards",
     topology: "direct_menu",
-    rootOptionCount: { min: 2, max: 3 },
-    supportedTags: ["menu", "heterogeneous"],
+    rootOptionCount: { min: 3, max: 4 },
+    supportedTags: ["reward", "cost", "burden", "eclectic", "menu"],
     payloadCompatibility: [
       {
         familyId: "adapter",
@@ -34,31 +20,28 @@ export const independentRowsMenuPlugin = defineShapePlugin({
       },
       {
         familyId: "card",
-        variants: ["adapter-compatible-card-operations"],
-        legality: "legal",
-        reason:
-          "Each row independently selects a card target or card-operation frame.",
+        variants: [],
+        legality: "unsupported",
+        reason: "Shape does not expose a legal card-target operation frame.",
       },
       {
         familyId: "dreamsign",
-        variants: ["adapter-compatible-dreamsign-operations"],
-        legality: "legal",
+        variants: [],
+        legality: "unsupported",
         reason:
-          "Each row independently selects a Dreamsign target, reward, or pool edit.",
+          "Shape does not expose a legal Dreamsign target or shop frame.",
       },
       {
         familyId: "bane",
-        variants: ["adapter-compatible-bane-operations"],
-        legality: "legal",
-        reason:
-          "Each row independently frames a Bane gain, purge, or transformation.",
+        variants: [],
+        legality: "unsupported",
+        reason: "Shape lacks a controlled Bane-operation or loss-choice frame.",
       },
       {
         familyId: "resource",
         variants: ["adapter-compatible-resource-operations"],
         legality: "legal",
-        reason:
-          "Each row independently exposes its own visible resource cost or reward.",
+        reason: "Shape can compare visible resource costs or rewards.",
       },
       {
         familyId: "route",
@@ -109,7 +92,7 @@ export const independentRowsMenuPlugin = defineShapePlugin({
         variants: ["adapter-compatible-generated-objects"],
         legality: "legal",
         reason:
-          "Each row may independently host manifest-local generated object grants or transforms.",
+          "Shape can host manifest-local generated object grants or transforms.",
       },
       {
         familyId: "decision_tree",
@@ -120,31 +103,33 @@ export const independentRowsMenuPlugin = defineShapePlugin({
     ],
     validationRules: [
       ...commonValidationRules,
-      "each_row_draws_from_configured_pool",
-      "rows_are_pairwise_distinct_on_at_least_one_axis",
-      "distinct_everything_trio_axes_are_pairwise_distinct",
+      "options_share_scene_frame_without_required_symmetry",
+      "each_option_has_independent_payload",
     ],
-    repairPreferences: ["resample_distinct_row", "swap_pool_assignment"],
-    debugLabel: "Independent rows menu",
-    versionContribution: versionContribution(
-      "independent_rows_menu",
-      "direct_menu",
-    ),
+    repairPreferences: [
+      "rebalance_outlier_option_value",
+      "replace_off-theme_option",
+      "reduce_to_three_authored_options",
+    ],
+    debugLabel: "Random rewards",
+    versionContribution: versionContribution("random_rewards", "direct_menu"),
     menuValueChecks: {
-      positiveBands: false,
+      positiveBands: true,
       symmetricBands: false,
-      escalationOrRiskExempt: true,
+      escalationOrRiskExempt: false,
     },
-    compoundCoherence: "skip",
-    requiresPrecommittedRandom: false,
   },
-  scoreWeight: 1.0,
+  scoreWeight: 1.35,
+  generatedObjects: { natural: true, highWeirdness: true },
   repair: {
     actions: [
-      { action: "resample_distinct_row", kind: "repair_payload_family" },
-      { action: "swap_pool_assignment", kind: "repair_payload_family" },
+      {
+        action: "rebalance_outlier_option_value",
+        kind: "repair_payload_family",
+      },
+      { action: "replace_off-theme_option", kind: "repair_payload_family" },
+      { action: "reduce_to_three_authored_options", kind: "simplify_fill" },
     ],
   },
-  fill: fillOrThrow,
-  validators,
+  fill: randomRewardsFill,
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { independentRowsMenuFill } from "../src/journey/shapes/independent_rows_menu/fill.js";
+import { randomTradesFill } from "../src/journey/shapes/random_trades/fill.js";
 import {
   makeTestContext,
   runShapeValidators,
@@ -7,9 +7,9 @@ import {
 } from "./helpers/journey-context.js";
 
 describe("distinct_everything_trio", () => {
-  it("is emitted by every successful independent_rows_menu fill", () => {
+  it("is emitted by every successful random_trades fill", () => {
     const { context, drawContext, stage } = makeTestContext({ seed: "de-1" });
-    const filled = independentRowsMenuFill({ context, drawContext, stage })!;
+    const filled = randomTradesFill({ context, drawContext, stage })!;
     expect(filled).toBeDefined();
     expect(
       (filled.symmetryContracts ?? []).some(
@@ -22,7 +22,7 @@ describe("distinct_everything_trio", () => {
 describe("distinct_everything_trio validator", () => {
   it("rejects a manifest claiming the contract but containing duplicate rows", () => {
     const manifest = synthesizeDistinctEverythingTrioWithDuplicates();
-    const result = runShapeValidators("independent_rows_menu", manifest);
+    const result = runShapeValidators("random_trades", manifest);
     expect(result.failures.map((f) => f.ruleId)).toContain(
       "distinct_everything_trio_axes_are_pairwise_distinct",
     );

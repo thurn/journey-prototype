@@ -11,7 +11,7 @@ describe("oneshot-battle-rule status archetype", () => {
       const body = naturalStatusBody({
         kind: "status",
         drawContext,
-        shapeId: "independent_rows_menu",
+        shapeId: "random_trades",
         stage: "mid",
         cards: [],
       });
@@ -33,7 +33,7 @@ describe("oneshot-battle-rule status archetype", () => {
       const body = naturalStatusBody({
         kind: "status",
         drawContext,
-        shapeId: "independent_rows_menu",
+        shapeId: "random_trades",
         stage: "mid",
         cards: [],
       });

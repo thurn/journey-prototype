@@ -15,6 +15,8 @@ import type { JourneyOption } from "../../manifest.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { ROW_POOL_CONFIGURATIONS, type RowPool } from "./rowPools.js";
 
+// Stable RNG namespace — kept at the original shape ID to preserve seed
+// determinism across the rename to `random_trades`.
 const SHAPE_LABEL = "independent_rows_menu";
 
 const MAX_ROW_RESAMPLES = 8;
@@ -124,7 +126,7 @@ function pickDistinctRow(
 }
 
 /**
- * Fill function for the `independent_rows_menu` shape. Each row independently
+ * Fill function for the `random_trades` shape. Each row independently
  * chooses a pool from `ROW_POOL_CONFIGURATIONS`, then picks one cost source
  * and one reward source from that pool. Rows are guaranteed pairwise
  * distinct on the (pool, cost, reward) tuple via deterministic resampling.
@@ -133,7 +135,7 @@ function pickDistinctRow(
  * cannot produce a payload (e.g. a needed cost slot is unavailable) or the
  * registry is too narrow to satisfy the requested row count distinctly.
  */
-export function independentRowsMenuFill(
+export function randomTradesFill(
   args: ShapeFillArgs,
 ): FilledJourney | undefined {
   const { context, drawContext, stage } = args;

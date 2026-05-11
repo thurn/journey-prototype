@@ -159,7 +159,7 @@ export function runShapeValidators(
 }
 
 /**
- * Builds a minimal `independent_rows_menu` manifest claiming the
+ * Builds a minimal `random_trades` manifest claiming the
  * `distinct_everything_trio` contract while embedding duplicate axis values.
  * The manifest is intended for validator-isolation tests of the
  * distinct-everything pairwise-distinctness rule and is not a fully valid
@@ -207,7 +207,7 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
     journeyId: "J-000002",
     seed: "synth-distinct-everything-dups",
     rootJourneyIndex: 1,
-    shapeId: "independent_rows_menu",
+    shapeId: "random_trades",
     stage: "mid",
     dreamscape: 0,
     selectedTags: [],
@@ -219,7 +219,7 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
     precommitted: {},
     debug: {
       shapeScores: [],
-      selectedShapeId: "independent_rows_menu",
+      selectedShapeId: "random_trades",
       selectedTags: [],
       optionValues: [],
       symmetryContracts: [
@@ -242,7 +242,7 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
       repair: {
         status: "accepted_immediately",
         forcedShape: false,
-        finalShapeId: "independent_rows_menu",
+        finalShapeId: "random_trades",
       },
     },
     references: {
@@ -255,7 +255,7 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
 }
 
 /**
- * Builds a minimal `independent_rows_menu` manifest where every option has
+ * Builds a minimal `random_trades` manifest where every option has
  * identical `(cost, reward)` payloads. The manifest only fills the fields
  * that the shape's validators inspect; other manifest invariants are not
  * enforced because the helper is intended for validator-isolation tests.
@@ -300,7 +300,7 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
     journeyId: "J-000001",
     seed: "synth-identical-rows",
     rootJourneyIndex: 1,
-    shapeId: "independent_rows_menu",
+    shapeId: "random_trades",
     stage: "mid",
     dreamscape: 0,
     selectedTags: [],
@@ -312,7 +312,7 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
     precommitted: {},
     debug: {
       shapeScores: [],
-      selectedShapeId: "independent_rows_menu",
+      selectedShapeId: "random_trades",
       selectedTags: [],
       optionValues: [],
       repairs: [],
@@ -325,7 +325,7 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
       repair: {
         status: "accepted_immediately",
         forcedShape: false,
-        finalShapeId: "independent_rows_menu",
+        finalShapeId: "random_trades",
       },
     },
     references: {

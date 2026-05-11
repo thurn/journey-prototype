@@ -5,7 +5,7 @@ import { curatedRewardTrioPlugin } from "./curated_reward_trio/index.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain/index.js";
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
-import { independentRowsMenuPlugin } from "./independent_rows_menu/index.js";
+import { randomTradesPlugin } from "./random_trades/index.js";
 import { mirroredOperationsPlugin } from "./mirrored_operations.js";
 import { nowVsLaterPlugin } from "./now_vs_later/index.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
@@ -14,7 +14,7 @@ import { pairedReturnPlugin } from "./paired_return.js";
 import { prizeLadderPlugin } from "./prize_ladder/index.js";
 import { probabilityLadderPlugin } from "./probability_ladder.js";
 import { pushYourLuckPlugin } from "./push_your_luck/index.js";
-import { randomAllocationPlugin } from "./random_allocation/index.js";
+import { randomRewardsPlugin } from "./random_rewards/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
 import { resolvedRandomSeriesPlugin } from "./resolved_random_series.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
@@ -40,7 +40,7 @@ import type {
 } from "./types.js";
 
 const BUILTIN_SHAPE_PLUGINS = Object.freeze([
-  randomAllocationPlugin,
+  randomRewardsPlugin,
   sameCostDifferentRewardsPlugin,
   sameRewardDifferentCostsPlugin,
   sharedPrefixMenuPlugin,
@@ -48,7 +48,7 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   shopRowPlugin,
   curatedRewardTrioPlugin,
   heterogeneousPairPlugin,
-  independentRowsMenuPlugin,
+  randomTradesPlugin,
   oneTargetManyOperationsPlugin,
   mirroredOperationsPlugin,
   oneOperationManyTargetsPlugin,

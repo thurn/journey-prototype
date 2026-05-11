@@ -4,9 +4,11 @@ import {
 } from "../../fillers/shared.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
+// Stable RNG namespace — kept at the original shape ID to preserve seed
+// determinism across the rename to `random_rewards`.
 const SHAPE_LABEL = "random_allocation";
 
-export function randomAllocationFill(args: ShapeFillArgs): FilledJourney {
+export function randomRewardsFill(args: ShapeFillArgs): FilledJourney {
   const { context, drawContext, stage } = args;
 
   return {

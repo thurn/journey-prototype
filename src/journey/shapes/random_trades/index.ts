@@ -3,14 +3,28 @@ import {
   defineShapePlugin,
   versionContribution,
 } from "../shared.js";
-import { randomAllocationFill } from "./fill.js";
+import type { FilledJourney, ShapeFillArgs } from "../types.js";
+import { randomTradesFill } from "./fill.js";
+import { validators } from "./validators.js";
 
-export const randomAllocationPlugin = defineShapePlugin({
+function fillOrThrow(args: ShapeFillArgs): FilledJourney {
+  const filled = randomTradesFill(args);
+
+  if (!filled) {
+    throw new Error(
+      "random_trades fill produced no result for the given draw context.",
+    );
+  }
+
+  return filled;
+}
+
+export const randomTradesPlugin = defineShapePlugin({
   definition: {
-    id: "random_allocation",
+    id: "random_trades",
     topology: "direct_menu",
-    rootOptionCount: { min: 3, max: 4 },
-    supportedTags: ["reward", "cost", "burden", "eclectic", "menu"],
+    rootOptionCount: { min: 2, max: 3 },
+    supportedTags: ["menu", "heterogeneous"],
     payloadCompatibility: [
       {
         familyId: "adapter",
@@ -20,28 +34,31 @@ export const randomAllocationPlugin = defineShapePlugin({
       },
       {
         familyId: "card",
-        variants: [],
-        legality: "unsupported",
-        reason: "Shape does not expose a legal card-target operation frame.",
+        variants: ["adapter-compatible-card-operations"],
+        legality: "legal",
+        reason:
+          "Each row independently selects a card target or card-operation frame.",
       },
       {
         familyId: "dreamsign",
-        variants: [],
-        legality: "unsupported",
+        variants: ["adapter-compatible-dreamsign-operations"],
+        legality: "legal",
         reason:
-          "Shape does not expose a legal Dreamsign target or shop frame.",
+          "Each row independently selects a Dreamsign target, reward, or pool edit.",
       },
       {
         familyId: "bane",
-        variants: [],
-        legality: "unsupported",
-        reason: "Shape lacks a controlled Bane-operation or loss-choice frame.",
+        variants: ["adapter-compatible-bane-operations"],
+        legality: "legal",
+        reason:
+          "Each row independently frames a Bane gain, purge, or transformation.",
       },
       {
         familyId: "resource",
         variants: ["adapter-compatible-resource-operations"],
         legality: "legal",
-        reason: "Shape can compare visible resource costs or rewards.",
+        reason:
+          "Each row independently exposes its own visible resource cost or reward.",
       },
       {
         familyId: "route",
@@ -92,7 +109,7 @@ export const randomAllocationPlugin = defineShapePlugin({
         variants: ["adapter-compatible-generated-objects"],
         legality: "legal",
         reason:
-          "Shape can host manifest-local generated object grants or transforms.",
+          "Each row may independently host manifest-local generated object grants or transforms.",
       },
       {
         familyId: "decision_tree",
@@ -103,33 +120,31 @@ export const randomAllocationPlugin = defineShapePlugin({
     ],
     validationRules: [
       ...commonValidationRules,
-      "options_share_scene_frame_without_required_symmetry",
-      "each_option_has_independent_payload",
+      "each_row_draws_from_configured_pool",
+      "rows_are_pairwise_distinct_on_at_least_one_axis",
+      "distinct_everything_trio_axes_are_pairwise_distinct",
     ],
-    repairPreferences: [
-      "rebalance_outlier_option_value",
-      "replace_off-theme_option",
-      "reduce_to_three_authored_options",
-    ],
-    debugLabel: "Random allocation",
-    versionContribution: versionContribution("random_allocation", "direct_menu"),
+    repairPreferences: ["resample_distinct_row", "swap_pool_assignment"],
+    debugLabel: "Random trades",
+    versionContribution: versionContribution(
+      "random_trades",
+      "direct_menu",
+    ),
     menuValueChecks: {
-      positiveBands: true,
+      positiveBands: false,
       symmetricBands: false,
-      escalationOrRiskExempt: false,
+      escalationOrRiskExempt: true,
     },
+    compoundCoherence: "skip",
+    requiresPrecommittedRandom: false,
   },
-  scoreWeight: 1.35,
-  generatedObjects: { natural: true, highWeirdness: true },
+  scoreWeight: 1.0,
   repair: {
     actions: [
-      {
-        action: "rebalance_outlier_option_value",
-        kind: "repair_payload_family",
-      },
-      { action: "replace_off-theme_option", kind: "repair_payload_family" },
-      { action: "reduce_to_three_authored_options", kind: "simplify_fill" },
+      { action: "resample_distinct_row", kind: "repair_payload_family" },
+      { action: "swap_pool_assignment", kind: "repair_payload_family" },
     ],
   },
-  fill: randomAllocationFill,
+  fill: fillOrThrow,
+  validators,
 });

@@ -15,7 +15,7 @@ import {
 import { defineShapePlugin } from "../src/journey/shapes/shared.js";
 
 const expectedShapeIds = [
-  "random_allocation",
+  "random_rewards",
   "same_cost_different_rewards",
   "same_reward_different_costs",
   "shared_prefix_menu",
@@ -23,7 +23,7 @@ const expectedShapeIds = [
   "shop_row",
   "curated_reward_trio",
   "heterogeneous_pair",
-  "independent_rows_menu",
+  "random_trades",
   "one_target_many_operations",
   "mirrored_operations",
   "one_operation_many_targets",
@@ -232,12 +232,12 @@ describe("JOURNEY_SHAPES", () => {
   });
 
   it("freezes shared catalog definitions against accidental mutation", () => {
-    const definition = getShapeDefinition("random_allocation");
+    const definition = getShapeDefinition("random_rewards");
     const canonicalBeforeMutationAttempts = canonicalShapeDefinitions();
 
     expect(Object.isFrozen(JOURNEY_SHAPES)).toBe(true);
     expect(Object.isFrozen(journeyShapePlugins())).toBe(true);
-    expect(Object.isFrozen(getShapePlugin("random_allocation"))).toBe(true);
+    expect(Object.isFrozen(getShapePlugin("random_rewards"))).toBe(true);
     expect(Object.isFrozen(definition)).toBe(true);
     expect(Object.isFrozen(definition.rootOptionCount)).toBe(true);
     expect(Object.isFrozen(definition.supportedTags)).toBe(true);
@@ -255,7 +255,7 @@ describe("JOURNEY_SHAPES", () => {
       (definition.supportedTags as string[]).push("mutated");
     }).toThrow(TypeError);
 
-    expect(getShapeDefinition("random_allocation").rootOptionCount).toEqual({
+    expect(getShapeDefinition("random_rewards").rootOptionCount).toEqual({
       min: 3,
       max: 4,
     });
@@ -328,7 +328,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v13;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v14;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

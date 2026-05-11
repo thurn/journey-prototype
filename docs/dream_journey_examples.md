@@ -7,7 +7,7 @@ current deterministic QA surface, and use `journey --seed <seed> --stage
 <stage> --shape <shape> --json` when checking the final manifest, validation,
 repair, generated-object, and distinctness contracts for a shape.
 
-# random_allocation
+# random_rewards
 
 ## Quick Revision
 

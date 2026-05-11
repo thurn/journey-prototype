@@ -749,7 +749,7 @@ describe.concurrent("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v13",
+      shapeCatalogVersion: "journey-shapes:v14",
       effectCatalogVersion: "effects:v7",
       valueModelVersion: "value:v10",
       rendererVersion: "renderer:v1",
@@ -2098,7 +2098,7 @@ describe.concurrent("generateNextJourney", () => {
       const manifest = generateNextJourney({
         context: journeyContext,
         forcedStage: "late",
-        forcedShapeId: "random_allocation",
+        forcedShapeId: "random_rewards",
       });
 
       expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
@@ -5631,7 +5631,7 @@ describe.concurrent("generateNextJourney", () => {
 
   slowIt("varies positive menu filler slots across seeds while preserving deterministic replay", async () => {
     const positiveMenuShapeIds: JourneyShapeId[] = [
-      "random_allocation",
+      "random_rewards",
       "curated_reward_trio",
       "heterogeneous_pair",
       "single_reward",
@@ -6860,7 +6860,7 @@ describe.concurrent("generateNextJourney", () => {
     });
   });
 
-  it("generates at least one independent_rows_menu over a 100-seed sweep", async () => {
+  it("generates at least one random_trades over a 100-seed sweep", async () => {
     const journeyContext = await context();
     let seen = 0;
 
@@ -6883,7 +6883,7 @@ describe.concurrent("generateNextJourney", () => {
         },
       });
 
-      if (manifest.shapeId === "independent_rows_menu") {
+      if (manifest.shapeId === "random_trades") {
         seen += 1;
       }
     }

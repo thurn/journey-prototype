@@ -461,11 +461,21 @@ promise of the scene.
 This list is the stable top-level catalog for V3. A new Journey idea should
 first ask whether it is an instance of one of these shapes.
 
-### random_allocation
+### random_rewards
 
-The site presents a small deliberately eclectic set of offers without a strong
-symmetry constraint. This shape should be strongly validated, and still read as
-one authored scene rather than as a uniform random grab bag.
+The site presents a small deliberately eclectic set of reward-only offers
+without a strong symmetry constraint. Every option is a reward payload (no
+costs); the variety is across reward kinds. This shape should be strongly
+validated, and still read as one authored scene rather than as a uniform
+random grab bag.
+
+### random_trades
+
+A heterogeneous (cost, reward) trade menu. Each row independently picks a
+cost source and a reward source from a configured row pool, with hard
+distinctness contracts across the rows. Use this when the scene is a set of
+unrelated bargains — every row has both a cost and a reward, and no axis is
+shared between rows.
 
 ### same_cost_different_rewards
 

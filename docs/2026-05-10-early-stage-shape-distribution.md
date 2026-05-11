@@ -48,7 +48,7 @@ Monte Carlo sampling rather than closed-form analysis:
 | take_any_number | 146 | 4.87% |
 | curated_reward_trio | 137 | 4.57% |
 | resolved_random_series | 129 | 4.30% |
-| random_allocation | 129 | 4.30% |
+| random_rewards | 129 | 4.30% |
 | shop_row | 114 | 3.80% |
 | heterogeneous_pair | 114 | 3.80% |
 | same_cost_different_rewards | 114 | 3.80% |
@@ -76,7 +76,7 @@ Monte Carlo sampling rather than closed-form analysis:
 | single_rule_trial | 52 | 1.73% |
 | escalating_reward_chain | 51 | 1.70% |
 | mirrored_operations | 48 | 1.60% |
-| independent_rows_menu | 22 | 0.73% |
+| random_trades | 22 | 0.73% |
 
 ## Notes on the weighting
 
