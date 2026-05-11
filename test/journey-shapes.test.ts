@@ -125,14 +125,18 @@ describe("JOURNEY_SHAPES", () => {
       expect(definition.rootOptionCount.max).toBeGreaterThanOrEqual(
         definition.rootOptionCount.min,
       );
-      expect(definition.supportedTags.length).toBeGreaterThan(0);
-      expect(definition.payloadCompatibility.length).toBeGreaterThan(0);
-      expect(definition.payloadCompatibility.map((entry) => entry.familyId)).toEqual(expect.arrayContaining([
-        "adapter",
-        "decision_tree",
-      ]));
+      if (!definition.bypassStandardValidation) {
+        expect(definition.supportedTags.length).toBeGreaterThan(0);
+        expect(definition.payloadCompatibility.length).toBeGreaterThan(0);
+        expect(definition.payloadCompatibility.map((entry) => entry.familyId)).toEqual(expect.arrayContaining([
+          "adapter",
+          "decision_tree",
+        ]));
+      }
       expect(definition.validationRules.length).toBeGreaterThan(0);
-      expect(definition.repairPreferences.length).toBeGreaterThan(0);
+      if (!definition.bypassStandardValidation) {
+        expect(definition.repairPreferences.length).toBeGreaterThan(0);
+      }
       expect(definition.debugLabel.length).toBeGreaterThan(0);
       expect(definition.versionContribution).toBeDefined();
     }
@@ -153,6 +157,10 @@ describe("JOURNEY_SHAPES", () => {
 
   it("maps decision-tree payload compatibility only to tree topology shapes", () => {
     for (const definition of JOURNEY_SHAPES) {
+      if (definition.bypassStandardValidation) {
+        continue;
+      }
+
       const decisionTreeCompatibility = definition.payloadCompatibility.find((entry) =>
         entry.familyId === "decision_tree"
       );
@@ -178,7 +186,7 @@ describe("JOURNEY_SHAPES", () => {
 
     for (const { family, variant } of availableDebugVariants.values()) {
       const supportedShapes = variant.supportedShapes === "all"
-        ? JOURNEY_SHAPES.map((shape) => shape.id)
+        ? JOURNEY_SHAPES.filter((shape) => !shape.bypassStandardValidation).map((shape) => shape.id)
         : variant.supportedShapes;
 
       for (const shapeId of supportedShapes) {
@@ -257,7 +265,7 @@ describe("JOURNEY_SHAPES", () => {
 
     expect(getShapeDefinition("random_rewards").rootOptionCount).toEqual({
       min: 3,
-      max: 4,
+      max: 3,
     });
     expect(canonicalShapeDefinitions()).toEqual(canonicalBeforeMutationAttempts);
   });

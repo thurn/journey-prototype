@@ -2093,12 +2093,12 @@ describe.concurrent("generateNextJourney", () => {
   it("generates Spoiled Victory as next-victory reward replacement statuses without granting the replacement immediately", async () => {
     const seen = new Set<string>();
 
-    for (let index = 0; index < 20; index += 1) {
+    for (let index = 0; index < 50; index += 1) {
       const journeyContext = await context(`m14-spoiled-victory-${index}`);
       const manifest = generateNextJourney({
         context: journeyContext,
         forcedStage: "late",
-        forcedShapeId: "random_rewards",
+        forcedShapeId: "shared_prefix_menu",
       });
 
       expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
