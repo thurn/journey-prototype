@@ -27,7 +27,7 @@ function fakeCtx(overrides: Partial<JourneyContext["state"]["quest"]["resources"
         resources: { essence: 100, maxEssence: 200, omens: 0, dreamscape: 1, ...overrides },
         selectedTides: [], mandatoryTides: [], optionalSubset: [],
         deck: { entries: [], summary: { totalCards: 0, starterCards: 0, uniqueCards: 0 } },
-        activeDreamsigns: [], dreamsignPoolIds: [],
+        activeDreamsigns: [], banes: [], dreamsignPoolIds: [],
         dreamsignPoolSummary: { tidalPoolCount: 0, neutralCatalogCount: 0 },
         draftPool: [],
         draftPoolSummary: { totalCopies: 0, uniqueCards: 0, oneCopyCards: 0, twoCopyCards: 0 },
@@ -147,10 +147,35 @@ describe("rewards table (purge/transform family)", () => {
     }
   });
 
-  it("purge_X_banes is not viable when bane count is 0 (v1 stop-gap)", () => {
+  it("purge_X_banes is not viable when bane count is 0", () => {
     const t = getReward("purge_X_banes");
     const p = t.rollParams(fakeCtx(), draw);
     expect(t.viable(p, fakeCtx())).toBe(false);
+  });
+
+  it("purge_X_banes becomes viable once banes are present on the quest", () => {
+    const t = getReward("purge_X_banes");
+    const ctx = fakeCtx();
+
+    ctx.state.quest.banes = [
+      { baneName: "Nightmare" },
+      { baneName: "Despair" },
+      { baneName: "Oblivion" },
+    ];
+
+    const p = t.rollParams(ctx, draw);
+    expect(t.viable(p, ctx)).toBe(true);
+  });
+
+  it("purge_all_banes is viable iff at least one bane exists", () => {
+    const t = getReward("purge_all_banes");
+    const empty = fakeCtx();
+    const populated = fakeCtx();
+
+    populated.state.quest.banes = [{ baneName: "Nightmare" }];
+
+    expect(t.viable(t.rollParams(empty, draw), empty)).toBe(false);
+    expect(t.viable(t.rollParams(populated, draw), populated)).toBe(true);
   });
 });
 

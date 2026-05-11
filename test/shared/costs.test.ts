@@ -24,7 +24,7 @@ function fakeCtx(essence = 100, omens = 1): JourneyContext {
         resources: { essence, maxEssence: 200, omens, dreamscape: 1 },
         selectedTides: [], mandatoryTides: [], optionalSubset: [],
         deck: { entries: [], summary: { totalCards: 0, starterCards: 0, uniqueCards: 0 } },
-        activeDreamsigns: [], dreamsignPoolIds: [],
+        activeDreamsigns: [], banes: [], dreamsignPoolIds: [],
         dreamsignPoolSummary: { tidalPoolCount: 0, neutralCatalogCount: 0 },
         draftPool: [],
         draftPoolSummary: { totalCopies: 0, uniqueCards: 0, oneCopyCards: 0, twoCopyCards: 0 },

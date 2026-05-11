@@ -56,10 +56,8 @@ export function maxEssence(ctx: JourneyContext): number {
   return ctx.state.quest.resources.maxEssence;
 }
 
-// Bane state isn't currently tracked on QuestState; treat as 0 so
-// bane-purging templates are never viable in v1. Documented stop-gap.
-export function baneCount(_ctx: JourneyContext): number {
-  return 0;
+export function baneCount(ctx: JourneyContext): number {
+  return ctx.state.quest.banes.length;
 }
 
 export function pickFromList<T>(
