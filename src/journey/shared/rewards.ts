@@ -619,7 +619,7 @@ const addSiteToNextDreamscape: Reward<AddSiteParams> = {
 type StartingDreamwellPosParams = { cardName: string };
 const setStartingDreamwellPositive: Reward<StartingDreamwellPosParams> = {
   id: "set_starting_dreamwell_positive",
-  weight: 1.0,
+  weight: 0.25,
   rollParams: (_ctx, draw) => ({
     cardName: pickFromList(draw, "start_dw_pos:c", POSITIVE_DREAMWELL_CARDS),
   }),
@@ -631,7 +631,7 @@ const setStartingDreamwellPositive: Reward<StartingDreamwellPosParams> = {
 type ShufflePosDreamwellParams = { cardName: string; count: number };
 const shufflePositiveDreamwellCards: Reward<ShufflePosDreamwellParams> = {
   id: "shuffle_positive_dreamwell_cards",
-  weight: 1.0,
+  weight: 0.25,
   rollParams: (_ctx, draw) => ({
     cardName: pickFromList(draw, "shuffle_dw_pos:c", POSITIVE_DREAMWELL_CARDS),
     count: drawInt(draw, "shuffle_dw_pos:n", 1, 3),

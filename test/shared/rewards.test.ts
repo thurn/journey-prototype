@@ -362,6 +362,14 @@ describe("rewards table (site/dreamwell/misc family)", () => {
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
   });
+
+  it("dreamwell rewards are down-weighted to 0.25 so they appear less often", () => {
+    // Dreamwell rewards otherwise crowd the random_rewards pool; their pool
+    // weight is reduced to a quarter of the default to thin out their
+    // appearances. This is a behaviour-protecting test for that tuning.
+    expect(getReward("set_starting_dreamwell_positive").weight).toBe(0.25);
+    expect(getReward("shuffle_positive_dreamwell_cards").weight).toBe(0.25);
+  });
 });
 
 describe("rewards table (newly added)", () => {
