@@ -459,6 +459,25 @@ describe("rewards table (newly added)", () => {
     expect(t.render(p, fakeCtx())).toMatch(/Increase your maximum essence by \d+/);
   });
 
+  it("increase_max_essence CEC is ~25 at amount=50 and scales modestly with amount", () => {
+    // Increasing maximum essence is a soft, indirect resource buff: the player
+    // still has to gain essence up to the new cap, so the value is much lower
+    // than a direct essence grant. The CEC is pinned to roughly half the
+    // amount, putting amount=50 around 25 CEC and the full amount=25..125
+    // range at roughly 12..63 CEC.
+    const t = getReward("increase_max_essence");
+    expect(t.cec({ amount: 25 } as never, fakeCtx())).toBeCloseTo(12.5);
+    expect(t.cec({ amount: 50 } as never, fakeCtx())).toBeCloseTo(25);
+    expect(t.cec({ amount: 75 } as never, fakeCtx())).toBeCloseTo(37.5);
+    expect(t.cec({ amount: 100 } as never, fakeCtx())).toBeCloseTo(50);
+    expect(t.cec({ amount: 125 } as never, fakeCtx())).toBeCloseTo(62.5);
+
+    // Bracket check matching the tuning intent (amount=50 ~ 25 CEC).
+    const cec50 = t.cec({ amount: 50 } as never, fakeCtx());
+    expect(cec50).toBeGreaterThanOrEqual(20);
+    expect(cec50).toBeLessThanOrEqual(30);
+  });
+
   it("shop_essence_discount renders the discount as permanent", () => {
     // The shop essence discount applies for the rest of the quest, so the
     // render must explicitly say "permanently" to avoid the player reading it

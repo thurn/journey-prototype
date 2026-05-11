@@ -658,7 +658,7 @@ const increaseMaxEssence: Reward<IncreaseMaxEssenceParams> = {
   id: "increase_max_essence",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({ amount: 25 + 25 * drawInt(draw, "inc_max_essence:a", 0, 4) }),
-  cec: (p) => p.amount * 1.5 * STAGE_MULTIPLIER,
+  cec: (p) => p.amount * 0.5 * STAGE_MULTIPLIER,
   viable: () => true,
   render: (p) => `Increase your maximum essence by ${p.amount}`,
 };
