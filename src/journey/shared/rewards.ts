@@ -13,7 +13,7 @@ import {
   starterCardCount,
 } from "./content.js";
 import { PREDICATES, getPredicate } from "./predicates.js";
-import type { Predicate, Reward } from "./types.js";
+import type { Predicate, Reward, TemplateParams } from "./types.js";
 
 type GainEssenceParams = { x: number };
 const gainEssence: Reward<GainEssenceParams> = {
@@ -621,6 +621,64 @@ const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
   render: (p) => `${p.percent}% higher chance to see ${p.siteType} sites in future dreamscapes`,
 };
 
+type MetaGain2Params = {
+  subIds: readonly [string, string];
+  subParams: readonly [TemplateParams, TemplateParams];
+};
+
+function nonMetaRewards(): readonly Reward[] {
+  return REWARDS.filter((r) => !r.id.startsWith("meta_"));
+}
+
+const metaGain2Rewards: Reward<MetaGain2Params> = {
+  id: "meta_gain_2_rewards",
+  weight: 1.0,
+  rollParams: (ctx, draw) => {
+    const allNonMeta = nonMetaRewards();
+    // Restrict to sub-templates that are viable in the current state, so the
+    // meta template itself is viable whenever it picks two sub-templates.
+    const pool = allNonMeta.filter((r) => {
+      const subDraw = { ...draw, selectionAttempt: (draw.selectionAttempt ?? 0) * 10 + 7 };
+      const subParams = r.rollParams(ctx, subDraw);
+      return r.viable(subParams, ctx);
+    });
+    const usePool = pool.length >= 2 ? pool : allNonMeta;
+    if (usePool.length < 2) {
+      // Degenerate, should not happen in practice.
+      const first = usePool[0]!;
+      return {
+        subIds: [first.id, first.id] as readonly [string, string],
+        subParams: [first.rollParams(ctx, draw), first.rollParams(ctx, draw)] as readonly [TemplateParams, TemplateParams],
+      };
+    }
+    // Two-step weighted random without replacement.
+    const firstIndex = drawInt(draw, "meta_gain_2:i1", 0, usePool.length - 1);
+    let secondIndex = drawInt(draw, "meta_gain_2:i2", 0, usePool.length - 2);
+    if (secondIndex >= firstIndex) secondIndex += 1;
+    const first = usePool[firstIndex]!;
+    const second = usePool[secondIndex]!;
+    return {
+      subIds: [first.id, second.id] as readonly [string, string],
+      subParams: [
+        first.rollParams(ctx, { ...draw, selectionAttempt: (draw.selectionAttempt ?? 0) * 10 + 1 }),
+        second.rollParams(ctx, { ...draw, selectionAttempt: (draw.selectionAttempt ?? 0) * 10 + 2 }),
+      ] as readonly [TemplateParams, TemplateParams],
+    };
+  },
+  cec: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getReward(id));
+    return a!.cec(p.subParams[0] as never, ctx) + b!.cec(p.subParams[1] as never, ctx);
+  },
+  viable: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getReward(id));
+    return a!.viable(p.subParams[0] as never, ctx) && b!.viable(p.subParams[1] as never, ctx);
+  },
+  render: (p, ctx) => {
+    const [a, b] = p.subIds.map((id) => getReward(id));
+    return [a!.render(p.subParams[0] as never, ctx), b!.render(p.subParams[1] as never, ctx)].join(". ");
+  },
+};
+
 export const REWARDS: readonly Reward[] = Object.freeze([
   gainEssence,
   gainOmens,
@@ -669,6 +727,7 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   shufflePositiveDreamwellCards,
   nextXShopRerollsFree,
   boostSiteAppearanceChance,
+  metaGain2Rewards,
 ] as unknown as Reward[]);
 
 const BY_ID = new Map(REWARDS.map((r) => [r.id, r]));

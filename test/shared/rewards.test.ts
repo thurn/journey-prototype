@@ -185,3 +185,37 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     }
   });
 });
+
+describe("meta_gain_2_rewards", () => {
+  it("rolls two distinct non-meta sub-template ids", () => {
+    const t = getReward("meta_gain_2_rewards");
+    for (let i = 0; i < 20; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { subIds: [string, string] };
+      expect(p.subIds[0]).not.toBe(p.subIds[1]);
+      expect(p.subIds[0]).not.toMatch(/^meta_/);
+      expect(p.subIds[1]).not.toMatch(/^meta_/);
+    }
+  });
+
+  it("cec sums the sub-template CECs", () => {
+    const t = getReward("meta_gain_2_rewards");
+    const p = t.rollParams(fakeCtx(), draw) as { subIds: [string, string]; subParams: [unknown, unknown] };
+    const cec = t.cec(p as never, fakeCtx());
+    expect(cec).toBeGreaterThan(0);
+  });
+
+  it("render concatenates the two sub-renders", () => {
+    const t = getReward("meta_gain_2_rewards");
+    const p = t.rollParams(fakeCtx(), draw);
+    const text = t.render(p, fakeCtx());
+    expect(text).toContain(".");
+    expect(text.length).toBeGreaterThan(10);
+  });
+
+  it("viable iff both sub-templates are viable in current state", () => {
+    const t = getReward("meta_gain_2_rewards");
+    const p = t.rollParams(fakeCtx(), draw);
+    // Sub-templates are picked among viable templates, so the meta should be viable.
+    expect(t.viable(p, fakeCtx())).toBe(true);
+  });
+});
