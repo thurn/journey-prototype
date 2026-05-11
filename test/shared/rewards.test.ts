@@ -177,6 +177,37 @@ describe("rewards table (purge/transform family)", () => {
     expect(t.viable(t.rollParams(empty, draw), empty)).toBe(false);
     expect(t.viable(t.rollParams(populated, draw), populated)).toBe(true);
   });
+
+  it("purge_chosen_predicate_with_replacement uses transform wording (singular count)", () => {
+    const t = getReward("purge_chosen_predicate_with_replacement");
+    const text = t.render({ predicateId: "warriors", count: 1 } as never, fakeCtx());
+    expect(text).toBe("Transform a chosen Warrior into a random Warrior");
+    expect(text).not.toMatch(/[Pp]urge/);
+    expect(text).not.toMatch(/replacement/);
+  });
+
+  it("purge_chosen_predicate_with_replacement uses transform wording (plural count)", () => {
+    const t = getReward("purge_chosen_predicate_with_replacement");
+    const text = t.render({ predicateId: "survivors", count: 2 } as never, fakeCtx());
+    expect(text).toBe("Transform up to 2 chosen Survivors into random Survivors");
+    expect(text).not.toMatch(/[Pp]urge/);
+    expect(text).not.toMatch(/replacement/);
+  });
+
+  it("purge_random_starter_with_predicate_replacement uses transform wording", () => {
+    const t = getReward("purge_random_starter_with_predicate_replacement");
+    const text = t.render({ predicateId: "warriors" } as never, fakeCtx());
+    expect(text).toBe("Transform a random starter card into a random Warrior");
+    expect(text).not.toMatch(/[Pp]urge/);
+    expect(text).not.toMatch(/replacement/);
+  });
+
+  it("purge_all_starters_replace uses transform wording", () => {
+    const t = getReward("purge_all_starters_replace");
+    const text = t.render({} as never, fakeCtx());
+    expect(text).toBe("Transform all starter cards into new starter cards");
+    expect(text).not.toMatch(/[Pp]urge/);
+  });
 });
 
 describe("rewards table (dreamsign family)", () => {

@@ -335,8 +335,10 @@ const purgeChosenPredicateWithReplacement: Reward<PurgeChosenPredWithReplParams>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
   render: (p) => {
     const pred = getPredicate(p.predicateId);
-    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
-    return `Purge up to ${p.count} chosen ${noun} and gain a random ${pred.text.singular} replacement`;
+    if (p.count === 1) {
+      return `Transform a chosen ${pred.text.singular} into a random ${pred.text.singular}`;
+    }
+    return `Transform up to ${p.count} chosen ${pred.text.plural} into random ${pred.text.plural}`;
   },
 };
 
@@ -375,7 +377,7 @@ const purgeRandomStarterWithPredicateReplacement: Reward<PurgeRandomStarterReplP
   cec: (p) => cardPoolCEC(CARD_CEC * 0.7, 1, getPredicate(p.predicateId)),
   viable: (_p, ctx) => starterCardCount(ctx) >= 1,
   render: (p) =>
-    `Purge a random starter card and gain a ${getPredicate(p.predicateId).text.singular} replacement`,
+    `Transform a random starter card into a random ${getPredicate(p.predicateId).text.singular}`,
 };
 
 type PurgeAllStartersReplParams = Record<string, never>;
@@ -385,7 +387,7 @@ const purgeAllStartersReplace: Reward<PurgeAllStartersReplParams> = {
   rollParams: () => ({}),
   cec: (_p, ctx) => CARD_CEC * 0.8 * Math.max(1, starterCardCount(ctx)),
   viable: (_p, ctx) => starterCardCount(ctx) >= 1,
-  render: () => "Purge all starter cards and replace them with new starter cards",
+  render: () => "Transform all starter cards into new starter cards",
 };
 
 type TransformStarterParams = { newCardName: string };
