@@ -1,0 +1,87 @@
+- Audit of `src/journey/shared/`, `src/journey/shapes/random_rewards/`, and `src/journey/shapes/random_trades/` against the old payload system in the rest of the codebase (primarily `src/journey/fillers/` and the other `src/journey/shapes/*` directories).
+- The new shared catalog is text-and-CEC only — `fill.ts` in both shapes builds `JourneyOption`s with empty `operations/costs/effects/burdens/targets/triggers/routeEffects`. Anything the old system expressed as a structured payload now has to round-trip through a `render()` string, so most gaps below are "the concept is gone," not just "renamed."
+- Missing reward: increase maximum essence (old `resource_cap_change` positive). New has `gain_essence_to_max` and `set_essence_to_percent_of_max` but nothing that raises the cap itself.
+- Missing reward: draft 2 of 4 from a predicate pool. New `draft_predicate_cards_from_4` only supports 1 of 4.
+- Missing reward: draft 1 of 4 then gain 2 copies (`card_draft_copy`).
+- Missing reward: draft 1 of 4 + apply transfiguration immediately (`card_draft_with_transfiguration`).
+- Missing reward: purge N random predicate cards as a reward. Only the cost-side `purge_random_predicate_card` exists in `costs.ts`.
+- Missing reward: purge in mid-cost band (energy 2–3). New has only `low_cost` (≤2) and `high_cost` (≥4).
+- Missing reward: purge all duplicate cards as a reward. Exists only as a cost.
+- Missing reward: transform random deck card → random catalog card as a reward. Exists only as the cost `transform_card_to_random_pool`.
+- Missing reward: add `Reclaim N` to a card. New only grants `Fast` (`make_card_fast` / `make_random_cards_fast`).
+- Missing reward: remove a keyword from a card (`card_keyword_remove`).
+- Missing reward: add a specific keyword/ability to events (`card_text_mutation`).
+- Missing reward: lower a card's energy cost by 1 (`card_cost_reduction`).
+- Missing reward: change card type → Event, and non-character subtype changes such as Sigil. New `modify_card_to_reference_type`, `change_card_to_become_type`, and `modify_random_cards_to_types` are hardcoded to `CARD_TYPES = ["warriors", "survivors", "spirit animals"]` (rewards.ts:152), so Event and the larger subtype catalog are unreachable.
+- Missing reward: grant Foresee (`card_ability_grant`).
+- Missing reward: ink reassignment / replace one line of a card's text (`card_text_replacement`).
+- Missing reward: remove targeting restrictions from a card (`card_restriction_removal`).
+- Missing reward: remove a specific named transfiguration from a card. New `remove_transfiguration_from_card` (cost-only) removes the whole transfiguration without naming which one.
+- Missing reward: merge two cards (`card_merge`).
+- Missing reward: split a card (`card_split`).
+- Missing reward: materialized ability conversion.
+- Missing reward: peek-at-deck-and-mutate (`card_operation_peek_and_mutate`).
+- Missing reward: battle-window grants — opening-hand grant, temporary copy for next N battles, cost reduction for next N battles. The whole "temporary, expires after N battles" pattern is gone from the reward side.
+- Missing reward: transfigure all cards of a predicate (e.g. "all Warriors") and transfigure all events. New `apply_named_transfiguration_to_*` only supports `count` 1–3 random/chosen.
+- Missing reward: transfigure 1–2 chosen starters. New has `transfigure_random_starters` and `transfigure_all_starters` only.
+- Missing reward: purge up to N chosen starters. `purge_named_starter` only handles a single named starter, not "chosen up to N."
+- Missing reward: purge all starters without replacement. Only `purge_all_starters_replace` (with replacement) exists.
+- Missing reward: replace chosen starter via a 4-card draft (`starter_replacement (draft)`).
+- Missing reward: combined starter cleanup + bane relief (`starter_cleanup_plus_bane_relief`).
+- Missing reward: apply a random transfiguration to a random deck card. New always names the transfiguration on the reward side.
+- Missing reward: transfigure-on-draft (apply transfiguration to a freshly-drafted card).
+- Missing reward: purge random banes scoped by predicate. New only has `purge_X_banes` / `purge_all_banes`, no random or predicate-scoped variants.
+- Missing reward: purge banes from the future-burden / manifest-obligation pool. Entire scope is gone.
+- Missing reward: replace a bane with a named card (`bane_replace_card`).
+- Missing reward: transform a bane into a named card (`bane_transform_card`).
+- Missing reward: bane purges scoped to specific bane names. Surviving bane rewards have no `names` parameter.
+- `content.ts:62` stubs `baneCount` to return `0`, so even `purge_X_banes` / `purge_all_banes` are never viable today — documented stop-gap, but the surviving bane rewards effectively never fire.
+- Missing reward: purchase a dreamsign with essence, and purchase with omens. The paired-purchase variants are gone.
+- Missing reward: transform a chosen dreamsign into a specific named dreamsign. New only has the random direction, and only as a cost (`transform_dreamsign_to_random`).
+- Missing reward: temporary dreamsign grant ("for next N battles").
+- Missing reward: dreamsign pool operations — pool-add, pool-remove, pool-replace, random-pool-select. Entire family gone.
+- Missing reward: draft dreamsigns with orientation filter. Predicate doesn't exist (see predicates below).
+- Missing reward: trade-hook dreamsign exchange.
+- Missing reward: route edits scoped to `future_dreamscapes` or `full_atlas`. New `add_site_to_*` only covers current + next dreamscape.
+- Missing reward: remove site as reward, for site types other than shop/dreamsign. `costs.ts` only ships `remove_shop_sites_from_next_dreamscapes` and `remove_dreamsign_sites_from_next_dreamscapes`; the other 9 `SITE_TYPES` aren't removable.
+- Missing reward: replace site (one type → another).
+- Missing reward: purge all sites of a given type.
+- Missing reward: decrease site appearance chance. `boost_site_appearance_chance` is positive-only.
+- Missing reward: shop essence discount, shop omen discount, vendor hook bonus. Only `next_X_shop_rerolls_free` survives.
+- Missing reward: dreamwell polarity variants beyond positive/negative — bonus, upgrade, delayed, replacement roles are gone.
+- Missing reward: the entire `status_rule_mutation` family from `environmentPayloads.ts` — prohibitions, structural constraints, exact-deck-size rules, dreamwell rules, omen reroll caps, reward-replacement mechanics. None have a representation in the new system.
+- Missing reward: delayed-reward hooks — after-next-battle, after-next-victory, after-two-victories, next-dreamscape.
+- Missing reward: paired-return hook (trade resource now → reward later).
+- The new system has no `triggers` or `hookCompatibility` pathway at all — `fill.ts` builds options with `triggers: []` hardcoded.
+- Missing cost: lose maximum essence (`resource_cap_change` negative).
+- Missing cost: delayed bane gain. Only immediate and "for next N battles" variants survive (`gain_named_banes_for_X_battles`).
+- Missing cost: future-burden bane gain (manifest-obligation pool).
+- Missing cost: all status burdens — prohibitions on deck modification, on transfiguration, on essence gain, on deck cut; structural constraints (exact deck size, minimum deck size, dreamwell rule, omen reroll cap). Only the battle reward reduction variants survive (`battle_reward_reduction_flat`, `battle_reward_reduction_percent`).
+- Missing cost: bane name filtering on cost-side purges. Same gap as the reward side — no `names` / `source: "manifest_obligation"` / `source: "future_burden"` scoping.
+- Missing predicate: exact `energyCost: 1`. Old `costOneCards` profile, no new equivalent.
+- Missing predicate: mid-cost band (energy 2–3). Old used this for `card_purge (mid)`.
+- Missing predicate: `energyCost: "*"` (variable / X-cost cards).
+- Missing predicate: discard-text cards (old `discardTextCards` profile, `renderedTextIncludes: "discard"`).
+- Missing predicate: Abandon cards.
+- Missing predicate: event-copying cards (`renderedTextIncludes: ["copy", "event"]`).
+- Missing predicate: energy-generation cards (`renderedTextIncludes: ["Gain", "●"]`).
+- Missing predicate: Dissolve / Dissolved cards.
+- Missing predicate: Reclaim cards.
+- Missing predicate: `minAbilityCount: N`.
+- Missing predicate: `hasMultipleAbilities: true` (multi-ability cards).
+- Missing predicate: `hasMultipleAbilities: false` (single-ability cards).
+- Missing predicate: `minCopies` / `maxCopies` (duplicate detection). `effects.ts:52–53` still supports these fields; no `PREDICATES` entry exposes them. Old `duplicateCards` profile is lost.
+- Missing predicate: `tideOverlap` (cards matching specific tides or the player's selected tides). Entire tide axis is gone from the predicate registry, though `effects.ts:50` and `effects.ts:619` still support it.
+- Missing predicate registry: dreamsign predicates. Old supported `source` (catalog/active/pool), `kind`, `orientation` (upright/reversed), and `tideOverlap`. New dreamsign rewards all call unfiltered `dreamsignMatches(ctx)`.
+- Missing predicate registry: bane predicates. Old supported `source: "vocabulary" | "state" | "future_burden" | "manifest_obligation"` and `names: [...]`. New bane rewards target a hardcoded `BANE_NAMES` pool only and treat all banes as fungible.
+- Net-new in `shared/predicates.ts` (not in old draft profiles): `low_spark` and `high_spark` (using `spark: 1` / `spark: 4`); `judgment` (`renderedTextIncludes: "Judgment"`); `transfigured` (old detected transfigurations via the operation catalog instead).
+- Missing vocabulary: battle keywords. Old supported granting any of Fast, Reclaim, Foresee, Discover, Materialize, Banish, Dissolve, Abandon, Copy, Echo, Kindle. New only grants `Fast`.
+- Transfigurations: new imports the full `ALLOWED_TRANSFIGURATIONS` from `effects.ts`, so the 9-name vocabulary is preserved — but the application surface (chosen vs. random; all-of-predicate; named to predicate, etc.) is narrower.
+- Missing route scopes: `future_dreamscapes` and `full_atlas`. New only does current + next.
+- Missing timing/triggers axis entirely: `immediate | after_next_battle | after_next_victory | after_two_victories | next_dreamscape` and battle-window durations 1–4. New has no timing model — everything is immediate.
+- Missing status-scope axis entirely: `quest | battle | shop | dreamwell | route | reward`. New has no status-mutation system.
+- Missing dreamwell roles: `bonus | upgrade | delayed | replacement`. New only has positive and negative.
+- Missing shop scopes: `current_shop | next_shop | future_shops | next_purchases | site_specific`. New only models "next N rerolls."
+- Missing journey-stage scaling: `cec.ts:6` hardcodes `STAGE_MULTIPLIER = 1.0`, so the old early/mid/late stage scaling and stage-gated content selection (`REVEAL_POOL_SIZE_BANDS[stage]`, etc.) is no longer in play.
+- Missing card draft profiles: old had ~18 named profiles (`CARD_DRAFT_PROFILES` in `fillers/shared.ts`); new has 15 predicates with significant overlap but missing roughly half of the non-type-based profiles (discard, abandon, event-copy, energy-generation, dissolve, reclaim, multi-ability, duplicate, costOne).
+- Rough totals: ~75 old reward templates vs 47 new (`REWARDS`); ~25 old cost templates vs 30 new (`COSTS`, including some cost-side reincarnations of old rewards like `transform_card_to_random_pool` and `purge_all_duplicate_cards`); ~25 distinct card predicate fields used in old vs 15 named new predicates; old dreamsign-predicate axis and bane-predicate axis both reduced to zero in new.
