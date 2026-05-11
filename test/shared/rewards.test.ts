@@ -153,3 +153,17 @@ describe("rewards table (purge/transform family)", () => {
     expect(t.viable(p, fakeCtx())).toBe(false);
   });
 });
+
+describe("rewards table (dreamsign family)", () => {
+  it("registers dreamsign templates", () => {
+    for (const id of [
+      "gain_random_dreamsign", "gain_named_dreamsign", "choose_1_of_X_dreamsigns",
+      "gain_copy_of_random_dreamsign", "gain_copy_of_chosen_dreamsign",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});

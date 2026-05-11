@@ -4,6 +4,7 @@ import {
   ALLOWED_TRANSFIGURATIONS,
   baneCount,
   cardMatches,
+  dreamsignMatches,
   essenceAmount,
   maxEssence,
   pickFromList,
@@ -490,6 +491,61 @@ const purgeAllBanes: Reward<PurgeAllBanesParams> = {
   render: () => "Purge all bane cards",
 };
 
+const DREAMSIGN_CEC = 80;
+
+type GainRandomDreamsignParams = Record<string, never>;
+const gainRandomDreamsign: Reward<GainRandomDreamsignParams> = {
+  id: "gain_random_dreamsign",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC,
+  viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
+  render: () => "Gain a random dreamsign",
+};
+
+type GainNamedDreamsignParams = { name: string };
+const gainNamedDreamsign: Reward<GainNamedDreamsignParams> = {
+  id: "gain_named_dreamsign",
+  weight: 1.0,
+  rollParams: (ctx, draw) => {
+    const pool = dreamsignMatches(ctx);
+    return { name: pool.length > 0 ? pickFromList(draw, "gain_named_ds:c", pool).name : "Placeholder Dreamsign" };
+  },
+  cec: () => DREAMSIGN_CEC,
+  viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
+  render: (p) => `Gain ${p.name}`,
+};
+
+type Choose1OfXDreamsignsParams = { choices: number };
+const choose1OfXDreamsigns: Reward<Choose1OfXDreamsignsParams> = {
+  id: "choose_1_of_X_dreamsigns",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ choices: drawInt(draw, "choose_ds:n", 2, 4) }),
+  cec: (p) => DREAMSIGN_CEC * 1.3 * Math.log2(p.choices),
+  viable: (p, ctx) => dreamsignMatches(ctx).length >= p.choices,
+  render: (p) => `Choose 1 of ${p.choices} dreamsigns`,
+};
+
+type GainCopyRandomDreamsignParams = Record<string, never>;
+const gainCopyOfRandomDreamsign: Reward<GainCopyRandomDreamsignParams> = {
+  id: "gain_copy_of_random_dreamsign",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC * 0.7,
+  viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
+  render: () => "Gain a copy of a random dreamsign",
+};
+
+type GainCopyChosenDreamsignParams = Record<string, never>;
+const gainCopyOfChosenDreamsign: Reward<GainCopyChosenDreamsignParams> = {
+  id: "gain_copy_of_chosen_dreamsign",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC * 0.9,
+  viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
+  render: () => "Gain a copy of a chosen dreamsign",
+};
+
 export const REWARDS: readonly Reward[] = Object.freeze([
   gainEssence,
   gainOmens,
@@ -527,6 +583,11 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   drawXAndDuplicateChosen,
   purgeXBanes,
   purgeAllBanes,
+  gainRandomDreamsign,
+  gainNamedDreamsign,
+  choose1OfXDreamsigns,
+  gainCopyOfRandomDreamsign,
+  gainCopyOfChosenDreamsign,
 ] as unknown as Reward[]);
 
 const BY_ID = new Map(REWARDS.map((r) => [r.id, r]));
