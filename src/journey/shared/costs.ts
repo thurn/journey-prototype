@@ -1,6 +1,7 @@
 import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
+  activeDreamsignCount,
   cardMatches,
   essenceAmount,
   maxEssence,
@@ -186,6 +187,55 @@ const purgeAllDuplicateCards: Cost<PurgeAllDuplicatesParams> = {
   render: () => "Purge all duplicate cards from your deck",
 };
 
+const DREAMSIGN_CEC = 80;
+
+type PurgeNamedDreamsignParams = { name: string };
+const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
+  id: "purge_named_dreamsign",
+  weight: 1.0,
+  rollParams: (ctx, draw) => {
+    const pool = ctx.state.quest.activeDreamsigns;
+    return {
+      name: pool.length > 0
+        ? `Dreamsign #${pickFromList(draw, "purge_named_ds:c", pool).dreamsignId}`
+        : "Placeholder Dreamsign",
+    };
+  },
+  cec: () => DREAMSIGN_CEC * 0.6,
+  viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
+  render: (p) => `Purge ${p.name}`,
+};
+
+type PurgeRandomDreamsignParams = Record<string, never>;
+const purgeRandomDreamsign: Cost<PurgeRandomDreamsignParams> = {
+  id: "purge_random_dreamsign",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC * 0.5,
+  viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
+  render: () => "Purge a random dreamsign",
+};
+
+type PurgeChosenDreamsignParams = Record<string, never>;
+const purgeChosenDreamsign: Cost<PurgeChosenDreamsignParams> = {
+  id: "purge_chosen_dreamsign",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC * 0.7,
+  viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
+  render: () => "Purge a chosen dreamsign",
+};
+
+type XformDreamsignParams = Record<string, never>;
+const transformDreamsignToRandom: Cost<XformDreamsignParams> = {
+  id: "transform_dreamsign_to_random",
+  weight: 1.0,
+  rollParams: () => ({}),
+  cec: () => DREAMSIGN_CEC * 0.4,
+  viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
+  render: () => "Transform a chosen dreamsign into a random dreamsign",
+};
+
 export const COSTS: readonly Cost[] = Object.freeze([
   payEssence,
   payOmens,
@@ -201,6 +251,10 @@ export const COSTS: readonly Cost[] = Object.freeze([
   gainRandomCardsFromPool,
   transformCardToRandomPool,
   purgeAllDuplicateCards,
+  purgeNamedDreamsign,
+  purgeRandomDreamsign,
+  purgeChosenDreamsign,
+  transformDreamsignToRandom,
 ] as unknown as Cost[]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));

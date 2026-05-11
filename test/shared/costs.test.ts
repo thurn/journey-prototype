@@ -114,3 +114,17 @@ describe("costs table (card family)", () => {
     }
   });
 });
+
+describe("costs table (dreamsign family)", () => {
+  it("registers dreamsign cost templates", () => {
+    for (const id of [
+      "purge_named_dreamsign", "purge_random_dreamsign",
+      "purge_chosen_dreamsign", "transform_dreamsign_to_random",
+    ]) {
+      const t = getCost(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});
