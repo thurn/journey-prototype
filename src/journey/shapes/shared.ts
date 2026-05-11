@@ -28,6 +28,7 @@ export type RawJourneyShapeDefinition = Omit<
   | "compoundCoherence"
   | "requiresPrecommittedRandom"
   | "compoundAllowsRouteOnlyReward"
+  | "bypassStandardValidation"
 > & {
   readonly payloadCompatibility?: readonly JourneyPayloadCompatibility[];
   readonly menuValueChecks?: JourneyShapeDefinition["menuValueChecks"];
@@ -36,6 +37,7 @@ export type RawJourneyShapeDefinition = Omit<
   readonly compoundCoherence?: JourneyShapeDefinition["compoundCoherence"];
   readonly requiresPrecommittedRandom?: boolean;
   readonly compoundAllowsRouteOnlyReward?: boolean;
+  readonly bypassStandardValidation?: boolean;
 };
 
 const DEFAULT_MENU_VALUE_CHECKS: JourneyShapeDefinition["menuValueChecks"] = {
@@ -288,6 +290,7 @@ export function freezeShapeDefinition(
     requiresPrecommittedRandom: definition.requiresPrecommittedRandom ?? false,
     compoundAllowsRouteOnlyReward:
       definition.compoundAllowsRouteOnlyReward ?? false,
+    bypassStandardValidation: definition.bypassStandardValidation ?? false,
   });
 }
 
