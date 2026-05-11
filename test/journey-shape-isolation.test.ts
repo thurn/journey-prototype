@@ -72,3 +72,47 @@ describe("journey shape isolation", () => {
     });
   }
 });
+
+describe("paired shape directories do not cross-import", () => {
+  const PAIRED = [
+    { a: "random_rewards", b: "random_trades" },
+  ] as const;
+
+  for (const { a, b } of PAIRED) {
+    it(`shapes/${a}/ does not reference "${b}"`, () => {
+      const dir = join(SRC_ROOT, "journey", "shapes", a);
+      const offenders: string[] = [];
+      for (const file of listSourceFilesIn(dir)) {
+        if (readFileSync(file, "utf8").includes(`"${b}"`)) {
+          offenders.push(relative(REPO_ROOT, file));
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    it(`shapes/${b}/ does not reference "${a}"`, () => {
+      const dir = join(SRC_ROOT, "journey", "shapes", b);
+      const offenders: string[] = [];
+      for (const file of listSourceFilesIn(dir)) {
+        if (readFileSync(file, "utf8").includes(`"${a}"`)) {
+          offenders.push(relative(REPO_ROOT, file));
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
+});
+
+function listSourceFilesIn(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const stats = statSync(fullPath);
+    if (stats.isDirectory()) {
+      results.push(...listSourceFilesIn(fullPath));
+      continue;
+    }
+    if (fullPath.endsWith(".ts")) results.push(fullPath);
+  }
+  return results;
+}
