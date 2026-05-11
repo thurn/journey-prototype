@@ -391,16 +391,20 @@ type TransformDeckCardParams = { oldCardName: string; newCardName: string };
 const transformCardInDeckIntoNamed: Reward<TransformDeckCardParams> = {
   id: "transform_card_in_deck_into_named",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    oldCardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "xform_deck:old", ctx.content.cards).name
-      : "Placeholder Card A",
-    newCardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "xform_deck:new", ctx.content.cards).name
-      : "Placeholder Card B",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      oldCardName: deckCards.length > 0
+        ? pickFromList(draw, "xform_deck:old", deckCards).name
+        : "Placeholder Card A",
+      newCardName: ctx.content.cards.length > 0
+        ? pickFromList(draw, "xform_deck:new", ctx.content.cards).name
+        : "Placeholder Card B",
+    };
+  },
   cec: () => CARD_CEC,
-  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  viable: (_p, ctx) =>
+    cardMatches(ctx, { source: "deck" }).length >= 1 && ctx.content.cards.length > 0,
   render: (p) => `Transform ${p.oldCardName} into ${p.newCardName}`,
 };
 

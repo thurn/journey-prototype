@@ -123,13 +123,16 @@ type PurgeNamedCardParams = { cardName: string };
 const purgeNamedCard: Cost<PurgeNamedCardParams> = {
   id: "purge_named_card",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "purge_named:c", ctx.content.cards).name
-      : "Placeholder Card",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "purge_named:c", deckCards).name
+        : "Placeholder Card",
+    };
+  },
   cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Purge ${p.cardName}`,
 };
 
@@ -169,13 +172,16 @@ type TransformCardToRandomParams = { cardName: string };
 const transformCardToRandomPool: Cost<TransformCardToRandomParams> = {
   id: "transform_card_to_random_pool",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "xform_random:c", ctx.content.cards).name
-      : "Placeholder Card",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "xform_random:c", deckCards).name
+        : "Placeholder Card",
+    };
+  },
   cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 1 && ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Transform ${p.cardName} into a random card from the pool`,
 };
 
@@ -320,13 +326,16 @@ type RemoveTransfigCardParams = { cardName: string };
 const removeTransfigurationFromCard: Cost<RemoveTransfigCardParams> = {
   id: "remove_transfiguration_from_card",
   weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "rem_transfig:c", ctx.content.cards).name
-      : "Placeholder Card",
-  }),
+  rollParams: (ctx, draw) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return {
+      cardName: deckCards.length > 0
+        ? pickFromList(draw, "rem_transfig:c", deckCards).name
+        : "Placeholder Card",
+    };
+  },
   cec: () => CARD_CEC * 0.6,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
   render: (p) => `Remove the transfiguration from ${p.cardName}`,
 };
 
