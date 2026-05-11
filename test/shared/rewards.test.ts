@@ -178,6 +178,38 @@ describe("rewards table (purge/transform family)", () => {
     expect(t.viable(t.rollParams(populated, draw), populated)).toBe(true);
   });
 
+  it("duplicate_random_predicate uses singular noun when count is 1", () => {
+    const t = getReward("duplicate_random_predicate");
+    expect(t.render({ predicateId: "abandon", count: 1 } as never, fakeCtx()))
+      .toBe("Duplicate 1 random card with an 'abandon' ability");
+    expect(t.render({ predicateId: "abandon", count: 2 } as never, fakeCtx()))
+      .toBe("Duplicate 2 random cards with an 'abandon' ability");
+  });
+
+  it("apply_named_transfiguration_to_chosen_predicate_cards uses singular noun when count is 1", () => {
+    const t = getReward("apply_named_transfiguration_to_chosen_predicate_cards");
+    expect(t.render({ transfiguration: "Lock-In", predicateId: "discard_text", count: 1 } as never, fakeCtx()))
+      .toBe("Apply Lock-In to 1 chosen card with a 'discard' ability");
+    expect(t.render({ transfiguration: "Lock-In", predicateId: "discard_text", count: 3 } as never, fakeCtx()))
+      .toBe("Apply Lock-In to 3 chosen cards with a 'discard' ability");
+  });
+
+  it("apply_named_transfiguration_to_random_predicate_cards uses singular noun when count is 1", () => {
+    const t = getReward("apply_named_transfiguration_to_random_predicate_cards");
+    expect(t.render({ transfiguration: "Lock-In", predicateId: "event_copying", count: 1 } as never, fakeCtx()))
+      .toBe("Apply Lock-In to 1 random card with an event-copying ability");
+    expect(t.render({ transfiguration: "Lock-In", predicateId: "event_copying", count: 2 } as never, fakeCtx()))
+      .toBe("Apply Lock-In to 2 random cards with an event-copying ability");
+  });
+
+  it("purge_chosen_predicate_cards uses singular noun when count is 1", () => {
+    const t = getReward("purge_chosen_predicate_cards");
+    expect(t.render({ predicateId: "reclaim", count: 1 } as never, fakeCtx()))
+      .toBe("Purge up to 1 chosen card with a 'reclaim' ability");
+    expect(t.render({ predicateId: "reclaim", count: 2 } as never, fakeCtx()))
+      .toBe("Purge up to 2 chosen cards with a 'reclaim' ability");
+  });
+
   it("purge_chosen_predicate_with_replacement uses transform wording (singular count)", () => {
     const t = getReward("purge_chosen_predicate_with_replacement");
     const text = t.render({ predicateId: "warriors", count: 1 } as never, fakeCtx());

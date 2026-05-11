@@ -29,6 +29,52 @@ describe("predicates", () => {
     expect(() => getPredicate("not_a_predicate")).toThrow();
   });
 
+  it("renders text-keyword predicates as 'card with a/an <keyword> ability'", () => {
+    const expected: Record<string, { singular: string; plural: string }> = {
+      materialized: {
+        singular: "card with a 'materialized' ability",
+        plural: "cards with a 'materialized' ability",
+      },
+      judgment: {
+        singular: "card with a 'judgment' ability",
+        plural: "cards with a 'judgment' ability",
+      },
+      transfigured: {
+        singular: "card with a 'transfigured' ability",
+        plural: "cards with a 'transfigured' ability",
+      },
+      discard_text: {
+        singular: "card with a 'discard' ability",
+        plural: "cards with a 'discard' ability",
+      },
+      abandon: {
+        singular: "card with an 'abandon' ability",
+        plural: "cards with an 'abandon' ability",
+      },
+      event_copying: {
+        singular: "card with an event-copying ability",
+        plural: "cards with an event-copying ability",
+      },
+      energy_generation: {
+        singular: "card with an energy-generation ability",
+        plural: "cards with an energy-generation ability",
+      },
+      dissolve: {
+        singular: "card with a 'dissolve' ability",
+        plural: "cards with a 'dissolve' ability",
+      },
+      reclaim: {
+        singular: "card with a 'reclaim' ability",
+        plural: "cards with a 'reclaim' ability",
+      },
+    };
+    for (const [id, text] of Object.entries(expected)) {
+      const pred = getPredicate(id);
+      expect(pred.text.singular).toBe(text.singular);
+      expect(pred.text.plural).toBe(text.plural);
+    }
+  });
+
   it("renders cost and spark predicates with the explicit numeric threshold from the card predicate", () => {
     const lowCost = getPredicate("low_cost");
     expect(lowCost.cardPredicate).toEqual({ maxEnergyCost: 2 });

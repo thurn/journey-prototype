@@ -173,8 +173,11 @@ const applyNamedTransfigurationToChosenPredicateCards: Reward<ApplyNamedTransfig
   cec: (p) => cardPoolCEC(CARD_CEC * 0.8, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
-  render: (p) =>
-    `Apply ${p.transfiguration} to ${p.count} chosen ${getPredicate(p.predicateId).text.plural}`,
+  render: (p) => {
+    const pred = getPredicate(p.predicateId);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
+    return `Apply ${p.transfiguration} to ${p.count} chosen ${noun}`;
+  },
 };
 
 type ApplyNamedTransfigCardNameParams = { transfiguration: string; cardName: string };
@@ -207,8 +210,11 @@ const applyNamedTransfigurationToRandomPredicateCards: Reward<ApplyNamedTransfig
   cec: (p) => cardPoolCEC(CARD_CEC * 0.6, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
-  render: (p) =>
-    `Apply ${p.transfiguration} to ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
+  render: (p) => {
+    const pred = getPredicate(p.predicateId);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
+    return `Apply ${p.transfiguration} to ${p.count} random ${noun}`;
+  },
 };
 
 type TransfigureRandomStartersParams = { count: number };
@@ -318,8 +324,11 @@ const purgeChosenPredicateCards: Reward<PurgeChosenPredCardsParams> = {
   cec: (p) => cardPoolCEC(CARD_CEC * 0.3, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
-  render: (p) =>
-    `Purge up to ${p.count} chosen ${getPredicate(p.predicateId).text.plural}`,
+  render: (p) => {
+    const pred = getPredicate(p.predicateId);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
+    return `Purge up to ${p.count} chosen ${noun}`;
+  },
 };
 
 type PurgeChosenPredWithReplParams = { predicateId: string; count: number };
@@ -482,8 +491,11 @@ const duplicateRandomPredicate: Reward<DupRandomPredParams> = {
   cec: (p) => cardPoolCEC(CARD_CEC * 0.9, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
-  render: (p) =>
-    `Duplicate ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
+  render: (p) => {
+    const pred = getPredicate(p.predicateId);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
+    return `Duplicate ${p.count} random ${noun}`;
+  },
 };
 
 type DrawDupParams = { drawCount: number };
