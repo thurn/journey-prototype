@@ -28,4 +28,26 @@ describe("predicates", () => {
   it("throws for an unknown predicate id", () => {
     expect(() => getPredicate("not_a_predicate")).toThrow();
   });
+
+  it("renders cost and spark predicates with the explicit numeric threshold from the card predicate", () => {
+    const lowCost = getPredicate("low_cost");
+    expect(lowCost.cardPredicate).toEqual({ maxEnergyCost: 2 });
+    expect(lowCost.text.singular).toBe("card with cost 2 or less");
+    expect(lowCost.text.plural).toBe("cards with cost 2 or less");
+
+    const highCost = getPredicate("high_cost");
+    expect(highCost.cardPredicate).toEqual({ minEnergyCost: 4 });
+    expect(highCost.text.singular).toBe("card with cost 4 or more");
+    expect(highCost.text.plural).toBe("cards with cost 4 or more");
+
+    const lowSpark = getPredicate("low_spark");
+    expect(lowSpark.cardPredicate).toEqual({ spark: 1 });
+    expect(lowSpark.text.singular).toBe("card with spark 1 or less");
+    expect(lowSpark.text.plural).toBe("cards with spark 1 or less");
+
+    const highSpark = getPredicate("high_spark");
+    expect(highSpark.cardPredicate).toEqual({ spark: 4 });
+    expect(highSpark.text.singular).toBe("card with spark 4 or more");
+    expect(highSpark.text.plural).toBe("cards with spark 4 or more");
+  });
 });
