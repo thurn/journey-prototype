@@ -144,3 +144,18 @@ describe("costs table (bane/dreamwell/starter family)", () => {
     }
   });
 });
+
+describe("costs table (misc family)", () => {
+  it("registers misc cost templates", () => {
+    for (const id of [
+      "draw_X_purge_chosen",
+      "remove_shop_sites_from_next_dreamscapes",
+      "remove_dreamsign_sites_from_next_dreamscapes",
+    ]) {
+      const t = getCost(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});

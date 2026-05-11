@@ -345,6 +345,39 @@ const removeTransfigurationsFromRandomPredicate: Cost<RemoveTransfigRandomPredPa
     `Remove the transfigurations from ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
 };
 
+type DrawXPurgeChosenParams = { drawCount: number };
+const drawXPurgeChosen: Cost<DrawXPurgeChosenParams> = {
+  id: "draw_X_purge_chosen",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ drawCount: drawInt(draw, "draw_purge:n", 2, 4) }),
+  cec: () => CARD_CEC * 0.6,
+  viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.drawCount,
+  render: (p) =>
+    `Draw ${p.drawCount} cards from your deck and purge one of them of your choice`,
+};
+
+type RemoveShopSitesParams = { dreamscapes: number };
+const removeShopSitesFromNextDreamscapes: Cost<RemoveShopSitesParams> = {
+  id: "remove_shop_sites_from_next_dreamscapes",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ dreamscapes: drawInt(draw, "rm_shop:d", 1, 3) }),
+  cec: (p) => 40 * p.dreamscapes,
+  viable: () => true,
+  render: (p) =>
+    `Remove all shop sites from the next ${p.dreamscapes} dreamscape${p.dreamscapes === 1 ? "" : "s"} you visit`,
+};
+
+type RemoveDsSitesParams = { dreamscapes: number };
+const removeDreamsignSitesFromNextDreamscapes: Cost<RemoveDsSitesParams> = {
+  id: "remove_dreamsign_sites_from_next_dreamscapes",
+  weight: 1.0,
+  rollParams: (_ctx, draw) => ({ dreamscapes: drawInt(draw, "rm_ds:d", 1, 3) }),
+  cec: (p) => 40 * p.dreamscapes,
+  viable: () => true,
+  render: (p) =>
+    `Remove all dreamsign sites from the next ${p.dreamscapes} dreamscape${p.dreamscapes === 1 ? "" : "s"} you visit`,
+};
+
 export const COSTS: readonly Cost[] = Object.freeze([
   payEssence,
   payOmens,
@@ -372,6 +405,9 @@ export const COSTS: readonly Cost[] = Object.freeze([
   shuffleNegativeDreamwellCards,
   removeTransfigurationFromCard,
   removeTransfigurationsFromRandomPredicate,
+  drawXPurgeChosen,
+  removeShopSitesFromNextDreamscapes,
+  removeDreamsignSitesFromNextDreamscapes,
 ] as unknown as Cost[]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));
