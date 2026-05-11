@@ -310,13 +310,9 @@ const modifyRandomCardsToTypes: Reward<ModifyRandomCardsToTypesParams> = {
 };
 
 type MakeRandomCardsFastParams = { count: number };
-// `makeRandomCardsFast` grants the keyword "fast" to N random cards. Granting
-// fast to a single card is much weaker than other trio rewards at the same
-// CEC, so the count rolls in 2-4 (never 1) and the per-card CEC keeps the
-// trio matcher pairing this with similar-strength rewards. The named-single
-// variant (`make_card_fast`) is dropped from the pool — picking one specific
-// card by name to receive fast is the weakest formulation and offered no
-// counterplay or selection value to the player.
+// `makeRandomCardsFast` grants the keyword "fast" to N random cards. Count
+// rolls in 2-4 and per-card CEC is `CARD_CEC * 0.5`, so the trio matcher
+// pairs this with similar-strength rewards.
 const makeRandomCardsFast: Reward<MakeRandomCardsFastParams> = {
   id: "make_random_cards_fast",
   weight: 1.0,

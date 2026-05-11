@@ -121,9 +121,6 @@ describe("rewards table (modification family)", () => {
 });
 
 describe("make_random_cards_fast tuning", () => {
-  // Granting "fast" to a single card is much weaker than the other rewards
-  // sharing the same CEC band, so the count must never roll to 1 and the
-  // named-single variant (make_card_fast) is intentionally not registered.
   it("rolls counts in 2..4 across many seeded draws", () => {
     const t = getReward("make_random_cards_fast");
     const seen = new Set<number>();
@@ -144,12 +141,21 @@ describe("make_random_cards_fast tuning", () => {
     expect(t.cec({ count: 4 } as never, fakeCtx())).toBe(80);
   });
 
-  it("the named-single make_card_fast variant is not registered", () => {
-    // make_card_fast was the weakest formulation (one specific named card
-    // gets fast, no player choice or randomness benefit) and is dropped from
-    // the pool. Confirm both the lookup map and the public list omit it.
-    expect(() => getReward("make_card_fast")).toThrow();
-    expect(REWARDS.find((r) => r.id === "make_card_fast")).toBeUndefined();
+  it("the only fast-granting reward is the multi-card random variant", () => {
+    // Any reward whose render produces "have fast" must be the random
+    // multi-card variant operating on a `count` param (not `cardName`).
+    const fastGranters = REWARDS.filter((r) => {
+      try {
+        const p = r.rollParams(fakeCtx(), draw) as Record<string, unknown>;
+        return /\bhave fast\b/.test(r.render(p as never, fakeCtx()));
+      } catch {
+        return false;
+      }
+    });
+    expect(fastGranters.map((r) => r.id)).toEqual(["make_random_cards_fast"]);
+    const onlyFast = fastGranters[0]!;
+    const sampleParams = onlyFast.rollParams(fakeCtx(), draw) as Record<string, unknown>;
+    expect(Object.keys(sampleParams)).toEqual(["count"]);
   });
 });
 
