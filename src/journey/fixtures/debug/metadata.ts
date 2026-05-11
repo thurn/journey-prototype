@@ -71,7 +71,6 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     description: "Named card operations and starter-card cleanup payloads.",
     variants: [
       variant("card", "named-card-operation-menu", "available", "Deterministic named card operation menus backed by real card content.", ["service_menu"], ["mid", "late"]),
-      variant("card", "starter-cleanup-replacement", "available", "Deterministic Starter-card cleanup and replacement scenes backed by the simulated starter deck.", ["curated_reward_trio"], ["early"]),
     ],
   },
   {
@@ -79,7 +78,6 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     description: "Named Dreamsign shops, transformations, duplicates, and pool edits.",
     variants: [
       variant("dreamsign", "named-dreamsign-shop-row", "available", "Deterministic content-backed named Dreamsign purchase rows for renderer parity QA.", ["shop_row"], ["mid", "late"]),
-      variant("dreamsign", "dreamsign-transform-duplicate-pool", "available", "Deterministic content-backed Dreamsign transform, duplicate, temporary, and pool-edit scenes.", ["curated_reward_trio"], ["mid", "late"]),
     ],
   },
   {
@@ -143,16 +141,6 @@ export const DEBUG_PAYLOAD_FAMILIES = Object.freeze([
     description: "Reveal, roll, and wager random envelope payloads.",
     variants: [
       variant("random", "reveal-roll-wager", "available", "Deterministic reveal envelopes, rolls, random ranges, visible pools, push choices, and wagers.", ["single_random_outcome", "resolved_random_series"]),
-    ],
-  },
-  {
-    id: "generated_object",
-    description: "Manifest-local generated object payloads.",
-    variants: [
-      variant("generated_object", "generated-card", "available", "Deterministic manifest-local generated card grant, transform, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
-      variant("generated_object", "generated-dreamsign", "available", "Deterministic manifest-local generated Dreamsign grant, temporary grant, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
-      variant("generated_object", "generated-status", "available", "Deterministic manifest-local generated status grant, temporary grant, return, and trade scenes.", ["curated_reward_trio"], ["mid", "late"]),
-      variant("generated_object", "generated-transfiguration", "available", "Deterministic manifest-local generated transfiguration grant, transform, return, and trade scenes.", ["curated_reward_trio"], ["late"]),
     ],
   },
   {

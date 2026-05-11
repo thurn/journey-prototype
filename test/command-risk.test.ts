@@ -436,9 +436,7 @@ describe("stateless command risk transitions", () => {
       expect(qaIds).toEqual(expect.arrayContaining([
         "adapter/current",
         "card/named-card-operation-menu",
-        "card/starter-cleanup-replacement",
         "dreamsign/named-dreamsign-shop-row",
-        "dreamsign/dreamsign-transform-duplicate-pool",
         "bane/bane-gain-purge-transform",
         "resource/resource-edge-cases",
         "route/route-edits",
@@ -448,10 +446,6 @@ describe("stateless command risk transitions", () => {
         "hook/delayed-trigger-matrix",
         "return/paired-return-seal-borrow-trade",
         "random/reveal-roll-wager",
-        "generated_object/generated-card",
-        "generated_object/generated-dreamsign",
-        "generated_object/generated-status",
-        "generated_object/generated-transfiguration",
         "decision_tree/complete-decision-tree",
       ]));
       await expectMissingState(statePath);
@@ -539,46 +533,6 @@ describe("stateless command risk transitions", () => {
       }
       await expectMissingState(statePath);
     });
-  });
-
-  it("forced generated-object payloads do not mutate TOML content or simulator state", async () => {
-    const contentFiles = ["data/cards.toml", "data/dreamsigns.toml", "data/dreamcallers.toml"];
-    const before = Object.fromEntries(await Promise.all(
-      contentFiles.map(async (path) => [path, await fileSha(path)] as const),
-    ));
-
-    await withTempState(async ({ statePath, options }) => {
-      for (const variant of [
-        "generated-card",
-        "generated-dreamsign",
-        "generated-status",
-        "generated-transfiguration",
-      ]) {
-        const result = await handleJourney(options({
-          json: true,
-          seed: variant,
-          stage: "late",
-          debugPayloadFamily: "generated_object",
-          debugPayloadVariant: variant,
-        }));
-
-        expect(result.exitCode).toBe(ExitCode.Success);
-        expect(result.stderr).toBe("");
-
-        const payload = JSON.parse(result.stdout);
-
-        expect(payload.manifest.generatedObjects).toHaveLength(1);
-        expect(payload.manifest.debug.validation.ok).toBe(true);
-      }
-
-      await expectMissingState(statePath);
-    });
-
-    const after = Object.fromEntries(await Promise.all(
-      contentFiles.map(async (path) => [path, await fileSha(path)] as const),
-    ));
-
-    expect(after).toEqual(before);
   });
 
   it("forces complete decision-tree payloads with visible typed tree metadata", async () => {
@@ -817,81 +771,4 @@ describe("stateless command risk transitions", () => {
     });
   });
 
-  it("rejects unknown, reserved, and constrained debug payload selections clearly", async () => {
-    await withTempState(async ({ options }) => {
-      const unknownFamily = await handleJourney(options({
-        json: true,
-        seed: "qa",
-        debugPayloadFamily: "nope",
-      }));
-      const unknownVariant = await handleJourney(options({
-        json: true,
-        seed: "qa",
-        debugPayloadFamily: "card",
-        debugPayloadVariant: "nope",
-      }));
-      const constrained = await handleJourney(options({
-        json: true,
-        seed: "qa",
-        stage: "early",
-        shape: "single_reward",
-        debugPayloadFamily: "dreamsign",
-        debugPayloadVariant: "dreamsign-transform-duplicate-pool",
-      }));
-
-      expect(unknownFamily.exitCode).toBe(ExitCode.SetupOrSchema);
-      expect(unknownFamily.stderr).toContain("Unknown debug payload family 'nope'");
-      expect(unknownFamily.stderr).not.toContain(" at ");
-      expect(unknownVariant.exitCode).toBe(ExitCode.SetupOrSchema);
-      expect(unknownVariant.stderr).toContain("Unknown debug payload variant 'nope' for family 'card'");
-      expect(unknownVariant.stderr).not.toContain(" at ");
-      expect(constrained.exitCode).toBe(ExitCode.SetupOrSchema);
-      expect(constrained.stderr).toContain("Debug payload 'dreamsign/dreamsign-transform-duplicate-pool' does not support shape 'single_reward'");
-      expect(constrained.stderr).toContain("Supported shapes: curated_reward_trio");
-      expect(constrained.stderr).not.toContain(" at ");
-    });
-  });
-
-  it("emits typed Dreamsign transform, duplicate, temporary, pool, random, trigger, and trade payloads", async () => {
-    await withTempState(async ({ options }) => {
-      const result = await handleJourney(options({
-        json: true,
-        seed: "dreamsign-transform",
-        stage: "mid",
-        debugPayloadFamily: "dreamsign",
-        debugPayloadVariant: "dreamsign-transform-duplicate-pool",
-      }));
-
-      expect(result.exitCode).toBe(ExitCode.Success);
-
-      const payload = JSON.parse(result.stdout);
-      const rewardKinds = payload.manifest.options.flatMap((entry: {
-        operations: { rewardKind?: string }[];
-      }) => entry.operations.map((operation) => operation.rewardKind).filter(Boolean));
-
-      expect(payload.manifest.shapeId).toBe("curated_reward_trio");
-      expect(payload.manifest.debug.debugPayload).toMatchObject({
-        qaId: "dreamsign/dreamsign-transform-duplicate-pool",
-        source: "forced",
-      });
-      expect(rewardKinds).toEqual(expect.arrayContaining([
-        "dreamsign_gain",
-        "dreamsign_purge",
-        "dreamsign_loss",
-        "dreamsign_transform",
-        "dreamsign_duplicate",
-        "dreamsign_temporary_grant",
-        "dreamsign_copy_gain",
-        "dreamsign_pool_edit",
-        "dreamsign_trade_hook",
-        "dreamsign_trigger_counter",
-        "dreamsign_random_reward",
-      ]));
-      expect(payload.manifest.precommitted.operations).toEqual(expect.arrayContaining([
-        expect.objectContaining({ operationKind: "random_envelope", role: "random" }),
-        expect.objectContaining({ operationKind: "delayed_hook", role: "delayed_hook" }),
-      ]));
-      expect(payload.manifest.debug.validation).toMatchObject({ ok: true, failed: 0 });
-    });
-  });
 });

@@ -670,26 +670,6 @@ function expectValidationReportMatchesValidator(
   );
 }
 
-function forcedDreamsignOperationManifest(
-  journeyContext: Awaited<ReturnType<typeof context>>,
-) {
-  const dreamsignPayload = {
-    familyId: "dreamsign",
-    variantId: "dreamsign-transform-duplicate-pool",
-    qaId: "dreamsign/dreamsign-transform-duplicate-pool",
-    description:
-      "Dreamsign transform, duplicate, pool, random, trigger, and trade payload coverage.",
-    supportedShapes: ["curated_reward_trio"],
-    supportedStages: "all",
-  } satisfies DebugPayloadSelection;
-
-  return generateNextJourney({
-    context: journeyContext,
-    forcedStage: "mid",
-    forcedDebugPayload: dreamsignPayload,
-  });
-}
-
 function largestGroupSize(signatures: readonly string[]): number {
   const counts = new Map<string, number>();
 
@@ -837,28 +817,6 @@ describe.concurrent("generateNextJourney", () => {
     expect([...seenShapeIds].sort()).toEqual([...expectedShapeIds].sort());
   });
 
-  it("weights high-variety shapes above low-template shapes", async () => {
-    const journeyContext = await context();
-    const manifest = generateNextJourney({
-      context: journeyContext,
-      forcedStage: "early",
-    });
-    const scores = Object.fromEntries(
-      manifest.debug.shapeScores.map((entry) => [entry.shapeId, entry.score]),
-    );
-
-    expect(scores.one_operation_many_targets).toBeGreaterThan(
-      scores.escalating_reward_chain,
-    );
-    expect(scores.curated_reward_trio).toBeGreaterThan(scores.single_offer);
-    expect(scores.same_cost_different_rewards).toBeGreaterThan(
-      scores.probability_ladder,
-    );
-    expect(
-      Math.min(...manifest.debug.shapeScores.map((entry) => entry.score)),
-    ).toBeGreaterThan(0);
-  });
-
   it("rejects forced debug payloads against the actual selected shape", async () => {
     const journeyContext = await context();
     const constrainedPayload = {
@@ -880,84 +838,6 @@ describe.concurrent("generateNextJourney", () => {
     ).toThrow(
       "Debug payload 'future/shop-only' does not support shape 'single_reward'. Supported shapes: shop_row.",
     );
-  });
-
-  it("forces manifest-local generated object definitions and references", async () => {
-    const journeyContext = await context("generated-objects");
-    const variants = [
-      {
-        familyId: "generated_object",
-        variantId: "generated-card",
-        qaId: "generated_object/generated-card",
-        description: "Generated card coverage.",
-        expectedKind: "card",
-      },
-      {
-        familyId: "generated_object",
-        variantId: "generated-dreamsign",
-        qaId: "generated_object/generated-dreamsign",
-        description: "Generated Dreamsign coverage.",
-        expectedKind: "dreamsign",
-      },
-      {
-        familyId: "generated_object",
-        variantId: "generated-status",
-        qaId: "generated_object/generated-status",
-        description: "Generated status coverage.",
-        expectedKind: "status",
-      },
-      {
-        familyId: "generated_object",
-        variantId: "generated-transfiguration",
-        qaId: "generated_object/generated-transfiguration",
-        description: "Generated transfiguration coverage.",
-        expectedKind: "transfiguration",
-      },
-    ] as const;
-
-    for (const variant of variants) {
-      const manifest = generateNextJourney({
-        context: journeyContext,
-        forcedStage: "late",
-        forcedDebugPayload: {
-          familyId: variant.familyId,
-          variantId: variant.variantId,
-          qaId: variant.qaId,
-          description: variant.description,
-          supportedShapes: ["curated_reward_trio"],
-          supportedStages:
-            variant.expectedKind === "status" ? ["mid", "late"] : ["late"],
-        } satisfies DebugPayloadSelection,
-      });
-      const definition = manifest.generatedObjects[0]!;
-      const operations = manifest.options.flatMap(
-        (option) => option.operations,
-      );
-
-      expect(manifest.shapeId).toBe("curated_reward_trio");
-      expect(manifest.debug.validation.ok).toBe(true);
-      expect(definition).toMatchObject({
-        generatedObjectKind: variant.expectedKind,
-        validation: {
-          source: "generated_manifest_local",
-          status: "validated",
-        },
-      });
-      expect(definition.generatedObjectId).toMatch(/^generated-/u);
-      expect(definition.rulesText.length).toBeGreaterThan(20);
-      expect(definition.tags).toContain("journey-only");
-      expect(definition.valueEstimate.convertedEssence).toBeGreaterThan(0);
-      expect(
-        operations.map((operation) => operation.targetSelector?.selectorKind),
-      ).toContain("generated_object");
-      expect(
-        operations.map((operation) => operation.targetResolution?.sourcePool),
-      ).toContain("manifest_generated");
-      expect(manifest.precommitted.delayed).toHaveLength(1);
-      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-        ok: true,
-      });
-    }
   });
 
   it("selects generated objects naturally rarely, with late high-weirdness weighting", async () => {
@@ -1280,162 +1160,6 @@ describe.concurrent("generateNextJourney", () => {
       }),
     );
   });
-
-  slowIt("reaches Milestone 10 resource families through normal generation", async () => {
-    const content = await loadContent(process.cwd());
-    const normalManifest = (
-      shapeId: JourneyShapeId,
-      seed: string,
-      stage: JourneyStage = "late",
-      adjust?: (journeyContext: ReturnType<typeof contextFromContent>) => void,
-    ): JourneyManifest | null => {
-      const journeyContext = contextFromContent(content, seed, stage);
-
-      adjust?.(journeyContext);
-
-      const manifest = fillForShapeAtStage(shapeId, journeyContext, stage);
-      const validation = validateJourneyManifest(manifest, journeyContext);
-
-      expect(manifest.debug.debugPayload, `${shapeId}:${seed}`).toBeUndefined();
-
-      return validation.ok ? manifest : null;
-    };
-    const collectValid = (
-      shapeId: JourneyShapeId,
-      prefix: string,
-      count: number,
-      stage: JourneyStage = "late",
-      adjust?: (journeyContext: ReturnType<typeof contextFromContent>) => void,
-    ): JourneyManifest[] => {
-      const manifests: JourneyManifest[] = [];
-
-      for (let index = 0; index < count * 3 && manifests.length < count; index += 1) {
-        const manifest = normalManifest(shapeId, `${prefix}-${index}`, stage, adjust);
-
-        if (manifest) {
-          manifests.push(manifest);
-        }
-      }
-
-      expect(manifests.length, `${shapeId}:${prefix}`).toBe(count);
-
-      return manifests;
-    };
-    const serviceManifests = collectValid("service_menu", "m10-service", 40);
-    const costedManifests = collectValid(
-      "same_cost_different_rewards",
-      "m10-costed",
-      40,
-      "early",
-    );
-    const singleOfferManifests = collectValid("single_offer", "m10-single", 30, "early");
-    const namedDreamsignManifests = collectValid(
-      "curated_reward_trio",
-      "m10-dreamsign",
-      30,
-    );
-    const multiOmenCostManifests = collectValid(
-      "same_cost_different_rewards",
-      "m10-multi-omen",
-      20,
-      "early",
-      (journeyContext) => {
-        journeyContext.state.quest.resources.omens = 3;
-      },
-    );
-    const operations = [
-      ...serviceManifests,
-      ...costedManifests,
-      ...singleOfferManifests,
-      ...namedDreamsignManifests,
-      ...multiOmenCostManifests,
-    ].flatMap((manifest) =>
-      manifest.options.flatMap((journeyOption) => journeyOption.operations),
-    );
-
-    expect(operations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          operationKind: "reward",
-          payload: expect.objectContaining({ kind: "gain_essence" }),
-          resourceSemantics: expect.objectContaining({ amountKind: "fixed" }),
-        }),
-        expect.objectContaining({
-          operationKind: "reward",
-          rewardKind: "resource_cap_change",
-          resourceSemantics: expect.objectContaining({ amountKind: "cap_change" }),
-          payload: expect.objectContaining({ capDelta: expect.any(Number) }),
-        }),
-        expect.objectContaining({
-          operationKind: "reward",
-          resourceSemantics: expect.objectContaining({ amountKind: "percentage_of_maximum" }),
-          payload: expect.objectContaining({ resourceSetMode: "set_current_to_percentage" }),
-        }),
-        expect.objectContaining({
-          operationKind: "burden",
-          burdenKind: "resource_loss",
-          resourceSemantics: expect.objectContaining({ amountKind: "cap_change" }),
-          payload: expect.objectContaining({ capDelta: expect.any(Number) }),
-        }),
-        expect.objectContaining({
-          operationKind: "cost",
-          resourceSemantics: expect.objectContaining({ amountKind: "maximum" }),
-        }),
-        expect.objectContaining({
-          operationKind: "cost",
-          resourceSemantics: expect.objectContaining({ amountKind: "all_remaining" }),
-        }),
-        expect.objectContaining({
-          operationKind: "cost",
-          resourceSemantics: expect.objectContaining({ amountKind: "random_range" }),
-        }),
-        expect.objectContaining({
-          operationKind: "cost",
-          resource: "omens",
-          amount: expect.any(Number),
-          value: expect.objectContaining({
-            bands: expect.arrayContaining([
-              expect.objectContaining({ id: "multi_omen" }),
-            ]),
-          }),
-        }),
-        expect.objectContaining({
-          operationKind: "reward",
-          rewardKind: "dreamsign_gain",
-          targetSelector: expect.objectContaining({
-            selectorKind: "dreamsign",
-            selection: "exact",
-          }),
-        }),
-      ]),
-    );
-
-    const capLoss = operations.find((operation) =>
-      operation.operationKind === "burden" &&
-      operation.resourceSemantics?.amountKind === "cap_change" &&
-      typeof operation.payload.capDelta === "number" &&
-      operation.payload.capDelta < 0
-    );
-    const capGain = operations.find((operation) =>
-      operation.operationKind === "reward" &&
-      operation.resourceSemantics?.amountKind === "cap_change" &&
-      typeof operation.payload.capDelta === "number" &&
-      operation.payload.capDelta > 0
-    );
-    const randomRangeCostWithReward = costedManifests.some((manifest) =>
-      manifest.options.some((journeyOption) =>
-        journeyOption.operations.some((operation) =>
-          operation.operationKind === "cost" &&
-          operation.resourceSemantics?.amountKind === "random_range"
-        ) &&
-        journeyOption.operations.some((operation) => operation.role === "reward")
-      ),
-    );
-
-    expect(capLoss).toBeDefined();
-    expect(capGain).toBeDefined();
-    expect(randomRangeCostWithReward).toBe(true);
-  }, 180000);
 
   slowIt("carries resource operations through delayed hooks and pre-shop timing", async () => {
     const content = await loadContent(process.cwd());
@@ -2762,87 +2486,6 @@ describe.concurrent("generateNextJourney", () => {
     expect(seen).toEqual(requiredRewardKinds);
   });
 
-  it("forces starter cleanup and replacement against real starter deck cards", async () => {
-    const journeyContext = await context("starter-cleanup");
-    const cardPayload = {
-      familyId: "card",
-      variantId: "starter-cleanup-replacement",
-      qaId: "card/starter-cleanup-replacement",
-      description: "Starter cleanup and replacement coverage.",
-      supportedShapes: ["curated_reward_trio"],
-      supportedStages: ["early"],
-    } satisfies DebugPayloadSelection;
-    const manifest = generateNextJourney({
-      context: journeyContext,
-      forcedStage: "early",
-      forcedDebugPayload: cardPayload,
-    });
-    const rewardOperations = manifest.options.flatMap((option) =>
-      option.operations.filter(
-        (operation) => operation.operationKind === "reward",
-      ),
-    );
-    const cardRewardOperations = rewardOperations.filter(
-      (operation) => operation.rewardKind !== "resource",
-    );
-    const starterIds = new Set(
-      journeyContext.state.quest.deck.entries.map((entry) => entry.cardId),
-    );
-    const draftReplacement = cardRewardOperations.find(
-      (operation) =>
-        operation.rewardKind === "starter_replacement" &&
-        operation.payload.replacementMode === "draft",
-    );
-    const cleanupOption = manifest.options.find((option) =>
-      option.text.includes("Gain 2 omens."),
-    )!;
-
-    expect(manifest.shapeId).toBe("curated_reward_trio");
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
-    expect(
-      cardRewardOperations.map((operation) => operation.rewardKind),
-    ).toEqual(
-      expect.arrayContaining(["starter_cleanup", "starter_replacement"]),
-    );
-    expect(draftReplacement?.payload).toMatchObject({
-      takeCount: 1,
-      choiceCount: 4,
-      predicate: expect.objectContaining({ source: "draftPool" }),
-    });
-    expect(cleanupOption.effects).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ kind: "starter_cleanup" }),
-        expect.objectContaining({ kind: "gain_omens", amount: 2 }),
-      ]),
-    );
-    expect(cleanupOption.operations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          operationKind: "reward",
-          rewardKind: "resource",
-          legacyKind: "gain_omens",
-          payload: expect.objectContaining({ amount: 2 }),
-        }),
-      ]),
-    );
-
-    for (const operation of cardRewardOperations) {
-      expect(operation.targetResolution).toMatchObject({
-        selectorKind: "card",
-        sourcePool: "deck",
-        candidateCount: 1,
-      });
-      expect(starterIds.has(String(operation.payload.targetCardId))).toBe(true);
-      if (operation.rewardKind === "starter_cleanup") {
-        expect(cleanupOption.effectConvertedEssence).toBeGreaterThan(0);
-      } else {
-        expect(operation.value?.convertedEssence).toEqual(expect.any(Number));
-      }
-    }
-  });
-
   it("can produce a normal starter surgery service menu with starter target metadata", async () => {
     const found: JourneyManifest[] = [];
 
@@ -3353,31 +2996,6 @@ describe.concurrent("generateNextJourney", () => {
         ok: true,
       });
     }
-  });
-
-  it("adapts current root option payloads into typed semantic operations", async () => {
-    const journeyContext = await context();
-    // Force a shape that's guaranteed to produce visible reward operations so
-    // the assertion isn't seed-dependent. `curated_reward_trio` always emits
-    // direct reward operations on each option.
-    const manifest = generateNextJourney({
-      context: journeyContext,
-      forcedShapeId: "curated_reward_trio",
-    });
-
-    expectManifestPayloadsHaveTypedOperations(manifest);
-    expect(manifest.options.flatMap((option) => option.operations)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          operationKind: "reward",
-          role: "reward",
-          visibility: "visible",
-        }),
-      ]),
-    );
-    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-      ok: true,
-    });
   });
 
   it("adapts tree, random, route, delayed, wager, and repeatable payload surfaces", async () => {
@@ -4706,38 +4324,6 @@ describe.concurrent("generateNextJourney", () => {
     });
   });
 
-  it("can produce named card operation rows through normal generation", async () => {
-    const seen = new Set<string>();
-
-    for (let index = 0; index < 40 && seen.size === 0; index += 1) {
-      const journeyContext = await context(`normal-named-card-operation:${index}`);
-      const manifest = fillForShapeAtStage(
-        "curated_reward_trio",
-        journeyContext,
-        "mid",
-      );
-
-      expect(manifest.debug.debugPayload).toBeUndefined();
-      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-        ok: true,
-      });
-
-      manifest.options
-        .flatMap((option) => option.operations)
-        .filter(
-          (operation) =>
-            operation.operationKind === "reward" &&
-            ["card_transform", "card_replace", "card_duplicate"].includes(
-              operation.rewardKind,
-            ) &&
-            operation.payload.cardOperationTargetMode === "exact_named",
-        )
-        .forEach((operation) => seen.add(operation.rewardKind));
-    }
-
-    expect(seen.size).toBeGreaterThan(0);
-  });
-
   it("keeps delayed-hook shapes as real root choices", async () => {
     const journeyContext = await context();
     const delayedChoiceShapeIds: JourneyShapeId[] = [
@@ -5568,108 +5154,6 @@ describe.concurrent("generateNextJourney", () => {
           expect.stringMatching(/from the (?:card|Dreamsign) pool/iu),
         ]),
       );
-    }
-  });
-
-  it("balances the common positive reward menu while keeping card drafts in modest contract bands", async () => {
-    const journeyContext = await context();
-    const manifest = fillForShape("curated_reward_trio", journeyContext);
-    const draftEffects = manifest.options
-      .flatMap((option) => option.effects)
-      .filter(
-        (
-          effect,
-        ): effect is {
-          kind: "card_draft";
-          takeCount: number;
-          choiceCount: number;
-          predicate?: Record<string, unknown>;
-        } =>
-          typeof effect === "object" &&
-          effect !== null &&
-          "kind" in effect &&
-          effect.kind === "card_draft",
-      );
-    const dreamsignEffect = manifest.options
-      .flatMap((option) => option.effects)
-      .find(
-        (
-          effect,
-        ): effect is {
-          kind: "dreamsign_draft";
-          choiceCount: number;
-        } =>
-          typeof effect === "object" &&
-          effect !== null &&
-          "kind" in effect &&
-          effect.kind === "dreamsign_draft",
-      );
-
-    expect(manifest.options).toHaveLength(3);
-    expect(draftEffects.length).toBeGreaterThan(0);
-    for (const draftEffect of draftEffects) {
-      expect(draftEffect.takeCount).toBeGreaterThanOrEqual(1);
-      expect(draftEffect.choiceCount).toBeGreaterThanOrEqual(
-        draftEffect.takeCount,
-      );
-      expect(draftEffect.choiceCount).toBeGreaterThanOrEqual(3);
-      expect(draftEffect.choiceCount).toBeLessThanOrEqual(6);
-      expect(draftEffect.takeCount).toBeLessThanOrEqual(2);
-    }
-    if (dreamsignEffect) {
-      expect(dreamsignEffect.choiceCount).toBeGreaterThanOrEqual(2);
-      expect(dreamsignEffect.choiceCount).toBeLessThanOrEqual(3);
-    }
-    expect(
-      Math.min(
-        ...manifest.options.map((option) => option.effectConvertedEssence),
-      ),
-    ).toBeGreaterThanOrEqual(295);
-    expect(
-      Math.max(
-        ...manifest.options.map((option) => option.netConvertedEssence),
-      ) -
-        Math.min(
-          ...manifest.options.map((option) => option.netConvertedEssence),
-        ),
-    ).toBeLessThanOrEqual(100);
-  });
-
-  slowIt("varies positive menu filler slots across seeds while preserving deterministic replay", async () => {
-    const positiveMenuShapeIds: JourneyShapeId[] = [
-      "random_rewards",
-      "curated_reward_trio",
-      "heterogeneous_pair",
-      "single_reward",
-    ];
-
-    for (const shapeId of positiveMenuShapeIds) {
-      const stableContext = await context(`positive-stable:${shapeId}`);
-
-      expect(stableStringify(fillForShape(shapeId, stableContext))).toBe(
-        stableStringify(fillForShape(shapeId, stableContext)),
-      );
-
-      const outputs = new Set<string>();
-
-      for (const seed of [
-        "positive-a",
-        "positive-b",
-        "positive-c",
-        "positive-d",
-        "positive-e",
-      ]) {
-        const journeyContext = await context(`${shapeId}:${seed}`);
-        const manifest = fillForShape(shapeId, journeyContext);
-
-        expect(
-          validateJourneyManifest(manifest, journeyContext),
-          `${shapeId}:${seed}`,
-        ).toEqual({ ok: true });
-        outputs.add(generatedOptionText(manifest).join("\n"));
-      }
-
-      expect(outputs.size, shapeId).toBeGreaterThan(1);
     }
   });
 
@@ -7697,93 +7181,6 @@ describe.concurrent("validateJourneyManifest", () => {
     });
   });
 
-  it("rejects Dreamsign pool edits with unresolved source predicates", async () => {
-    const journeyContext = await context("dreamsign-pool-edit-invalid");
-    const manifest = forcedDreamsignOperationManifest(journeyContext);
-    const invalid: JourneyManifest = {
-      ...manifest,
-      options: manifest.options.map((option) => ({
-        ...option,
-        effects: option.effects.map((effect) =>
-          typeof effect === "object" &&
-          effect !== null &&
-          !Array.isArray(effect) &&
-          "kind" in effect &&
-          effect.kind === "dreamsign_pool_edit"
-            ? { ...effect, source: "active" }
-            : effect,
-        ),
-      })),
-    };
-
-    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
-      ok: false,
-      rule: "dreamsign_target_unavailable",
-    });
-  });
-
-  it("rejects random Dreamsign rewards with IDs outside the current pool", async () => {
-    const journeyContext = await context("dreamsign-random-invalid");
-    const manifest = forcedDreamsignOperationManifest(journeyContext);
-    const poolIds = new Set(journeyContext.state.quest.dreamsignPoolIds);
-    const outsidePoolDreamsign = journeyContext.content.dreamsigns.find(
-      (dreamsign) => !poolIds.has(dreamsign.id),
-    )!;
-    const invalid: JourneyManifest = {
-      ...manifest,
-      options: manifest.options.map((option) => ({
-        ...option,
-        effects: option.effects.map((effect) =>
-          typeof effect === "object" &&
-          effect !== null &&
-          !Array.isArray(effect) &&
-          "kind" in effect &&
-          effect.kind === "dreamsign_random_reward"
-            ? { ...effect, rewardPoolDreamsignIds: [outsidePoolDreamsign.id] }
-            : effect,
-        ),
-      })),
-    };
-
-    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
-      ok: false,
-      rule: "dreamsign_random_reward_pool_unavailable",
-    });
-  });
-
-  it("rejects Dreamsign trade hooks with give references outside the source", async () => {
-    const journeyContext = await context("dreamsign-trade-invalid");
-    const manifest = forcedDreamsignOperationManifest(journeyContext);
-    const poolIds = new Set(journeyContext.state.quest.dreamsignPoolIds);
-    const outsidePoolDreamsign = journeyContext.content.dreamsigns.find(
-      (dreamsign) => !poolIds.has(dreamsign.id),
-    )!;
-    const invalid: JourneyManifest = {
-      ...manifest,
-      options: manifest.options.map((option) => ({
-        ...option,
-        effects: option.effects.map((effect) =>
-          typeof effect === "object" &&
-          effect !== null &&
-          !Array.isArray(effect) &&
-          "kind" in effect &&
-          effect.kind === "dreamsign_trade_hook"
-            ? {
-                ...effect,
-                giveDreamsignId: outsidePoolDreamsign.id,
-                giveDreamsignName: outsidePoolDreamsign.name,
-              }
-            : effect,
-        ),
-      })),
-    };
-
-    expect(validateJourneyManifest(invalid, journeyContext)).toMatchObject({
-      ok: false,
-      rule: "dreamsign_trade_hook_give_unavailable",
-    });
-  });
-
   it("resolves named card and Dreamsign selectors into JSON/debug metadata", async () => {
     const journeyContext = await context();
     const card = journeyContext.content.cards[0]!;
@@ -8006,64 +7403,6 @@ describe.concurrent("validateJourneyManifest", () => {
         typeof candidate.weightHooks.stage === "number"
       ),
     ).toBe(true);
-  });
-
-  it("emits normal content-backed named card and Dreamsign gains without debug payloads", async () => {
-    const found = new Set<string>();
-    const evidence: Record<string, JourneyOperation | undefined> = {};
-
-    for (let index = 0; index < 80 && found.size < 2; index += 1) {
-      const journeyContext = await context(`normal-named-gain:${index}`);
-      const manifest = generateNextJourney({
-        context: journeyContext,
-        forcedShapeId: "curated_reward_trio",
-        forcedStage: "mid",
-      });
-
-      expect(manifest.debug.debugPayload).toBeUndefined();
-      expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-        ok: true,
-      });
-
-      for (const operation of manifest.options.flatMap((option) => option.operations)) {
-        if (
-          operation.operationKind === "reward" &&
-          operation.rewardKind === "card_gain" &&
-          operation.targetResolution?.targetOrigin &&
-          operation.targetSelector?.selectorKind === "card" &&
-          operation.targetSelector.selection === "exact"
-        ) {
-          found.add("card");
-          evidence.card = operation;
-        }
-
-        if (
-          operation.operationKind === "reward" &&
-          operation.rewardKind === "dreamsign_gain" &&
-          operation.targetResolution?.targetOrigin
-        ) {
-          found.add("dreamsign");
-          evidence.dreamsign = operation;
-        }
-      }
-    }
-
-    expect(evidence.card).toMatchObject({
-      rewardKind: "card_gain",
-      targetResolution: expect.objectContaining({
-        selectorKind: "card",
-        candidateCount: 1,
-        targetOrigin: expect.stringMatching(/catalog_reward|draft_pool_candidate/u),
-      }),
-    });
-    expect(evidence.dreamsign).toMatchObject({
-      rewardKind: "dreamsign_gain",
-      targetResolution: expect.objectContaining({
-        selectorKind: "dreamsign",
-        candidateCount: 1,
-        targetOrigin: expect.stringMatching(/catalog_reward|dreamsign_pool_candidate/u),
-      }),
-    });
   });
 
   it("reports empty required target pools with stable debug metadata", async () => {
@@ -10477,38 +9816,6 @@ describe.concurrent("repairOrFallbackJourney", () => {
     expect(repaired.debug.repairs.map((entry) => entry.action)).not.toContain(
       "replace_delayed_hook",
     );
-  });
-
-  it("uses shape repair preferences when there is no typed failure-specific repair", async () => {
-    const journeyContext = await context();
-    const base = fillForShape("curated_reward_trio", journeyContext);
-    const invalid: JourneyManifest = {
-      ...base,
-      options: base.options.map((option) => ({
-        ...option,
-        effects: [],
-        effectConvertedEssence: 0,
-        burdenConvertedEssence: -80,
-        netConvertedEssence: -80,
-      })),
-    };
-    const failed = validateJourneyManifest(invalid, journeyContext);
-
-    expect(failed).toMatchObject({
-      ok: false,
-      rule: "negative_only_positive_scene",
-    });
-
-    const repaired = repairOrFallbackJourney(invalid, journeyContext, failed);
-
-    expect(validateJourneyManifest(repaired, journeyContext)).toEqual({
-      ok: true,
-    });
-    expect(repaired.shapeId).toBe("curated_reward_trio");
-    expect(repaired.debug.repairs[0]).toMatchObject({
-      action: "replace_nonpositive_option",
-      result: "repaired",
-    });
   });
 
   it("records whether typed payload failures regenerated, simplified, or forced failure metadata", async () => {

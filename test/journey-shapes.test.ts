@@ -21,7 +21,6 @@ const expectedShapeIds = [
   "shared_prefix_menu",
   "service_menu",
   "shop_row",
-  "curated_reward_trio",
   "heterogeneous_pair",
   "random_trades",
   "one_target_many_operations",
@@ -86,7 +85,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(34);
+    expect(actualShapeIds).toHaveLength(33);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -149,7 +148,6 @@ describe("JOURNEY_SHAPES", () => {
       "risk_or_skip_envelope",
     );
     expect(fallbackShapeIds()).toEqual([
-      "curated_reward_trio",
       "single_reward",
       "service_menu",
     ]);

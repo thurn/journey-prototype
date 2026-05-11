@@ -1,7 +1,6 @@
 import { alterDreamscapesPlugin } from "./alter_dreamscapes/index.js";
 import { chooseYourLossPlugin } from "./choose_your_loss/index.js";
 import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff/index.js";
-import { curatedRewardTrioPlugin } from "./curated_reward_trio/index.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain/index.js";
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
@@ -47,7 +46,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   sharedPrefixMenuPlugin,
   serviceMenuPlugin,
   shopRowPlugin,
-  curatedRewardTrioPlugin,
   heterogeneousPairPlugin,
   randomTradesPlugin,
   oneTargetManyOperationsPlugin,
