@@ -97,3 +97,26 @@ describe("rewards table (card-pool family)", () => {
     }
   });
 });
+
+describe("rewards table (modification family)", () => {
+  it("registers transfiguration and modification templates", () => {
+    for (const id of [
+      "apply_chosen_transfiguration_to_chosen_card",
+      "apply_named_transfiguration_to_chosen_predicate_cards",
+      "apply_named_transfiguration_to_card_name",
+      "apply_named_transfiguration_to_random_predicate_cards",
+      "transfigure_random_starters",
+      "transfigure_all_starters",
+      "modify_card_to_reference_type",
+      "change_card_to_become_type",
+      "modify_random_cards_to_types",
+      "make_card_fast",
+      "make_random_cards_fast",
+    ]) {
+      const t = getReward(id);
+      const p = t.rollParams(fakeCtx(), draw);
+      expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
+      expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+});
