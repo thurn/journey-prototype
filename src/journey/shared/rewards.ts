@@ -879,9 +879,12 @@ const transformDreamsignToNamed: Reward<TransformDreamsignToNamedParams> = {
 type TemporaryDreamsignParams = { battles: number };
 const temporaryDreamsignForXBattles: Reward<TemporaryDreamsignParams> = {
   id: "temporary_dreamsign_for_X_battles",
-  weight: 1.0,
+  // A random dreamsign that expires after 1-3 battles is a situational,
+  // short-lived effect; it should appear in the rare tier and carry a low
+  // CEC that grows only modestly with the battle count.
+  weight: 0.25,
   rollParams: (_ctx, draw) => ({ battles: drawInt(draw, "temp_ds:b", 1, 3) }),
-  cec: (p) => DREAMSIGN_CEC * 0.5 * p.battles,
+  cec: (p) => 25 * (1 + (p.battles - 1) * 0.5),
   viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
   render: (p) =>
     `Gain a random dreamsign for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,

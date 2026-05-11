@@ -386,6 +386,17 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(openingHand.cec({ cardName: "x", battles: 1 }, fakeCtx())).toBe(12);
     expect(openingHand.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(36);
   });
+
+  it("temporary_dreamsign_for_X_battles is rare and pinned to a low CEC", () => {
+    // A random dreamsign that lasts only 1-3 battles is weak and situational,
+    // so this reward is in the rare tier (weight 0.25) and its CEC is pinned
+    // to 25 at battles=1, scaling only modestly up to 50 at battles=3.
+    const t = getReward("temporary_dreamsign_for_X_battles");
+    expect(t.weight).toBe(0.25);
+    expect(t.cec({ battles: 1 } as never, fakeCtx())).toBe(25);
+    expect(t.cec({ battles: 2 } as never, fakeCtx())).toBe(37.5);
+    expect(t.cec({ battles: 3 } as never, fakeCtx())).toBe(50);
+  });
 });
 
 describe("rewards table (newly added)", () => {
