@@ -195,6 +195,14 @@ describe("costs table (dreamsign family)", () => {
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
   });
+
+  it("prices random Dreamsign purge as a severe random trade cost", () => {
+    const randomTradeCostIds = new Set(RANDOM_TRADE_COSTS.map((c) => c.id));
+    const randomPurge = getCost("purge_random_dreamsign");
+
+    expect(randomTradeCostIds.has("purge_random_dreamsign")).toBe(true);
+    expect(randomPurge.cec({}, fakeCtx())).toBe(200);
+  });
 });
 
 describe("costs table (bane/dreamwell/starter family)", () => {

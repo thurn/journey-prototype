@@ -209,6 +209,7 @@ const purgeAllDuplicateCards: Cost<PurgeAllDuplicatesParams> = {
 };
 
 const DREAMSIGN_CEC = 80;
+const RANDOM_DREAMSIGN_PURGE_CEC = 200;
 
 type PurgeNamedDreamsignParams = { name: string };
 const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
@@ -232,9 +233,9 @@ const purgeRandomDreamsign: Cost<PurgeRandomDreamsignParams> = {
   id: "purge_random_dreamsign",
   weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
-  cec: () => DREAMSIGN_CEC * 0.5,
+  cec: () => RANDOM_DREAMSIGN_PURGE_CEC,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
-  render: () => "Purge a random dreamsign",
+  render: () => "Purge a random Dreamsign",
 };
 
 type PurgeChosenDreamsignParams = Record<string, never>;
@@ -244,7 +245,7 @@ const purgeChosenDreamsign: Cost<PurgeChosenDreamsignParams> = {
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 0.7,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
-  render: () => "Purge a chosen dreamsign",
+  render: () => "Purge a chosen Dreamsign",
 };
 
 type XformDreamsignParams = Record<string, never>;
