@@ -47,7 +47,7 @@ const payMaxEssence: Cost<PayMaxEssenceParams> = {
   rollParams: () => ({}),
   cec: (_p, ctx) => maxEssence(ctx) * STAGE_MULTIPLIER,
   viable: () => true,
-  render: () => "Pay maximum essence",
+  render: () => "Lose maximum essence",
 };
 
 type PayEssenceRangeParams = { min: number; max: number };
@@ -61,7 +61,7 @@ const payEssenceRandomRange: Cost<PayEssenceRangeParams> = {
   },
   cec: (p) => ((p.min + p.max) / 2) * STAGE_MULTIPLIER,
   viable: () => true,
-  render: (p) => `Pay ${p.min}-${p.max} essence (random roll)`,
+  render: (p) => `Lose ${p.min}-${p.max} essence (random roll)`,
 };
 
 type PayPercentEssenceParams = { percent: number };
@@ -74,7 +74,7 @@ const payPercentEssence: Cost<PayPercentEssenceParams> = {
   },
   cec: (p, ctx) => essenceAmount(ctx) * (p.percent / 100) * STAGE_MULTIPLIER,
   viable: () => true,
-  render: (p) => `Pay ${p.percent}% of your essence`,
+  render: (p) => `Lose ${p.percent}% of your essence`,
 };
 
 type PayAllRemainingParams = Record<string, never>;
@@ -84,7 +84,7 @@ const payAllRemainingEssence: Cost<PayAllRemainingParams> = {
   rollParams: () => ({}),
   cec: (_p, ctx) => essenceAmount(ctx) * STAGE_MULTIPLIER,
   viable: () => true,
-  render: () => "Pay all remaining essence",
+  render: () => "Lose all remaining essence",
 };
 
 type BattleRedFlatParams = { amount: number; battles: number };

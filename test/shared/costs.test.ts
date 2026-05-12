@@ -53,6 +53,19 @@ describe("costs table (resource family)", () => {
     expect(t.render({ x: 2 }, fakeCtx(100, 2))).toBe("Lose 2 omens");
   });
 
+  it("renders variable essence templates as losses", () => {
+    expect(getCost("pay_max_essence").render({}, fakeCtx())).toBe("Lose maximum essence");
+    expect(getCost("pay_essence_random_range").render({ min: 30, max: 80 }, fakeCtx())).toBe(
+      "Lose 30-80 essence (random roll)",
+    );
+    expect(getCost("pay_percent_essence").render({ percent: 25 }, fakeCtx())).toBe(
+      "Lose 25% of your essence",
+    );
+    expect(getCost("pay_all_remaining_essence").render({}, fakeCtx())).toBe(
+      "Lose all remaining essence",
+    );
+  });
+
   it("pay_essence emits [LOCKED] when X > current essence", () => {
     const t = getCost("pay_essence");
     // Force a large X by trying many seeds and find one >= 100
