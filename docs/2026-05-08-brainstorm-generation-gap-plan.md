@@ -295,9 +295,8 @@ Required work:
 
 Acceptance criteria:
 
-- `one_target_many_operations`, `one_operation_many_targets`, and
-  `mirrored_operations` can use the expanded catalog without shape-local
-  special cases.
+- `one_target_many_operations` and `one_operation_many_targets` can use the
+  expanded catalog without shape-local special cases.
 - Normal output can produce named card operation rows as a weighted outcome.
 - Validation catches incompatible target and operation pairs before rendering.
 - Validate that [Ink Reassignment](brainstorm_examples.md#ink-reassignment)

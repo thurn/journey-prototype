@@ -165,26 +165,6 @@ repair, generated-object, and distinctness contracts for a shape.
 - Give {Glimpse of What Was} Fast.
 - Make {Glimpse of What Was} cost 1 less.
 
-# mirrored_operations
-
-## Reflection Gallery
-
-- Duplicate a chosen card.
-- Apply {Golden Transfiguration} to a chosen card.
-- Transform a chosen Dreamsign into 1 of 3 visible Dreamsigns.
-
-## Event Mirror
-
-- Purge a chosen event.
-- Duplicate a chosen event.
-- Make a chosen event Fast.
-
-## Dreamsign Mirror
-
-- Duplicate a chosen Dreamsign.
-- Transform a chosen Dreamsign into 1 of 3 visible Dreamsigns.
-- Awaken a chosen Dreamsign, adding a second compatible trigger to it.
-
 # one_operation_many_targets
 
 ## Triple Copy

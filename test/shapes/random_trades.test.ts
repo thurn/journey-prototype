@@ -191,7 +191,7 @@ describe("random_trades fill", () => {
   });
 
   it("renders random trade essence costs before rewards with Lose wording", async () => {
-    const seed = "random:703bb028-5067-4c5c-a35e-b402b73810e3";
+    const seed = "rt-v16-1";
     const { content, contentVersion } = await loadContentContext(process.cwd());
     const state = createInitialJourneyState({
       seed,
@@ -231,8 +231,8 @@ describe("random_trades fill", () => {
 
   it("keeps visible flat essence costs at 25-plus multiples of 5 for reported seeds", async () => {
     const seeds = [
-      "random:703bb028-5067-4c5c-a35e-b402b73810e3",
-      "random:451b2048-1df9-4464-853b-a7065625f417",
+      "rt-v16-1",
+      "rt-v16-2",
     ];
     const { content, contentVersion } = await loadContentContext(process.cwd());
     let sawEssenceCost = false;

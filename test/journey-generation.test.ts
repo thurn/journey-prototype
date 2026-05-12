@@ -729,7 +729,7 @@ describe.concurrent("generateNextJourney", () => {
     expect(first.schemaVersion).toBe(2);
     expect(first.versions).toMatchObject({
       contentVersion: "test-content-version",
-      shapeCatalogVersion: "journey-shapes:v15",
+      shapeCatalogVersion: "journey-shapes:v16",
       effectCatalogVersion: "effects:v7",
       valueModelVersion: "value:v10",
       rendererVersion: "renderer:v1",
@@ -3261,7 +3261,6 @@ describe.concurrent("generateNextJourney", () => {
       "same_reward_different_costs",
       "shop_row",
       "one_target_many_operations",
-      "mirrored_operations",
       "one_operation_many_targets",
     ];
 
@@ -3740,22 +3739,6 @@ describe.concurrent("generateNextJourney", () => {
       label: "test:one-target",
       count: 3,
     });
-    const mirroredRewriteOperations = compatibleCardOperations(drawContext, {
-      slot: {
-        provides: [
-          "single_target",
-          "drafted_target",
-          "text_or_subtype_mutation_consumer",
-          "keyword_mutation_consumer",
-        ],
-      },
-      targetClasses: ["draft_card"],
-      families: ["keyword", "cost", "text"],
-      valueBands: ["standard"],
-      timings: ["immediate"],
-      label: "test:mirrored-rewrite",
-      count: 4,
-    });
     const oneOperationOperations = compatibleCardOperations(drawContext, {
       slot: {
         provides: [
@@ -3795,9 +3778,6 @@ describe.concurrent("generateNextJourney", () => {
     });
 
     expect(oneTargetOperations).toHaveLength(3);
-    expect(
-      mirroredRewriteOperations.map((operation) => operation.family),
-    ).toEqual(expect.arrayContaining(["keyword", "cost", "text"]));
     expect(
       new Set(oneOperationOperations.map((operation) => operation.key)).size,
     ).toBe(3);
@@ -4283,7 +4263,7 @@ describe.concurrent("generateNextJourney", () => {
       }),
     );
     const manifest = {
-      ...fillForShape("mirrored_operations", journeyContext),
+      ...fillForShape("one_target_many_operations", journeyContext),
       options: groupedOptions,
       precommitted: refreshPrecommittedOperations({
         random: [{ kind: "dreamsign_random_reward", source: "catalog" }],

@@ -175,8 +175,6 @@ Several normal shape cases contain their own hardcoded card operation lists:
 - `one_target_many_operations` includes transfiguration, Fast, Reclaim, and
   temporary cost reduction in
   [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L437);
-- `mirrored_operations` repeats rewrite and transfiguration menus in
-  [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L574);
 - `one_operation_many_targets` embeds transfigure, Fast, Reclaim, duplicate, and
   cost reduction in
   [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L682);
@@ -198,11 +196,11 @@ catalog with operation eligibility, target compatibility, value metadata, and
 text rendering.
 
 **Resolution:** Normal card-operation shapes now use a shared card-operation
-catalog. `one_target_many_operations`, `mirrored_operations`, and
-`one_operation_many_targets` request compatible operations by topology, target
-class, value band, timing, and optional operation family, then render those
-catalog results into their shape-specific option topology. This preserves the
-curated symmetry of those shapes while moving reusable card operations out of
+catalog. `one_target_many_operations` and `one_operation_many_targets` request
+compatible operations by topology, target class, value band, timing, and
+optional operation family, then render those catalog results into their
+shape-specific option topology. This preserves the curated symmetry of those
+shapes while moving reusable card operations out of
 shape-local inline arrays. The named-card debug menu remains a deterministic QA
 fixture for exact real-card operation coverage.
 

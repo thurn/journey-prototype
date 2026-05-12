@@ -80,7 +80,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | single_offer | 52 | 1.73% |
 | single_rule_trial | 52 | 1.73% |
 | escalating_reward_chain | 51 | 1.70% |
-| mirrored_operations | 48 | 1.60% |
 | random_trades | 22 | 0.73% |
 
 ## Notes on the weighting

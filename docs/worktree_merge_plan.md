@@ -12,8 +12,8 @@ naturally). Inspection of the work product shows:
   no remaining references in non-exempt central files.
 - **7 worktrees** still leak shape IDs into central files
   (`probability_ladder`, `one_operation_many_targets`, `resolved_random_series`,
-  `paired_return`, `one_target_many_operations`, `mirrored_operations`,
-  `flat_escalating_trade`). Those need additional work — likely widening
+  `paired_return`, `one_target_many_operations`, `flat_escalating_trade`).
+  Those need additional work — likely widening
   `JourneyShapePlugin` or extracting `dreamsignOperationCatalog` /
   `cardOperationCatalog` ownership — and are out of scope for this merge plan.
 

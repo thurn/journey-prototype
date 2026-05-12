@@ -24,7 +24,6 @@ const expectedShapeIds = [
   "heterogeneous_pair",
   "random_trades",
   "one_target_many_operations",
-  "mirrored_operations",
   "one_operation_many_targets",
   "choose_your_loss",
   "single_reward",
@@ -85,7 +84,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(33);
+    expect(actualShapeIds).toHaveLength(32);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -378,7 +377,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v15;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v16;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

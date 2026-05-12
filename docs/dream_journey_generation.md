@@ -538,18 +538,6 @@ must all be plausible things to do to that target class; do not mix "improve
 this object" with "simply damage this object" unless the target is explicitly a
 liability.
 
-### mirrored_operations
-
-The site presents a tightly parallel operation set whose overt symmetry is the
-main promise of the scene. This shape is useful for matched menus such as
-purge-versus-duplicate-versus-transfigure when the mirrored verbs themselves are
-the point, not merely a fill detail.
-
-The operations must share the target's polarity. Destructive operations are
-reasonable for liabilities such as Banes, but a menu aimed at valuable
-Dreamsigns should not include a bare purge option unless that purge is part of a
-clearly compensated exchange.
-
 ### one_operation_many_targets
 
 The site applies one operation across several possible targets and asks the
@@ -791,8 +779,7 @@ stable while still preserving expressive power. The main exception is when a
 shared property is itself the authored promise of the scene. If overt symmetry,
 shared timing, fixed random cadence, or an authored callback is the thing the
 player is primarily reacting to, it may deserve an explicit top-level shape such
-as `mirrored_operations`, `timed_window_menu`, `resolved_random_series`, or
-`paired_return`.
+as `timed_window_menu`, `resolved_random_series`, or `paired_return`.
 
 ## Effect Lists
 

@@ -411,7 +411,7 @@ export function independentRowsMenuFill(_args: ShapeFillArgs): FilledJourney | u
 
 Create `src/journey/shapes/independent_rows_menu/validators.ts` with an empty `validators` array (typed `readonly ShapeValidator[]`) — full validators come in Task 2.3.
 
-In `src/journey/shapes/registry.ts`: add `import { independentRowsMenuPlugin } from "./independent_rows_menu/index.js";` (alphabetically) and append to `BUILTIN_SHAPE_PLUGINS` array (alphabetically positioned between `heterogeneousPairPlugin` and `mirroredOperationsPlugin`).
+In `src/journey/shapes/registry.ts`: add `import { independentRowsMenuPlugin } from "./independent_rows_menu/index.js";` (alphabetically) and append to `BUILTIN_SHAPE_PLUGINS` array near the other direct-menu plugins.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -961,7 +961,6 @@ Audit `src/journey/fillers/cardOperationCatalog.ts` for the function that curren
 
 For each shape that currently passes a `topology` to the catalog, replace with the corresponding slot capability set:
 - `one_target_many_operations` → `provides: ["single_target", "named_target", "deck_side", "deck_mutation_consumer", "text_or_subtype_mutation_consumer", "keyword_mutation_consumer"]`
-- `mirrored_operations` → same as above plus the symmetric counterpart
 - `one_operation_many_targets` → `provides: ["single_target", "all_matching_scope", "deck_side", "deck_mutation_consumer"]`
 - `alter_dreamscapes` → `provides: ["all_matching_scope", "deck_side", "deck_mutation_consumer", "text_or_subtype_mutation_consumer"]` (note: this one previously *blocked* `all-event-transfiguration` via topologies; the new slot DOES accept it)
 - (Audit each shape's existing topology assignment and convert.)

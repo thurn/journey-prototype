@@ -10,7 +10,7 @@ import type {
   ShapeValidator,
 } from "./types.js";
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v15";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v16";
 
 export const commonValidationRules = [
   "root_option_count_within_bounds",
@@ -122,7 +122,6 @@ function payloadCompatibilityFor(
   const generatedObjectShape = [
     "same_cost_different_rewards",
     "one_target_many_operations",
-    "mirrored_operations",
     "one_operation_many_targets",
   ].includes(id);
 
