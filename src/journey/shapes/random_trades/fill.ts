@@ -11,7 +11,8 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const TOLERANCE_INITIAL = 15;
 const TOLERANCE_WIDEN_STEP = 10;
-const PAY_FLOOR = 10;
+const PAY_FLOOR = 25;
+const PAY_STEP = 5;
 
 type RolledReward = { template: Reward; params: unknown; cec: number };
 type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
@@ -104,6 +105,27 @@ function pickBaneName(draw: DrawContext, label: string): string {
   return BANE_NAMES[drawInt(draw, label, 0, BANE_NAMES.length - 1)]!;
 }
 
+function snapPayFloor(value: number): number {
+  return Math.ceil(value / PAY_STEP) * PAY_STEP;
+}
+
+function snapPayCeiling(value: number): number {
+  return Math.floor(value / PAY_STEP) * PAY_STEP;
+}
+
+function rollPayEssenceAmount(
+  draw: DrawContext,
+  label: string,
+  floor: number,
+  ceiling: number,
+): number | undefined {
+  const snappedFloor = snapPayFloor(Math.max(PAY_FLOOR, floor));
+  const snappedCeiling = snapPayCeiling(ceiling);
+  if (snappedCeiling < snappedFloor) return undefined;
+  const stepCount = (snappedCeiling - snappedFloor) / PAY_STEP;
+  return snappedFloor + PAY_STEP * drawInt(draw, label, 0, stepCount);
+}
+
 function rollCostParamsForRewardCap(
   ctx: JourneyContext,
   draw: DrawContext,
@@ -123,7 +145,8 @@ function rollCostParamsForRewardCap(
       ceiling = Math.min(ceiling, Math.floor(range.ceiling));
     }
     if (ceiling < floor) return undefined;
-    return { x: drawInt(draw, "pay_essence:x", floor, ceiling) };
+    const x = rollPayEssenceAmount(draw, "pay_essence:x", floor, ceiling);
+    return x === undefined ? undefined : { x };
   }
   if (template.id === "pay_omens") {
     const maxOmens = Math.min(2, Math.floor(cap / 40));
@@ -201,8 +224,8 @@ function pickCostForReward(
     return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
   }
   if (cap >= PAY_FLOOR) {
-    const ceiling = Math.max(PAY_FLOOR, Math.floor(cap));
-    const x = drawInt(draw, `${label}:fallback`, PAY_FLOOR, ceiling);
+    const x = rollPayEssenceAmount(draw, `${label}:fallback`, PAY_FLOOR, Math.floor(cap));
+    if (x === undefined) return undefined;
     const params = { x };
     const cec = x;
     const rendered = withLockedPrefix(`Lose ${x} essence`, x > essenceAmount(ctx));

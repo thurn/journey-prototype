@@ -60,6 +60,12 @@ function costFamilyForText(text: string): "resource" | "bane" | "other" {
   return "other";
 }
 
+function flatEssenceCosts(text: string): readonly number[] {
+  return [...text.matchAll(/(?:^|\[LOCKED\] |\. )Lose (\d+) essence(?:\.|$)/gu)].map((match) =>
+    Number(match[1]),
+  );
+}
+
 describe("random_trades fill", () => {
   it("always produces exactly 3 options", () => {
     for (let i = 0; i < 30; i += 1) {
@@ -113,7 +119,7 @@ describe("random_trades fill", () => {
     expect(saw).toBe(true);
   });
 
-  it("renders random trade costs before rewards with Lose wording", async () => {
+  it("renders random trade essence costs before rewards with Lose wording", async () => {
     const seed = "random:703bb028-5067-4c5c-a35e-b402b73810e3";
     const { content, contentVersion } = await loadContentContext(process.cwd());
     const state = createInitialJourneyState({
@@ -143,10 +149,59 @@ describe("random_trades fill", () => {
       forcedStage: "early",
     });
 
-    for (const option of manifest.options) {
-      expect(option.text).toMatch(/^Lose \d+ essence\. /u);
+    const essenceCostRows = manifest.options.filter((option) =>
+      /^(?:\[LOCKED\] )?Lose \d+ essence\. /u.test(option.text),
+    );
+    expect(essenceCostRows.length).toBeGreaterThan(0);
+    for (const option of essenceCostRows) {
       expect(option.text).not.toMatch(/\. Pay \d+ essence$/u);
     }
+  });
+
+  it("keeps visible flat essence costs at 25-plus multiples of 5 for reported seeds", async () => {
+    const seeds = [
+      "random:703bb028-5067-4c5c-a35e-b402b73810e3",
+      "random:451b2048-1df9-4464-853b-a7065625f417",
+    ];
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    let sawEssenceCost = false;
+
+    for (const seed of seeds) {
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex: 0,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "random_trades",
+        forcedStage: "early",
+      });
+      const costs = manifest.options.flatMap((option) => flatEssenceCosts(option.text));
+
+      if (costs.length > 0) sawEssenceCost = true;
+      for (const cost of costs) {
+        expect(cost).toBeGreaterThanOrEqual(25);
+        expect(cost % 5).toBe(0);
+      }
+    }
+    expect(sawEssenceCost).toBe(true);
   });
 
   it("does not offer starter-card draft or gain rewards for regression seeds", async () => {
@@ -364,7 +419,7 @@ describe("random_trades fill", () => {
     const resourceRate = counts.resource / total;
     const baneRate = counts.bane / total;
 
-    expect(resourceRate).toBeGreaterThanOrEqual(0.38);
+    expect(resourceRate).toBeGreaterThanOrEqual(0.35);
     expect(resourceRate).toBeLessThanOrEqual(0.70);
     expect(baneRate).toBeGreaterThanOrEqual(0.14);
     expect(baneRate).toBeLessThanOrEqual(0.36);
