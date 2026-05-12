@@ -15,7 +15,7 @@ import {
   transfigurationsEligibleForPredicate,
 } from "./content.js";
 import { PREDICATES, getPredicate } from "./predicates.js";
-import type { Predicate, Reward, TemplateParams } from "./types.js";
+import type { Predicate, PredicateKind, Reward, TemplateParams } from "./types.js";
 
 // Roll a transfiguration that is compatible with the given predicate's
 // match set. Falls back to the canonical set when no transfiguration is
@@ -118,13 +118,33 @@ const gainEssenceToMax: Reward<GainEssenceToMaxParams> = {
   render: () => "Gain essence up to your maximum",
 };
 
-function rollPredicate(draw: DrawContext, label: string): Predicate {
+// `kinds` restricts the roll to predicates whose `kind` is in the allow-list.
+// Random-gain rewards (e.g. "Gain N random <plural>") pass
+// `["ability", "card-type"]` so cost/spark buckets ("cards with cost 2 or less",
+// "cards with spark 4 or more") never appear as the predicate; draft rewards
+// omit the filter and roll across every predicate kind.
+function rollPredicate(
+  draw: DrawContext,
+  label: string,
+  kinds?: readonly PredicateKind[],
+): Predicate {
+  const pool = kinds === undefined
+    ? PREDICATES
+    : PREDICATES.filter((p) => kinds.includes(p.kind));
   return weightedChoice(
     draw,
     label,
-    PREDICATES.map((p) => ({ item: p, weight: 1 })),
+    pool.map((p) => ({ item: p, weight: 1 })),
   );
 }
+
+// Random-gain rewards — those that hand the player a set of cards without a
+// choice over which cards — restrict their predicate to ability/card-type. A
+// reward like "Gain 3 random cards with spark 4 or more" reads as an
+// arbitrary stat slice rather than a meaningful card category, so the
+// stat-bucket predicates are excluded here. Drafts keep stat-bucket
+// predicates because the player still chooses among offered cards.
+const RANDOM_GAIN_PREDICATE_KINDS: readonly PredicateKind[] = ["ability", "card-type"];
 
 // Predicates whose match pool spans a huge portion of the card universe
 // (~half the cards each). Drafting from such a pool offers little selection
@@ -142,7 +162,7 @@ const gainRandomPredicateCards: Reward<GainRandomCardsParams> = {
   id: "gain_random_predicate_cards",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "gain_random_predicate:pred").id,
+    predicateId: rollPredicate(draw, "gain_random_predicate:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
     count: drawInt(draw, "gain_random_predicate:count", 1, 3),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC, p.count, getPredicate(p.predicateId)),
@@ -174,7 +194,7 @@ const takeAnyFromPredicateChoices: Reward<TakeAnyParams> = {
   id: "take_any_from_predicate_choices",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "take_any:pred").id,
+    predicateId: rollPredicate(draw, "take_any:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
     choices: drawInt(draw, "take_any:choices", 3, 5),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC * 1.2, p.choices / 2, getPredicate(p.predicateId)),
@@ -550,7 +570,7 @@ const duplicateRandomPredicate: Reward<DupRandomPredParams> = {
   id: "duplicate_random_predicate",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "dup_random_pred:p").id,
+    predicateId: rollPredicate(draw, "dup_random_pred:p", RANDOM_GAIN_PREDICATE_KINDS).id,
     count: drawInt(draw, "dup_random_pred:n", 1, 3),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC * 0.9, p.count, getPredicate(p.predicateId)),

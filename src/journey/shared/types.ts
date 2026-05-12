@@ -16,8 +16,15 @@ export type Reward<P extends TemplateParams = TemplateParams> = {
 
 export type Cost<P extends TemplateParams = TemplateParams> = Reward<P>;
 
+// Predicate categories. Random-gain rewards (e.g. "Gain N random <plural>")
+// restrict themselves to `ability` and `card-type` predicates because grants
+// keyed off raw cost/spark buckets ("Gain 3 random cards with cost 2 or less")
+// are not meaningful as a player reward; drafts may still target every kind.
+export type PredicateKind = "ability" | "card-type" | "stat-bucket";
+
 export type Predicate = {
   readonly id: string;
+  readonly kind: PredicateKind;
   readonly multiplier: number;
   readonly cardPredicate?: CardTargetPredicate;
   readonly text: { readonly singular: string; readonly plural: string };

@@ -104,6 +104,61 @@ describe("rewards table (card-pool family)", () => {
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
   });
+
+  it("random-gain rewards never roll a stat-bucket predicate (low/high cost or spark)", () => {
+    // "Gain N random cards with cost 2 or less" / "Take any number of cards
+    // with spark 4 or more from 5 choices" / "Duplicate N random cards with
+    // cost 4 or more" are not meaningful as a player reward because the
+    // predicate is a raw stat slice rather than a card category. The roll for
+    // these rewards is constrained to ability and card-type predicates, and
+    // the stat-bucket predicates (low_cost, high_cost, low_spark, high_spark)
+    // must never appear.
+    const randomGainIds = [
+      "gain_random_predicate_cards",
+      "take_any_from_predicate_choices",
+      "duplicate_random_predicate",
+    ];
+    const banned = new Set(["low_cost", "high_cost", "low_spark", "high_spark"]);
+    for (const id of randomGainIds) {
+      const t = getReward(id);
+      const seen = new Set<string>();
+      for (let i = 0; i < 1000; i += 1) {
+        const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { predicateId: string };
+        expect(banned.has(p.predicateId), `${id} rolled banned predicate ${p.predicateId}`).toBe(false);
+        seen.add(p.predicateId);
+      }
+      // Sanity: 1000 rolls should hit a healthy variety of predicates, so the
+      // ban-check above is actually exercising the filter rather than being
+      // vacuously satisfied because the roll is degenerate.
+      expect(seen.size).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  it("draft-family rewards still admit stat-bucket predicates", () => {
+    // The draft family lets the player choose among offered cards, so keying
+    // a draft on "cards with cost 2 or less" gives the player meaningful
+    // selection pressure even when the predicate is a stat slice. Drafts
+    // therefore continue to roll every predicate kind, including stat-buckets.
+    const draftIds = [
+      "draft_predicate_cards_from_4",
+      "draft_2_predicate_cards_from_4",
+      "draft_predicate_card_with_copies",
+      "draft_predicate_card_with_transfiguration",
+    ];
+    const statBuckets = new Set(["low_cost", "high_cost", "low_spark", "high_spark"]);
+    for (const id of draftIds) {
+      const t = getReward(id);
+      let rolledStatBucket = false;
+      for (let i = 0; i < 500; i += 1) {
+        const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { predicateId: string };
+        if (statBuckets.has(p.predicateId)) {
+          rolledStatBucket = true;
+          break;
+        }
+      }
+      expect(rolledStatBucket, `${id} never rolled a stat-bucket predicate in 500 draws`).toBe(true);
+    }
+  });
 });
 
 describe("rewards table (modification family)", () => {

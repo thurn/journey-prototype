@@ -29,6 +29,40 @@ describe("predicates", () => {
     expect(() => getPredicate("not_a_predicate")).toThrow();
   });
 
+  it("tags every predicate with a kind classifying its category", () => {
+    // Each predicate carries a `kind` so rewards can opt in or out of whole
+    // categories. Stat-bucket predicates (low/high cost/spark) are excluded
+    // from random-gain rewards because granting cards at random keyed off a
+    // raw stat slice is not a meaningful reward; ability and card-type
+    // predicates are the meaningful categories for those rewards.
+    const expected: Record<string, "ability" | "card-type" | "stat-bucket"> = {
+      events: "card-type",
+      characters: "card-type",
+      warriors: "card-type",
+      survivors: "card-type",
+      spirit_animals: "card-type",
+      starter: "card-type",
+      legendary: "card-type",
+      low_cost: "stat-bucket",
+      high_cost: "stat-bucket",
+      low_spark: "stat-bucket",
+      high_spark: "stat-bucket",
+      materialized: "ability",
+      judgment: "ability",
+      fast: "ability",
+      transfigured: "ability",
+      discard_text: "ability",
+      abandon: "ability",
+      event_copying: "ability",
+      energy_generation: "ability",
+      dissolve: "ability",
+      reclaim: "ability",
+    };
+    for (const [id, kind] of Object.entries(expected)) {
+      expect(getPredicate(id).kind, `${id} should be tagged ${kind}`).toBe(kind);
+    }
+  });
+
   it("renders text-keyword predicates as 'card with a/an <keyword> ability'", () => {
     const expected: Record<string, { singular: string; plural: string }> = {
       materialized: {
