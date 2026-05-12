@@ -20,8 +20,6 @@
   `transfigure_random_starters` and `transfigure_all_starters` only.
 - Missing reward: purge up to N chosen starters. `purge_named_starter` only
   handles a single named starter, not "chosen up to N."
-- Missing reward: purge all starters without replacement. Only
-  `purge_all_starters_replace` (with replacement) exists.
 - Missing reward: replace chosen starter via a 4-card draft
   (`starter_replacement (draft)`).
 - Missing reward: apply N random transfigurations to N random deck cards. New

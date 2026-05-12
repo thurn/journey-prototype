@@ -147,7 +147,6 @@ If during implementation any content helper turns out to embed shape-specific as
 - `purge_named_starter`
 - `purge_random_starter`
 - `purge_random_starter_with_predicate_replacement`
-- `purge_all_starters_replace`
 - `add_site_to_dreamscape`
 - `add_site_to_next_dreamscape`
 - `transform_starter_into_named_card`

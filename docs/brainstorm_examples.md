@@ -146,7 +146,7 @@
 
 - Choose a starter card to transform into {Aspiring Guardian}.
 - Purge a random starter card and gain a random low-cost replacement.
-- Purge all starter cards and replace them with new starter cards.
+- Purge all starter cards.
 
 ## Map Fold
 

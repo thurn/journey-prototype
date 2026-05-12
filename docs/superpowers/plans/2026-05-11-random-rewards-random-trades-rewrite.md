@@ -1199,7 +1199,7 @@ git commit -m "feat(shared): add card-modification reward templates"
 - Modify: `src/journey/shared/rewards.ts`
 - Modify: `test/shared/rewards.test.ts`
 
-**Context:** Templates touching the starter set and deck transforms: `purge_chosen_predicate_cards`, `purge_chosen_predicate_with_replacement`, `purge_named_starter`, `purge_random_starter`, `purge_random_starter_with_predicate_replacement`, `purge_all_starters_replace`, `transform_starter_into_named_card`, `transform_card_in_deck_into_named`, `transform_chosen_predicate_into_named`, `duplicate_named_card_X`, `duplicate_chosen_cards`, `duplicate_random_predicate`, `draw_X_and_duplicate_chosen`, `purge_X_banes`, `purge_all_banes`.
+**Context:** Templates touching the starter set and deck transforms: `purge_chosen_predicate_cards`, `purge_chosen_predicate_with_replacement`, `purge_named_starter`, `purge_random_starter`, `purge_random_starter_with_predicate_replacement`, `transform_starter_into_named_card`, `transform_card_in_deck_into_named`, `transform_chosen_predicate_into_named`, `duplicate_named_card_X`, `duplicate_chosen_cards`, `duplicate_random_predicate`, `draw_X_and_duplicate_chosen`, `purge_X_banes`, `purge_all_banes`.
 
 - [ ] **Step 1: Add the test cases**
 
@@ -1214,7 +1214,6 @@ describe("rewards table (purge/transform family)", () => {
       "purge_named_starter",
       "purge_random_starter",
       "purge_random_starter_with_predicate_replacement",
-      "purge_all_starters_replace",
       "transform_starter_into_named_card",
       "transform_card_in_deck_into_named",
       "transform_chosen_predicate_into_named",
@@ -1320,16 +1319,6 @@ const purgeRandomStarterWithPredicateReplacement: Reward<PurgeRandomStarterReplP
   viable: (_p, ctx) => starterCardCount(ctx) >= 1,
   render: (p) =>
     `Purge a random starter card and gain a ${getPredicate(p.predicateId).text.singular} replacement`,
-};
-
-type PurgeAllStartersReplParams = Record<string, never>;
-const purgeAllStartersReplace: Reward<PurgeAllStartersReplParams> = {
-  id: "purge_all_starters_replace",
-  weight: 1.0,
-  rollParams: () => ({}),
-  cec: (_p, ctx) => CARD_CEC * 0.8 * Math.max(1, starterCardCount(ctx)),
-  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
-  render: () => "Purge all starter cards and replace them with new starter cards",
 };
 
 type TransformStarterParams = { newCardName: string };

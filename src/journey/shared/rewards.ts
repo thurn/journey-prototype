@@ -445,16 +445,6 @@ const purgeRandomStarterWithPredicateReplacement: Reward<PurgeRandomStarterReplP
     `Transform a random starter card into a random ${getPredicate(p.predicateId).text.singular}`,
 };
 
-type PurgeAllStartersReplParams = Record<string, never>;
-const purgeAllStartersReplace: Reward<PurgeAllStartersReplParams> = {
-  id: "purge_all_starters_replace",
-  weight: 1.0,
-  rollParams: () => ({}),
-  cec: (_p, ctx) => CARD_CEC * 0.8 * Math.max(1, starterCardCount(ctx)),
-  viable: (_p, ctx) => starterCardCount(ctx) >= 1,
-  render: () => "Transform all starter cards into new starter cards",
-};
-
 type TransformStarterParams = { newCardName: string };
 const transformStarterIntoNamedCard: Reward<TransformStarterParams> = {
   id: "transform_starter_into_named_card",
@@ -1115,7 +1105,6 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   purgeNamedStarter,
   purgeRandomStarter,
   purgeRandomStarterWithPredicateReplacement,
-  purgeAllStartersReplace,
   transformStarterIntoNamedCard,
   transformCardInDeckIntoNamed,
   transformChosenPredicateIntoNamed,

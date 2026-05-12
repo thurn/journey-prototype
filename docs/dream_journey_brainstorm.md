@@ -179,7 +179,6 @@ optionally be combined with a cost.
 - Purge {starter_card}
 - Purge a random starter card
 - Purge a random starter card and gain a {predicate} replacement
-- Purge all starter cards and replace them with new starter cards
 - Choose one of two packs of cards to add to your deck
 - The next X cards you draft are transfigured
 - Draw X additional cards in your next Y battles

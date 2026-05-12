@@ -92,6 +92,11 @@ describe("rewards table (resource family)", () => {
     expect(REWARDS.map((r) => r.id)).not.toContain(unsupportedId);
   });
 
+  it("omits the no-op all-starter replacement reward", () => {
+    const retiredId = ["purge", "all", "starters", "replace"].join("_");
+    expect(REWARDS.map((r) => r.id)).not.toContain(retiredId);
+  });
+
   it("gain_essence_to_max is the canonical template for filling essence to maximum", () => {
     // The "gain essence up to your maximum" semantic is served by exactly one
     // template: `gain_essence_to_max`. Its CEC is the gap between current
@@ -163,7 +168,6 @@ describe("rewards table (resource family)", () => {
       "purge_X_banes",
       "purge_all_banes",
       "purge_all_starters",
-      "purge_all_starters_replace",
       "purge_chosen_predicate_cards",
       "purge_chosen_predicate_with_replacement",
       "purge_chosen_starters",
@@ -339,7 +343,6 @@ describe("rewards table (purge/transform family)", () => {
       "purge_named_starter",
       "purge_random_starter",
       "purge_random_starter_with_predicate_replacement",
-      "purge_all_starters_replace",
       "transform_starter_into_named_card",
       "transform_card_in_deck_into_named",
       "transform_chosen_predicate_into_named",
@@ -513,12 +516,6 @@ describe("rewards table (purge/transform family)", () => {
     expect(text).not.toMatch(/replacement/);
   });
 
-  it("purge_all_starters_replace uses transform wording", () => {
-    const t = getReward("purge_all_starters_replace");
-    const text = t.render({} as never, fakeCtx());
-    expect(text).toBe("Transform all starter cards into new starter cards");
-    expect(text).not.toMatch(/[Pp]urge/);
-  });
 });
 
 describe("rewards table (dreamsign family)", () => {
