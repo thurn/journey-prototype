@@ -585,7 +585,7 @@ describe("stateless command risk transitions", () => {
       const result = await handleJourney(options({
         seed: "qa",
         stage: "late",
-        shape: "single_reward",
+        shape: "random_pool_draws",
         debug: true,
         debugPayloadFamily: "adapter",
         debugPayloadVariant: "current",

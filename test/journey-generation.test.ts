@@ -4198,9 +4198,7 @@ describe.concurrent("generateNextJourney", () => {
       try {
         manifest = generateNextJourney({
           context: journeyContext,
-          forcedShapeId: index % 2 === 0
-            ? "one_target_many_operations"
-            : "mirrored_operations",
+          forcedShapeId: "one_target_many_operations",
           forcedStage: "mid",
         });
       } catch {

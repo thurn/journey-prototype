@@ -5,7 +5,7 @@ import { escalatingRewardChainPlugin } from "./escalating_reward_chain/index.js"
 import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
 import { randomTradesPlugin } from "./random_trades/index.js";
-import { mirroredOperationsPlugin } from "./mirrored_operations.js";
+import { mirroredOperationsPlugin } from "./mirrored_operations/index.js";
 import { nowVsLaterPlugin } from "./now_vs_later/index.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
 import { oneTargetManyOperationsPlugin } from "./one_target_many_operations.js";
