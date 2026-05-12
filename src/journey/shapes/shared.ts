@@ -122,7 +122,6 @@ function payloadCompatibilityFor(
   const generatedObjectShape = [
     "same_cost_different_rewards",
     "one_target_many_operations",
-    "one_operation_many_targets",
   ].includes(id);
 
   return Object.freeze([

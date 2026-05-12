@@ -257,7 +257,7 @@ describe("buildProgram", () => {
         "--stage",
         "mid",
         "--shape",
-        "shop_row",
+        "same_reward_different_costs",
         "--debug-payload-family",
         "adapter",
         "--debug-payload-variant",
@@ -278,11 +278,11 @@ describe("buildProgram", () => {
       parameters: {
         debugPayloadFamily: "adapter",
         debugPayloadVariant: "current",
-        shape: "shop_row",
+        shape: "same_reward_different_costs",
         stage: "mid",
       },
       manifest: {
-        shapeId: "shop_row",
+        shapeId: "same_reward_different_costs",
         stage: "mid",
         debug: {
           debugPayload: {

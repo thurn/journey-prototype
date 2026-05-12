@@ -6,7 +6,7 @@ import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
 import { randomTradesPlugin } from "./random_trades/index.js";
 import { nowVsLaterPlugin } from "./now_vs_later/index.js";
-import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets.js";
+import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets/index.js";
 import { oneTargetManyOperationsPlugin } from "./one_target_many_operations.js";
 import { pairedReturnPlugin } from "./paired_return.js";
 import { prizeLadderPlugin } from "./prize_ladder/index.js";

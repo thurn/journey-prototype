@@ -495,7 +495,7 @@ describe("stateless command risk transitions", () => {
         json: true,
         seed: "qa",
         stage: "mid",
-        shape: "shop_row",
+        shape: "same_reward_different_costs",
         count: 3,
         debugPayloadFamily: "adapter",
         debugPayloadVariant: "current",
@@ -513,14 +513,14 @@ describe("stateless command risk transitions", () => {
         parameters: {
           debugPayloadFamily: "adapter",
           debugPayloadVariant: "current",
-          shape: "shop_row",
+          shape: "same_reward_different_costs",
           stage: "mid",
         },
       });
       expect(payload.journeys).toHaveLength(3);
       for (const entry of payload.journeys) {
         expect(entry.stage).toBe("mid");
-        expect(entry.shapeId).toBe("shop_row");
+        expect(entry.shapeId).toBe("same_reward_different_costs");
         expect(entry.manifest.debug.debugPayload).toMatchObject({
           familyId: "adapter",
           variantId: "current",
