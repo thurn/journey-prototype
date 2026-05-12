@@ -3881,9 +3881,16 @@ describe.concurrent("generateNextJourney", () => {
       family: "materialized_ability",
       effect: expect.objectContaining({ materializedAbilityConversion: true }),
     });
-    expect(CARD_OPERATION_DEBUG_CATALOG.allowedTransfigurations).toEqual(
-      expect.arrayContaining(["Viridian", "Scarlet", "Silver", "Umbral", "Glass"]),
-    );
+    expect(CARD_OPERATION_DEBUG_CATALOG.journeyTransfigurations).toEqual([
+      "Viridian",
+      "Golden",
+      "Scarlet",
+      "Magenta",
+      "Azure",
+      "Bronze",
+      "Rose",
+      "Prismatic",
+    ]);
   });
 
   it("materializes starter transfigurations from generated profiles", async () => {

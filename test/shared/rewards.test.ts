@@ -248,6 +248,34 @@ describe("rewards table (purge/transform family)", () => {
       .toBe("Apply Lock-In to 2 random cards with an event-copying ability");
   });
 
+  it("named-transfiguration rewards only roll the canonical eight transfigurations", () => {
+    const namedTransfigurationRewards = [
+      "apply_named_transfiguration_to_chosen_predicate_cards",
+      "apply_named_transfiguration_to_card_name",
+      "apply_named_transfiguration_to_random_predicate_cards",
+      "apply_named_transfiguration_to_all_predicate_cards",
+      "draft_predicate_card_with_transfiguration",
+    ] as const;
+    const canonical = new Set([
+      "Viridian", "Golden", "Scarlet", "Magenta",
+      "Azure", "Bronze", "Rose", "Prismatic",
+    ]);
+    const ctx = fakeCtx();
+    for (const id of namedTransfigurationRewards) {
+      const reward = getReward(id);
+      for (let i = 0; i < 200; i += 1) {
+        const params = reward.rollParams(ctx, {
+          ...draw,
+          sequenceStep: i,
+        }) as { transfiguration: string };
+        expect(
+          canonical.has(params.transfiguration),
+          `${id} rolled non-canonical transfiguration ${params.transfiguration}`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("apply_random_transfigurations_to_random_cards omits redundant count when count > 1", () => {
     const t = getReward("apply_random_transfigurations_to_random_cards");
     expect(t.render({ count: 1 } as never, fakeCtx()))

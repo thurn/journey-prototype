@@ -109,6 +109,9 @@ export const BANE_NAMES = Object.freeze([
 
 export type BaneName = (typeof BANE_NAMES)[number];
 
+// The five transfigurations that have a corresponding EFFECT_CATALOG entry.
+// Builder and catalog code uses this set to enumerate effect-catalog-aligned
+// transfiguration effects.
 export const STANDARD_TRANSFIGURATIONS = Object.freeze([
   "Viridian",
   "Golden",
@@ -117,16 +120,18 @@ export const STANDARD_TRANSFIGURATIONS = Object.freeze([
   "Prismatic",
 ] as const);
 
-export const EXPANDED_TRANSFIGURATIONS = Object.freeze([
-  "Ivory",
-  "Umbral",
-  "Silver",
-  "Glass",
-] as const);
-
-export const ALLOWED_TRANSFIGURATIONS = Object.freeze([
-  ...STANDARD_TRANSFIGURATIONS,
-  ...EXPANDED_TRANSFIGURATIONS,
+// The canonical eight named transfigurations, per `docs/quests.md`
+// § Transfiguration. Random Journey reward generation picks named
+// transfigurations exclusively from this set.
+export const JOURNEY_TRANSFIGURATIONS = Object.freeze([
+  "Viridian",
+  "Golden",
+  "Scarlet",
+  "Magenta",
+  "Azure",
+  "Bronze",
+  "Rose",
+  "Prismatic",
 ] as const);
 
 // Eligibility filters for each named transfiguration. A transfiguration may
@@ -147,8 +152,6 @@ export const ALLOWED_TRANSFIGURATIONS = Object.freeze([
 // - `Prismatic`: applies to any card eligible for 2 or more other
 //   transfigurations; conservatively treated as unrestricted at generation
 //   time and validated against the underlying pool at apply time.
-// - Expanded transfigurations (`Ivory`, `Umbral`, `Silver`, `Glass`) are
-//   not described in `docs/quests.md` and are treated as unrestricted.
 export function isCardEligibleForTransfiguration(
   transfiguration: string,
   card: CardContent,
@@ -253,7 +256,7 @@ export const ALLOWED_RULES_VOCABULARY = Object.freeze({
   resources: Object.freeze(["essence", "max essence", "omens"] as const),
   siteTypes: SITE_TYPES,
   banes: BANE_NAMES,
-  transfigurations: ALLOWED_TRANSFIGURATIONS,
+  transfigurations: JOURNEY_TRANSFIGURATIONS,
   timingsAndTriggers: TIMING_TRIGGERS,
   battleKeywords: BATTLE_KEYWORDS,
   statusScopes: STATUS_SCOPES,

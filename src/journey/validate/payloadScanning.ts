@@ -1,5 +1,5 @@
 import {
-  ALLOWED_TRANSFIGURATIONS,
+  JOURNEY_TRANSFIGURATIONS,
   isBaneName,
 } from "../effects.js";
 import { isRecord } from "./guards.js";
@@ -71,7 +71,7 @@ export function scanIllegalStructuredValue(value: unknown): ValidationResult {
     return fail("custom_dreamcaller_mutation", "Dreamcaller ability mutations are not legal Journey output");
   }
 
-  if (typeof value.transfigurationName === "string" && !ALLOWED_TRANSFIGURATIONS.includes(value.transfigurationName as never)) {
+  if (typeof value.transfigurationName === "string" && !JOURNEY_TRANSFIGURATIONS.includes(value.transfigurationName as never)) {
     return fail("invalid_transfiguration", `Invalid transfiguration: ${value.transfigurationName}`);
   }
 

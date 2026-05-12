@@ -1,7 +1,7 @@
 import {
-  ALLOWED_TRANSFIGURATIONS,
   BANE_NAMES,
   SITE_TYPES,
+  JOURNEY_TRANSFIGURATIONS,
   isCardEligibleForTransfiguration,
   resolveCardTargets,
   resolveDreamsignTargets,
@@ -12,7 +12,7 @@ import type { CardContent, DreamsignContent } from "../../content/model.js";
 import type { JourneyContext } from "../../quest/context.js";
 import { drawInt, type DrawContext } from "../../util/rng.js";
 
-export { ALLOWED_TRANSFIGURATIONS, BANE_NAMES, SITE_TYPES, isCardEligibleForTransfiguration };
+export { BANE_NAMES, SITE_TYPES, JOURNEY_TRANSFIGURATIONS, isCardEligibleForTransfiguration };
 
 export function transfigurationsEligibleForPredicate(
   ctx: JourneyContext,
@@ -28,9 +28,9 @@ export function transfigurationsEligibleForPredicate(
   // match set is strictly a subset of the Bronze/Azure eligibility set.
   const matches = cardMatches(ctx, predicate);
   if (matches.length === 0) {
-    return ALLOWED_TRANSFIGURATIONS;
+    return JOURNEY_TRANSFIGURATIONS;
   }
-  return ALLOWED_TRANSFIGURATIONS.filter((transfiguration) =>
+  return JOURNEY_TRANSFIGURATIONS.filter((transfiguration) =>
     matches.every((card) => isCardEligibleForTransfiguration(transfiguration, card)),
   );
 }

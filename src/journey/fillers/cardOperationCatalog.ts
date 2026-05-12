@@ -3,8 +3,8 @@ import type { JourneyContext } from "../../quest/context.js";
 import { shuffleDeterministic, type DrawContext } from "../../util/rng.js";
 import { REMOVABLE_KEYWORDS } from "../content/keywords.js";
 import {
-  ALLOWED_TRANSFIGURATIONS,
   BATTLE_KEYWORDS,
+  JOURNEY_TRANSFIGURATIONS,
   STANDARD_TRANSFIGURATIONS,
 } from "../effects.js";
 import type { JourneyStage } from "../manifest.js";
@@ -412,7 +412,7 @@ function starterTransfigurationOperation(
   const transfigurationName = shuffleDeterministic(
     args.drawContext,
     `${args.label}:${args.entry.key}:transfiguration`,
-    ALLOWED_TRANSFIGURATIONS,
+    JOURNEY_TRANSFIGURATIONS,
   )[0]!;
   const random = mode === "random";
   const selection = random ? "hidden_random" : "chosen_after_commitment";
@@ -443,7 +443,6 @@ function starterTransfigurationOperation(
 
 export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
   ...STANDARD_TRANSFIGURATIONS.map(transfigurationEntry),
-  transfigurationEntry("Ivory"),
   {
     ...baseEntry({
       key: "chosen-purge",
@@ -1258,10 +1257,10 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     targetClasses: ["deck_card"],
     targetModes: ["all_matching"],
     renderText: () =>
-      "Apply {Silver Transfiguration} to every card in your deck.",
+      "Apply {Prismatic Transfiguration} to every card in your deck.",
     effect: {
       kind: "card_transfigure",
-      transfigurationName: "Silver",
+      transfigurationName: "Prismatic",
       selection: "predicate",
       predicate: { source: "deck" },
       transfigurationScope: "all_cards",
@@ -1281,10 +1280,10 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
     targetClasses: ["deck_card"],
     targetModes: ["all_matching"],
     renderText: () =>
-      "Apply {Umbral Transfiguration} to every Event in your deck.",
+      "Apply {Bronze Transfiguration} to every Event in your deck.",
     effect: {
       kind: "card_transfigure",
-      transfigurationName: "Umbral",
+      transfigurationName: "Bronze",
       selection: "predicate",
       predicate: { source: "deck", cardType: "Event" },
       transfigurationScope: "all_events",
@@ -1305,10 +1304,10 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       targetClasses: ["deck_card"],
       targetModes: ["random_predicate"],
       renderText: () =>
-        "Apply {Glass Transfiguration} to a random Event in your deck.",
+        "Apply {Azure Transfiguration} to a random Event in your deck.",
       effect: {
         kind: "card_transfigure",
-        transfigurationName: "Glass",
+        transfigurationName: "Azure",
         selection: "hidden_random",
         predicate: { source: "deck", cardType: "Event" },
         transfigurationScope: "random_predicate",
@@ -1447,7 +1446,7 @@ export const CARD_OPERATION_CATALOG: readonly CardOperationCatalogEntry[] = [
       const transfigurationName = shuffleDeterministic(
         args.drawContext,
         `${args.label}:${args.entry.key}:transfiguration`,
-        ALLOWED_TRANSFIGURATIONS,
+        JOURNEY_TRANSFIGURATIONS,
       )[0]!;
       const description =
         targetClass === "draft_card"
@@ -1598,6 +1597,6 @@ export const CARD_OPERATION_DEBUG_CATALOG = Object.freeze({
   ]),
   targetModes: Object.freeze(ALL_TARGET_MODES),
   standardTransfigurations: STANDARD_TRANSFIGURATIONS,
-  allowedTransfigurations: ALLOWED_TRANSFIGURATIONS,
+  journeyTransfigurations: JOURNEY_TRANSFIGURATIONS,
   battleKeywords: BATTLE_KEYWORDS,
 });

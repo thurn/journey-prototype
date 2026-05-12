@@ -1,9 +1,9 @@
 import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
-  ALLOWED_TRANSFIGURATIONS,
   POSITIVE_DREAMWELL_CARDS,
   SITE_TYPES,
+  JOURNEY_TRANSFIGURATIONS,
   baneCount,
   cardMatches,
   dreamsignMatches,
@@ -18,7 +18,7 @@ import { PREDICATES, getPredicate } from "./predicates.js";
 import type { Predicate, Reward, TemplateParams } from "./types.js";
 
 // Roll a transfiguration that is compatible with the given predicate's
-// match set. Falls back to the full allowed list when no transfiguration is
+// match set. Falls back to the canonical set when no transfiguration is
 // applicable (the surrounding `viable` check is responsible for filtering
 // out impossible combinations in that case).
 function pickTransfigurationForPredicate(
@@ -29,7 +29,7 @@ function pickTransfigurationForPredicate(
 ): string {
   const predicate = getPredicate(predicateId);
   const eligible = transfigurationsEligibleForPredicate(ctx, predicate.cardPredicate ?? {});
-  const pool = eligible.length > 0 ? eligible : ALLOWED_TRANSFIGURATIONS;
+  const pool = eligible.length > 0 ? eligible : JOURNEY_TRANSFIGURATIONS;
   return pickFromList(draw, label, pool);
 }
 
@@ -240,7 +240,7 @@ const applyNamedTransfigurationToCardName: Reward<ApplyNamedTransfigCardNamePara
   weight: 1.0,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
-    const transfiguration = pickFromList(draw, "named_transfig_named:t", ALLOWED_TRANSFIGURATIONS);
+    const transfiguration = pickFromList(draw, "named_transfig_named:t", JOURNEY_TRANSFIGURATIONS);
     // Pair the chosen transfiguration with a deck card that is actually
     // eligible for it. If no deck card is eligible (e.g., Bronze rolled but
     // the deck has no events) fall back to any deck card; `viable` will
