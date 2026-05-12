@@ -519,6 +519,33 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     }
   });
 
+  it("site-picking rewards never select Battle or Draft as a site type", () => {
+    // The four site-picking rewards (add_site_to_dreamscape,
+    // add_site_to_next_dreamscape, replace_site_type,
+    // boost_site_appearance_chance) all share a single filtered list
+    // (JOURNEY_REWARDABLE_SITE_TYPES) that excludes Battle and Draft.
+    // Battle is excluded because every dreamscape has exactly one Battle site
+    // by construction; Draft is excluded because draft counts are
+    // deterministic per completion level (see docs/quests.md § Dreamscape
+    // Generation). Neither value may appear as `siteType`, `fromType`, or
+    // `toType` on any of these rewards.
+    const addHere = getReward("add_site_to_dreamscape");
+    const addNext = getReward("add_site_to_next_dreamscape");
+    const replace = getReward("replace_site_type");
+    const boost = getReward("boost_site_appearance_chance");
+    for (let i = 0; i < 400; i += 1) {
+      const ctx = fakeCtx();
+      const addHereP = addHere.rollParams(ctx, { ...draw, sequenceStep: i }) as { siteType: string };
+      const addNextP = addNext.rollParams(ctx, { ...draw, sequenceStep: i }) as { siteType: string };
+      const replaceP = replace.rollParams(ctx, { ...draw, sequenceStep: i }) as { fromType: string; toType: string };
+      const boostP = boost.rollParams(ctx, { ...draw, sequenceStep: i }) as { siteType: string };
+      for (const value of [addHereP.siteType, addNextP.siteType, replaceP.fromType, replaceP.toType, boostP.siteType]) {
+        expect(value).not.toBe("Battle");
+        expect(value).not.toBe("Draft");
+      }
+    }
+  });
+
   it("temporary_dreamsign_for_X_battles is rare and pinned to a low CEC", () => {
     // A random dreamsign that lasts only 1-3 battles is weak and situational,
     // so this reward is in the rare tier (weight 0.25) and its CEC is pinned

@@ -209,6 +209,22 @@ export const SITE_TYPES = Object.freeze([
   "Duplication",
 ] as const);
 
+// Site types that a random Journey reward is allowed to add, replace, or boost.
+// Excludes:
+// - "Battle": every dreamscape has exactly one Battle site by construction (see
+//   `docs/quests.md` § Dreamscape Generation). Adding, replacing, or boosting
+//   Battle sites is invalid.
+// - "Draft": draft-site counts are deterministic per completion level (see the
+//   same section), so generating an "Add a Draft site" or "+X% chance to see
+//   Draft sites" offer breaks intended pacing.
+// All four site-picking rewards (`add_site_to_dreamscape`,
+// `add_site_to_next_dreamscape`, `replace_site_type`,
+// `boost_site_appearance_chance`) draw from this filtered list. `SITE_TYPES`
+// remains the canonical enumeration of every real site type for engine uses.
+export const JOURNEY_REWARDABLE_SITE_TYPES: readonly string[] = Object.freeze(
+  SITE_TYPES.filter((t) => t !== "Battle" && t !== "Draft"),
+);
+
 export const TIMING_TRIGGERS = Object.freeze([
   "immediate",
   "after next battle",

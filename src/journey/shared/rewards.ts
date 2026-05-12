@@ -2,7 +2,7 @@ import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
   POSITIVE_DREAMWELL_CARDS,
-  SITE_TYPES,
+  JOURNEY_REWARDABLE_SITE_TYPES,
   JOURNEY_TRANSFIGURATIONS,
   baneCount,
   cardMatches,
@@ -654,7 +654,7 @@ const addSiteToDreamscape: Reward<AddSiteParams> = {
   id: "add_site_to_dreamscape",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    siteType: pickFromList(draw, "add_site:t", SITE_TYPES),
+    siteType: pickFromList(draw, "add_site:t", JOURNEY_REWARDABLE_SITE_TYPES),
   }),
   cec: () => 100,
   viable: () => true,
@@ -665,7 +665,7 @@ const addSiteToNextDreamscape: Reward<AddSiteParams> = {
   id: "add_site_to_next_dreamscape",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    siteType: pickFromList(draw, "add_site_next:t", SITE_TYPES),
+    siteType: pickFromList(draw, "add_site_next:t", JOURNEY_REWARDABLE_SITE_TYPES),
   }),
   cec: () => 75,
   viable: () => true,
@@ -968,8 +968,10 @@ const replaceSiteType: Reward<ReplaceSiteTypeParams> = {
   id: "replace_site_type",
   weight: 1.0,
   rollParams: (_ctx, draw) => {
-    const fromType = pickFromList(draw, "replace_site:from", SITE_TYPES);
-    const options = SITE_TYPES.filter((t) => t !== fromType);
+    // Both `fromType` and `toType` are drawn from JOURNEY_REWARDABLE_SITE_TYPES
+    // so neither end of the replacement can ever be a Battle or Draft site.
+    const fromType = pickFromList(draw, "replace_site:from", JOURNEY_REWARDABLE_SITE_TYPES);
+    const options = JOURNEY_REWARDABLE_SITE_TYPES.filter((t) => t !== fromType);
     const toType = options.length > 0
       ? pickFromList(draw, "replace_site:to", options)
       : fromType;
@@ -1012,16 +1014,6 @@ const vendorHookBonus: Reward<VendorHookBonusParams> = {
     `Vendor hooks award ${p.amount} additional choice${p.amount === 1 ? "" : "s"}`,
 };
 
-// Site types eligible for `boost_site_appearance_chance`. Battle is excluded
-// because every dreamscape already has exactly one Battle site by
-// construction (see `docs/quests.md` § Dreamscape Generation), and Draft is
-// excluded because draft counts are deterministic per completion level —
-// boosting either of those would mis-price the reward or break intended
-// pacing.
-const BOOSTABLE_SITE_TYPES: readonly string[] = Object.freeze(
-  SITE_TYPES.filter((t) => t !== "Battle" && t !== "Draft"),
-);
-
 // Per-site-type CEC multipliers. High-impact site types (Purge, Duplication,
 // Dreamsign Draft) compress the player's deck or directly add dreamsigns and
 // are valued higher than weak utility sites (Essence, Shop, Specialty Shop,
@@ -1053,7 +1045,7 @@ const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
   id: "boost_site_appearance_chance",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    siteType: pickFromList(draw, "boost_site:t", BOOSTABLE_SITE_TYPES),
+    siteType: pickFromList(draw, "boost_site:t", JOURNEY_REWARDABLE_SITE_TYPES),
     percent: 10 + 10 * drawInt(draw, "boost_site:p", 0, 4),
   }),
   cec: (p) => boostSiteCec(p.siteType, p.percent),

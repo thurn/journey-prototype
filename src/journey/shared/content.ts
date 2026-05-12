@@ -1,6 +1,7 @@
 import {
   BANE_NAMES,
   SITE_TYPES,
+  JOURNEY_REWARDABLE_SITE_TYPES,
   JOURNEY_TRANSFIGURATIONS,
   isCardEligibleForTransfiguration,
   resolveCardTargets,
@@ -12,7 +13,13 @@ import type { CardContent, DreamsignContent } from "../../content/model.js";
 import type { JourneyContext } from "../../quest/context.js";
 import { drawInt, type DrawContext } from "../../util/rng.js";
 
-export { BANE_NAMES, SITE_TYPES, JOURNEY_TRANSFIGURATIONS, isCardEligibleForTransfiguration };
+export {
+  BANE_NAMES,
+  SITE_TYPES,
+  JOURNEY_REWARDABLE_SITE_TYPES,
+  JOURNEY_TRANSFIGURATIONS,
+  isCardEligibleForTransfiguration,
+};
 
 export function transfigurationsEligibleForPredicate(
   ctx: JourneyContext,
