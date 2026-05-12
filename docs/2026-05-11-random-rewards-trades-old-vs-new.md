@@ -80,7 +80,7 @@ Stage: mid    Essence: 120/500    Omens: 1
 
 1. * Gain maximum essence
 2. * Set essence to 125% of your maximum essence
-3. * Purge all starter cards
+3. * Purge all starter cards and replace them with new starter cards
 ```
 
 ### seed `rr3`
@@ -111,7 +111,7 @@ Stage: mid    Essence: 120/500    Omens: 1
 Quest: Calloway Flint, Cutthroat Admiral
 Stage: early    Essence: 120/500    Omens: 1
 
-1. * Purge all starter cards
+1. * Purge all starter cards and replace them with new starter cards
 2. * Set essence to 100% of your maximum essence
 3. * Gain essence up to your maximum
 ```
@@ -167,7 +167,7 @@ Quest: Seld Rakor, Standing Orders
 Stage: mid    Essence: 120/500    Omens: 1
 
 1. * Gain maximum essence
-2. * Purge all starter cards
+2. * Purge all starter cards and replace them with new starter cards
 3. * Set essence to 100% of your maximum essence
 ```
 
@@ -374,7 +374,7 @@ Stage: early    Essence: 120/500    Omens: 1
 
 1. $ * Transfigure all starter cards. Pay 65 essence
 2. $ * Set essence to 75% of your maximum essence. Remove the transfiguration from Canopy of Stars
-3. $ * Purge all starter cards. Your starting dreamwell card is Frostbite for the next 3 battles
+3. $ * Purge all starter cards and replace them with new starter cards. Your starting dreamwell card is Frostbite for the next 3 battles
 ```
 
 ### seed `rt9`
@@ -394,7 +394,7 @@ Stage: early    Essence: 120/500    Omens: 1
 Quest: Gunnar Deepforge, The Hammer's Echo
 Stage: late    Essence: 120/500    Omens: 1
 
-1. $ * Purge all starter cards. Pay 85 essence. Remove the transfiguration from Torchbearer of the Abyss
+1. $ * Purge all starter cards and replace them with new starter cards. Pay 85 essence. Remove the transfiguration from Torchbearer of the Abyss
 2. $ * Transfigure all starter cards. Pay 70 essence
 3. $ * [LOCKED] Gain essence up to your maximum. Pay 2 omens. Remove all dreamsign sites from the next 1 dreamscape you visit
 ```
