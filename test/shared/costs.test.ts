@@ -196,6 +196,34 @@ describe("costs table (dreamsign family)", () => {
     }
   });
 
+  it("renders named Dreamsign purge costs with active content names", () => {
+    const ctx = fakeCtx();
+    ctx.content.dreamsigns = [
+      {
+        id: "tidal-sign",
+        name: "Tidal Sign",
+        kind: "tidal",
+        renderedText: "",
+        tides: [],
+        raw: {},
+      },
+    ];
+    ctx.state.quest.activeDreamsigns = [{ dreamsignId: "tidal-sign" }];
+    const t = getCost("purge_named_dreamsign");
+    const p = t.rollParams(ctx, draw);
+
+    expect(t.render(p, ctx)).toBe("Purge Tidal Sign");
+  });
+
+  it("renders named Dreamsign purge costs with a readable missing-content fallback", () => {
+    const ctx = fakeCtx();
+    ctx.state.quest.activeDreamsigns = [{ dreamsignId: "missing-sign" }];
+    const t = getCost("purge_named_dreamsign");
+    const p = t.rollParams(ctx, draw);
+
+    expect(t.render(p, ctx)).toBe("Purge Unknown Dreamsign");
+  });
+
   it("prices random Dreamsign purge as a severe random trade cost", () => {
     const randomTradeCostIds = new Set(RANDOM_TRADE_COSTS.map((c) => c.id));
     const randomPurge = getCost("purge_random_dreamsign");

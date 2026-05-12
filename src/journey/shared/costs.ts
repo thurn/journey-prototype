@@ -12,6 +12,7 @@ import {
 } from "./content.js";
 import { PREDICATES, getPredicate } from "./predicates.js";
 import { withLockedPrefix } from "./text.js";
+import type { JourneyContext } from "../../quest/context.js";
 import type { Cost, Predicate } from "./types.js";
 
 const MINOR_RANDOM_TRADE_COST_WEIGHT = 1;
@@ -210,6 +211,12 @@ const purgeAllDuplicateCards: Cost<PurgeAllDuplicatesParams> = {
 
 const DREAMSIGN_CEC = 80;
 const RANDOM_DREAMSIGN_PURGE_CEC = 200;
+const UNKNOWN_DREAMSIGN_NAME = "Unknown Dreamsign";
+
+function activeDreamsignDisplayName(ctx: JourneyContext, dreamsignId: string): string {
+  return ctx.content.dreamsigns.find((dreamsign) => dreamsign.id === dreamsignId)?.name
+    ?? UNKNOWN_DREAMSIGN_NAME;
+}
 
 type PurgeNamedDreamsignParams = { name: string };
 const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
@@ -219,7 +226,7 @@ const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
     const pool = ctx.state.quest.activeDreamsigns;
     return {
       name: pool.length > 0
-        ? `Dreamsign #${pickFromList(draw, "purge_named_ds:c", pool).dreamsignId}`
+        ? activeDreamsignDisplayName(ctx, pickFromList(draw, "purge_named_ds:c", pool).dreamsignId)
         : "Placeholder Dreamsign",
     };
   },
