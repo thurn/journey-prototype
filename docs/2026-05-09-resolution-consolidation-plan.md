@@ -2829,8 +2829,8 @@ After all phases land:
 
 - [ ] **Run the full suite under audit mode**
 
-Run: `npm run test:audit`
-Expected: PASS. This runs `JOURNEY_SLOW_TESTS=1 JOURNEY_DIVERSITY_AUDIT=1 vitest run` and exercises diversity coverage. Any new diversity assertions added in this plan should pass; pre-existing diversity assertions should not regress.
+Run: `npm test`
+Expected: PASS. This runs the Vitest suite.
 
 - [ ] **Verify no shape-isolation leaks**
 
