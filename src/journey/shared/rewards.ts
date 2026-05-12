@@ -71,22 +71,12 @@ const gainOmens: Reward<GainOmensParams> = {
   render: (p) => `Gain ${p.x} omen${p.x === 1 ? "" : "s"}`,
 };
 
-type GainMaxEssenceParams = Record<string, never>;
-const gainMaxEssence: Reward<GainMaxEssenceParams> = {
-  id: "gain_max_essence",
-  weight: 1.0,
-  rollParams: () => ({}),
-  cec: (_p, ctx) => maxEssence(ctx) * STAGE_MULTIPLIER,
-  viable: () => true,
-  render: () => "Gain maximum essence",
-};
-
 type SetEssencePctParams = { percent: number };
 const setEssenceToPercentOfMax: Reward<SetEssencePctParams> = {
   id: "set_essence_to_percent_of_max",
   weight: 1.0,
   rollParams: (_ctx, draw) => {
-    const choices = [50, 75, 100, 125];
+    const choices = [50, 75, 125];
     return { percent: choices[drawInt(draw, "set_essence_pct:i", 0, choices.length - 1)]! };
   },
   cec: (p, ctx) => Math.max(0, (maxEssence(ctx) * p.percent) / 100 - essenceAmount(ctx)) * STAGE_MULTIPLIER,
@@ -1123,7 +1113,6 @@ const metaGain2Rewards: Reward<MetaGain2Params> = {
 export const REWARDS: readonly Reward[] = Object.freeze([
   gainEssence,
   gainOmens,
-  gainMaxEssence,
   setEssenceToPercentOfMax,
   gainEssenceRandomRange,
   gainEssenceToMax,

@@ -68,9 +68,9 @@ describe("rewards table (resource family)", () => {
     }
   });
 
-  it("registers gain_omens, gain_max_essence, set_essence_to_percent_of_max, gain_essence_random_range, gain_essence_to_max", () => {
+  it("registers gain_omens, set_essence_to_percent_of_max, gain_essence_random_range, gain_essence_to_max", () => {
     for (const id of [
-      "gain_omens", "gain_max_essence", "set_essence_to_percent_of_max",
+      "gain_omens", "set_essence_to_percent_of_max",
       "gain_essence_random_range", "gain_essence_to_max",
     ]) {
       const t = getReward(id);
@@ -85,6 +85,30 @@ describe("rewards table (resource family)", () => {
     expect(Object.isFrozen(REWARDS)).toBe(true);
     const ids = REWARDS.map((r) => r.id);
     expect(ids.length).toBe(new Set(ids).size);
+  });
+
+  it("gain_essence_to_max is the canonical template for filling essence to maximum", () => {
+    // The "gain essence up to your maximum" semantic is served by exactly one
+    // template: `gain_essence_to_max`. Its CEC is the gap between current
+    // essence and the cap (scaled by stage multiplier), and its render text
+    // reads "Gain essence up to your maximum".
+    const t = getReward("gain_essence_to_max");
+    const ctx = fakeCtx({ essence: 80, maxEssence: 200 });
+    expect(t.render({} as never, ctx)).toBe("Gain essence up to your maximum");
+    expect(t.cec({} as never, ctx)).toBe((200 - 80) * 1); // STAGE_MULTIPLIER=1 in fake ctx
+    expect(t.viable({} as never, ctx)).toBe(true);
+  });
+
+  it("set_essence_to_percent_of_max rolls percent variants that stay distinct from filling to max", () => {
+    const t = getReward("set_essence_to_percent_of_max");
+    const percents = new Set<number>();
+    for (let i = 0; i < 80; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { percent: number };
+      percents.add(p.percent);
+      expect(p.percent).not.toBe(100);
+      expect(t.render(p, fakeCtx())).toBe(`Set essence to ${p.percent}% of your maximum essence`);
+    }
+    expect(percents).toEqual(new Set([50, 75, 125]));
   });
 
   it("every reward id appears in the canonical reward catalog", () => {
@@ -118,7 +142,6 @@ describe("rewards table (resource family)", () => {
       "gain_essence",
       "gain_essence_random_range",
       "gain_essence_to_max",
-      "gain_max_essence",
       "gain_named_card",
       "gain_named_dreamsign",
       "gain_omens",
