@@ -15,8 +15,13 @@ import { withLockedPrefix } from "./text.js";
 import type { Cost, Predicate } from "./types.js";
 
 const MINOR_RANDOM_TRADE_COST_WEIGHT = 1;
+const RARE_RANDOM_TRADE_COST_WEIGHT = 0.25;
 const RESOURCE_RANDOM_TRADE_COST_WEIGHT = 13;
 const BANE_GAIN_RANDOM_TRADE_COST_WEIGHT = 6;
+const RANDOM_TRADE_EXCLUDED_COST_IDS = new Set([
+  "purge_chosen_predicate_card",
+  "draw_X_purge_chosen",
+]);
 
 type PayEssenceParams = { x: number };
 const payEssence: Cost<PayEssenceParams> = {
@@ -314,7 +319,7 @@ const setStartingDreamwellNegative: Cost<StartingDreamwellNegParams> = {
 type ShuffleNegDreamwellParams = { cardName: string; count: number; battles: number };
 const shuffleNegativeDreamwellCards: Cost<ShuffleNegDreamwellParams> = {
   id: "shuffle_negative_dreamwell_cards",
-  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
+  weight: RARE_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     cardName: pickFromList(draw, "shuffle_dw_neg:c", NEGATIVE_DREAMWELL_CARDS),
     count: drawInt(draw, "shuffle_dw_neg:n", 1, 3),
@@ -407,7 +412,11 @@ type MetaPay2Params = {
 };
 
 function nonMetaCosts(): readonly Cost[] {
-  return COSTS.filter((c) => !c.id.startsWith("meta_"));
+  return COSTS.filter((c) => !c.id.startsWith("meta_") && isRandomTradeCost(c));
+}
+
+function isRandomTradeCost(cost: Cost): boolean {
+  return !RANDOM_TRADE_EXCLUDED_COST_IDS.has(cost.id);
 }
 
 const metaPay2Costs: Cost<MetaPay2Params> = {
@@ -480,6 +489,8 @@ export const COSTS: readonly Cost[] = Object.freeze([
   loseMaxEssence,
   metaPay2Costs,
 ] as unknown as Cost[]);
+
+export const RANDOM_TRADE_COSTS: readonly Cost[] = Object.freeze(COSTS.filter(isRandomTradeCost));
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));
 

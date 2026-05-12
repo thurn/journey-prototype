@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { COSTS, getCost } from "../../src/journey/shared/costs.js";
+import { COSTS, RANDOM_TRADE_COSTS, getCost } from "../../src/journey/shared/costs.js";
+import { REWARDS } from "../../src/journey/shared/rewards.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
@@ -123,6 +124,22 @@ describe("costs table (resource family)", () => {
     expect(ids.length).toBe(new Set(ids).size);
   });
 
+  it("random trade costs keep random card purge costs and exclude chosen card purge costs", () => {
+    const ids = new Set(RANDOM_TRADE_COSTS.map((c) => c.id));
+
+    expect(ids.has("purge_random_predicate_card")).toBe(true);
+    expect(ids.has("purge_chosen_predicate_card")).toBe(false);
+    expect(ids.has("draw_X_purge_chosen")).toBe(false);
+  });
+
+  it("keeps chosen-card purge rewards available as benefits", () => {
+    const rewardIds = new Set(REWARDS.map((r) => r.id));
+
+    expect(rewardIds.has("purge_chosen_predicate_cards")).toBe(true);
+    expect(rewardIds.has("purge_chosen_predicate_with_replacement")).toBe(true);
+    expect(rewardIds.has("purge_chosen_starters")).toBe(true);
+  });
+
   it("weights resource exchange costs above minor cost templates", () => {
     const minorWeight = getCost("pay_max_essence").weight;
 
@@ -181,6 +198,10 @@ describe("costs table (bane/dreamwell/starter family)", () => {
     expect(getCost("gain_random_banes").weight).toBeGreaterThan(minorWeight);
     expect(getCost("gain_named_banes").weight).toBeGreaterThan(minorWeight);
     expect(getCost("gain_named_banes_for_X_battles").weight).toBeGreaterThan(minorWeight);
+  });
+
+  it("weights negative dreamwell shuffle costs as rare random trade costs", () => {
+    expect(getCost("shuffle_negative_dreamwell_cards").weight).toBe(0.25);
   });
 });
 

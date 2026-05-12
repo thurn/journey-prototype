@@ -329,6 +329,38 @@ describe("random_trades fill", () => {
     expect(counts.other).toBeGreaterThan(0);
   });
 
+  it("does not select chosen-card purge templates as real random trade costs", async () => {
+    const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const chosenCardPurgeCost = /^(?:\[LOCKED\] )?(?:.+\. )?Purge a chosen /u;
+
+    for (let rootJourneyIndex = 0; rootJourneyIndex < 60; rootJourneyIndex += 1) {
+      const state = createInitialJourneyState({ seed, content, contentVersion });
+      state.generator.rootJourneyIndex = rootJourneyIndex;
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: { seed, contentVersion, rootJourneyIndex },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const fill = randomTradesPlugin.fill({
+        context,
+        drawContext: { seed, contentVersion, rootJourneyIndex },
+        stage: "early",
+      });
+
+      for (const option of fill.options) {
+        if (option.costConvertedEssence === 0) continue;
+        expect(option.text).not.toMatch(chosenCardPurgeCost);
+      }
+    }
+  });
+
   it("bypass-validation: synthetic manifest passes the full pipeline", () => {
     const ctx = fakeCtx();
     const fill = randomTradesPlugin.fill({

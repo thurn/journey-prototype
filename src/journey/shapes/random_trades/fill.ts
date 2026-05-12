@@ -1,7 +1,7 @@
 // src/journey/shapes/random_trades/fill.ts
 import type { JourneyContext } from "../../../quest/context.js";
 import type { JourneyOption } from "../../manifest.js";
-import { COSTS, getCost } from "../../shared/costs.js";
+import { RANDOM_TRADE_COSTS, getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
 import { BANE_NAMES, essenceAmount } from "../../shared/content.js";
@@ -182,7 +182,7 @@ function pickCostForReward(
 ): RolledCost | undefined {
   const cap = 0.5 * rewardCec;
   const candidates: Array<{ rolled: RolledCost; weight: number }> = [];
-  for (const template of COSTS) {
+  for (const template of RANDOM_TRADE_COSTS) {
     const params = rollCostParamsForRewardCap(ctx, draw, template, rewardCec, cap, netRange);
     if (params === undefined) continue;
     if (!template.viable(params as never, ctx)) continue;
