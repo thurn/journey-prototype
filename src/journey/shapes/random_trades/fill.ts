@@ -205,7 +205,7 @@ function pickCostForReward(
     const x = drawInt(draw, `${label}:fallback`, PAY_FLOOR, ceiling);
     const params = { x };
     const cec = x;
-    const rendered = withLockedPrefix(`Pay ${x} essence`, x > essenceAmount(ctx));
+    const rendered = withLockedPrefix(`Lose ${x} essence`, x > essenceAmount(ctx));
     return { template: getCost("pay_essence"), params, cec, rendered };
   }
   return undefined;
@@ -214,7 +214,7 @@ function pickCostForReward(
 function renderRow(reward: RolledReward, cost: RolledCost | undefined, ctx: JourneyContext): string {
   const rewardText = reward.template.render(reward.params as never, ctx);
   if (!cost) return rewardText;
-  return `${rewardText}. ${cost.rendered}`;
+  return `${cost.rendered}. ${rewardText}`;
 }
 
 export function randomTradesFill(args: ShapeFillArgs): FilledJourney {

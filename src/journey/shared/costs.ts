@@ -26,7 +26,7 @@ const payEssence: Cost<PayEssenceParams> = {
   cec: (p) => p.x * STAGE_MULTIPLIER,
   viable: () => true,
   render: (p, ctx) =>
-    withLockedPrefix(`Pay ${p.x} essence`, p.x > essenceAmount(ctx)),
+    withLockedPrefix(`Lose ${p.x} essence`, p.x > essenceAmount(ctx)),
 };
 
 type PayOmensParams = { x: number };
@@ -37,7 +37,7 @@ const payOmens: Cost<PayOmensParams> = {
   cec: (p) => p.x * 40 * STAGE_MULTIPLIER,
   viable: () => true,
   render: (p, ctx) =>
-    withLockedPrefix(`Pay ${p.x} omen${p.x === 1 ? "" : "s"}`, p.x > omenAmount(ctx)),
+    withLockedPrefix(`Lose ${p.x} omen${p.x === 1 ? "" : "s"}`, p.x > omenAmount(ctx)),
 };
 
 type PayMaxEssenceParams = Record<string, never>;

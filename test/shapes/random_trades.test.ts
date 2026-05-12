@@ -46,14 +46,14 @@ function fakeDraw(seed: string): DrawContext {
 
 function costFamilyForText(text: string): "resource" | "bane" | "other" {
   const stripped = text.replace(/^\[LOCKED\] /, "");
-  if (/\.(?: \[LOCKED\])? Pay \d+ essence/u.test(stripped) || /\.(?: \[LOCKED\])? Pay \d+ omens?/u.test(stripped)) {
+  if (/^Lose \d+ essence/u.test(stripped) || /^Lose \d+ omens?/u.test(stripped)) {
     return "resource";
   }
-  if (/\. Gain \d+ random banes?/u.test(stripped)) {
+  if (/^Gain \d+ random banes?/u.test(stripped)) {
     return "bane";
   }
   for (const name of BANE_NAMES) {
-    if (new RegExp(`\\. Gain \\d+ ${name}(?: for the next \\d+ battles?)?`, "u").test(stripped)) {
+    if (new RegExp(`^Gain \\d+ ${name}(?: for the next \\d+ battles?)?`, "u").test(stripped)) {
       return "bane";
     }
   }
@@ -111,6 +111,60 @@ describe("random_trades fill", () => {
       if (fill.options.some((o) => o.text.includes("[LOCKED]"))) saw = true;
     }
     expect(saw).toBe(true);
+  });
+
+  it("renders random trade costs before rewards with Lose wording", async () => {
+    const seed = "random:703bb028-5067-4c5c-a35e-b402b73810e3";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const state = createInitialJourneyState({
+      seed,
+      content,
+      contentVersion,
+    });
+    simulateQuestStateForStage({
+      state,
+      stage: "early",
+      drawContext: {
+        seed,
+        contentVersion,
+        rootJourneyIndex: 0,
+      },
+    });
+    const context = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+
+    const manifest = generateNextJourney({
+      context,
+      forcedShapeId: "random_trades",
+      forcedStage: "early",
+    });
+
+    for (const option of manifest.options) {
+      expect(option.text).toMatch(/^Lose \d+ essence\. /u);
+      expect(option.text).not.toMatch(/\. Pay \d+ essence$/u);
+    }
+  });
+
+  it("keeps locked resource-cost prefixes at the start of the full row", () => {
+    let lockedText: string | undefined;
+    for (let i = 0; i < 400 && !lockedText; i += 1) {
+      const fill = randomTradesPlugin.fill({
+        context: fakeCtx(0),
+        drawContext: fakeDraw(`rt-lock-position-${i}`),
+        stage: "mid" as JourneyStage,
+      });
+      lockedText = fill.options.find((o) =>
+        o.text.startsWith("[LOCKED] ") && /Lose \d+ essence/u.test(o.text),
+      )?.text;
+    }
+
+    expect(lockedText).toBeDefined();
+    expect(lockedText).toMatch(/^\[LOCKED\] Lose \d+ essence\. /u);
+    expect(lockedText?.slice("[LOCKED] ".length)).not.toContain("[LOCKED]");
   });
 
   it("reward template texts are pairwise distinct across rows", () => {
@@ -283,24 +337,18 @@ describe("random_trades fill", () => {
       for (let rowIdx = 0; rowIdx < fill.options.length; rowIdx += 1) {
         const opt = fill.options[rowIdx]!;
         // A meta row's reward text contains two sub-rewards joined by ". ".
-        // Heuristic: split the row text on the cost separator first (the row
-        // adds ". <cost>" after the reward when there is a cost), then check
-        // for a ". " inside the reward half. We can't perfectly identify the
-        // meta row from text alone, but a row whose reward portion contains
+        // Heuristic: skip the leading cost segment when one is present, then
+        // check for a ". " inside the reward half. We can't perfectly identify
+        // the meta row from text alone, but a row whose reward portion contains
         // at least one period+space is a candidate.
         const stripped = opt.text.replace(/^\[LOCKED\] /, "");
-        // Drop trailing cost ". <Pay ...>" if there is one: cost CEC > 0.
-        // Without parsing, we conservatively look at the full text for a
-        // double-segment shape (two sentences separated by ". ").
         const segments = stripped.split(". ").filter((s) => s.length > 0);
-        // A meta row produces >= 3 segments when there is a cost ("rA. rB. cost")
-        // and >= 2 segments when there is no cost ("rA. rB").
         const hasCost = opt.costConvertedEssence > 0;
-        const minSegmentsForMeta = hasCost ? 3 : 2;
-        if (segments.length < minSegmentsForMeta) continue;
+        const rewardSegments = hasCost ? segments.slice(1) : segments;
+        if (rewardSegments.length < 2) continue;
         // The first two segments are sub-reward renders if this is a meta row.
-        const subA = segments[0]!;
-        const subB = segments[1]!;
+        const subA = rewardSegments[0]!;
+        const subB = rewardSegments[1]!;
         if (subA === subB) continue; // could be a non-meta coincidence; skip
         // Treat as meta candidate and check invariants.
         sawMeta = true;

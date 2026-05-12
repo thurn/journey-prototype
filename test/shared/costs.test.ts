@@ -42,6 +42,17 @@ describe("costs table (resource family)", () => {
     expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
   });
 
+  it("renders pay_essence as a loss", () => {
+    const t = getCost("pay_essence");
+    expect(t.render({ x: 25 }, fakeCtx())).toBe("Lose 25 essence");
+  });
+
+  it("renders pay_omens as a loss", () => {
+    const t = getCost("pay_omens");
+    expect(t.render({ x: 1 }, fakeCtx(100, 1))).toBe("Lose 1 omen");
+    expect(t.render({ x: 2 }, fakeCtx(100, 2))).toBe("Lose 2 omens");
+  });
+
   it("pay_essence emits [LOCKED] when X > current essence", () => {
     const t = getCost("pay_essence");
     // Force a large X by trying many seeds and find one >= 100
