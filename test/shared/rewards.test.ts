@@ -248,6 +248,24 @@ describe("rewards table (card-pool family)", () => {
     }
   });
 
+  it("card-addition rewards never roll the starter predicate", () => {
+    const additionRewardIds = [
+      "gain_random_predicate_cards",
+      "take_any_from_predicate_choices",
+      "duplicate_random_predicate",
+    ];
+    for (const id of additionRewardIds) {
+      const t = getReward(id);
+      const seen = new Set<string>();
+      for (let i = 0; i < 1000; i += 1) {
+        const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { predicateId: string };
+        expect(p.predicateId, `${id} rolled the starter predicate`).not.toBe("starter");
+        seen.add(p.predicateId);
+      }
+      expect(seen.size).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it("draft-family rewards still admit stat-bucket predicates", () => {
     // The draft family lets the player choose among offered cards, so keying
     // a draft on "cards with cost 2 or less" gives the player meaningful
@@ -271,6 +289,25 @@ describe("rewards table (card-pool family)", () => {
         }
       }
       expect(rolledStatBucket, `${id} never rolled a stat-bucket predicate in 500 draws`).toBe(true);
+    }
+  });
+
+  it("draft-family rewards never roll the starter predicate", () => {
+    const draftIds = [
+      "draft_predicate_cards_from_4",
+      "draft_2_predicate_cards_from_4",
+      "draft_predicate_card_with_copies",
+      "draft_predicate_card_with_transfiguration",
+    ];
+    for (const id of draftIds) {
+      const t = getReward(id);
+      const seen = new Set<string>();
+      for (let i = 0; i < 1000; i += 1) {
+        const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { predicateId: string };
+        expect(p.predicateId, `${id} rolled the starter predicate`).not.toBe("starter");
+        seen.add(p.predicateId);
+      }
+      expect(seen.size).toBeGreaterThanOrEqual(5);
     }
   });
 });

@@ -117,10 +117,12 @@ function rollPredicate(
   draw: DrawContext,
   label: string,
   kinds?: readonly PredicateKind[],
+  excludedIds: readonly string[] = [],
 ): Predicate {
+  const excluded = new Set(excludedIds);
   const pool = kinds === undefined
-    ? PREDICATES
-    : PREDICATES.filter((p) => kinds.includes(p.kind));
+    ? PREDICATES.filter((p) => !excluded.has(p.id))
+    : PREDICATES.filter((p) => kinds.includes(p.kind) && !excluded.has(p.id));
   return weightedChoice(
     draw,
     label,
@@ -135,6 +137,15 @@ function rollPredicate(
 // stat-bucket predicates are excluded here. Drafts keep stat-bucket
 // predicates because the player still chooses among offered cards.
 const RANDOM_GAIN_PREDICATE_KINDS: readonly PredicateKind[] = ["ability", "card-type"];
+const CARD_ADDITION_EXCLUDED_PREDICATE_IDS = ["starter"] as const;
+
+function rollCardAdditionPredicate(
+  draw: DrawContext,
+  label: string,
+  kinds?: readonly PredicateKind[],
+): Predicate {
+  return rollPredicate(draw, label, kinds, CARD_ADDITION_EXCLUDED_PREDICATE_IDS);
+}
 
 // Predicates whose match pool spans a huge portion of the card universe
 // (~half the cards each). Drafting from such a pool offers little selection
@@ -152,7 +163,7 @@ const gainRandomPredicateCards: Reward<GainRandomCardsParams> = {
   id: "gain_random_predicate_cards",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "gain_random_predicate:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
+    predicateId: rollCardAdditionPredicate(draw, "gain_random_predicate:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
     count: drawInt(draw, "gain_random_predicate:count", 1, 3),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC, p.count, getPredicate(p.predicateId)),
@@ -169,7 +180,7 @@ type DraftPredicateParams = { predicateId: string };
 const draftPredicateCardsFrom4: Reward<DraftPredicateParams> = {
   id: "draft_predicate_cards_from_4",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "draft_predicate:pred").id }),
+  rollParams: (_ctx, draw) => ({ predicateId: rollCardAdditionPredicate(draw, "draft_predicate:pred").id }),
   cec: (p) =>
     isFlatDraftPredicate(p.predicateId)
       ? FLAT_DRAFT_CEC
@@ -184,7 +195,7 @@ const takeAnyFromPredicateChoices: Reward<TakeAnyParams> = {
   id: "take_any_from_predicate_choices",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "take_any:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
+    predicateId: rollCardAdditionPredicate(draw, "take_any:pred", RANDOM_GAIN_PREDICATE_KINDS).id,
     choices: drawInt(draw, "take_any:choices", 3, 5),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC * 1.2, p.choices / 2, getPredicate(p.predicateId)),
@@ -531,7 +542,7 @@ const duplicateRandomPredicate: Reward<DupRandomPredParams> = {
   id: "duplicate_random_predicate",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "dup_random_pred:p", RANDOM_GAIN_PREDICATE_KINDS).id,
+    predicateId: rollCardAdditionPredicate(draw, "dup_random_pred:p", RANDOM_GAIN_PREDICATE_KINDS).id,
     count: drawInt(draw, "dup_random_pred:n", 1, 3),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC * 0.9, p.count, getPredicate(p.predicateId)),
@@ -704,7 +715,7 @@ type Draft2PredicateParams = { predicateId: string };
 const draft2PredicateCardsFrom4: Reward<Draft2PredicateParams> = {
   id: "draft_2_predicate_cards_from_4",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "draft2_predicate:pred").id }),
+  rollParams: (_ctx, draw) => ({ predicateId: rollCardAdditionPredicate(draw, "draft2_predicate:pred").id }),
   cec: (p) =>
     isFlatDraftPredicate(p.predicateId)
       ? FLAT_DRAFT_CEC
@@ -719,7 +730,7 @@ const draftPredicateCardWithCopies: Reward<DraftPredicateCardWithCopiesParams> =
   id: "draft_predicate_card_with_copies",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "draft_pred_copies:pred").id,
+    predicateId: rollCardAdditionPredicate(draw, "draft_pred_copies:pred").id,
     copies: drawInt(draw, "draft_pred_copies:n", 2, 3),
   }),
   cec: (p) =>
@@ -737,7 +748,7 @@ const draftPredicateCardWithTransfiguration: Reward<DraftPredicateCardWithTransf
   id: "draft_predicate_card_with_transfiguration",
   weight: 1.0,
   rollParams: (ctx, draw) => {
-    const predicateId = rollPredicate(draw, "draft_pred_xfig:pred").id;
+    const predicateId = rollCardAdditionPredicate(draw, "draft_pred_xfig:pred").id;
     return {
       predicateId,
       transfiguration: pickTransfigurationForPredicate(ctx, draw, "draft_pred_xfig:t", predicateId),

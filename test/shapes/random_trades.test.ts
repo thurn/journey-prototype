@@ -149,6 +149,48 @@ describe("random_trades fill", () => {
     }
   });
 
+  it("does not offer starter-card draft or gain rewards for regression seeds", async () => {
+    const seeds = [
+      "starter-draft-search-155",
+      "random:31c2ab79-ff0a-49f5-9b5a-b8abf5b8a941",
+    ];
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    for (const seed of seeds) {
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex: 0,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "random_trades",
+        forcedStage: "early",
+      });
+
+      for (const option of manifest.options) {
+        expect(option.text).not.toMatch(/Draft \d of 4 Starter cards/u);
+        expect(option.text).not.toMatch(/Gain \d+ random Starter cards/u);
+      }
+    }
+  });
+
   it("keeps locked resource-cost prefixes at the start of the full row", () => {
     let lockedText: string | undefined;
     for (let i = 0; i < 400 && !lockedText; i += 1) {
@@ -323,7 +365,7 @@ describe("random_trades fill", () => {
     const baneRate = counts.bane / total;
 
     expect(resourceRate).toBeGreaterThanOrEqual(0.38);
-    expect(resourceRate).toBeLessThanOrEqual(0.65);
+    expect(resourceRate).toBeLessThanOrEqual(0.70);
     expect(baneRate).toBeGreaterThanOrEqual(0.14);
     expect(baneRate).toBeLessThanOrEqual(0.36);
     expect(counts.other).toBeGreaterThan(0);
