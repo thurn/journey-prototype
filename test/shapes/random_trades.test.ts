@@ -236,6 +236,58 @@ describe("random_trades fill", () => {
     expect(manifest.options).toHaveLength(3);
   });
 
+  it("falls back to mismatched viable rows when strict net matching exhausts widening", async () => {
+    const seed = "rt-fallback-search-25";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    function fillTextsAndNets(): { texts: readonly string[]; nets: readonly number[] } {
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex: 0,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const fill = randomTradesPlugin.fill({
+        context,
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex: 0,
+        },
+        stage: "early",
+      });
+
+      return {
+        texts: fill.options.map((o) => o.text),
+        nets: fill.options.map((o) => o.netConvertedEssence),
+      };
+    }
+
+    const first = fillTextsAndNets();
+    const second = fillTextsAndNets();
+    const anchorNet = first.nets[0]!;
+    const nonAnchorDistances = first.nets.slice(1).map((net) => Math.abs(net - anchorNet));
+
+    expect(first.texts).toHaveLength(3);
+    expect(new Set(first.texts).size).toBe(3);
+    expect(Math.max(...nonAnchorDistances)).toBeGreaterThan(165);
+    expect(first).toEqual(second);
+  });
+
   it("selects resource and Bane costs at the intended rates across real mid-stage seeds", async () => {
     const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
     const { content, contentVersion } = await loadContentContext(process.cwd());
