@@ -1,0 +1,4 @@
+interface:
+  display_name: "Journey Shape Audit"
+  short_description: "Audit Journey shape output and write findings"
+  default_prompt: "Use $journey-shape-audit to generate early, mid, and late examples for a Journey shape and write a game-design audit report."
