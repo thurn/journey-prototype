@@ -18,6 +18,27 @@ type RolledReward = { template: Reward; params: unknown; cec: number };
 type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
 type NetRange = { lo: number; hi: number };
 type CostRange = { floor: number; ceiling: number };
+type ResourceFamily = "essence" | "omens";
+
+const ESSENCE_GAIN_REWARD_IDS = new Set([
+  "gain_essence",
+  "set_essence_to_percent_of_max",
+  "gain_essence_random_range",
+  "gain_essence_to_max",
+  "increase_max_essence",
+]);
+const OMEN_GAIN_REWARD_IDS = new Set(["gain_omens"]);
+const ESSENCE_PAYMENT_COST_IDS = new Set([
+  "pay_essence",
+  "pay_max_essence",
+  "pay_essence_random_range",
+  "pay_percent_essence",
+  "pay_all_remaining_essence",
+  "battle_reward_reduction_flat",
+  "battle_reward_reduction_percent",
+  "lose_max_essence",
+]);
+const OMEN_PAYMENT_COST_IDS = new Set(["pay_omens"]);
 
 function emptyOption(
   number: number,
@@ -57,6 +78,48 @@ function rewardSubIds(rolled: RolledReward): readonly string[] {
 
 function consumedRewardIds(rolled: RolledReward): readonly string[] {
   return [rolled.template.id, ...rewardSubIds(rolled)];
+}
+
+function addResourceFamilyForRewardId(families: Set<ResourceFamily>, id: string): void {
+  if (ESSENCE_GAIN_REWARD_IDS.has(id)) families.add("essence");
+  if (OMEN_GAIN_REWARD_IDS.has(id)) families.add("omens");
+}
+
+function rewardResourceFamilies(rolled: RolledReward): ReadonlySet<ResourceFamily> {
+  const families = new Set<ResourceFamily>();
+  for (const id of consumedRewardIds(rolled)) {
+    addResourceFamilyForRewardId(families, id);
+  }
+  return families;
+}
+
+function addResourceFamilyForCostId(families: Set<ResourceFamily>, id: string): void {
+  if (ESSENCE_PAYMENT_COST_IDS.has(id)) families.add("essence");
+  if (OMEN_PAYMENT_COST_IDS.has(id)) families.add("omens");
+}
+
+function costResourceFamilies(template: Cost, params: unknown): ReadonlySet<ResourceFamily> {
+  const families = new Set<ResourceFamily>();
+  if (template.id === "meta_pay_2_costs") {
+    const p = params as { subIds?: readonly string[] };
+    for (const id of p.subIds ?? []) {
+      addResourceFamilyForCostId(families, id);
+    }
+    return families;
+  }
+  addResourceFamilyForCostId(families, template.id);
+  return families;
+}
+
+function conflictsWithRewardResourceGain(
+  rewardFamilies: ReadonlySet<ResourceFamily>,
+  template: Cost,
+  params: unknown,
+): boolean {
+  for (const family of costResourceFamilies(template, params)) {
+    if (rewardFamilies.has(family)) return true;
+  }
+  return false;
 }
 
 function meetsRewardDistinctness(rolled: RolledReward, used: ReadonlySet<string>): boolean {
@@ -200,14 +263,17 @@ function pickCostForReward(
   ctx: JourneyContext,
   draw: DrawContext,
   label: string,
-  rewardCec: number,
+  reward: RolledReward,
   netRange?: NetRange,
 ): RolledCost | undefined {
+  const rewardCec = reward.cec;
+  const blockedResourceFamilies = rewardResourceFamilies(reward);
   const cap = 0.5 * rewardCec;
   const candidates: Array<{ rolled: RolledCost; weight: number }> = [];
   for (const template of RANDOM_TRADE_COSTS) {
     const params = rollCostParamsForRewardCap(ctx, draw, template, rewardCec, cap, netRange);
     if (params === undefined) continue;
+    if (conflictsWithRewardResourceGain(blockedResourceFamilies, template, params)) continue;
     if (!template.viable(params as never, ctx)) continue;
     const cec = template.cec(params as never, ctx);
     if (cec > cap) continue;
@@ -223,7 +289,7 @@ function pickCostForReward(
   if (candidates.length > 0) {
     return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
   }
-  if (cap >= PAY_FLOOR) {
+  if (cap >= PAY_FLOOR && !blockedResourceFamilies.has("essence")) {
     const x = rollPayEssenceAmount(draw, `${label}:fallback`, PAY_FLOOR, Math.floor(cap));
     if (x === undefined) return undefined;
     const params = { x };
@@ -249,7 +315,7 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
     throw new Error("random_trades fill could not roll a viable first reward");
   }
   for (const id of consumedRewardIds(row1Reward)) used.add(id);
-  const row1Cost = pickCostForReward(context, drawContext, "rt:row1:cost", row1Reward.cec);
+  const row1Cost = pickCostForReward(context, drawContext, "rt:row1:cost", row1Reward);
   const anchorNet = row1Reward.cec - (row1Cost?.cec ?? 0);
 
   function rollFurtherRow(rowIndex: number): { reward: RolledReward; cost: RolledCost | undefined } {
@@ -273,7 +339,7 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
           ...drawContext,
           sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
           selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + 1000,
-        }, `rt:row${rowIndex}:cost:${template.id}`, rCec, { lo, hi });
+        }, `rt:row${rowIndex}:cost:${template.id}`, reward, { lo, hi });
         const net = rCec - (cost?.cec ?? 0);
         if (net < lo || net > hi) continue;
         candidates.push({ reward, cost, weight: template.weight });
@@ -309,7 +375,7 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
         ...drawContext,
         sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
         selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 11000,
-      }, `rt:row${rowIndex}:fallback-cost:${template.id}`, rCec);
+      }, `rt:row${rowIndex}:fallback-cost:${template.id}`, reward);
       const net = rCec - (cost?.cec ?? 0);
       fallbackCandidates.push({
         reward,

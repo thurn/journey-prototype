@@ -80,7 +80,15 @@ function fakeStarterCatalogCtx(): JourneyContext {
 
 function costFamilyForText(text: string): "resource" | "bane" | "other" {
   const stripped = text.replace(/^\[LOCKED\] /, "");
-  if (/^Lose \d+ essence/u.test(stripped) || /^Lose \d+ omens?/u.test(stripped)) {
+  if (
+    /^Lose \d+ essence/u.test(stripped)
+    || /^Lose \d+-\d+ essence \(random roll\)/u.test(stripped)
+    || /^Lose \d+% of your essence/u.test(stripped)
+    || /^Lose (?:maximum|all remaining) essence/u.test(stripped)
+    || /^Lose \d+ maximum essence/u.test(stripped)
+    || /^Battle essence rewards are reduced by \d+%?/u.test(stripped)
+    || /^Lose \d+ omens?/u.test(stripped)
+  ) {
     return "resource";
   }
   if (/^Gain \d+ random banes?/u.test(stripped)) {
@@ -98,6 +106,35 @@ function flatEssenceCosts(text: string): readonly number[] {
   return [...text.matchAll(/(?:^|\[LOCKED\] |\. )Lose (\d+) essence(?:\.|$)/gu)].map((match) =>
     Number(match[1]),
   );
+}
+
+function textSegments(text: string): readonly string[] {
+  return text.replace(/^\[LOCKED\] /u, "").split(". ");
+}
+
+function isEssenceRewardSegment(segment: string): boolean {
+  return /^Gain \d+(?:-\d+)? essence(?: \(random roll\))?$/u.test(segment)
+    || segment === "Gain essence up to your maximum"
+    || /^Set essence to \d+% of your maximum essence$/u.test(segment)
+    || /^Increase your maximum essence by \d+$/u.test(segment);
+}
+
+function isEssenceCostSegment(segment: string): boolean {
+  return /^Lose \d+ essence$/u.test(segment)
+    || /^Lose \d+-\d+ essence \(random roll\)$/u.test(segment)
+    || /^Lose \d+% of your essence$/u.test(segment)
+    || segment === "Lose maximum essence"
+    || segment === "Lose all remaining essence"
+    || /^Lose \d+ maximum essence$/u.test(segment)
+    || /^Battle essence rewards are reduced by \d+%? for /u.test(segment);
+}
+
+function isOmenRewardSegment(segment: string): boolean {
+  return /^Gain \d+ omens?$/u.test(segment);
+}
+
+function isOmenCostSegment(segment: string): boolean {
+  return /^Lose \d+ omens?$/u.test(segment);
 }
 
 describe("random_trades fill", () => {
@@ -236,6 +273,56 @@ describe("random_trades fill", () => {
       }
     }
     expect(sawEssenceCost).toBe(true);
+  });
+
+  it("does not pair resource gain rewards with same-resource payment costs", async () => {
+    const cases = [
+      {
+        seed: "random:df2e8861-a97e-455f-a50a-e59348bacef1",
+        rootJourneyIndex: 1,
+      },
+      {
+        seed: "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01",
+        rootJourneyIndex: 22,
+      },
+    ];
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    for (const c of cases) {
+      const state = createInitialJourneyState({
+        seed: c.seed,
+        content,
+        contentVersion,
+      });
+      state.generator.rootJourneyIndex = c.rootJourneyIndex;
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed: c.seed,
+          contentVersion,
+          rootJourneyIndex: c.rootJourneyIndex,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "random_trades",
+        forcedStage: "early",
+      });
+
+      for (const option of manifest.options) {
+        const segments = textSegments(option.text);
+        expect(segments.some(isEssenceRewardSegment) && segments.some(isEssenceCostSegment)).toBe(false);
+        expect(segments.some(isOmenRewardSegment) && segments.some(isOmenCostSegment)).toBe(false);
+      }
+    }
   });
 
   it("does not offer starter-card draft or gain rewards for regression seeds", async () => {
@@ -510,7 +597,7 @@ describe("random_trades fill", () => {
     expect(resourceRate).toBeGreaterThanOrEqual(0.30);
     expect(resourceRate).toBeLessThanOrEqual(0.70);
     expect(baneRate).toBeGreaterThanOrEqual(0.14);
-    expect(baneRate).toBeLessThanOrEqual(0.36);
+    expect(baneRate).toBeLessThanOrEqual(0.40);
     expect(counts.other).toBeGreaterThan(0);
   });
 
