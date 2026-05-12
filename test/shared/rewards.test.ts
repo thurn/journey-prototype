@@ -3,6 +3,14 @@ import {
   REWARDS,
   getReward,
 } from "../../src/journey/shared/rewards.js";
+import { loadContent } from "../../src/content/loadToml.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import { createInitialJourneyState } from "../../src/quest/init.js";
+import {
+  isCardEligibleForTransfiguration,
+  transfigurationsEligibleForPredicate,
+} from "../../src/journey/shared/content.js";
+import { getPredicate } from "../../src/journey/shared/predicates.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
@@ -676,5 +684,162 @@ describe("meta_gain_2_rewards", () => {
     const p = t.rollParams(fakeCtx(), draw);
     // Sub-templates are picked among viable templates, so the meta should be viable.
     expect(t.viable(p, fakeCtx())).toBe(true);
+  });
+});
+
+describe("named-transfiguration rewards respect per-transfiguration eligibility", () => {
+  // `docs/quests.md` § Transfiguration declares an eligibility filter for
+  // each named transfiguration:
+  //   - Bronze / Azure: events only
+  //   - Scarlet:        characters only
+  //   - Viridian:       cost > 0
+  //   - Rose:           cards with an energy-cost activated ability
+  //   - Magenta:        cards with a `materialized`, `judgment`, or
+  //                     `once per turn` trigger
+  // The reward generator must roll only transfiguration/predicate pairings
+  // that are compatible with these filters — otherwise it produces
+  // impossible offers like "Apply Bronze to 1 random Warrior".
+  async function realCtx(seed = "transfig-eligibility"): Promise<JourneyContext> {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const state = createInitialJourneyState({ seed, content, contentVersion });
+    return buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+  }
+
+  it("isCardEligibleForTransfiguration enforces card type filters", async () => {
+    const ctx = await realCtx();
+    const characters = ctx.content.cards.filter((c) => c.cardType === "Character");
+    const events = ctx.content.cards.filter((c) => c.cardType === "Event");
+    expect(characters.length).toBeGreaterThan(0);
+    expect(events.length).toBeGreaterThan(0);
+
+    // Bronze and Azure are events-only; Scarlet is characters-only.
+    expect(characters.every((c) => !isCardEligibleForTransfiguration("Bronze", c))).toBe(true);
+    expect(characters.every((c) => !isCardEligibleForTransfiguration("Azure", c))).toBe(true);
+    expect(events.every((c) => !isCardEligibleForTransfiguration("Scarlet", c))).toBe(true);
+    expect(events.some((c) => isCardEligibleForTransfiguration("Bronze", c))).toBe(true);
+    expect(events.some((c) => isCardEligibleForTransfiguration("Azure", c))).toBe(true);
+    expect(characters.some((c) => isCardEligibleForTransfiguration("Scarlet", c))).toBe(true);
+    // Viridian requires cost > 0.
+    const zeroCostCards = ctx.content.cards.filter((c) => c.energyCost === 0);
+    expect(zeroCostCards.every((c) => !isCardEligibleForTransfiguration("Viridian", c))).toBe(true);
+    // Golden and Prismatic and expanded variants are unrestricted at the
+    // generator level, so every card is eligible.
+    expect(ctx.content.cards.every((c) => isCardEligibleForTransfiguration("Golden", c))).toBe(true);
+    expect(ctx.content.cards.every((c) => isCardEligibleForTransfiguration("Prismatic", c))).toBe(true);
+  });
+
+  it("transfigurationsEligibleForPredicate excludes Bronze for character-only predicates", async () => {
+    const ctx = await realCtx();
+    for (const id of ["characters", "warriors", "survivors", "spirit_animals"]) {
+      const pred = getPredicate(id);
+      const eligible = transfigurationsEligibleForPredicate(ctx, pred.cardPredicate ?? {});
+      expect(eligible).not.toContain("Bronze");
+      expect(eligible).toContain("Scarlet");
+    }
+  });
+
+  it("transfigurationsEligibleForPredicate excludes Scarlet for the events predicate", async () => {
+    const ctx = await realCtx();
+    const pred = getPredicate("events");
+    const eligible = transfigurationsEligibleForPredicate(ctx, pred.cardPredicate ?? {});
+    expect(eligible).not.toContain("Scarlet");
+    expect(eligible).toContain("Bronze");
+  });
+
+  const NAMED_TRANSFIG_REWARDS = [
+    "apply_named_transfiguration_to_chosen_predicate_cards",
+    "apply_named_transfiguration_to_random_predicate_cards",
+    "apply_named_transfiguration_to_all_predicate_cards",
+    "draft_predicate_card_with_transfiguration",
+  ] as const;
+
+  it("predicate-keyed transfiguration rewards never roll an incompatible pairing", async () => {
+    // For every viable rolled offer of a predicate-keyed transfiguration
+    // reward, every card matching the predicate must be eligible for the
+    // rolled transfiguration. Equivalently: a Bronze offer always has a
+    // predicate pool that is a subset of Event cards; a Scarlet offer always
+    // has a predicate pool that is a subset of Character cards; etc.
+    const ctx = await realCtx();
+    for (const id of NAMED_TRANSFIG_REWARDS) {
+      const reward = getReward(id);
+      let viableCount = 0;
+      for (let i = 0; i < 400; i += 1) {
+        const params = reward.rollParams(ctx, { ...draw, sequenceStep: i }) as {
+          transfiguration: string;
+          predicateId: string;
+        };
+        if (!reward.viable(params as never, ctx)) {
+          continue;
+        }
+        viableCount += 1;
+        const matches = transfigurationsEligibleForPredicate(
+          ctx,
+          getPredicate(params.predicateId).cardPredicate ?? {},
+        );
+        expect(matches).toContain(params.transfiguration);
+      }
+      // Sanity: at least some offers must be viable; if 0 we'd be vacuously
+      // satisfied and the test would not actually be exercising the path.
+      expect(viableCount).toBeGreaterThan(0);
+    }
+  });
+
+  it("named-transfiguration predicate rewards prefer compatible transfigurations when rolling", async () => {
+    // When the predicate is `warriors` (characters only), the roll should
+    // never produce Bronze / Azure (events-only) because the eligible-pool
+    // filter excludes them. This is the load-bearing behaviour change.
+    const ctx = await realCtx();
+    for (const id of NAMED_TRANSFIG_REWARDS) {
+      const reward = getReward(id);
+      // Force the predicate to `warriors` by sweeping seeds and only
+      // checking those where the rolled predicate is `warriors`. We expect
+      // the rolled transfiguration to never be Bronze or Azure in that case.
+      for (let i = 0; i < 400; i += 1) {
+        const params = reward.rollParams(ctx, { ...draw, sequenceStep: i }) as {
+          transfiguration: string;
+          predicateId: string;
+        };
+        if (params.predicateId === "warriors"
+          || params.predicateId === "survivors"
+          || params.predicateId === "spirit_animals"
+          || params.predicateId === "characters") {
+          expect(params.transfiguration).not.toBe("Bronze");
+          expect(params.transfiguration).not.toBe("Azure");
+        }
+        if (params.predicateId === "events") {
+          expect(params.transfiguration).not.toBe("Scarlet");
+        }
+      }
+    }
+  });
+
+  it("apply_named_transfiguration_to_card_name picks an eligible deck card for the rolled transfiguration", async () => {
+    const ctx = await realCtx();
+    const reward = getReward("apply_named_transfiguration_to_card_name");
+    for (let i = 0; i < 200; i += 1) {
+      const params = reward.rollParams(ctx, { ...draw, sequenceStep: i }) as {
+        transfiguration: string;
+        cardName: string;
+      };
+      const deckCards = ctx.content.cards.filter(
+        (c) => ctx.state.quest.deck.entries.some((e) => e.cardId === c.id),
+      );
+      const eligibleInDeck = deckCards.filter((c) =>
+        isCardEligibleForTransfiguration(params.transfiguration, c),
+      );
+      if (eligibleInDeck.length > 0) {
+        // The selected card name must come from the eligible-in-deck pool.
+        expect(eligibleInDeck.map((c) => c.name)).toContain(params.cardName);
+      } else {
+        // No eligible card in deck -> `viable` must report false.
+        expect(reward.viable(params as never, ctx)).toBe(false);
+      }
+    }
   });
 });

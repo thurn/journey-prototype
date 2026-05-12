@@ -8,12 +8,48 @@ import {
   cardMatches,
   dreamsignMatches,
   essenceAmount,
+  isCardEligibleForTransfiguration,
   maxEssence,
   pickFromList,
   starterCardCount,
+  transfigurationsEligibleForPredicate,
 } from "./content.js";
 import { PREDICATES, getPredicate } from "./predicates.js";
 import type { Predicate, Reward, TemplateParams } from "./types.js";
+
+// Roll a transfiguration that is compatible with the given predicate's
+// match set. Falls back to the full allowed list when no transfiguration is
+// applicable (the surrounding `viable` check is responsible for filtering
+// out impossible combinations in that case).
+function pickTransfigurationForPredicate(
+  ctx: import("../../quest/context.js").JourneyContext,
+  draw: DrawContext,
+  label: string,
+  predicateId: string,
+): string {
+  const predicate = getPredicate(predicateId);
+  const eligible = transfigurationsEligibleForPredicate(ctx, predicate.cardPredicate ?? {});
+  const pool = eligible.length > 0 ? eligible : ALLOWED_TRANSFIGURATIONS;
+  return pickFromList(draw, label, pool);
+}
+
+function predicateAdmitsTransfiguration(
+  ctx: import("../../quest/context.js").JourneyContext,
+  predicateId: string,
+  transfiguration: string,
+): boolean {
+  // Every card matching the predicate must be eligible for the
+  // transfiguration; otherwise the player could pick a card from the
+  // predicate's pool that cannot legally receive the transfiguration.
+  const predicate = getPredicate(predicateId);
+  const matches = cardMatches(ctx, predicate.cardPredicate ?? {});
+  if (matches.length === 0) {
+    // Empty pool — let the outer viability check decide; if matches is 0 the
+    // reward is generally not viable for unrelated reasons anyway.
+    return true;
+  }
+  return matches.every((card) => isCardEligibleForTransfiguration(transfiguration, card));
+}
 
 type GainEssenceParams = { x: number };
 const gainEssence: Reward<GainEssenceParams> = {
@@ -179,14 +215,18 @@ type ApplyNamedTransfigPredCardsParams = { transfiguration: string; predicateId:
 const applyNamedTransfigurationToChosenPredicateCards: Reward<ApplyNamedTransfigPredCardsParams> = {
   id: "apply_named_transfiguration_to_chosen_predicate_cards",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({
-    transfiguration: pickFromList(draw, "named_transfig_chosen:t", ALLOWED_TRANSFIGURATIONS),
-    predicateId: rollPredicate(draw, "named_transfig_chosen:p").id,
-    count: drawInt(draw, "named_transfig_chosen:n", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const predicateId = rollPredicate(draw, "named_transfig_chosen:p").id;
+    return {
+      transfiguration: pickTransfigurationForPredicate(ctx, draw, "named_transfig_chosen:t", predicateId),
+      predicateId,
+      count: drawInt(draw, "named_transfig_chosen:n", 1, 3),
+    };
+  },
   cec: (p) => cardPoolCEC(CARD_CEC * 0.8, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
-    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count
+    && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) => {
     const pred = getPredicate(p.predicateId);
     const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
@@ -200,15 +240,27 @@ const applyNamedTransfigurationToCardName: Reward<ApplyNamedTransfigCardNamePara
   weight: 1.0,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
+    const transfiguration = pickFromList(draw, "named_transfig_named:t", ALLOWED_TRANSFIGURATIONS);
+    // Pair the chosen transfiguration with a deck card that is actually
+    // eligible for it. If no deck card is eligible (e.g., Bronze rolled but
+    // the deck has no events) fall back to any deck card; `viable` will
+    // reject this case so the reward is filtered out of the offer pool.
+    const eligibleDeckCards = deckCards.filter((card) =>
+      isCardEligibleForTransfiguration(transfiguration, card),
+    );
+    const pool = eligibleDeckCards.length > 0 ? eligibleDeckCards : deckCards;
     return {
-      transfiguration: pickFromList(draw, "named_transfig_named:t", ALLOWED_TRANSFIGURATIONS),
-      cardName: deckCards.length > 0
-        ? pickFromList(draw, "named_transfig_named:c", deckCards).name
+      transfiguration,
+      cardName: pool.length > 0
+        ? pickFromList(draw, "named_transfig_named:c", pool).name
         : "Placeholder Card",
     };
   },
   cec: () => CARD_CEC * 0.8,
-  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
+  viable: (p, ctx) => {
+    const deckCards = cardMatches(ctx, { source: "deck" });
+    return deckCards.some((card) => isCardEligibleForTransfiguration(p.transfiguration, card));
+  },
   render: (p) => `Apply ${p.transfiguration} to ${p.cardName}`,
 };
 
@@ -216,14 +268,18 @@ type ApplyNamedTransfigRandomPredParams = { transfiguration: string; predicateId
 const applyNamedTransfigurationToRandomPredicateCards: Reward<ApplyNamedTransfigRandomPredParams> = {
   id: "apply_named_transfiguration_to_random_predicate_cards",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({
-    transfiguration: pickFromList(draw, "named_transfig_random:t", ALLOWED_TRANSFIGURATIONS),
-    predicateId: rollPredicate(draw, "named_transfig_random:p").id,
-    count: drawInt(draw, "named_transfig_random:n", 1, 3),
-  }),
+  rollParams: (ctx, draw) => {
+    const predicateId = rollPredicate(draw, "named_transfig_random:p").id;
+    return {
+      transfiguration: pickTransfigurationForPredicate(ctx, draw, "named_transfig_random:t", predicateId),
+      predicateId,
+      count: drawInt(draw, "named_transfig_random:n", 1, 3),
+    };
+  },
   cec: (p) => cardPoolCEC(CARD_CEC * 0.6, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
-    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count
+    && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) => {
     const pred = getPredicate(p.predicateId);
     const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
@@ -699,16 +755,20 @@ type DraftPredicateCardWithTransfigurationParams = { predicateId: string; transf
 const draftPredicateCardWithTransfiguration: Reward<DraftPredicateCardWithTransfigurationParams> = {
   id: "draft_predicate_card_with_transfiguration",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({
-    predicateId: rollPredicate(draw, "draft_pred_xfig:pred").id,
-    transfiguration: pickFromList(draw, "draft_pred_xfig:t", ALLOWED_TRANSFIGURATIONS),
-  }),
+  rollParams: (ctx, draw) => {
+    const predicateId = rollPredicate(draw, "draft_pred_xfig:pred").id;
+    return {
+      predicateId,
+      transfiguration: pickTransfigurationForPredicate(ctx, draw, "draft_pred_xfig:t", predicateId),
+    };
+  },
   cec: (p) =>
     isFlatDraftPredicate(p.predicateId)
       ? FLAT_DRAFT_CEC
       : cardPoolCEC(CARD_CEC * 1.8, 1, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
-    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4,
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 4
+    && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) =>
     `Draft 1 of 4 ${getPredicate(p.predicateId).text.plural} and apply ${p.transfiguration} to it`,
 };
@@ -802,16 +862,20 @@ type ApplyNamedTransfigAllPredParams = { transfiguration: string; predicateId: s
 const applyNamedTransfigurationToAllPredicateCards: Reward<ApplyNamedTransfigAllPredParams> = {
   id: "apply_named_transfiguration_to_all_predicate_cards",
   weight: 1.0,
-  rollParams: (_ctx, draw) => ({
-    transfiguration: pickFromList(draw, "named_transfig_all:t", ALLOWED_TRANSFIGURATIONS),
-    predicateId: rollPredicate(draw, "named_transfig_all:p").id,
-  }),
+  rollParams: (ctx, draw) => {
+    const predicateId = rollPredicate(draw, "named_transfig_all:p").id;
+    return {
+      transfiguration: pickTransfigurationForPredicate(ctx, draw, "named_transfig_all:t", predicateId),
+      predicateId,
+    };
+  },
   cec: (p, ctx) => {
     const matches = cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length;
     return CARD_CEC * 0.6 * Math.max(1, matches) * getPredicate(p.predicateId).multiplier;
   },
   viable: (p, ctx) =>
-    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1,
+    cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= 1
+    && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) =>
     `Apply ${p.transfiguration} to all ${getPredicate(p.predicateId).text.plural}`,
 };

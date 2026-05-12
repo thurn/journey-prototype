@@ -129,6 +129,69 @@ export const ALLOWED_TRANSFIGURATIONS = Object.freeze([
   ...EXPANDED_TRANSFIGURATIONS,
 ] as const);
 
+// Eligibility filters for each named transfiguration. A transfiguration may
+// only be applied to a card that satisfies its filter. Source of truth:
+// `docs/quests.md` § Transfiguration. Filters not listed are unrestricted
+// (the transfiguration applies to any card).
+//
+// - `Viridian`: cost > 0 (50% cost reduction; cannot apply to cost-0 cards).
+// - `Golden`: applies to cards whose TOML defines a golden variant; for
+//   generator purposes treated as unrestricted because the generator does
+//   not have visibility into the per-card TOML data.
+// - `Scarlet`: characters only (doubles base spark).
+// - `Bronze`: events only (adds Reclaim).
+// - `Azure`: events only (appends "draw a card").
+// - `Rose`: cards with an energy-cost activated ability (`N●...:` pattern).
+// - `Magenta`: cards with a `materialized`, `judgment`, or `once per turn`
+//   trigger.
+// - `Prismatic`: applies to any card eligible for 2 or more other
+//   transfigurations; conservatively treated as unrestricted at generation
+//   time and validated against the underlying pool at apply time.
+// - Expanded transfigurations (`Ivory`, `Umbral`, `Silver`, `Glass`) are
+//   not described in `docs/quests.md` and are treated as unrestricted.
+export function isCardEligibleForTransfiguration(
+  transfiguration: string,
+  card: CardContent,
+): boolean {
+  switch (transfiguration) {
+    case "Viridian":
+      return typeof card.energyCost === "number" && card.energyCost > 0;
+    case "Scarlet":
+      return card.cardType === "Character";
+    case "Bronze":
+    case "Azure":
+      return card.cardType === "Event";
+    case "Rose":
+      return cardHasEnergyCostActivatedAbility(card);
+    case "Magenta":
+      return cardHasMagentaTrigger(card);
+    default:
+      return true;
+  }
+}
+
+function cardRenderedText(card: CardContent): string {
+  return String(card.raw["rendered-text"] ?? card.raw.renderedText ?? "");
+}
+
+function cardHasEnergyCostActivatedAbility(card: CardContent): boolean {
+  // Activated abilities with an energy cost render with a leading
+  // `N●` (optionally followed by additional costs) before a colon, for
+  // example `2●: Draw a card` or `2●, Banish another card in your void:
+  // Reclaim this character.` Detect that pattern conservatively.
+  return /\d●[^:\n]*:/u.test(cardRenderedText(card));
+}
+
+function cardHasMagentaTrigger(card: CardContent): boolean {
+  // Magenta increases the frequency of `materialized`, `judgment`, and
+  // `once per turn` triggers, so a card is eligible if any of those phrases
+  // appear in its rendered text.
+  const text = cardRenderedText(card).toLowerCase();
+  return text.includes("materialized")
+    || text.includes("judgment")
+    || text.includes("once per turn");
+}
+
 export const SITE_TYPES = Object.freeze([
   "Battle",
   "Draft",
