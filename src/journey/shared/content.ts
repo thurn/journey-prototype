@@ -1,6 +1,7 @@
 import {
   BANE_NAMES,
   SITE_TYPES,
+  JOURNEY_REPLACEABLE_SITE_TYPES,
   JOURNEY_REWARDABLE_SITE_TYPES,
   JOURNEY_TRANSFIGURATIONS,
   isCardEligibleForTransfiguration,
@@ -16,6 +17,7 @@ import { drawInt, type DrawContext } from "../../util/rng.js";
 export {
   BANE_NAMES,
   SITE_TYPES,
+  JOURNEY_REPLACEABLE_SITE_TYPES,
   JOURNEY_REWARDABLE_SITE_TYPES,
   JOURNEY_TRANSFIGURATIONS,
   isCardEligibleForTransfiguration,

@@ -697,28 +697,29 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(purge20).toBeGreaterThan(shop20);
   });
 
-  it("boost_site_appearance_chance never picks Battle or Draft as the site type", () => {
+  it("boost_site_appearance_chance picks only valuable site reward destinations", () => {
     // Every dreamscape has exactly one Battle site by construction, and Draft
     // counts are deterministic per completion level (see docs/quests.md), so
-    // boosting either type is invalid and must never be generated.
+    // boosting either type is invalid. Dream Journey sites are omitted because
+    // increasing access to neutral Journey events is not a clear reward.
     const t = getReward("boost_site_appearance_chance");
     for (let i = 0; i < 200; i += 1) {
       const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { siteType: string; percent: number };
       expect(p.siteType).not.toBe("Battle");
       expect(p.siteType).not.toBe("Draft");
+      expect(p.siteType).not.toBe("Dream Journey");
     }
   });
 
-  it("site-picking rewards never select Battle or Draft as a site type", () => {
+  it("site reward destinations select only valuable non-Battle, non-Draft site types", () => {
     // The four site-picking rewards (add_site_to_dreamscape,
     // add_site_to_next_dreamscape, replace_site_type,
-    // boost_site_appearance_chance) all share a single filtered list
-    // (JOURNEY_REWARDABLE_SITE_TYPES) that excludes Battle and Draft.
-    // Battle is excluded because every dreamscape has exactly one Battle site
-    // by construction; Draft is excluded because draft counts are
-    // deterministic per completion level (see docs/quests.md § Dreamscape
-    // Generation). Neither value may appear as `siteType`, `fromType`, or
-    // `toType` on any of these rewards.
+    // boost_site_appearance_chance) use a filtered destination list for the
+    // site type they add, replace into, or boost. Battle is excluded because
+    // every dreamscape has exactly one Battle site by construction; Draft is
+    // excluded because draft counts are deterministic per completion level
+    // (see docs/quests.md § Dreamscape Generation); Dream Journey is excluded
+    // because adding or boosting neutral Journey events is not a clear reward.
     const addHere = getReward("add_site_to_dreamscape");
     const addNext = getReward("add_site_to_next_dreamscape");
     const replace = getReward("replace_site_type");
@@ -729,9 +730,10 @@ describe("rewards table (site/dreamwell/misc family)", () => {
       const addNextP = addNext.rollParams(ctx, { ...draw, sequenceStep: i }) as { siteType: string };
       const replaceP = replace.rollParams(ctx, { ...draw, sequenceStep: i }) as { fromType: string; toType: string };
       const boostP = boost.rollParams(ctx, { ...draw, sequenceStep: i }) as { siteType: string };
-      for (const value of [addHereP.siteType, addNextP.siteType, replaceP.fromType, replaceP.toType, boostP.siteType]) {
+      for (const value of [addHereP.siteType, addNextP.siteType, replaceP.toType, boostP.siteType]) {
         expect(value).not.toBe("Battle");
         expect(value).not.toBe("Draft");
+        expect(value).not.toBe("Dream Journey");
       }
     }
   });

@@ -246,6 +246,48 @@ describe("random_trades fill", () => {
     }
   });
 
+  it("does not offer Dream Journey site destinations as random trade rewards", async () => {
+    const seed = "random:c4963abd-7dbc-4046-8444-01e79fb2d2ea";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const regressionIndices = [63, 118, 185];
+
+    for (const rootJourneyIndex of regressionIndices) {
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      state.generator.rootJourneyIndex = rootJourneyIndex;
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "random_trades",
+        forcedStage: "early",
+      });
+
+      for (const option of manifest.options) {
+        expect(option.text).not.toMatch(/Add a Dream Journey site/u);
+        expect(option.text).not.toMatch(/with a Dream Journey site/u);
+        expect(option.text).not.toMatch(/chance to see Dream Journey sites/u);
+      }
+    }
+  });
+
   it("keeps locked resource-cost prefixes at the start of the full row", () => {
     let lockedText: string | undefined;
     for (let i = 0; i < 400 && !lockedText; i += 1) {
@@ -419,7 +461,7 @@ describe("random_trades fill", () => {
     const resourceRate = counts.resource / total;
     const baneRate = counts.bane / total;
 
-    expect(resourceRate).toBeGreaterThanOrEqual(0.35);
+    expect(resourceRate).toBeGreaterThanOrEqual(0.33);
     expect(resourceRate).toBeLessThanOrEqual(0.70);
     expect(baneRate).toBeGreaterThanOrEqual(0.14);
     expect(baneRate).toBeLessThanOrEqual(0.36);

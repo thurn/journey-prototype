@@ -2,6 +2,7 @@ import { drawInt, weightedChoice, type DrawContext } from "../../util/rng.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "./cec.js";
 import {
   POSITIVE_DREAMWELL_CARDS,
+  JOURNEY_REPLACEABLE_SITE_TYPES,
   JOURNEY_REWARDABLE_SITE_TYPES,
   JOURNEY_TRANSFIGURATIONS,
   baneCount,
@@ -960,9 +961,9 @@ const replaceSiteType: Reward<ReplaceSiteTypeParams> = {
   id: "replace_site_type",
   weight: 1.0,
   rollParams: (_ctx, draw) => {
-    // Both `fromType` and `toType` are drawn from JOURNEY_REWARDABLE_SITE_TYPES
-    // so neither end of the replacement can ever be a Battle or Draft site.
-    const fromType = pickFromList(draw, "replace_site:from", JOURNEY_REWARDABLE_SITE_TYPES);
+    // Replacement sources use every legal non-Battle, non-Draft site type,
+    // while destinations use only site types that are clear rewards.
+    const fromType = pickFromList(draw, "replace_site:from", JOURNEY_REPLACEABLE_SITE_TYPES);
     const options = JOURNEY_REWARDABLE_SITE_TYPES.filter((t) => t !== fromType);
     const toType = options.length > 0
       ? pickFromList(draw, "replace_site:to", options)
@@ -998,7 +999,7 @@ const shopOmenDiscount: Reward<ShopOmenDiscountParams> = {
 // Per-site-type CEC multipliers. High-impact site types (Purge, Duplication,
 // Dreamsign Draft) compress the player's deck or directly add dreamsigns and
 // are valued higher than weak utility sites (Essence, Shop, Specialty Shop,
-// Transfiguration, Dreamsign Offering, Dream Journey).
+// Transfiguration, Dreamsign Offering).
 const BOOST_SITE_TYPE_MULTIPLIER: Readonly<Record<string, number>> = Object.freeze({
   "Purge": 1.25,
   "Duplication": 1.25,
@@ -1008,7 +1009,6 @@ const BOOST_SITE_TYPE_MULTIPLIER: Readonly<Record<string, number>> = Object.free
   "Specialty Shop": 0.75,
   "Transfiguration": 0.75,
   "Dreamsign Offering": 0.75,
-  "Dream Journey": 0.75,
 });
 
 function boostSiteCec(siteType: string, percent: number): number {
