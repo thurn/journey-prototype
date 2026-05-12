@@ -87,7 +87,7 @@ The validation bypass keeps the universal checks active:
 
 Use a bypassed shape only when the fill algorithm itself owns the shape's
 coherence. Keep the output deterministic and complete enough for renderer,
-debug, reachability, and JSON surfaces.
+debug, and JSON surfaces.
 
 ## Fill Function Contract
 
@@ -98,7 +98,6 @@ export function exampleFill(args: ShapeFillArgs): FilledJourney {
   return {
     options,
     precommitted: {},
-    symmetryContracts,
   };
 }
 ```
@@ -108,16 +107,16 @@ Each direct-menu option should be a complete `JourneyOption`:
 - stable `number`
 - user-facing `text`
 - `symbols`
-- structured `operations` when the shape participates in debug/reachability
+- empty `operations`
 - empty arrays for unused `costs`, `effects`, `burdens`, `targets`,
   `triggers`, and `routeEffects`
 - converted essence fields
 - `pickBehavior: "record_and_generate_next"`
 
-For bypassed shapes, `operations` can be empty when the shape is purely
-text/CEC driven, as in `random_rewards`. Use lightweight operations when
-reachability, debug output, target resolution, or brainstorm matrix coverage
-needs structured evidence, as in `one_operation_many_targets`.
+New migrated shapes are text/CEC driven. They keep structured `operations`
+empty and omit `symmetryContracts`. Debug output should rely on the
+manifest, option text, option values, validation report, and semantic
+fingerprint.
 
 ## Shared Data
 
@@ -139,7 +138,6 @@ Shared templates should own:
 - viability checks
 - CEC calculation
 - text rendering
-- optional operation metadata builders
 
 Keep shape-specific orchestration in the shape directory. Shared templates
 should describe reusable effects; the shape chooses how to assemble them into
@@ -195,8 +193,7 @@ npm run journey -- --seed qa --shape <shape_id> --debug --no-color
 ```
 
 Run broader tests when a migration touches shared reward/cost templates,
-registry behavior, CLI command behavior, renderer output, or reachability
-metadata:
+registry behavior, CLI command behavior, or renderer output:
 
 ```bash
 npx vitest run test/shared/rewards.test.ts
@@ -211,39 +208,6 @@ with:
 git diff --check
 ```
 
-## Debug and Reachability
-
-Use structured operations when the shape should appear in reachability evidence
-or debug output. A minimal useful pattern is:
-
-- one `reward`, `cost`, `route_edit`, `status`, or similar operation for the
-  consequence
-- one `target` operation when a visible target varies by option
-- `value.convertedEssence` on consequence operations
-- `targetSelector` for target resolution metadata
-- stable `operationId` values based on shape ID and option number
-
-Use `symmetryContracts` when the menu has a meaningful shared axis:
-
-```ts
-{
-  contractKind: "shared_axis_rotated_attribute",
-  sharedProperty: "operation=apply_transfiguration:Scarlet",
-  variedProperty: "visible_named_card_target",
-  sharedFirst: true,
-  optionNumbers: [1, 2, 3],
-  sharedPayloadKeys: ["operation=apply_transfiguration:Scarlet"],
-  variedPayloadKeys: [
-    "visible_named_card_target=card:...",
-    "visible_named_card_target=card:...",
-    "visible_named_card_target=card:...",
-  ],
-}
-```
-
-This keeps debug output, semantic fingerprints, and brainstorm reachability
-aligned with the shape's actual menu topology.
-
 ## Review Checklist
 
 Before committing, verify:
@@ -257,4 +221,4 @@ Before committing, verify:
 - The isolation test includes the migrated shape ID.
 - Forced CLI output renders the migrated shape with a fixed seed.
 - JSON output parses and includes expected options.
-- Debug output shows expected validation, operations, and symmetry evidence.
+- Debug output shows expected validation and option value evidence.
