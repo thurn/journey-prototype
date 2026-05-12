@@ -19,6 +19,7 @@ type RolledCost = { template: Cost; params: unknown; cec: number; rendered: stri
 type NetRange = { lo: number; hi: number };
 type CostRange = { floor: number; ceiling: number };
 type ResourceFamily = "essence" | "omens";
+type ResourceCostPreference = "prefer" | "avoid";
 
 const ESSENCE_GAIN_REWARD_IDS = new Set([
   "gain_essence",
@@ -120,6 +121,10 @@ function conflictsWithRewardResourceGain(
     if (rewardFamilies.has(family)) return true;
   }
   return false;
+}
+
+function hasResourceCost(template: Cost, params: unknown): boolean {
+  return costResourceFamilies(template, params).size > 0;
 }
 
 function meetsRewardDistinctness(rolled: RolledReward, used: ReadonlySet<string>): boolean {
@@ -264,6 +269,7 @@ function pickCostForReward(
   draw: DrawContext,
   label: string,
   reward: RolledReward,
+  resourcePreference: ResourceCostPreference,
   netRange?: NetRange,
 ): RolledCost | undefined {
   const rewardCec = reward.cec;
@@ -287,9 +293,15 @@ function pickCostForReward(
     });
   }
   if (candidates.length > 0) {
-    return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
+    const preferred = candidates.filter((c) =>
+      resourcePreference === "prefer"
+        ? hasResourceCost(c.rolled.template, c.rolled.params)
+        : !hasResourceCost(c.rolled.template, c.rolled.params),
+    );
+    const pool = preferred.length > 0 ? preferred : candidates;
+    return weightedChoice(draw, label, pool.map((c) => ({ item: c.rolled, weight: c.weight })));
   }
-  if (cap >= PAY_FLOOR && !blockedResourceFamilies.has("essence")) {
+  if (resourcePreference === "prefer" && cap >= PAY_FLOOR && !blockedResourceFamilies.has("essence")) {
     const x = rollPayEssenceAmount(draw, `${label}:fallback`, PAY_FLOOR, Math.floor(cap));
     if (x === undefined) return undefined;
     const params = { x };
@@ -310,12 +322,24 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
   const { context, drawContext } = args;
   const used = new Set<string>();
 
+  function resourceCostPreference(rowIndex: number): ResourceCostPreference {
+    return drawInt(drawContext, `rt:row${rowIndex}:resource-cost`, 0, 3) > 0
+      ? "prefer"
+      : "avoid";
+  }
+
   const row1Reward = rollReward(context, drawContext, "rt:row1:reward", REWARDS, used);
   if (!row1Reward) {
     throw new Error("random_trades fill could not roll a viable first reward");
   }
   for (const id of consumedRewardIds(row1Reward)) used.add(id);
-  const row1Cost = pickCostForReward(context, drawContext, "rt:row1:cost", row1Reward);
+  const row1Cost = pickCostForReward(
+    context,
+    drawContext,
+    "rt:row1:cost",
+    row1Reward,
+    resourceCostPreference(1),
+  );
   const anchorNet = row1Reward.cec - (row1Cost?.cec ?? 0);
 
   function rollFurtherRow(rowIndex: number): { reward: RolledReward; cost: RolledCost | undefined } {
@@ -335,11 +359,18 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
         const rCec = template.cec(params as never, context);
         const reward: RolledReward = { template, params, cec: rCec };
         if (!meetsRewardDistinctness(reward, used)) continue;
-        const cost = pickCostForReward(context, {
-          ...drawContext,
-          sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
-          selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + 1000,
-        }, `rt:row${rowIndex}:cost:${template.id}`, reward, { lo, hi });
+        const cost = pickCostForReward(
+          context,
+          {
+            ...drawContext,
+            sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+            selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + 1000,
+          },
+          `rt:row${rowIndex}:cost:${template.id}`,
+          reward,
+          resourceCostPreference(rowIndex),
+          { lo, hi },
+        );
         const net = rCec - (cost?.cec ?? 0);
         if (net < lo || net > hi) continue;
         candidates.push({ reward, cost, weight: template.weight });
@@ -371,11 +402,17 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
       const rCec = template.cec(params as never, context);
       const reward: RolledReward = { template, params, cec: rCec };
       if (!meetsRewardDistinctness(reward, used)) continue;
-      const cost = pickCostForReward(context, {
-        ...drawContext,
-        sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
-        selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 11000,
-      }, `rt:row${rowIndex}:fallback-cost:${template.id}`, reward);
+      const cost = pickCostForReward(
+        context,
+        {
+          ...drawContext,
+          sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+          selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 11000,
+        },
+        `rt:row${rowIndex}:fallback-cost:${template.id}`,
+        reward,
+        resourceCostPreference(rowIndex),
+      );
       const net = rCec - (cost?.cec ?? 0);
       fallbackCandidates.push({
         reward,

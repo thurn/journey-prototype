@@ -212,7 +212,7 @@ describe("costs table (dreamsign family)", () => {
     const t = getCost("purge_named_dreamsign");
     const p = t.rollParams(ctx, draw);
 
-    expect(t.render(p, ctx)).toBe("Purge Tidal Sign");
+    expect(t.render(p, ctx)).toBe("Purge 'Tidal Sign'");
   });
 
   it("renders named Dreamsign purge costs with a readable missing-content fallback", () => {
@@ -221,7 +221,7 @@ describe("costs table (dreamsign family)", () => {
     const t = getCost("purge_named_dreamsign");
     const p = t.rollParams(ctx, draw);
 
-    expect(t.render(p, ctx)).toBe("Purge Unknown Dreamsign");
+    expect(t.render(p, ctx)).toBe("Purge 'Unknown Dreamsign'");
   });
 
   it("prices random Dreamsign purge as a severe random trade cost", () => {

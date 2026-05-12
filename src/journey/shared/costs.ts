@@ -11,7 +11,7 @@ import {
   pickFromList,
 } from "./content.js";
 import { PREDICATES, getPredicate } from "./predicates.js";
-import { withLockedPrefix } from "./text.js";
+import { quoteName, withLockedPrefix } from "./text.js";
 import type { JourneyContext } from "../../quest/context.js";
 import type { Cost, Predicate } from "./types.js";
 
@@ -147,7 +147,7 @@ const purgeNamedCard: Cost<PurgeNamedCardParams> = {
   },
   cec: () => CARD_CEC * 0.5,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Purge ${p.cardName}`,
+  render: (p) => `Purge ${quoteName(p.cardName)}`,
 };
 
 type PurgeRandomPredCardParams = { predicateId: string };
@@ -196,7 +196,7 @@ const transformCardToRandomPool: Cost<TransformCardToRandomParams> = {
   },
   cec: () => CARD_CEC * 0.5,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Transform ${p.cardName} into a random card from the pool`,
+  render: (p) => `Transform ${quoteName(p.cardName)} into a random card from the pool`,
 };
 
 type PurgeAllDuplicatesParams = Record<string, never>;
@@ -232,7 +232,7 @@ const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
   },
   cec: () => DREAMSIGN_CEC * 0.6,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
-  render: (p) => `Purge ${p.name}`,
+  render: (p) => `Purge ${quoteName(p.name)}`,
 };
 
 type PurgeRandomDreamsignParams = Record<string, never>;
@@ -285,7 +285,7 @@ const gainNamedBanes: Cost<GainNamedBanesParams> = {
   }),
   cec: (p) => p.count * 30,
   viable: () => true,
-  render: (p) => `Gain ${p.count} ${p.baneName}`,
+  render: (p) => `Gain ${p.count} ${quoteName(p.baneName)}`,
 };
 
 type GainNamedBanesXBattlesParams = { baneName: string; count: number; battles: number };
@@ -300,7 +300,7 @@ const gainNamedBanesForXBattles: Cost<GainNamedBanesXBattlesParams> = {
   cec: (p) => p.count * 25 * p.battles * 0.5,
   viable: () => true,
   render: (p) =>
-    `Gain ${p.count} ${p.baneName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Gain ${p.count} ${quoteName(p.baneName)} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
 type GainAdditionalStartersParams = { count: number };
@@ -325,7 +325,7 @@ const setStartingDreamwellNegative: Cost<StartingDreamwellNegParams> = {
   cec: (p) => 60 * p.battles * 0.5,
   viable: () => true,
   render: (p) =>
-    `Your starting dreamwell card is ${p.cardName} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Your starting dreamwell card is ${quoteName(p.cardName)} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
 type ShuffleNegDreamwellParams = { cardName: string; count: number; battles: number };
@@ -340,7 +340,7 @@ const shuffleNegativeDreamwellCards: Cost<ShuffleNegDreamwellParams> = {
   cec: (p) => 25 * p.count * p.battles * 0.5,
   viable: () => true,
   render: (p) =>
-    `Shuffle ${p.count} ${p.cardName} into your dreamwell for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Shuffle ${p.count} ${quoteName(p.cardName)} into your dreamwell for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
 type RemoveTransfigCardParams = { cardName: string };
@@ -357,7 +357,7 @@ const removeTransfigurationFromCard: Cost<RemoveTransfigCardParams> = {
   },
   cec: () => CARD_CEC * 0.6,
   viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) => `Remove the transfiguration from ${p.cardName}`,
+  render: (p) => `Remove the transfiguration from ${quoteName(p.cardName)}`,
 };
 
 type RemoveTransfigRandomPredParams = { predicateId: string; count: number };

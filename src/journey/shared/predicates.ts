@@ -45,7 +45,7 @@ export const PREDICATES: readonly Predicate[] = Object.freeze([
     { singular: "Legendary card", plural: "Legendary cards" },
     { rarity: "legendary" }),
   predicate("transfigured", "ability", 1.6,
-    { singular: "card with a 'transfigured' ability", plural: "cards with a 'transfigured' ability" },
+    { singular: "card with a transfiguration", plural: "cards with a transfiguration" },
     { renderedTextIncludes: "Transfigured" }),
   predicate("discard_text", "ability", 1.2,
     { singular: "card with a 'discard' ability", plural: "cards with a 'discard' ability" },

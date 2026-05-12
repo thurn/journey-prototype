@@ -74,8 +74,8 @@ describe("predicates", () => {
         plural: "cards with a 'judgment' ability",
       },
       transfigured: {
-        singular: "card with a 'transfigured' ability",
-        plural: "cards with a 'transfigured' ability",
+        singular: "card with a transfiguration",
+        plural: "cards with a transfiguration",
       },
       discard_text: {
         singular: "card with a 'discard' ability",

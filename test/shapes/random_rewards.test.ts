@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 // before our shape plugin module is evaluated. This avoids a known circular
 // import (shared.ts → validate/tree.ts → shapes.ts → registry → shapes/*/index.ts → shared.ts).
 import { validateJourneyManifest } from "../../src/journey/validate/index.js";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
 import { randomRewardsPlugin } from "../../src/journey/shapes/random_rewards/index.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import { createInitialJourneyState, simulateQuestStateForStage } from "../../src/quest/init.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import type { DrawContext } from "../../src/util/rng.js";
@@ -135,6 +139,47 @@ describe("random_rewards fill", () => {
     if (!result.ok) {
       // No heavy rule should be the firstFailure.
       expect(heavyRules.has(result.rule ?? "")).toBe(false);
+    }
+  });
+
+  it("uses current random reward text for drafts and named objects", async () => {
+    const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    for (let rootJourneyIndex = 0; rootJourneyIndex < 20; rootJourneyIndex += 1) {
+      const state = createInitialJourneyState({
+        seed,
+        content,
+        contentVersion,
+      });
+      state.generator.rootJourneyIndex = rootJourneyIndex;
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: {
+          seed,
+          contentVersion,
+          rootJourneyIndex,
+        },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "random_rewards",
+        forcedStage: "early",
+      });
+
+      for (const option of manifest.options) {
+        expect(option.text).not.toMatch(/Draft 2 of 4/u);
+        expect(option.text).not.toContain("random Starter card");
+        expect(option.text).not.toContain("'transfigured' ability");
+      }
     }
   });
 });

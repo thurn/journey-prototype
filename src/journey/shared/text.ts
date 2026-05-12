@@ -8,3 +8,7 @@ export function joinSnippets(snippets: readonly string[]): string {
 export function withLockedPrefix(text: string, locked: boolean): string {
   return locked ? `[LOCKED] ${text}` : text;
 }
+
+export function quoteName(name: string): string {
+  return `'${name}'`;
+}

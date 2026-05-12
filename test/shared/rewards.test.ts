@@ -261,7 +261,7 @@ describe("rewards table (card-pool family)", () => {
     const starterOnlyParams = t.rollParams(starterOnlyCtx, draw);
 
     expect(t.viable(starterOnlyParams, starterOnlyCtx)).toBe(false);
-    expect(t.render(starterOnlyParams, starterOnlyCtx)).toBe("Gain Placeholder Card");
+    expect(t.render(starterOnlyParams, starterOnlyCtx)).toBe("Gain 'Placeholder Card'");
 
     const mixedCtx = fakeCtxWithCards([starterCard, commonCard]);
     for (let i = 0; i < 100; i += 1) {
@@ -545,11 +545,11 @@ describe("rewards table (purge/transform family)", () => {
   it("change_card_to_become_type renders with a singular capitalized card type and matching article", () => {
     const t = getReward("change_card_to_become_type");
     expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "warriors" } as never, fakeCtx()))
-      .toBe("Change Nocturne Strummer to become a Warrior");
+      .toBe("Change 'Nocturne Strummer' to become a Warrior");
     expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "survivors" } as never, fakeCtx()))
-      .toBe("Change Nocturne Strummer to become a Survivor");
+      .toBe("Change 'Nocturne Strummer' to become a Survivor");
     expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
-      .toBe("Change Nocturne Strummer to become a Spirit Animal");
+      .toBe("Change 'Nocturne Strummer' to become a Spirit Animal");
   });
 
   it("change_card_to_become_type only picks predicate ids known to the predicate table", () => {
@@ -560,7 +560,7 @@ describe("rewards table (purge/transform family)", () => {
       };
       // Must render without throwing — i.e. the predicate id must be valid.
       expect(t.render(p as never, fakeCtx())).toMatch(
-        /^Change .+ to become an? (Warrior|Survivor|Spirit Animal)$/,
+        /^Change '.+' to become an? (Warrior|Survivor|Spirit Animal)$/,
       );
     }
   });
