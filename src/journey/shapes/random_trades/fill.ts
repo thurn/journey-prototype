@@ -4,7 +4,7 @@ import type { JourneyOption } from "../../manifest.js";
 import { COSTS, getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
-import { essenceAmount } from "../../shared/content.js";
+import { BANE_NAMES, essenceAmount } from "../../shared/content.js";
 import { withLockedPrefix } from "../../shared/text.js";
 import type { Cost, Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -15,6 +15,8 @@ const PAY_FLOOR = 10;
 
 type RolledReward = { template: Reward; params: unknown; cec: number };
 type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type NetRange = { lo: number; hi: number };
+type CostRange = { floor: number; ceiling: number };
 
 function emptyOption(
   number: number,
@@ -86,22 +88,110 @@ function rollReward(
   return weightedChoice(draw, label, candidates.map((c) => ({ item: c.rolled, weight: c.weight })));
 }
 
+function costRange(rewardCec: number, cap: number, netRange?: NetRange): CostRange {
+  if (!netRange) return { floor: 0, ceiling: cap };
+  return {
+    floor: Math.max(0, rewardCec - netRange.hi),
+    ceiling: Math.min(cap, rewardCec - netRange.lo),
+  };
+}
+
+function inCostRange(cec: number, range: CostRange): boolean {
+  return cec >= range.floor && cec <= range.ceiling;
+}
+
+function pickBaneName(draw: DrawContext, label: string): string {
+  return BANE_NAMES[drawInt(draw, label, 0, BANE_NAMES.length - 1)]!;
+}
+
+function rollCostParamsForRewardCap(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  template: Cost,
+  rewardCec: number,
+  cap: number,
+  netRange?: NetRange,
+): unknown | undefined {
+  const range = costRange(rewardCec, cap, netRange);
+  if (range.ceiling < range.floor) return undefined;
+  if (template.id === "pay_essence") {
+    if (cap < PAY_FLOOR) return undefined;
+    let floor = Math.max(PAY_FLOOR, Math.ceil(cap * 0.7));
+    let ceiling = Math.floor(cap);
+    if (netRange) {
+      floor = Math.max(PAY_FLOOR, Math.ceil(range.floor));
+      ceiling = Math.min(ceiling, Math.floor(range.ceiling));
+    }
+    if (ceiling < floor) return undefined;
+    return { x: drawInt(draw, "pay_essence:x", floor, ceiling) };
+  }
+  if (template.id === "pay_omens") {
+    const maxOmens = Math.min(2, Math.floor(cap / 40));
+    if (maxOmens < 1) return undefined;
+    const viable = [1, 2].filter((x) => {
+      if (x > maxOmens) return false;
+      if (!netRange) return true;
+      const net = rewardCec - x * 40;
+      return net >= netRange.lo && net <= netRange.hi;
+    });
+    if (viable.length === 0) return undefined;
+    return { x: viable[drawInt(draw, "pay_omens:x", 0, viable.length - 1)]! };
+  }
+  if (template.id === "gain_random_banes") {
+    const viable = [1, 2, 3].filter((count) => inCostRange(count * 30, range));
+    if (viable.length === 0) return undefined;
+    return { count: viable[drawInt(draw, "gain_random_banes:n", 0, viable.length - 1)]! };
+  }
+  if (template.id === "gain_named_banes") {
+    const viable = [1, 2, 3].filter((count) => inCostRange(count * 30, range));
+    if (viable.length === 0) return undefined;
+    return {
+      baneName: pickBaneName(draw, "gain_named_banes:b"),
+      count: viable[drawInt(draw, "gain_named_banes:n", 0, viable.length - 1)]!,
+    };
+  }
+  if (template.id === "gain_named_banes_for_X_battles") {
+    const viable: Array<{ count: number; battles: number }> = [];
+    for (const count of [1, 2]) {
+      for (const battles of [1, 2, 3]) {
+        if (inCostRange(count * 25 * battles * 0.5, range)) {
+          viable.push({ count, battles });
+        }
+      }
+    }
+    if (viable.length === 0) return undefined;
+    const picked = viable[drawInt(draw, "gain_named_banes_t:i", 0, viable.length - 1)]!;
+    return {
+      baneName: pickBaneName(draw, "gain_named_banes_t:b"),
+      count: picked.count,
+      battles: picked.battles,
+    };
+  }
+  return template.rollParams(ctx, {
+    ...draw,
+    selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
+  });
+}
+
 function pickCostForReward(
   ctx: JourneyContext,
   draw: DrawContext,
   label: string,
   rewardCec: number,
+  netRange?: NetRange,
 ): RolledCost | undefined {
   const cap = 0.5 * rewardCec;
   const candidates: Array<{ rolled: RolledCost; weight: number }> = [];
   for (const template of COSTS) {
-    const params = template.rollParams(ctx, {
-      ...draw,
-      selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
-    });
+    const params = rollCostParamsForRewardCap(ctx, draw, template, rewardCec, cap, netRange);
+    if (params === undefined) continue;
     if (!template.viable(params as never, ctx)) continue;
     const cec = template.cec(params as never, ctx);
     if (cec > cap) continue;
+    if (netRange) {
+      const net = rewardCec - cec;
+      if (net < netRange.lo || net > netRange.hi) continue;
+    }
     candidates.push({
       rolled: { template, params, cec, rendered: template.render(params as never, ctx) },
       weight: template.weight,
@@ -160,7 +250,7 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
           ...drawContext,
           sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
           selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + 1000,
-        }, `rt:row${rowIndex}:cost:${template.id}`, rCec);
+        }, `rt:row${rowIndex}:cost:${template.id}`, rCec, { lo, hi });
         const net = rCec - (cost?.cec ?? 0);
         if (net < lo || net > hi) continue;
         candidates.push({ reward, cost, weight: template.weight });
@@ -174,6 +264,46 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
         return { reward: picked.reward, cost: picked.cost };
       }
       tol += TOLERANCE_WIDEN_STEP;
+    }
+    const fallbackCandidates: Array<{
+      reward: RolledReward;
+      cost: RolledCost | undefined;
+      distance: number;
+      weight: number;
+    }> = [];
+    for (const template of REWARDS) {
+      if (used.has(template.id)) continue;
+      const params = template.rollParams(context, {
+        ...drawContext,
+        sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+        selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 10000 + template.id.length,
+      });
+      if (!template.viable(params as never, context)) continue;
+      const rCec = template.cec(params as never, context);
+      const reward: RolledReward = { template, params, cec: rCec };
+      if (!meetsRewardDistinctness(reward, used)) continue;
+      const cost = pickCostForReward(context, {
+        ...drawContext,
+        sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
+        selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 11000,
+      }, `rt:row${rowIndex}:fallback-cost:${template.id}`, rCec);
+      const net = rCec - (cost?.cec ?? 0);
+      fallbackCandidates.push({
+        reward,
+        cost,
+        distance: Math.abs(net - anchorNet),
+        weight: template.weight,
+      });
+    }
+    if (fallbackCandidates.length > 0) {
+      const nearestDistance = Math.min(...fallbackCandidates.map((c) => c.distance));
+      const nearest = fallbackCandidates.filter((c) => c.distance === nearestDistance);
+      const picked = weightedChoice(
+        { ...drawContext, sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex },
+        `rt:row${rowIndex}:nearest-fallback`,
+        nearest.map((c) => ({ item: c, weight: c.weight })),
+      );
+      return { reward: picked.reward, cost: picked.cost };
     }
     throw new Error(`random_trades fill failed to find row ${rowIndex} after widening`);
   }

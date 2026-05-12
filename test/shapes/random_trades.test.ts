@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 // before our shape plugin module is evaluated. This avoids a known circular
 // import (shared.ts -> validate/tree.ts -> shapes.ts -> registry -> shapes/*/index.ts -> shared.ts).
 import { validateJourneyManifest } from "../../src/journey/validate/index.js";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
 import { randomTradesPlugin } from "../../src/journey/shapes/random_trades/index.js";
+import { BANE_NAMES } from "../../src/journey/shared/content.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import { createInitialJourneyState, simulateQuestStateForStage } from "../../src/quest/init.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import type { DrawContext } from "../../src/util/rng.js";
@@ -37,6 +42,22 @@ function fakeCtx(essence = 100): JourneyContext {
 
 function fakeDraw(seed: string): DrawContext {
   return { seed, contentVersion: "v1", rootJourneyIndex: 0 };
+}
+
+function costFamilyForText(text: string): "resource" | "bane" | "other" {
+  const stripped = text.replace(/^\[LOCKED\] /, "");
+  if (/\.(?: \[LOCKED\])? Pay \d+ essence/u.test(stripped) || /\.(?: \[LOCKED\])? Pay \d+ omens?/u.test(stripped)) {
+    return "resource";
+  }
+  if (/\. Gain \d+ random banes?/u.test(stripped)) {
+    return "bane";
+  }
+  for (const name of BANE_NAMES) {
+    if (new RegExp(`\\. Gain \\d+ ${name}(?: for the next \\d+ battles?)?`, "u").test(stripped)) {
+      return "bane";
+    }
+  }
+  return "other";
 }
 
 describe("random_trades fill", () => {
@@ -124,6 +145,82 @@ describe("random_trades fill", () => {
         expect(opt.costConvertedEssence).toBeLessThanOrEqual(0.5 * opt.effectConvertedEssence);
       }
     }
+  });
+
+  it("generates deterministically across a real mid-stage batch seed", async () => {
+    const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const state = createInitialJourneyState({
+      seed,
+      content,
+      contentVersion,
+    });
+    state.generator.rootJourneyIndex = 43;
+    state.quest.resources.dreamscape = 2;
+    simulateQuestStateForStage({
+      state,
+      stage: "mid",
+      drawContext: {
+        seed,
+        contentVersion,
+        rootJourneyIndex: 43,
+      },
+    });
+    const context = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+
+    const manifest = generateNextJourney({
+      context,
+      forcedShapeId: "random_trades",
+      forcedStage: "mid",
+    });
+
+    expect(manifest.options).toHaveLength(3);
+  });
+
+  it("selects resource and Bane costs at the intended rates across real mid-stage seeds", async () => {
+    const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const counts = { resource: 0, bane: 0, other: 0 };
+    for (let rootJourneyIndex = 1; rootJourneyIndex <= 40; rootJourneyIndex += 1) {
+      const state = createInitialJourneyState({ seed, content, contentVersion });
+      state.generator.rootJourneyIndex = rootJourneyIndex;
+      state.quest.resources.dreamscape = 2;
+      simulateQuestStateForStage({
+        state,
+        stage: "mid",
+        drawContext: { seed, contentVersion, rootJourneyIndex },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const fill = randomTradesPlugin.fill({
+        context,
+        drawContext: { seed, contentVersion, rootJourneyIndex },
+        stage: "mid",
+      });
+
+      for (const option of fill.options) {
+        counts[costFamilyForText(option.text)] += 1;
+      }
+    }
+
+    const total = counts.resource + counts.bane + counts.other;
+    const resourceRate = counts.resource / total;
+    const baneRate = counts.bane / total;
+
+    expect(resourceRate).toBeGreaterThanOrEqual(0.38);
+    expect(resourceRate).toBeLessThanOrEqual(0.65);
+    expect(baneRate).toBeGreaterThanOrEqual(0.14);
+    expect(baneRate).toBeLessThanOrEqual(0.36);
+    expect(counts.other).toBeGreaterThan(0);
   });
 
   it("bypass-validation: synthetic manifest passes the full pipeline", () => {

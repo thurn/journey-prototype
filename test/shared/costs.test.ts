@@ -98,6 +98,13 @@ describe("costs table (resource family)", () => {
     const ids = COSTS.map((c) => c.id);
     expect(ids.length).toBe(new Set(ids).size);
   });
+
+  it("weights resource exchange costs above minor cost templates", () => {
+    const minorWeight = getCost("pay_max_essence").weight;
+
+    expect(getCost("pay_essence").weight).toBeGreaterThan(minorWeight);
+    expect(getCost("pay_omens").weight).toBeGreaterThan(minorWeight);
+  });
 });
 
 describe("costs table (card family)", () => {
@@ -142,6 +149,14 @@ describe("costs table (bane/dreamwell/starter family)", () => {
       expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
       expect(t.render(p, fakeCtx())).not.toBe("");
     }
+  });
+
+  it("weights Bane-gain costs above minor cost templates", () => {
+    const minorWeight = getCost("gain_additional_starters").weight;
+
+    expect(getCost("gain_random_banes").weight).toBeGreaterThan(minorWeight);
+    expect(getCost("gain_named_banes").weight).toBeGreaterThan(minorWeight);
+    expect(getCost("gain_named_banes_for_X_battles").weight).toBeGreaterThan(minorWeight);
   });
 });
 

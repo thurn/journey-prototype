@@ -14,10 +14,14 @@ import { PREDICATES, getPredicate } from "./predicates.js";
 import { withLockedPrefix } from "./text.js";
 import type { Cost, Predicate } from "./types.js";
 
+const MINOR_RANDOM_TRADE_COST_WEIGHT = 1;
+const RESOURCE_RANDOM_TRADE_COST_WEIGHT = 13;
+const BANE_GAIN_RANDOM_TRADE_COST_WEIGHT = 6;
+
 type PayEssenceParams = { x: number };
 const payEssence: Cost<PayEssenceParams> = {
   id: "pay_essence",
-  weight: 1.0,
+  weight: RESOURCE_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ x: 50 + 5 * drawInt(draw, "pay_essence:x", 0, 30) }),
   cec: (p) => p.x * STAGE_MULTIPLIER,
   viable: () => true,
@@ -28,7 +32,7 @@ const payEssence: Cost<PayEssenceParams> = {
 type PayOmensParams = { x: number };
 const payOmens: Cost<PayOmensParams> = {
   id: "pay_omens",
-  weight: 1.0,
+  weight: RESOURCE_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ x: drawInt(draw, "pay_omens:x", 1, 2) }),
   cec: (p) => p.x * 40 * STAGE_MULTIPLIER,
   viable: () => true,
@@ -39,7 +43,7 @@ const payOmens: Cost<PayOmensParams> = {
 type PayMaxEssenceParams = Record<string, never>;
 const payMaxEssence: Cost<PayMaxEssenceParams> = {
   id: "pay_max_essence",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: (_p, ctx) => maxEssence(ctx) * STAGE_MULTIPLIER,
   viable: () => true,
@@ -49,7 +53,7 @@ const payMaxEssence: Cost<PayMaxEssenceParams> = {
 type PayEssenceRangeParams = { min: number; max: number };
 const payEssenceRandomRange: Cost<PayEssenceRangeParams> = {
   id: "pay_essence_random_range",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => {
     const base = 30 + 10 * drawInt(draw, "pay_range:base", 0, 12);
     const spread = 30 + 10 * drawInt(draw, "pay_range:spread", 0, 6);
@@ -63,7 +67,7 @@ const payEssenceRandomRange: Cost<PayEssenceRangeParams> = {
 type PayPercentEssenceParams = { percent: number };
 const payPercentEssence: Cost<PayPercentEssenceParams> = {
   id: "pay_percent_essence",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => {
     const choices = [25, 50, 75];
     return { percent: choices[drawInt(draw, "pay_pct:i", 0, choices.length - 1)]! };
@@ -76,7 +80,7 @@ const payPercentEssence: Cost<PayPercentEssenceParams> = {
 type PayAllRemainingParams = Record<string, never>;
 const payAllRemainingEssence: Cost<PayAllRemainingParams> = {
   id: "pay_all_remaining_essence",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: (_p, ctx) => essenceAmount(ctx) * STAGE_MULTIPLIER,
   viable: () => true,
@@ -86,7 +90,7 @@ const payAllRemainingEssence: Cost<PayAllRemainingParams> = {
 type BattleRedFlatParams = { amount: number; battles: number };
 const battleRewardReductionFlat: Cost<BattleRedFlatParams> = {
   id: "battle_reward_reduction_flat",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     amount: 10 + 10 * drawInt(draw, "br_flat:a", 0, 4),
     battles: drawInt(draw, "br_flat:b", 1, 3),
@@ -100,7 +104,7 @@ const battleRewardReductionFlat: Cost<BattleRedFlatParams> = {
 type BattleRedPctParams = { percent: number; battles: number };
 const battleRewardReductionPercent: Cost<BattleRedPctParams> = {
   id: "battle_reward_reduction_percent",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     percent: 10 + 10 * drawInt(draw, "br_pct:a", 0, 4),
     battles: drawInt(draw, "br_pct:b", 1, 3),
@@ -122,7 +126,7 @@ function rollPredicate(draw: DrawContext, label: string): Predicate {
 type PurgeNamedCardParams = { cardName: string };
 const purgeNamedCard: Cost<PurgeNamedCardParams> = {
   id: "purge_named_card",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
@@ -139,7 +143,7 @@ const purgeNamedCard: Cost<PurgeNamedCardParams> = {
 type PurgeRandomPredCardParams = { predicateId: string };
 const purgeRandomPredicateCard: Cost<PurgeRandomPredCardParams> = {
   id: "purge_random_predicate_card",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "purge_random_pred:p").id }),
   cec: (p) => cardPoolCEC(CARD_CEC * 0.5, 1, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
@@ -150,7 +154,7 @@ const purgeRandomPredicateCard: Cost<PurgeRandomPredCardParams> = {
 type PurgeChosenPredCardParams = { predicateId: string };
 const purgeChosenPredicateCard: Cost<PurgeChosenPredCardParams> = {
   id: "purge_chosen_predicate_card",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ predicateId: rollPredicate(draw, "purge_chosen_pred_c:p").id }),
   cec: (p) => cardPoolCEC(CARD_CEC * 0.5, 1, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
@@ -161,7 +165,7 @@ const purgeChosenPredicateCard: Cost<PurgeChosenPredCardParams> = {
 type GainRandomFromPoolParams = { count: number };
 const gainRandomCardsFromPool: Cost<GainRandomFromPoolParams> = {
   id: "gain_random_cards_from_pool",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "gain_random_pool:n", 1, 3) }),
   cec: (p) => CARD_CEC * 0.4 * p.count,
   viable: () => true,
@@ -171,7 +175,7 @@ const gainRandomCardsFromPool: Cost<GainRandomFromPoolParams> = {
 type TransformCardToRandomParams = { cardName: string };
 const transformCardToRandomPool: Cost<TransformCardToRandomParams> = {
   id: "transform_card_to_random_pool",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
@@ -188,7 +192,7 @@ const transformCardToRandomPool: Cost<TransformCardToRandomParams> = {
 type PurgeAllDuplicatesParams = Record<string, never>;
 const purgeAllDuplicateCards: Cost<PurgeAllDuplicatesParams> = {
   id: "purge_all_duplicate_cards",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: () => CARD_CEC * 1.5,
   viable: (_p, ctx) => ctx.state.quest.deck.summary.totalCards >= 2,
@@ -200,7 +204,7 @@ const DREAMSIGN_CEC = 80;
 type PurgeNamedDreamsignParams = { name: string };
 const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
   id: "purge_named_dreamsign",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (ctx, draw) => {
     const pool = ctx.state.quest.activeDreamsigns;
     return {
@@ -217,7 +221,7 @@ const purgeNamedDreamsign: Cost<PurgeNamedDreamsignParams> = {
 type PurgeRandomDreamsignParams = Record<string, never>;
 const purgeRandomDreamsign: Cost<PurgeRandomDreamsignParams> = {
   id: "purge_random_dreamsign",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 0.5,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
@@ -227,7 +231,7 @@ const purgeRandomDreamsign: Cost<PurgeRandomDreamsignParams> = {
 type PurgeChosenDreamsignParams = Record<string, never>;
 const purgeChosenDreamsign: Cost<PurgeChosenDreamsignParams> = {
   id: "purge_chosen_dreamsign",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 0.7,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
@@ -237,7 +241,7 @@ const purgeChosenDreamsign: Cost<PurgeChosenDreamsignParams> = {
 type XformDreamsignParams = Record<string, never>;
 const transformDreamsignToRandom: Cost<XformDreamsignParams> = {
   id: "transform_dreamsign_to_random",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 0.4,
   viable: (_p, ctx) => activeDreamsignCount(ctx) >= 1,
@@ -247,7 +251,7 @@ const transformDreamsignToRandom: Cost<XformDreamsignParams> = {
 type GainRandomBanesParams = { count: number };
 const gainRandomBanes: Cost<GainRandomBanesParams> = {
   id: "gain_random_banes",
-  weight: 1.0,
+  weight: BANE_GAIN_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "gain_random_banes:n", 1, 3) }),
   cec: (p) => p.count * 30,
   viable: () => true,
@@ -257,7 +261,7 @@ const gainRandomBanes: Cost<GainRandomBanesParams> = {
 type GainNamedBanesParams = { baneName: string; count: number };
 const gainNamedBanes: Cost<GainNamedBanesParams> = {
   id: "gain_named_banes",
-  weight: 1.0,
+  weight: BANE_GAIN_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     baneName: pickFromList(draw, "gain_named_banes:b", BANE_NAMES),
     count: drawInt(draw, "gain_named_banes:n", 1, 3),
@@ -270,7 +274,7 @@ const gainNamedBanes: Cost<GainNamedBanesParams> = {
 type GainNamedBanesXBattlesParams = { baneName: string; count: number; battles: number };
 const gainNamedBanesForXBattles: Cost<GainNamedBanesXBattlesParams> = {
   id: "gain_named_banes_for_X_battles",
-  weight: 1.0,
+  weight: BANE_GAIN_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     baneName: pickFromList(draw, "gain_named_banes_t:b", BANE_NAMES),
     count: drawInt(draw, "gain_named_banes_t:n", 1, 2),
@@ -285,7 +289,7 @@ const gainNamedBanesForXBattles: Cost<GainNamedBanesXBattlesParams> = {
 type GainAdditionalStartersParams = { count: number };
 const gainAdditionalStarters: Cost<GainAdditionalStartersParams> = {
   id: "gain_additional_starters",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "extra_starters:n", 1, 3) }),
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: () => true,
@@ -296,7 +300,7 @@ const gainAdditionalStarters: Cost<GainAdditionalStartersParams> = {
 type StartingDreamwellNegParams = { cardName: string; battles: number };
 const setStartingDreamwellNegative: Cost<StartingDreamwellNegParams> = {
   id: "set_starting_dreamwell_negative",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     cardName: pickFromList(draw, "start_dw_neg:c", NEGATIVE_DREAMWELL_CARDS),
     battles: drawInt(draw, "start_dw_neg:b", 1, 3),
@@ -310,7 +314,7 @@ const setStartingDreamwellNegative: Cost<StartingDreamwellNegParams> = {
 type ShuffleNegDreamwellParams = { cardName: string; count: number; battles: number };
 const shuffleNegativeDreamwellCards: Cost<ShuffleNegDreamwellParams> = {
   id: "shuffle_negative_dreamwell_cards",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     cardName: pickFromList(draw, "shuffle_dw_neg:c", NEGATIVE_DREAMWELL_CARDS),
     count: drawInt(draw, "shuffle_dw_neg:n", 1, 3),
@@ -325,7 +329,7 @@ const shuffleNegativeDreamwellCards: Cost<ShuffleNegDreamwellParams> = {
 type RemoveTransfigCardParams = { cardName: string };
 const removeTransfigurationFromCard: Cost<RemoveTransfigCardParams> = {
   id: "remove_transfiguration_from_card",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
@@ -342,7 +346,7 @@ const removeTransfigurationFromCard: Cost<RemoveTransfigCardParams> = {
 type RemoveTransfigRandomPredParams = { predicateId: string; count: number };
 const removeTransfigurationsFromRandomPredicate: Cost<RemoveTransfigRandomPredParams> = {
   id: "remove_transfigurations_from_random_predicate",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     predicateId: rollPredicate(draw, "rem_transfig_rand:p").id,
     count: drawInt(draw, "rem_transfig_rand:n", 1, 3),
@@ -357,7 +361,7 @@ const removeTransfigurationsFromRandomPredicate: Cost<RemoveTransfigRandomPredPa
 type DrawXPurgeChosenParams = { drawCount: number };
 const drawXPurgeChosen: Cost<DrawXPurgeChosenParams> = {
   id: "draw_X_purge_chosen",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ drawCount: drawInt(draw, "draw_purge:n", 2, 4) }),
   cec: () => CARD_CEC * 0.6,
   viable: (p, ctx) => ctx.state.quest.deck.summary.totalCards >= p.drawCount,
@@ -368,7 +372,7 @@ const drawXPurgeChosen: Cost<DrawXPurgeChosenParams> = {
 type RemoveShopSitesParams = { dreamscapes: number };
 const removeShopSitesFromNextDreamscapes: Cost<RemoveShopSitesParams> = {
   id: "remove_shop_sites_from_next_dreamscapes",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ dreamscapes: drawInt(draw, "rm_shop:d", 1, 3) }),
   cec: (p) => 40 * p.dreamscapes,
   viable: () => true,
@@ -379,7 +383,7 @@ const removeShopSitesFromNextDreamscapes: Cost<RemoveShopSitesParams> = {
 type RemoveDsSitesParams = { dreamscapes: number };
 const removeDreamsignSitesFromNextDreamscapes: Cost<RemoveDsSitesParams> = {
   id: "remove_dreamsign_sites_from_next_dreamscapes",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ dreamscapes: drawInt(draw, "rm_ds:d", 1, 3) }),
   cec: (p) => 40 * p.dreamscapes,
   viable: () => true,
@@ -390,7 +394,7 @@ const removeDreamsignSitesFromNextDreamscapes: Cost<RemoveDsSitesParams> = {
 type LoseMaxEssenceParams = { amount: number };
 const loseMaxEssence: Cost<LoseMaxEssenceParams> = {
   id: "lose_max_essence",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({ amount: 25 + 25 * drawInt(draw, "lose_max:a", 0, 4) }),
   cec: (p) => p.amount * 1.5 * STAGE_MULTIPLIER,
   viable: (p, ctx) => maxEssence(ctx) > p.amount,
@@ -408,7 +412,7 @@ function nonMetaCosts(): readonly Cost[] {
 
 const metaPay2Costs: Cost<MetaPay2Params> = {
   id: "meta_pay_2_costs",
-  weight: 1.0,
+  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (ctx, draw) => {
     const pool = nonMetaCosts();
     const firstIndex = drawInt(draw, "meta_pay_2:i1", 0, pool.length - 1);
