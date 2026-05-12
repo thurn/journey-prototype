@@ -23,6 +23,10 @@ const RANDOM_TRADE_EXCLUDED_COST_IDS = new Set([
   "draw_X_purge_chosen",
 ]);
 
+function nextBattlePhrase(battles: number): string {
+  return battles === 1 ? "the next battle" : `the next ${battles} battles`;
+}
+
 type PayEssenceParams = { x: number };
 const payEssence: Cost<PayEssenceParams> = {
   id: "pay_essence",
@@ -95,7 +99,7 @@ const payAllRemainingEssence: Cost<PayAllRemainingParams> = {
 type BattleRedFlatParams = { amount: number; battles: number };
 const battleRewardReductionFlat: Cost<BattleRedFlatParams> = {
   id: "battle_reward_reduction_flat",
-  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
+  weight: RARE_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     amount: 10 + 10 * drawInt(draw, "br_flat:a", 0, 4),
     battles: drawInt(draw, "br_flat:b", 1, 3),
@@ -103,13 +107,13 @@ const battleRewardReductionFlat: Cost<BattleRedFlatParams> = {
   cec: (p) => p.amount * p.battles,
   viable: () => true,
   render: (p) =>
-    `Battle essence rewards are reduced by ${p.amount} for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Battle essence rewards are reduced by ${p.amount} for ${nextBattlePhrase(p.battles)}`,
 };
 
 type BattleRedPctParams = { percent: number; battles: number };
 const battleRewardReductionPercent: Cost<BattleRedPctParams> = {
   id: "battle_reward_reduction_percent",
-  weight: MINOR_RANDOM_TRADE_COST_WEIGHT,
+  weight: RARE_RANDOM_TRADE_COST_WEIGHT,
   rollParams: (_ctx, draw) => ({
     percent: 10 + 10 * drawInt(draw, "br_pct:a", 0, 4),
     battles: drawInt(draw, "br_pct:b", 1, 3),
@@ -117,7 +121,7 @@ const battleRewardReductionPercent: Cost<BattleRedPctParams> = {
   cec: (p) => p.percent * p.battles * 0.5,
   viable: () => true,
   render: (p) =>
-    `Battle essence rewards are reduced by ${p.percent}% for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Battle essence rewards are reduced by ${p.percent}% for ${nextBattlePhrase(p.battles)}`,
 };
 
 function rollPredicate(draw: DrawContext, label: string): Predicate {
@@ -299,7 +303,7 @@ const gainAdditionalStarters: Cost<GainAdditionalStartersParams> = {
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: () => true,
   render: (p) =>
-    `Gain ${p.count} additional starter card${p.count === 1 ? "" : "s"}`,
+    p.count === 1 ? "Gain a random starter card" : `Gain ${p.count} random starter cards`,
 };
 
 type StartingDreamwellNegParams = { cardName: string; battles: number };

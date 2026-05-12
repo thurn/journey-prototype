@@ -118,6 +118,26 @@ describe("costs table (resource family)", () => {
     }
   });
 
+  it("renders battle essence reward reductions with grammatical battle counts", () => {
+    expect(getCost("battle_reward_reduction_flat").render({ amount: 20, battles: 1 }, fakeCtx())).toBe(
+      "Battle essence rewards are reduced by 20 for the next battle",
+    );
+    expect(getCost("battle_reward_reduction_flat").render({ amount: 20, battles: 2 }, fakeCtx())).toBe(
+      "Battle essence rewards are reduced by 20 for the next 2 battles",
+    );
+    expect(getCost("battle_reward_reduction_percent").render({ percent: 20, battles: 1 }, fakeCtx())).toBe(
+      "Battle essence rewards are reduced by 20% for the next battle",
+    );
+    expect(getCost("battle_reward_reduction_percent").render({ percent: 20, battles: 2 }, fakeCtx())).toBe(
+      "Battle essence rewards are reduced by 20% for the next 2 battles",
+    );
+  });
+
+  it("weights battle essence reward reductions as rare random trade costs", () => {
+    expect(getCost("battle_reward_reduction_flat").weight).toBe(0.25);
+    expect(getCost("battle_reward_reduction_percent").weight).toBe(0.25);
+  });
+
   it("COSTS is frozen and unique", () => {
     expect(Object.isFrozen(COSTS)).toBe(true);
     const ids = COSTS.map((c) => c.id);
@@ -198,6 +218,15 @@ describe("costs table (bane/dreamwell/starter family)", () => {
     expect(getCost("gain_random_banes").weight).toBeGreaterThan(minorWeight);
     expect(getCost("gain_named_banes").weight).toBeGreaterThan(minorWeight);
     expect(getCost("gain_named_banes_for_X_battles").weight).toBeGreaterThan(minorWeight);
+  });
+
+  it("renders additional starter card costs as random starter cards", () => {
+    expect(getCost("gain_additional_starters").render({ count: 1 }, fakeCtx())).toBe(
+      "Gain a random starter card",
+    );
+    expect(getCost("gain_additional_starters").render({ count: 2 }, fakeCtx())).toBe(
+      "Gain 2 random starter cards",
+    );
   });
 
   it("weights negative dreamwell shuffle costs as rare random trade costs", () => {
