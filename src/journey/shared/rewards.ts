@@ -1023,17 +1023,6 @@ const shopOmenDiscount: Reward<ShopOmenDiscountParams> = {
     `Your next ${p.count} shop purchase${p.count === 1 ? "" : "s"} cost${p.count === 1 ? "s" : ""} 1 fewer omen`,
 };
 
-type VendorHookBonusParams = { amount: number };
-const vendorHookBonus: Reward<VendorHookBonusParams> = {
-  id: "vendor_hook_bonus",
-  weight: 1.0,
-  rollParams: (_ctx, draw) => ({ amount: drawInt(draw, "vendor_hook:a", 1, 3) }),
-  cec: (p) => p.amount * 20,
-  viable: () => true,
-  render: (p) =>
-    `Vendor hooks award ${p.amount} additional choice${p.amount === 1 ? "" : "s"}`,
-};
-
 // Per-site-type CEC multipliers. High-impact site types (Purge, Duplication,
 // Dreamsign Draft) compress the player's deck or directly add dreamsigns and
 // are valued higher than weak utility sites (Essence, Shop, Specialty Shop,
@@ -1198,7 +1187,6 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   replaceSiteType,
   shopEssenceDiscount,
   shopOmenDiscount,
-  vendorHookBonus,
   metaGain2Rewards,
 ] as unknown as Reward[]);
 

@@ -86,6 +86,89 @@ describe("rewards table (resource family)", () => {
     const ids = REWARDS.map((r) => r.id);
     expect(ids.length).toBe(new Set(ids).size);
   });
+
+  it("every reward id appears in the canonical reward catalog", () => {
+    // The canonical catalog is an explicit allowlist of every reward id the
+    // game ships with. Pinning the registered REWARDS to this list ensures any
+    // new template is consciously catalogued here, and any rename or accidental
+    // addition is caught by the test rather than silently shipping.
+    const CANONICAL_REWARD_IDS = new Set([
+      "add_site_to_dreamscape",
+      "add_site_to_next_dreamscape",
+      "apply_chosen_transfiguration_to_chosen_card",
+      "apply_named_transfiguration_to_all_predicate_cards",
+      "apply_named_transfiguration_to_card_name",
+      "apply_named_transfiguration_to_chosen_predicate_cards",
+      "apply_named_transfiguration_to_random_predicate_cards",
+      "apply_random_transfigurations_to_random_cards",
+      "boost_site_appearance_chance",
+      "card_cost_reduction_for_X_battles",
+      "change_card_to_become_type",
+      "choose_1_of_X_dreamsigns",
+      "draft_2_predicate_cards_from_4",
+      "draft_predicate_card_with_copies",
+      "draft_predicate_card_with_transfiguration",
+      "draft_predicate_cards_from_4",
+      "draw_X_and_duplicate_chosen",
+      "duplicate_chosen_cards",
+      "duplicate_named_card_X",
+      "duplicate_random_predicate",
+      "gain_copy_of_chosen_dreamsign",
+      "gain_copy_of_random_dreamsign",
+      "gain_essence",
+      "gain_essence_random_range",
+      "gain_essence_to_max",
+      "gain_max_essence",
+      "gain_named_card",
+      "gain_named_dreamsign",
+      "gain_omens",
+      "gain_random_dreamsign",
+      "gain_random_predicate_cards",
+      "increase_max_essence",
+      "make_card_reclaim",
+      "make_random_cards_fast",
+      "make_random_cards_reclaim",
+      "meta_gain_2_rewards",
+      "modify_card_to_reference_type",
+      "modify_random_cards_to_types",
+      "next_X_shop_rerolls_free",
+      "opening_hand_grant_for_X_battles",
+      "purge_X_banes",
+      "purge_all_banes",
+      "purge_all_starters",
+      "purge_all_starters_replace",
+      "purge_chosen_predicate_cards",
+      "purge_chosen_predicate_with_replacement",
+      "purge_chosen_starters",
+      "purge_named_starter",
+      "purge_random_starter",
+      "purge_random_starter_with_predicate_replacement",
+      "replace_site_type",
+      "replace_starter_via_draft",
+      "set_essence_to_percent_of_max",
+      "set_starting_dreamwell_positive",
+      "shop_essence_discount",
+      "shop_omen_discount",
+      "shuffle_positive_dreamwell_cards",
+      "take_any_from_predicate_choices",
+      "temporary_card_copy_for_X_battles",
+      "temporary_dreamsign_for_X_battles",
+      "transfigure_all_starters",
+      "transfigure_chosen_starters",
+      "transfigure_random_starters",
+      "transform_card_in_deck_into_named",
+      "transform_chosen_predicate_into_named",
+      "transform_dreamsign_to_named",
+      "transform_starter_into_named_card",
+    ]);
+    const registeredIds = new Set(REWARDS.map((r) => r.id));
+    for (const id of registeredIds) {
+      expect(CANONICAL_REWARD_IDS.has(id), `reward id ${id} is not in the canonical catalog`).toBe(true);
+    }
+    for (const id of CANONICAL_REWARD_IDS) {
+      expect(registeredIds.has(id), `canonical reward id ${id} is missing from REWARDS`).toBe(true);
+    }
+  });
 });
 
 describe("rewards table (card-pool family)", () => {
@@ -635,7 +718,6 @@ describe("rewards table (newly added)", () => {
       "replace_site_type",
       "shop_essence_discount",
       "shop_omen_discount",
-      "vendor_hook_bonus",
     ]) {
       const t = getReward(id);
       const p = t.rollParams(fakeCtx(), draw);
