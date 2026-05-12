@@ -3941,13 +3941,18 @@ describe.concurrent("generateNextJourney", () => {
       contentVersion: "test-content-version",
       rootJourneyIndex: 0,
     };
-    const operationFor = (stage: "early" | "mid" | "late", label: string) =>
+    const operationFor = (
+      family: "opening_hand" | "duplicate" | "timing",
+      stage: "early" | "mid" | "late",
+      label: string,
+    ) =>
       compatibleCardOperations(drawContext, {
         slot: {
-          provides: ["single_target", "drafted_target"],
+          provides: ["single_target", "named_target", "deck_side"],
         },
-        targetClasses: ["draft_card"],
-        families: ["timing"],
+        targetClasses: ["deck_card"],
+        targetModes: ["chosen"],
+        families: [family],
         valueBands: ["temporary"],
         timings: ["battle_window"],
         stage,
@@ -3955,20 +3960,36 @@ describe.concurrent("generateNextJourney", () => {
         count: 1,
       })[0]!;
 
-    const earlyOperation = operationFor("early", "test:card-window:early");
-    const lateOperations = Array.from({ length: 32 }, (_, index) =>
-      operationFor("late", `test:card-window:late:${index}`)
+    const families = ["opening_hand", "duplicate", "timing"] as const;
+    const earlyOperations = families.map((family) =>
+      operationFor(family, "early", `test:card-window:early:${family}`)
+    );
+    const midOperations = families.map((family) =>
+      operationFor(family, "mid", `test:card-window:mid:${family}`)
+    );
+    const lateOperations = families.flatMap((family) =>
+      Array.from({ length: 32 }, (_, index) =>
+        operationFor(family, "late", `test:card-window:late:${family}:${index}`)
+      )
     );
     const longLateOperation = lateOperations.find(
       (operation) => operation.effect.duration === "next 4 battles",
     );
 
-    expect(earlyOperation.effect).toMatchObject({
-      durationCount: expect.any(Number),
-    });
-    expect(earlyOperation.effect.duration).not.toBe("next 3 battles");
-    expect(earlyOperation.renderText("a chosen card")).toContain(
-      String(earlyOperation.effect.duration),
+    for (const operation of [...earlyOperations, ...midOperations, ...lateOperations]) {
+      expect(operation.effect).toMatchObject({
+        durationCount: expect.any(Number),
+      });
+      expect(Number(operation.effect.durationCount)).toBeGreaterThanOrEqual(3);
+      expect(operation.renderText("a chosen card")).toContain(
+        String(operation.effect.duration),
+      );
+    }
+    expect(earlyOperations.map((operation) => operation.effect.duration)).toEqual(
+      ["next 3 battles", "next 3 battles", "next 3 battles"],
+    );
+    expect(midOperations.map((operation) => operation.effect.duration)).toEqual(
+      ["next 3 battles", "next 3 battles", "next 3 battles"],
     );
     expect(longLateOperation).toBeDefined();
     expect(longLateOperation?.effect).toMatchObject({
@@ -4076,7 +4097,10 @@ describe.concurrent("generateNextJourney", () => {
       (operation) => operation.effect.duration === "next 4 battles",
     );
 
-    expect(earlyOperation.effect.duration).not.toBe("next 3 battles");
+    expect(earlyOperation.effect).toMatchObject({
+      duration: "next 3 battles",
+      durationCount: 3,
+    });
     expect(earlyOperation.renderText("{Ember Crown}")).toContain(
       String(earlyOperation.effect.duration),
     );

@@ -113,16 +113,9 @@ const DREAMSIGN_TEMPORARY_GRANT_WINDOW_PROFILES: Record<
   JourneyStage,
   readonly BattleWindowProfile[]
 > = {
-  early: [
-    { label: "next battle", count: 1 },
-    { label: "next 2 battles", count: 2 },
-  ],
-  mid: [
-    { label: "next 2 battles", count: 2 },
-    { label: BATTLE_WINDOW_DURATION, count: 3 },
-  ],
+  early: [{ label: BATTLE_WINDOW_DURATION, count: 3 }],
+  mid: [{ label: BATTLE_WINDOW_DURATION, count: 3 }],
   late: [
-    { label: "next 2 battles", count: 2 },
     { label: BATTLE_WINDOW_DURATION, count: 3 },
     { label: "next 4 battles", count: 4 },
   ],
