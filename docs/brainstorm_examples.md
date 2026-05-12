@@ -162,7 +162,6 @@
 
 ## Ink Reassignment
 
-- Modify {Moonlit Voyage}'s text to reference characters.
 - Change {Nocturne Strummer} to become a warrior.
 - Make a chosen event Fast.
 
@@ -443,4 +442,3 @@
 - Gain {Beacon of Tomorrow}. Add {Despair} after your next battle.
 - Gain {Scrap Reclaimer}. Add {Nightmare} after your next battle.
 - Gain {Evacuation Enforcer}. Add {Oblivion} after your next battle.
-

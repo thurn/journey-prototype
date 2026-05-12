@@ -320,25 +320,6 @@ const transfigureAllStarters: Reward<TransfigureAllStartersParams> = {
   render: () => "Apply a random transfiguration to each starter card",
 };
 
-type ModifyCardRefTypeParams = { cardName: string; cardTypePredicateId: string };
-const modifyCardToReferenceType: Reward<ModifyCardRefTypeParams> = {
-  id: "modify_card_to_reference_type",
-  weight: 1.0,
-  rollParams: (ctx, draw) => {
-    const deckCards = cardMatches(ctx, { source: "deck" });
-    return {
-      cardName: deckCards.length > 0
-        ? pickFromList(draw, "modify_ref:c", deckCards).name
-        : "Placeholder Card",
-      cardTypePredicateId: pickFromList(draw, "modify_ref:t", CARD_TYPE_PREDICATE_IDS),
-    };
-  },
-  cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => cardMatches(ctx, { source: "deck" }).length >= 1,
-  render: (p) =>
-    `Modify ${p.cardName}'s text to reference ${getPredicate(p.cardTypePredicateId).text.plural}`,
-};
-
 type ChangeCardBecomeTypeParams = { cardName: string; cardTypePredicateId: string };
 const changeCardToBecomeType: Reward<ChangeCardBecomeTypeParams> = {
   id: "change_card_to_become_type",
@@ -1126,7 +1107,6 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   applyNamedTransfigurationToRandomPredicateCards,
   transfigureRandomStarters,
   transfigureAllStarters,
-  modifyCardToReferenceType,
   changeCardToBecomeType,
   modifyRandomCardsToTypes,
   makeRandomCardsFast,

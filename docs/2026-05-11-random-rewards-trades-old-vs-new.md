@@ -295,7 +295,7 @@ Stage: mid    Essence: 120/500    Omens: 1
 Quest: Senemhet, Lord of the Radiant Court
 Stage: mid    Essence: 120/500    Omens: 1
 
-1. $ * Modify Liminal Striker's text to reference warriors. Battle essence rewards are reduced by 20% for the next 1 battle
+1. $ * Modify 2 random cards to become warriors. Battle essence rewards are reduced by 20% for the next 1 battle
 2. $ * Change Planetgazer to become a spirit animals. Pay 11 essence
 3. $ * Apply Ivory to Ironclad Marksman. Pay 16 essence
 ```

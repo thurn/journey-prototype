@@ -156,7 +156,6 @@ If during implementation any content helper turns out to embed shape-specific as
 - `duplicate_named_card_X`
 - `duplicate_chosen_cards`
 - `duplicate_random_predicate`
-- `modify_card_to_reference_type`
 - `change_card_to_become_type`
 - `modify_random_cards_to_types`
 - `purge_X_banes`

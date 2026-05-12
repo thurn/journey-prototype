@@ -193,8 +193,6 @@ optionally be combined with a cost.
 - Create X duplicates of {card_name}
 - Duplicate X chosen cards
 - Duplicate X random {predicate} cards
-- Modify {card_name}’s text to reference {card_type} (e.g. warriors ->
-  survivors)
 - Change {card_name} to become a {card_type}
 - Modify X random cards to become {card_types}
 - Purge X bane cards from your deck

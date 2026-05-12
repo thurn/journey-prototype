@@ -87,6 +87,11 @@ describe("rewards table (resource family)", () => {
     expect(ids.length).toBe(new Set(ids).size);
   });
 
+  it("omits unsupported card text reference rewards", () => {
+    const unsupportedId = ["modify", "card", "to", "reference", "type"].join("_");
+    expect(REWARDS.map((r) => r.id)).not.toContain(unsupportedId);
+  });
+
   it("gain_essence_to_max is the canonical template for filling essence to maximum", () => {
     // The "gain essence up to your maximum" semantic is served by exactly one
     // template: `gain_essence_to_max`. Its CEC is the gap between current
@@ -152,7 +157,6 @@ describe("rewards table (resource family)", () => {
       "make_random_cards_fast",
       "make_random_cards_reclaim",
       "meta_gain_2_rewards",
-      "modify_card_to_reference_type",
       "modify_random_cards_to_types",
       "next_X_shop_rerolls_free",
       "opening_hand_grant_for_X_battles",
@@ -276,7 +280,6 @@ describe("rewards table (modification family)", () => {
       "apply_named_transfiguration_to_random_predicate_cards",
       "transfigure_random_starters",
       "transfigure_all_starters",
-      "modify_card_to_reference_type",
       "change_card_to_become_type",
       "modify_random_cards_to_types",
       "make_random_cards_fast",
@@ -476,14 +479,6 @@ describe("rewards table (purge/transform family)", () => {
       .toBe("Modify 2 random cards to become Warriors");
     expect(t.render({ count: 3, cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
       .toBe("Modify 3 random cards to become Spirit Animals");
-  });
-
-  it("modify_card_to_reference_type renders with the plural capitalized card type", () => {
-    const t = getReward("modify_card_to_reference_type");
-    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "warriors" } as never, fakeCtx()))
-      .toBe("Modify Nocturne Strummer's text to reference Warriors");
-    expect(t.render({ cardName: "Nocturne Strummer", cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
-      .toBe("Modify Nocturne Strummer's text to reference Spirit Animals");
   });
 
   it("purge_chosen_predicate_cards uses singular noun when count is 1", () => {

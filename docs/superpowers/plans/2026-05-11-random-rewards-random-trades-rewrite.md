@@ -1001,7 +1001,7 @@ git commit -m "feat(shared): add card-pool reward templates"
 - Modify: `src/journey/shared/rewards.ts`
 - Modify: `test/shared/rewards.test.ts`
 
-**Context:** Templates that mutate existing cards: `apply_chosen_transfiguration_to_chosen_card`, `apply_named_transfiguration_to_chosen_predicate_cards`, `apply_named_transfiguration_to_card_name`, `apply_named_transfiguration_to_random_predicate_cards`, `transfigure_random_starters`, `transfigure_all_starters`, `modify_card_to_reference_type`, `change_card_to_become_type`, `modify_random_cards_to_types`, `make_card_fast`, `make_random_cards_fast`.
+**Context:** Templates that mutate existing cards: `apply_chosen_transfiguration_to_chosen_card`, `apply_named_transfiguration_to_chosen_predicate_cards`, `apply_named_transfiguration_to_card_name`, `apply_named_transfiguration_to_random_predicate_cards`, `transfigure_random_starters`, `transfigure_all_starters`, `change_card_to_become_type`, `modify_random_cards_to_types`, `make_card_fast`, `make_random_cards_fast`.
 
 - [ ] **Step 1: Add the test cases**
 
@@ -1017,7 +1017,6 @@ describe("rewards table (modification family)", () => {
       "apply_named_transfiguration_to_random_predicate_cards",
       "transfigure_random_starters",
       "transfigure_all_starters",
-      "modify_card_to_reference_type",
       "change_card_to_become_type",
       "modify_random_cards_to_types",
       "make_card_fast",
@@ -1123,21 +1122,7 @@ const transfigureAllStarters: Reward<TransfigureAllStartersParams> = {
   render: () => "Transfigure all starter cards",
 };
 
-type ModifyCardRefTypeParams = { cardName: string; cardType: string };
 const CARD_TYPES = ["warriors", "survivors", "spirit animals"] as const;
-const modifyCardToReferenceType: Reward<ModifyCardRefTypeParams> = {
-  id: "modify_card_to_reference_type",
-  weight: 1.0,
-  rollParams: (ctx, draw) => ({
-    cardName: ctx.content.cards.length > 0
-      ? pickFromList(draw, "modify_ref:c", ctx.content.cards).name
-      : "Placeholder Card",
-    cardType: pickFromList(draw, "modify_ref:t", CARD_TYPES),
-  }),
-  cec: () => CARD_CEC * 0.5,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
-  render: (p) => `Modify ${p.cardName}'s text to reference ${p.cardType}`,
-};
 
 type ChangeCardBecomeTypeParams = { cardName: string; cardType: string };
 const changeCardToBecomeType: Reward<ChangeCardBecomeTypeParams> = {
