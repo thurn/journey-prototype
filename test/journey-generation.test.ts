@@ -3445,7 +3445,21 @@ describe.concurrent("generateNextJourney", () => {
       );
 
       expect(rewardOperation).toBeDefined();
-      return stableStringify(rewardOperation?.payload);
+      return rewardOperation?.payload as Record<string, unknown>;
+    });
+    const sharedRewardPayloads = rewardPayloads.map((payload) => {
+      const {
+        cardTypePredicateId: _cardTypePredicateId,
+        dreamwellCardName: _dreamwellCardName,
+        predicateId: _predicateId,
+        siteType: _siteType,
+        targetKey: _targetKey,
+        toType: _toType,
+        transfigurationName: _transfigurationName,
+        ...sharedPayload
+      } = payload;
+
+      return stableStringify(sharedPayload);
     });
     const targetDescriptions = manifest.options.map((journeyOption) => {
       const targetOperation = journeyOption.operations.find(
@@ -3461,8 +3475,25 @@ describe.concurrent("generateNextJourney", () => {
     expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
       ok: true,
     });
-    expect(new Set(rewardPayloads).size).toBe(1);
+    expect(new Set(rewardPayloads.map((payload) => payload.rewardTypeId)).size).toBe(1);
+    expect(new Set(sharedRewardPayloads).size).toBe(1);
     expect(new Set(targetDescriptions).size).toBe(3);
+  });
+
+  it("rolls early one-operation-many-target reward types without a transfiguration bias", async () => {
+    const content = await loadContent(process.cwd());
+    const rewardTypes = new Set<string>();
+
+    for (let index = 0; index < 10; index += 1) {
+      const journeyContext = contextFromContent(content, `oomt-uniform-${index}`, "early");
+      const manifest = fillForShapeAtStage("one_operation_many_targets", journeyContext, "early");
+      const sharedRewardType = manifest.debug.symmetryContracts?.[0]?.sharedProperty;
+
+      expect(sharedRewardType).toMatch(/^rewardType=/u);
+      rewardTypes.add(sharedRewardType!);
+    }
+
+    expect(rewardTypes.size).toBeGreaterThan(1);
   });
 
   it("validates One Blessing, Three Vessels as one transfiguration across visible named card targets", async () => {
@@ -3474,7 +3505,15 @@ describe.concurrent("generateNextJourney", () => {
           (contract) =>
             contract.contractKind === "shared_axis_rotated_attribute" &&
             contract.variedProperty === "visible_named_card_target",
-        ) === true,
+        ) === true &&
+        candidate.options.every((option) =>
+          option.operations.some((operation) =>
+            operation.operationKind === "reward" &&
+            operation.rewardKind === "card_transfigure" &&
+            typeof operation.payload.transfigurationName === "string"
+          )
+        ),
+      240,
     );
     const rewardOperations = manifest.options.map((journeyOption) =>
       journeyOption.operations.find((operation) =>
@@ -8539,7 +8578,7 @@ describe.concurrent("validateJourneyManifest", () => {
       },
       {
         example: "One Blessing, Three Vessels",
-        seed: "m18-one-blessing-2",
+        seed: "m18-one-blessing-75",
         shapeId: "one_operation_many_targets",
         stage: "early",
         requirement: {

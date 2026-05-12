@@ -236,6 +236,7 @@ describe("rewards table (resource family)", () => {
       expect(registeredIds.has(id), `canonical reward id ${id} is missing from REWARDS`).toBe(true);
     }
   });
+
 });
 
 describe("rewards table (card-pool family)", () => {

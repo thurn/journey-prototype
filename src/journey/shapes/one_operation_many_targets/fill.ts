@@ -4,7 +4,7 @@ import {
   ONE_OPERATION_MANY_TARGETS_REWARDS,
   type OneOperationManyTargetsReward,
   type TargetedRewardTarget,
-} from "../../shared/rewards.js";
+} from "./rewards.js";
 import { shuffleDeterministic, weightedChoice } from "../../../util/rng.js";
 import type { TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -51,11 +51,11 @@ function symmetryContract(
 ): JourneySymmetryContractDebug {
   return {
     contractKind: "shared_axis_rotated_attribute",
-    sharedProperty: `operation=${operationKey}`,
+    sharedProperty: `rewardType=${template.rewardTypeId}`,
     variedProperty: template.targetKind,
     sharedFirst: true,
     optionNumbers: targets.map((_target, index) => index + 1),
-    sharedPayloadKeys: [`operation=${operationKey}`],
+    sharedPayloadKeys: [`rewardType=${template.rewardTypeId}`, `operation=${operationKey}`],
     variedPayloadKeys: targets.map((target) => `${template.targetKind}=${target.key}`),
     weight: template.targetKind === "visible_named_card_target" ? 4 : 1,
   };
@@ -75,23 +75,12 @@ export function oneOperationManyTargetsFill(args: ShapeFillArgs): FilledJourney 
     throw new Error("one_operation_many_targets fill could not find an operation with at least three targets");
   }
 
-  const earlyTransfigurationCandidates = args.stage === "early"
-    ? candidates.filter((candidate) => candidate.template.id === "target_apply_named_transfiguration")
-    : [];
-  const cardCandidates = candidates.filter((candidate) =>
-    candidate.template.targetKind === "visible_named_card_target"
-  );
-  const pool = earlyTransfigurationCandidates.length > 0
-    ? earlyTransfigurationCandidates
-    : cardCandidates.length > 0
-      ? cardCandidates
-      : candidates;
   const selected = weightedChoice(
     args.drawContext,
     "oomt:template",
-    pool.map((candidate) => ({
+    candidates.map((candidate) => ({
       item: candidate,
-      weight: candidate.template.weight,
+      weight: 1,
     })),
   );
   const targets = shuffleDeterministic(

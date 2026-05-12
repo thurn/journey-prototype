@@ -11,3 +11,8 @@ the current system as it exists, not contrast it against removed behaviour.
 Phrasings like "X no longer exists", "there is no longer a Y", "this is no
 longer used", "we removed Z", or "unlike before" are not acceptable in
 documentation. Write the current state directly.
+
+# Code organization
+
+Code specific to a single Journey shape lives with that shape. Do not put
+shape-specific catalogs, adapters, helpers, or behavior in `src/journey/shared/`.
