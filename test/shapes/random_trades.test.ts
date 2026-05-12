@@ -9,6 +9,7 @@ import { randomTradesPlugin } from "../../src/journey/shapes/random_trades/index
 import { BANE_NAMES } from "../../src/journey/shared/content.js";
 import { buildJourneyContext } from "../../src/quest/context.js";
 import { createInitialJourneyState, simulateQuestStateForStage } from "../../src/quest/init.js";
+import type { CardContent } from "../../src/content/model.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import type { DrawContext } from "../../src/util/rng.js";
@@ -42,6 +43,39 @@ function fakeCtx(essence = 100): JourneyContext {
 
 function fakeDraw(seed: string): DrawContext {
   return { seed, contentVersion: "v1", rootJourneyIndex: 0 };
+}
+
+const forcedStarterCard: CardContent = {
+  id: "starter-only",
+  name: "Only Starter",
+  tides: ["void"],
+  rarity: "Starter",
+  cardType: "Event",
+  energyCost: 0,
+  spark: "",
+  cardNumber: 1,
+  raw: { "is-fast": false },
+};
+
+function fakeStarterCatalogCtx(): JourneyContext {
+  const ctx = fakeCtx();
+  return {
+    ...ctx,
+    content: {
+      ...ctx.content,
+      cards: [forcedStarterCard],
+    },
+    state: {
+      ...ctx.state,
+      quest: {
+        ...ctx.state.quest,
+        deck: {
+          entries: [{ cardId: forcedStarterCard.id, copies: 1 }],
+          summary: { totalCards: 1, starterCards: 1, uniqueCards: 1 },
+        },
+      },
+    },
+  } as JourneyContext;
 }
 
 function costFamilyForText(text: string): "resource" | "bane" | "other" {
@@ -243,6 +277,18 @@ describe("random_trades fill", () => {
         expect(option.text).not.toMatch(/Draft \d of 4 Starter cards/u);
         expect(option.text).not.toMatch(/Gain \d+ random Starter cards/u);
       }
+    }
+  });
+
+  it("does not offer named Starter-card gain rewards", () => {
+    const fill = randomTradesPlugin.fill({
+      context: fakeStarterCatalogCtx(),
+      drawContext: fakeDraw("fake-starter-named-16"),
+      stage: "early" as JourneyStage,
+    });
+
+    for (const option of fill.options) {
+      expect(option.text).not.toMatch(/(?:^|\. )Gain Only Starter(?:$|\.)/u);
     }
   });
 

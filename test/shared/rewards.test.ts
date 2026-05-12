@@ -11,6 +11,7 @@ import {
   transfigurationsEligibleForPredicate,
 } from "../../src/journey/shared/content.js";
 import { getPredicate } from "../../src/journey/shared/predicates.js";
+import type { CardContent } from "../../src/content/model.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
@@ -44,6 +45,41 @@ function fakeCtx(overrides: Partial<JourneyContext["state"]["quest"]["resources"
     },
   } as JourneyContext;
 }
+
+function fakeCtxWithCards(cards: readonly CardContent[]): JourneyContext {
+  const ctx = fakeCtx();
+  return {
+    ...ctx,
+    content: {
+      ...ctx.content,
+      cards: [...cards],
+    },
+  } as JourneyContext;
+}
+
+const starterCard: CardContent = {
+  id: "starter-paranoia",
+  name: "Paranoia",
+  tides: ["void"],
+  rarity: "Starter",
+  cardType: "Event",
+  energyCost: 0,
+  spark: "",
+  cardNumber: 1,
+  raw: { "is-fast": false },
+};
+
+const commonCard: CardContent = {
+  id: "common-only",
+  name: "Only Common",
+  tides: ["void"],
+  rarity: "Common",
+  cardType: "Event",
+  energyCost: 1,
+  spark: 1,
+  cardNumber: 2,
+  raw: { "is-fast": false },
+};
 
 describe("rewards table (resource family)", () => {
   it("registers gain_essence with positive CEC", () => {
@@ -216,6 +252,22 @@ describe("rewards table (card-pool family)", () => {
       // We're just checking the template is registered and the methods don't throw.
       expect(t.cec(p, fakeCtx())).toBeGreaterThan(0);
       expect(t.render(p, fakeCtx())).not.toBe("");
+    }
+  });
+
+  it("excludes Starter-rarity cards from gain_named_card", () => {
+    const t = getReward("gain_named_card");
+    const starterOnlyCtx = fakeCtxWithCards([starterCard]);
+    const starterOnlyParams = t.rollParams(starterOnlyCtx, draw);
+
+    expect(t.viable(starterOnlyParams, starterOnlyCtx)).toBe(false);
+    expect(t.render(starterOnlyParams, starterOnlyCtx)).toBe("Gain Placeholder Card");
+
+    const mixedCtx = fakeCtxWithCards([starterCard, commonCard]);
+    for (let i = 0; i < 100; i += 1) {
+      const params = t.rollParams(mixedCtx, { ...draw, sequenceStep: i }) as { name: string };
+      expect(t.viable(params, mixedCtx)).toBe(true);
+      expect(params.name).toBe("Only Common");
     }
   });
 

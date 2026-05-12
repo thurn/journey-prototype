@@ -148,6 +148,10 @@ function rollCardAdditionPredicate(
   return rollPredicate(draw, label, kinds, CARD_ADDITION_EXCLUDED_PREDICATE_IDS);
 }
 
+function namedCardGainPool(ctx: import("../../quest/context.js").JourneyContext) {
+  return ctx.content.cards.filter((card) => card.rarity !== "Starter");
+}
+
 // Predicates whose match pool spans a huge portion of the card universe
 // (~half the cards each). Drafting from such a pool offers little selection
 // pressure, so draft-from-pool rewards keyed on these predicates are valued
@@ -211,13 +215,13 @@ const gainNamedCard: Reward<GainNamedCardParams> = {
   id: "gain_named_card",
   weight: 1.0,
   rollParams: (ctx, draw) => {
-    const pool = ctx.content.cards;
+    const pool = namedCardGainPool(ctx);
     if (pool.length === 0) return { name: "Placeholder Card" };
     const card = pickFromList(draw, "gain_named_card:card", pool);
     return { name: card.name };
   },
   cec: () => CARD_CEC * STAGE_MULTIPLIER,
-  viable: (_p, ctx) => ctx.content.cards.length > 0,
+  viable: (_p, ctx) => namedCardGainPool(ctx).length > 0,
   render: (p) => `Gain ${p.name}`,
 };
 
