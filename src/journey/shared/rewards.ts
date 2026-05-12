@@ -18,6 +18,17 @@ import {
 import { PREDICATES, getPredicate } from "./predicates.js";
 import type { Predicate, PredicateKind, Reward, TemplateParams } from "./types.js";
 
+const POSITIVE_TEMPORARY_BATTLE_MIN = 3;
+const POSITIVE_TEMPORARY_BATTLE_MAX = 3;
+
+function rollPositiveTemporaryBattles(draw: DrawContext, label: string): number {
+  return drawInt(draw, label, POSITIVE_TEMPORARY_BATTLE_MIN, POSITIVE_TEMPORARY_BATTLE_MAX);
+}
+
+function sentenceCase(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
 // Roll a transfiguration that is compatible with the given predicate's
 // match set. Falls back to the canonical set when no transfiguration is
 // applicable (the surrounding `viable` check is responsible for filtering
@@ -812,7 +823,7 @@ const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
       cardName: deckCards.length > 0
         ? pickFromList(draw, "oh_grant:c", deckCards).name
         : "Placeholder Card",
-      battles: drawInt(draw, "oh_grant:b", 1, 3),
+      battles: rollPositiveTemporaryBattles(draw, "oh_grant:b"),
     };
   },
   cec: (p) => CARD_CEC * 0.3 * p.battles,
@@ -824,14 +835,14 @@ const openingHandGrantForXBattles: Reward<OpeningHandGrantParams> = {
 type TemporaryCardCopyParams = { cardName: string; battles: number };
 const temporaryCardCopyForXBattles: Reward<TemporaryCardCopyParams> = {
   id: "temporary_card_copy_for_X_battles",
-  weight: 0.5,
+  weight: 0.25,
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     return {
       cardName: deckCards.length > 0
         ? pickFromList(draw, "temp_copy:c", deckCards).name
         : "Placeholder Card",
-      battles: drawInt(draw, "temp_copy:b", 1, 3),
+      battles: rollPositiveTemporaryBattles(draw, "temp_copy:b"),
     };
   },
   cec: (p) => CARD_CEC * 0.25 * p.battles,
@@ -847,12 +858,12 @@ const cardCostReductionForXBattles: Reward<CostReductionParams> = {
   rollParams: (_ctx, draw) => ({
     predicateId: rollPredicate(draw, "cost_red:p").id,
     amount: drawInt(draw, "cost_red:a", 1, 2),
-    battles: drawInt(draw, "cost_red:b", 1, 3),
+    battles: rollPositiveTemporaryBattles(draw, "cost_red:b"),
   }),
   cec: (p) => cardPoolCEC(CARD_CEC * 0.3 * p.amount * p.battles, 1, getPredicate(p.predicateId)),
   viable: () => true,
   render: (p) =>
-    `${getPredicate(p.predicateId).text.plural} cost ${p.amount} less for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `${sentenceCase(getPredicate(p.predicateId).text.plural)} cost ${p.amount} less for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
 type ApplyNamedTransfigAllPredParams = { transfiguration: string; predicateId: string };
@@ -949,11 +960,11 @@ const transformDreamsignToNamed: Reward<TransformDreamsignToNamedParams> = {
 type TemporaryDreamsignParams = { battles: number };
 const temporaryDreamsignForXBattles: Reward<TemporaryDreamsignParams> = {
   id: "temporary_dreamsign_for_X_battles",
-  // A random dreamsign that expires after 1-3 battles is a situational,
+  // A random dreamsign that expires after a short battle window is a situational,
   // short-lived effect; it should appear in the rare tier and carry a low
   // CEC that grows only modestly with the battle count.
   weight: 0.25,
-  rollParams: (_ctx, draw) => ({ battles: drawInt(draw, "temp_ds:b", 1, 3) }),
+  rollParams: (_ctx, draw) => ({ battles: rollPositiveTemporaryBattles(draw, "temp_ds:b") }),
   cec: (p) => 25 * (1 + (p.battles - 1) * 0.5),
   viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
   render: (p) =>

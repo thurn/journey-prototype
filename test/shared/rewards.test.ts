@@ -703,12 +703,11 @@ describe("rewards table (site/dreamwell/misc family)", () => {
   });
 
   it("battle-window card rewards are down-weighted and have reduced CEC", () => {
-    // `temporary_card_copy_for_X_battles` and `opening_hand_grant_for_X_battles`
-    // are weak/situational since their effects evaporate after a small number
-    // of battles. They appear at half the default weight and use a lower CEC
-    // multiplier than permanent card rewards.
+    // Battle-window card rewards are situational because their effects expire
+    // after a small number of battles. They use lower pool weights and CEC
+    // multipliers than permanent card rewards.
     const tempCopy = getReward("temporary_card_copy_for_X_battles");
-    expect(tempCopy.weight).toBe(0.5);
+    expect(tempCopy.weight).toBe(0.25);
     expect(tempCopy.cec({ cardName: "x", battles: 1 }, fakeCtx())).toBe(10);
     expect(tempCopy.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(30);
 
@@ -716,6 +715,36 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(openingHand.weight).toBe(0.5);
     expect(openingHand.cec({ cardName: "x", battles: 1 }, fakeCtx())).toBe(12);
     expect(openingHand.cec({ cardName: "x", battles: 3 }, fakeCtx())).toBe(36);
+  });
+
+  it("positive battle-window rewards roll at least three battles", () => {
+    const ctx = fakeCtxWithCards([starterCard, commonCard]);
+    const ids = [
+      "opening_hand_grant_for_X_battles",
+      "temporary_card_copy_for_X_battles",
+      "card_cost_reduction_for_X_battles",
+      "temporary_dreamsign_for_X_battles",
+    ];
+
+    for (const id of ids) {
+      const t = getReward(id);
+      for (let i = 0; i < 200; i += 1) {
+        const p = t.rollParams(ctx, { ...draw, sequenceStep: i }) as { battles: number };
+        expect(p.battles, `${id} roll ${i}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it("renders predicate-led battle-window rewards with a capitalized sentence start", () => {
+    const t = getReward("card_cost_reduction_for_X_battles");
+
+    expect(t.render({
+      predicateId: "event_copying",
+      amount: 2,
+      battles: 3,
+    }, fakeCtx())).toBe(
+      "Cards with an event-copying ability cost 2 less for the next 3 battles",
+    );
   });
 
   it("boost_site_appearance_chance pins CEC to ~75 at percent=20 and scales up to percent=50", () => {
@@ -791,9 +820,8 @@ describe("rewards table (site/dreamwell/misc family)", () => {
   });
 
   it("temporary_dreamsign_for_X_battles is rare and pinned to a low CEC", () => {
-    // A random dreamsign that lasts only 1-3 battles is weak and situational,
-    // so this reward is in the rare tier (weight 0.25) and its CEC is pinned
-    // to 25 at battles=1, scaling only modestly up to 50 at battles=3.
+    // A random temporary dreamsign is situational, so this reward is in the rare
+    // tier and its CEC scales modestly with the battle count.
     const t = getReward("temporary_dreamsign_for_X_battles");
     expect(t.weight).toBe(0.25);
     expect(t.cec({ battles: 1 } as never, fakeCtx())).toBe(25);

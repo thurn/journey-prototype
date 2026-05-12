@@ -256,6 +256,18 @@ describe("costs table (bane/dreamwell/starter family)", () => {
     expect(getCost("gain_named_banes_for_X_battles").weight).toBeGreaterThan(minorWeight);
   });
 
+  it("temporary Bane costs can roll a one-battle duration", () => {
+    const t = getCost("gain_named_banes_for_X_battles");
+    const seen = new Set<number>();
+
+    for (let i = 0; i < 200; i += 1) {
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { battles: number };
+      seen.add(p.battles);
+    }
+
+    expect(seen.has(1)).toBe(true);
+  });
+
   it("renders additional starter card costs as random starter cards", () => {
     expect(getCost("gain_additional_starters").render({ count: 1 }, fakeCtx())).toBe(
       "Gain a random starter card",

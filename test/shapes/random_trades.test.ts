@@ -507,7 +507,7 @@ describe("random_trades fill", () => {
     const resourceRate = counts.resource / total;
     const baneRate = counts.bane / total;
 
-    expect(resourceRate).toBeGreaterThanOrEqual(0.33);
+    expect(resourceRate).toBeGreaterThanOrEqual(0.30);
     expect(resourceRate).toBeLessThanOrEqual(0.70);
     expect(baneRate).toBeGreaterThanOrEqual(0.14);
     expect(baneRate).toBeLessThanOrEqual(0.36);
