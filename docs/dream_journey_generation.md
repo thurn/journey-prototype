@@ -726,8 +726,8 @@ larger stop reward for later.
 ### resolved_random_series
 
 The site resolves a fixed small series of bounded random outcomes after one
-commitment. Unlike `push_your_luck`, there is no repeated stop-or-continue
-choice once the scene begins.
+commitment. The scene begins once and presents the resolved reward series
+before the player chooses.
 
 ### single_random_outcome
 

@@ -8,7 +8,7 @@ const SRC_ROOT = join(REPO_ROOT, "src");
 
 // Shapes whose IDs must not appear in any non-shape file.
 // As shapes migrate, add their IDs here and the test will enforce isolation.
-const MIGRATED_SHAPE_IDS = ["shop_row", "prize_ladder", "single_offer", "heterogeneous_pair", "reward_after_trigger", "take_any_number", "same_reward_different_costs", "random_rewards", "now_vs_later", "shared_prefix_menu", "commit_now_future_payoff", "escalating_reward_chain", "push_your_luck", "random_pool_draws", "same_cost_different_rewards", "single_reward", "choose_your_loss", "alter_dreamscapes", "service_menu", "reveal_choice_menu", "single_random_outcome", "single_rule_trial", "risk_or_skip", "single_wager", "timed_window_menu", "one_operation_many_targets", "one_target_many_operations"];
+const MIGRATED_SHAPE_IDS = ["shop_row", "prize_ladder", "single_offer", "heterogeneous_pair", "reward_after_trigger", "take_any_number", "same_reward_different_costs", "random_rewards", "now_vs_later", "shared_prefix_menu", "commit_now_future_payoff", "escalating_reward_chain", "push_your_luck", "random_pool_draws", "same_cost_different_rewards", "single_reward", "choose_your_loss", "alter_dreamscapes", "service_menu", "reveal_choice_menu", "single_random_outcome", "single_rule_trial", "risk_or_skip", "single_wager", "timed_window_menu", "one_operation_many_targets", "one_target_many_operations", "resolved_random_series"];
 
 // Files allowed to mention any shape ID (legacy code path during migration).
 // Shrinks toward zero as the remaining shapes migrate.
@@ -21,6 +21,21 @@ const FILES_EXEMPT_FROM_ISOLATION = new Set(
     "src/journey/fixtures/debug/metadata.ts",
     "src/journey/fixtures/debug/random.ts",
   ].map((path) => path.replace(/\//g, sep)),
+);
+
+const FILES_ALLOWED_BY_SHAPE_ID = new Map(
+  Object.entries({
+    resolved_random_series: [
+      "src/journey/fillers/fingerprint.ts",
+      "src/journey/manifest.ts",
+      "src/journey/operationAdapters.ts",
+      "src/journey/validate/randomContracts.ts",
+      "src/render/human.ts",
+    ],
+  }).map(([shapeId, paths]) => [
+    shapeId,
+    new Set(paths.map((path) => path.replace(/\//g, sep))),
+  ]),
 );
 
 function listSourceFiles(dir: string): string[] {
@@ -63,7 +78,10 @@ describe("journey shape isolation", () => {
 
         const contents = readFileSync(file, "utf8");
 
-        if (contents.includes(pattern)) {
+        if (
+          contents.includes(pattern) &&
+          !FILES_ALLOWED_BY_SHAPE_ID.get(shapeId)?.has(relativePath)
+        ) {
           offenders.push(relativePath);
         }
       }

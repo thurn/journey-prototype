@@ -216,14 +216,10 @@ function payloadCompatibilityFor(
     compatibility(
       "random",
       [
-        ...(id === "resolved_random_series"
-          ? ["reveal-roll-wager"]
-          : []),
-        ...((isRandomCommit ||
+        ...(isRandomCommit ||
           [
             "probability_ladder",
-          ].includes(id)) &&
-        id !== "resolved_random_series"
+          ].includes(id)
           ? ["adapter-compatible-random-envelope"]
           : []),
       ],

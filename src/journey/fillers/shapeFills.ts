@@ -61,7 +61,6 @@ import {
   gainEssence,
   gainOmen,
   legalCardDraftProfile,
-  lowerFirst,
   option,
   optionFromResolvedShapeFill,
   pickLegalCardDraftProfile,
@@ -725,90 +724,6 @@ export function fillOptions(
             weight: 3,
           }),
         ],
-      };
-    }
-    case "resolved_random_series": {
-      const rewards = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:series-rewards`,
-      ).filter((entry) => entry.routeEffects === undefined);
-      const firstSeries = rewards.slice(0, 3);
-      const secondSeries = rewards.slice(2, 5);
-
-      return {
-        options: [
-          option({
-            number: 1,
-            text: `Resolve the precommitted rewards: ${rewards
-              .slice(0, 3)
-              .map((reward) => lowerFirst(reward.text).replace(/\.$/u, ""))
-              .join(", then ")}.`,
-            effects: [{ kind: "random_series", count: 3 }],
-            effect: Math.round(
-              rewards
-                .slice(0, 3)
-                .reduce((total, reward) => total + reward.effect, 0) / 3,
-            ),
-            uncertainty: -12,
-          }),
-          option({
-            number: 2,
-            text: `Resolve the precommitted rewards: ${rewards
-              .slice(2, 5)
-              .map((reward) => lowerFirst(reward.text).replace(/\.$/u, ""))
-              .join(", then ")}.`,
-            effects: [{ kind: "random_series", count: 3 }],
-            effect: Math.round(
-              rewards
-                .slice(2, 5)
-                .reduce((total, reward) => total + reward.effect, 0) / 3,
-            ),
-            uncertainty: -12,
-          }),
-        ],
-        precommitted: {
-          random: [
-            {
-              kind: "resolved_random_series",
-              optionNumber: 1,
-              series: firstSeries.flatMap((reward) => reward.effects),
-              resolved: true,
-              visibilityPolicy: {
-                outcomeVisibility: "resolved",
-                disclosure:
-                  "The random reward series is resolved and shown before choosing.",
-                playerVisible: true,
-              },
-              expectedConvertedEssence: Math.round(
-                firstSeries.reduce(
-                  (total, reward) => total + reward.effect,
-                  0,
-                ) / firstSeries.length,
-              ),
-              riskPremiumConvertedEssence: -4,
-            },
-            {
-              kind: "resolved_random_series",
-              optionNumber: 2,
-              series: secondSeries.flatMap((reward) => reward.effects),
-              resolved: true,
-              visibilityPolicy: {
-                outcomeVisibility: "resolved",
-                disclosure:
-                  "The random reward series is resolved and shown before choosing.",
-                playerVisible: true,
-              },
-              expectedConvertedEssence: Math.round(
-                secondSeries.reduce(
-                  (total, reward) => total + reward.effect,
-                  0,
-                ) / secondSeries.length,
-              ),
-              riskPremiumConvertedEssence: -4,
-            },
-          ],
-        },
       };
     }
   }
