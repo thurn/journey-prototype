@@ -847,6 +847,34 @@ describe.concurrent("generateNextJourney", () => {
     expect(lateGenerated).toBeLessThanOrEqual(3);
   });
 
+  it("builds one_target_many_operations as three operations on one target", async () => {
+    const journeyContext = await context("otmo-fill-1");
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "one_target_many_operations",
+    });
+
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(manifest.generatedObjects).toEqual([]);
+    const optionTexts = manifest.options.map((optionEntry) => optionEntry.text);
+    expect(optionTexts).toHaveLength(3);
+    expect(new Set(optionTexts).size).toBe(3);
+    expect(optionTexts.every((text) => text.includes("Warriors"))).toBe(true);
+    expect(manifest.debug.symmetryContracts).toEqual([
+      expect.objectContaining({
+        contractKind: "shared_axis_rotated_attribute",
+        sharedPayloadKeys: ["predicate:warriors"],
+        variedPayloadKeys: [
+          "draft_predicate_cards_from_4",
+          "gain_random_predicate_cards",
+          "apply_named_transfiguration_to_chosen_predicate_cards",
+        ],
+      }),
+    ]);
+  });
+
   it("builds natural generated objects from deterministic reusable fragments", async () => {
     const journeyContext = await context("natural-generated-object-fragments");
     const cards = journeyContext.content.cards
