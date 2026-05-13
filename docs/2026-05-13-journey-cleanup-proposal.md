@@ -108,9 +108,8 @@ operation-family registries rather than central switches:
 - generated objects
 - status and rule mutations
 
-Each family should own its builders, validation, reachability classification,
-value metadata, and rendering helpers. Shape plugins should import family
-builders and compose them locally.
+Each family should own its builders, validation, value metadata, and rendering
+helpers. Shape plugins should import family builders and compose them locally.
 
 ## Reward And Cost Catalogs
 
@@ -126,18 +125,23 @@ Immediate candidates:
 - Keep `getReward` and `getCost` compatibility exports during the migration,
   then replace broad lookup with scoped selectors where possible.
 
-## Debug And Reachability
+## Delete Reachability
 
-Reachability metadata is useful for audits, but it should be treated as a debug
-or audit surface. Production manifests should carry only the metadata required
-for rendering and command behavior.
+`src/journey/reachability.ts` should be deleted. The reachability layer adds a
+second classification system over typed operations, expands debug manifests,
+and keeps tests tied to broad feature-family coverage rather than direct shape
+contracts. Typed operations and operation-family validators should provide the
+same confidence with less machinery.
 
 Target behavior:
 
 - Normal generation creates the manifest data needed by renderers.
-- `--debug` computes reachability and operation-family evidence.
-- Audit tests can call the reachability helper directly.
-- Shape tests assert operation families through typed operations when possible.
+- `--debug` prints selected shape, operation, value, and target information
+  directly from the manifest.
+- Shape tests assert operation families through typed operations.
+- Audit tests generate concrete manifests and inspect their typed operations.
+- Manifest debug metadata does not include reachability summaries, feature
+  decisions, or reachability evidence paths.
 
 ## Test Cleanup
 
@@ -149,14 +153,14 @@ The test suite should become faster and more contract-focused:
 - Keep one subprocess CLI smoke layer and move behavior checks to handler or
   pure generation tests.
 - Delete tests that only protect repair metadata, operation adapter inference,
-  or compatibility catalog defaults.
+  reachability metadata, or compatibility catalog defaults.
 
 ## Suggested Order
 
 1. Delete repair and fallback metadata.
 2. Require typed operations from shape fills and delete operation adapters.
 3. Remove derived compatibility metadata and unused plugin fields.
-4. Move shape-specific reward/cost policy into shape directories.
-5. Move surviving operation-family code into explicit family modules.
-6. Split remaining large modules only after the deletion pass.
-
+4. Delete reachability metadata and tests that depend on it.
+5. Move shape-specific reward/cost policy into shape directories.
+6. Move surviving operation-family code into explicit family modules.
+7. Split remaining large modules only after the deletion pass.
