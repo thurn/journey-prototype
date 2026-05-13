@@ -27,7 +27,7 @@ Each queued shape follows this sequence:
 | 13 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 14 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 15 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 16 | `single_reward` | 3 | Complete | In progress | Pending | Complete | Current |
+| 16 | `single_reward` | 3 | Complete | Complete | In progress | Complete | Current |
 | 17 | `single_offer` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 18 | `single_rule_trial` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 19 | `risk_or_skip` | 2 | Pending | Pending | Pending | Pending | Queued |
@@ -70,7 +70,7 @@ These shapes are reference implementations for the migration target:
 - `resolved_random_series` completed migration commits `9496e74` and `2b4b002`, audit commit `a42356e`, and fix commit `21d11de`.
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
 - `prize_ladder` completed migration commit `9cdf1b7`, audit commit `ff3505c`, and fix commit `07b853b`.
-- `single_reward` completed migration commit `b088331`.
+- `single_reward` completed migration commit `b088331`, and audit commit `455f4da`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/single_reward/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
