@@ -13,6 +13,10 @@ const EXCLUDED_COST_IDS = new Set([
   "gain_random_cards_from_pool",
   "gain_additional_starters",
   "meta_pay_2_costs",
+  "pay_max_essence",
+  "purge_all_duplicate_cards",
+  "remove_transfiguration_from_card",
+  "remove_transfigurations_from_random_predicate",
 ]);
 
 const COST_FAMILIES: Record<string, string> = {
@@ -72,6 +76,16 @@ function costIsUsableForLoss(template: Cost): boolean {
   return !EXCLUDED_COST_IDS.has(template.id) && COST_FAMILIES[template.id] !== undefined;
 }
 
+function renderLossText(template: Cost, params: TemplateParams, context: JourneyContext): string {
+  const rendered = template.render(params as never, context);
+
+  if (template.id !== "purge_named_dreamsign" || rendered.startsWith("[LOCKED] ")) {
+    return rendered;
+  }
+
+  return rendered.replace(/^Purge /u, "Purge Dreamsign ");
+}
+
 function materializeLoss(
   context: JourneyContext,
   drawContext: DrawContext,
@@ -88,7 +102,7 @@ function materializeLoss(
     return undefined;
   }
 
-  const text = template.render(params as never, context);
+  const text = renderLossText(template, params, context);
 
   if (text.startsWith("[LOCKED] ")) {
     return undefined;
@@ -143,6 +157,24 @@ function candidateKey(loss: RolledLoss): string {
   return `${loss.template.id}:${JSON.stringify(loss.params)}`;
 }
 
+function uniqueLosses(losses: readonly RolledLoss[]): readonly RolledLoss[] {
+  const seen = new Set<string>();
+  const unique: RolledLoss[] = [];
+
+  for (const loss of losses) {
+    const key = candidateKey(loss);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(loss);
+  }
+
+  return unique;
+}
+
 function pickNextLoss(
   drawContext: DrawContext,
   row: number,
@@ -176,7 +208,7 @@ export function chooseLosses(
   context: JourneyContext,
   drawContext: DrawContext,
 ): readonly RolledLoss[] {
-  const allLosses = lossPool(context, drawContext);
+  const allLosses = uniqueLosses(lossPool(context, drawContext));
 
   if (allLosses.length < LOSS_OPTION_COUNT) {
     throw new Error(`${SHAPE_ID} fill requires at least ${LOSS_OPTION_COUNT} viable shared costs`);
@@ -193,12 +225,12 @@ export function chooseLosses(
   const comparable = allLosses.filter((loss) =>
     withinRatio(loss, anchor, MAXIMUM_LOSS_RATIO)
   );
-  const pool = comparable.length >= LOSS_OPTION_COUNT
+  const fallback = allLosses.filter((loss) =>
+    withinRatio(loss, anchor, MAXIMUM_FALLBACK_LOSS_RATIO)
+  );
+  const candidates = comparable.length >= LOSS_OPTION_COUNT
     ? comparable
-    : allLosses.filter((loss) =>
-      withinRatio(loss, anchor, MAXIMUM_FALLBACK_LOSS_RATIO)
-    );
-  const candidates = pool.length >= LOSS_OPTION_COUNT ? pool : allLosses;
+    : fallback.length >= LOSS_OPTION_COUNT ? fallback : allLosses;
   const selected: RolledLoss[] = [anchor];
 
   while (selected.length < LOSS_OPTION_COUNT) {

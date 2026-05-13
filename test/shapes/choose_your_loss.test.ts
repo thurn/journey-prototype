@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 // Import the validate barrel first so the shapes registry finishes loading
 // before this shape plugin module is evaluated.
 import "../../src/journey/validate/index.js";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
 import { chooseYourLossPlugin } from "../../src/journey/shapes/choose_your_loss/index.js";
-import type { JourneyStage } from "../../src/journey/manifest.js";
+import type { JourneyManifest, JourneyStage } from "../../src/journey/manifest.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import {
+  createInitialJourneyState,
+  simulateQuestStateForStage,
+} from "../../src/quest/init.js";
 import { makeTestContext } from "../helpers/journey-context.js";
 
 type SharedCostPayload = {
@@ -23,6 +30,33 @@ function sharedCostPayload(option: { readonly costs: readonly unknown[] }): Shar
   }
 
   return payload;
+}
+
+async function chooseYourLossManifest(
+  seed: string,
+  stage: JourneyStage,
+): Promise<JourneyManifest> {
+  const { content, contentVersion } = await loadContentContext(process.cwd());
+  const state = createInitialJourneyState({ seed, content, contentVersion });
+
+  simulateQuestStateForStage({
+    state,
+    stage,
+    drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+  });
+
+  const context = buildJourneyContext({
+    projectRoot: process.cwd(),
+    content,
+    state,
+    contentVersion,
+  });
+
+  return generateNextJourney({
+    context,
+    forcedShapeId: "choose_your_loss",
+    forcedStage: stage,
+  });
 }
 
 describe("choose_your_loss fill", () => {
@@ -84,6 +118,38 @@ describe("choose_your_loss fill", () => {
 
       expect(lowest, seed).toBeGreaterThanOrEqual(40);
       expect(highest / lowest, seed).toBeLessThanOrEqual(3.5);
+    }
+  });
+
+  it("generates three visible material losses for the audit seed grid", async () => {
+    const excludedTemplateIds = new Set([
+      "pay_max_essence",
+      "purge_all_duplicate_cards",
+      "remove_transfiguration_from_card",
+      "remove_transfigurations_from_random_predicate",
+    ]);
+    const stages: readonly JourneyStage[] = ["early", "mid", "late"];
+
+    for (const stage of stages) {
+      for (let index = 1; index <= 10; index += 1) {
+        const seed = `audit:choose_your_loss:${stage}:${String(index).padStart(2, "0")}`;
+        const manifest = await chooseYourLossManifest(seed, stage);
+
+        expect(manifest.options, seed).toHaveLength(3);
+
+        for (const option of manifest.options) {
+          const payload = sharedCostPayload(option);
+
+          expect(excludedTemplateIds.has(payload.templateId), seed).toBe(false);
+          expect(option.text, seed).not.toBe("Lose maximum essence.");
+          expect(option.text, seed).not.toContain("transfiguration");
+          expect(option.text, seed).not.toBe("Purge all duplicate cards from your deck.");
+
+          if (payload.templateId === "purge_named_dreamsign") {
+            expect(option.text, seed).toMatch(/^Purge Dreamsign '[^']+'\.$/u);
+          }
+        }
+      }
     }
   });
 });
