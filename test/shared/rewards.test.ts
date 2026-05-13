@@ -829,9 +829,9 @@ describe("rewards table (site/dreamwell/misc family)", () => {
   });
 
   it("boost_site_appearance_chance pins CEC to ~75 at percent=20 and scales up to percent=50", () => {
-    // Boosting future-dreamscape site appearance is a strong, permanent effect
-    // (especially for high-impact site types). The baseline CEC is pinned to
-    // 75 at percent=20 and scales linearly to 150 at percent=50.
+    // Boosting future-dreamscape site appearance is a strong route effect. The
+    // three-dreamscape baseline CEC is pinned to 75 at percent=20 and scales
+    // linearly to 150 at percent=50.
     const t = getReward("boost_site_appearance_chance");
     // Use a neutral (multiplier 1.0) site type for the baseline tier.
     const baseline20 = t.cec({ siteType: "Vendor Hook", percent: 20 } as never, fakeCtx());
@@ -866,11 +866,23 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     // increasing access to neutral Journey events is not a clear reward.
     const t = getReward("boost_site_appearance_chance");
     for (let i = 0; i < 200; i += 1) {
-      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as { siteType: string; percent: number };
+      const p = t.rollParams(fakeCtx(), { ...draw, sequenceStep: i }) as {
+        siteType: string;
+        percent: number;
+        dreamscapes: number;
+      };
       expect(p.siteType).not.toBe("Battle");
       expect(p.siteType).not.toBe("Draft");
       expect(p.siteType).not.toBe("Dream Journey");
+      expect(p.dreamscapes).toBe(3);
     }
+  });
+
+  it("boost_site_appearance_chance renders the duration window", () => {
+    const t = getReward("boost_site_appearance_chance");
+
+    expect(t.render({ siteType: "Essence", percent: 20, dreamscapes: 3 } as never, fakeCtx()))
+      .toBe("20% higher chance to see Essence sites in the next 3 dreamscapes you visit");
   });
 
   it("site reward destinations select only valuable non-Battle, non-Draft site types", () => {

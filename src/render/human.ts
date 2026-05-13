@@ -67,7 +67,7 @@ function journeyResourceLine(state: JourneyState, manifest: JourneyManifest, opt
 function displaySymbols(option: JourneyOption): string {
   const symbols = option.symbols.filter((symbol) => symbol in SYMBOL_GLYPHS);
   const visibleSymbols = symbols.includes("route")
-    ? symbols.filter((symbol) => symbol !== "reward")
+    ? symbols.filter((symbol) => symbol !== "reward" && symbol !== "route")
     : symbols;
 
   return visibleSymbols
@@ -467,7 +467,7 @@ function committedOutcomeText(value: unknown): string {
     case "route_replace_site":
       return `Replace a ${value.fromSite ?? "site"} site with a ${value.toSite ?? "site"} site in ${value.routeScope ?? "the route"}.`;
     case "route_probability_adjustment":
-      return `Adjust ${value.siteType ?? "site"} odds by ${value.probabilityDeltaPercent ?? "?"}% for ${value.routeScope ?? "future routes"}.`;
+      return `Adjust ${value.siteType ?? "site"} odds by ${value.probabilityDeltaPercent ?? "?"}% for ${value.timing ?? value.routeScope ?? "future routes"}.`;
     case "card_draft":
       return `Draft ${value.takeCount ?? 1} of ${value.choiceCount ?? "?"} cards${predicateSummary(value.predicate)}.`;
     case "dreamsign_draft":

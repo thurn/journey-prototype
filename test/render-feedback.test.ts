@@ -291,7 +291,8 @@ describe("review feedback regressions", () => {
     });
 
     expect(output).toContain("1. * Add Reclaim 2 to 'Wellspring'");
-    expect(output).toContain("2. > Add a Shop site to this dreamscape");
+    expect(output).toContain("2. Add a Shop site to this dreamscape");
+    expect(output).not.toContain("2. > Add a Shop site to this dreamscape");
     expect(output).not.toContain("* card");
     expect(output).not.toContain("* >");
   });

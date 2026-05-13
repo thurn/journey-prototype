@@ -21,6 +21,7 @@ import type { Predicate, PredicateKind, Reward, TemplateParams } from "./types.j
 
 const POSITIVE_TEMPORARY_BATTLE_MIN = 3;
 const POSITIVE_TEMPORARY_BATTLE_MAX = 3;
+const BOOST_SITE_DURATION_DREAMSCAPES = 3;
 
 function rollPositiveTemporaryBattles(draw: DrawContext, label: string): number {
   return drawInt(draw, label, POSITIVE_TEMPORARY_BATTLE_MIN, POSITIVE_TEMPORARY_BATTLE_MAX);
@@ -1065,26 +1066,31 @@ const BOOST_SITE_TYPE_MULTIPLIER: Readonly<Record<string, number>> = Object.free
 });
 
 function boostSiteCec(siteType: string, percent: number): number {
-  // Baseline pins percent=20 at 75 CEC and grows linearly with percent: at
-  // percent=50 the baseline is 150 CEC. A per-site-type multiplier (see
-  // BOOST_SITE_TYPE_MULTIPLIER) then scales the result up for high-impact
-  // sites and down for weak utility sites.
+  // Baseline pins a three-dreamscape percent=20 window at 75 CEC and grows
+  // linearly with percent: at percent=50 the baseline is 150 CEC. A
+  // per-site-type multiplier (see BOOST_SITE_TYPE_MULTIPLIER) then scales the
+  // result up for high-impact sites and down for weak utility sites.
   const baseline = 75 + (percent - 20) * 2.5;
   const multiplier = BOOST_SITE_TYPE_MULTIPLIER[siteType] ?? 1.0;
   return baseline * multiplier;
 }
 
-type BoostSiteParams = { siteType: string; percent: number };
+type BoostSiteParams = { siteType: string; percent: number; dreamscapes?: number };
 const boostSiteAppearanceChance: Reward<BoostSiteParams> = {
   id: "boost_site_appearance_chance",
   weight: 1.0,
   rollParams: (_ctx, draw) => ({
     siteType: pickFromList(draw, "boost_site:t", JOURNEY_REWARDABLE_SITE_TYPES),
     percent: 10 + 10 * drawInt(draw, "boost_site:p", 0, 4),
+    dreamscapes: BOOST_SITE_DURATION_DREAMSCAPES,
   }),
   cec: (p) => boostSiteCec(p.siteType, p.percent),
   viable: () => true,
-  render: (p) => `${p.percent}% higher chance to see ${p.siteType} sites in future dreamscapes`,
+  render: (p) => {
+    const dreamscapes = p.dreamscapes ?? BOOST_SITE_DURATION_DREAMSCAPES;
+
+    return `${p.percent}% higher chance to see ${p.siteType} sites in the next ${dreamscapes} dreamscape${dreamscapes === 1 ? "" : "s"} you visit`;
+  },
 };
 
 type MetaGain2Params = {
