@@ -1,158 +1,221 @@
-import {
-  compatibleCardOperations,
-  renderChosenCardOperationText,
-  type MaterializedCardOperation,
-} from "../../fillers/cardOperationCatalog.js";
-import { routeEditMenuRewards } from "../../fillers/routeEditCatalog.js";
-import {
-  baneBurdenSlot,
-  chosenCardText,
-  gainEssence,
-  gainOmen,
-  option,
-  symmetryContract,
-  target,
-} from "../../fillers/shared.js";
-import { valueOmenGain } from "../../value.js";
+import type { JourneyOption } from "../../manifest.js";
+import { getReward } from "../../shared/rewards.js";
+import type { Reward, TemplateParams } from "../../shared/types.js";
+import { shuffleDeterministic } from "../../../util/rng.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
-const SHAPE_LABEL = "alter_dreamscapes";
+type RouteRewardId =
+  | "add_site_to_dreamscape"
+  | "add_site_to_next_dreamscape"
+  | "replace_site_type"
+  | "boost_site_appearance_chance";
 
-function companionCardTargetFor(operation: MaterializedCardOperation) {
-  if (operation.targetModes.includes("all_matching")) {
-    const predicate =
-      typeof operation.effect.predicate === "object" &&
-      operation.effect.predicate !== null
-        ? operation.effect.predicate
-        : { source: "deck" };
+type RouteScope = "current_dreamscape" | "next_dreamscape" | "future_dreamscapes";
+type RouteOperationKind = "add_site" | "replace_site" | "probability_adjustment";
 
-    return target("card", "matching cards in deck", predicate, {
-      selection: "predicate",
-      cardOperationTargetMode: "all_matching",
-    });
+type RolledRouteReward = {
+  readonly template: Reward;
+  readonly params: TemplateParams;
+  readonly cec: number;
+  readonly text: string;
+  readonly routeEffect: Record<string, unknown>;
+};
+
+const ROUTE_REWARD_IDS: readonly RouteRewardId[] = [
+  "add_site_to_dreamscape",
+  "add_site_to_next_dreamscape",
+  "replace_site_type",
+  "boost_site_appearance_chance",
+];
+
+function stringParam(params: TemplateParams, key: string): string {
+  const value = params[key];
+
+  if (typeof value !== "string") {
+    throw new Error(`alter_dreamscapes reward params missing string '${key}'`);
   }
 
-  return target(
-    "card",
-    chosenCardText(),
-    { source: "deck" },
-    {
-      selection: "chosen_after_commitment",
-      cardOperationTargetMode: "chosen",
-    },
-  );
+  return value;
+}
+
+function numberParam(params: TemplateParams, key: string): number {
+  const value = params[key];
+
+  if (typeof value !== "number") {
+    throw new Error(`alter_dreamscapes reward params missing number '${key}'`);
+  }
+
+  return value;
+}
+
+function routeTiming(scope: RouteScope): string {
+  switch (scope) {
+    case "current_dreamscape":
+      return "this dreamscape";
+    case "next_dreamscape":
+      return "the next dreamscape";
+    case "future_dreamscapes":
+      return "future dreamscapes";
+  }
+}
+
+function routeEffectPayload(args: {
+  readonly templateId: RouteRewardId;
+  readonly operation: RouteOperationKind;
+  readonly routeScope: RouteScope;
+  readonly siteDeltaValue: number;
+  readonly description: string;
+  readonly siteType?: string;
+  readonly fromSite?: string;
+  readonly toSite?: string;
+  readonly probabilityDeltaPercent?: number;
+}): Record<string, unknown> {
+  return {
+    kind: `route_${args.operation}`,
+    routeOperationKind: args.operation,
+    routeScope: args.routeScope,
+    routePolarity: "positive",
+    siteDeltaValue: args.siteDeltaValue,
+    timing: routeTiming(args.routeScope),
+    source: "shared_reward_template",
+    templateId: args.templateId,
+    description: args.description,
+    ...(args.siteType ? { siteType: args.siteType } : {}),
+    ...(args.fromSite ? { fromSite: args.fromSite } : {}),
+    ...(args.toSite ? { toSite: args.toSite } : {}),
+    ...(args.probabilityDeltaPercent !== undefined
+      ? { probabilityDeltaPercent: args.probabilityDeltaPercent }
+      : {}),
+  };
+}
+
+function routeEffectFor(
+  templateId: RouteRewardId,
+  params: TemplateParams,
+  cec: number,
+  text: string,
+): Record<string, unknown> {
+  switch (templateId) {
+    case "add_site_to_dreamscape": {
+      const siteType = stringParam(params, "siteType");
+
+      return routeEffectPayload({
+        templateId,
+        operation: "add_site",
+        routeScope: "current_dreamscape",
+        siteDeltaValue: cec,
+        siteType,
+        description: text,
+      });
+    }
+
+    case "add_site_to_next_dreamscape": {
+      const siteType = stringParam(params, "siteType");
+
+      return routeEffectPayload({
+        templateId,
+        operation: "add_site",
+        routeScope: "next_dreamscape",
+        siteDeltaValue: cec,
+        siteType,
+        description: text,
+      });
+    }
+
+    case "replace_site_type": {
+      const fromSite = stringParam(params, "fromType");
+      const toSite = stringParam(params, "toType");
+
+      return routeEffectPayload({
+        templateId,
+        operation: "replace_site",
+        routeScope: "current_dreamscape",
+        siteDeltaValue: cec,
+        fromSite,
+        toSite,
+        description: text,
+      });
+    }
+
+    case "boost_site_appearance_chance": {
+      const siteType = stringParam(params, "siteType");
+
+      return routeEffectPayload({
+        templateId,
+        operation: "probability_adjustment",
+        routeScope: "future_dreamscapes",
+        siteDeltaValue: cec,
+        siteType,
+        probabilityDeltaPercent: numberParam(params, "percent"),
+        description: text,
+      });
+    }
+  }
+}
+
+function rollRouteReward(
+  args: ShapeFillArgs,
+  templateId: RouteRewardId,
+  index: number,
+): RolledRouteReward {
+  const template = getReward(templateId);
+  const params = template.rollParams(args.context, {
+    ...args.drawContext,
+    sequenceStep: (args.drawContext.sequenceStep ?? 0) * 10 + index + 1,
+  });
+
+  if (!template.viable(params as never, args.context)) {
+    throw new Error(`alter_dreamscapes reward '${templateId}' is not viable`);
+  }
+
+  const cec = template.cec(params as never, args.context);
+  const text = template.render(params as never, args.context);
+
+  return {
+    template,
+    params,
+    cec,
+    text,
+    routeEffect: routeEffectFor(templateId, params, cec, text),
+  };
+}
+
+function optionFor(number: number, reward: RolledRouteReward): JourneyOption {
+  return {
+    number,
+    symbols: ["route", "dreamscape", "reward"],
+    text: reward.text,
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [reward.routeEffect],
+    costConvertedEssence: 0,
+    effectConvertedEssence: reward.cec,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: reward.cec,
+    pickBehavior: "record_and_generate_next",
+  };
 }
 
 export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
-  const { context, drawContext, stage } = args;
-  const routeMenu = routeEditMenuRewards({
-    drawContext,
-    label: `${SHAPE_LABEL}:routes`,
-  });
-  const routeBane = baneBurdenSlot(
-    drawContext,
-    `${SHAPE_LABEL}:route-bane`,
-    1,
+  const selectedTemplateIds = shuffleDeterministic(
+    args.drawContext,
+    "alter_dreamscapes:route-rewards",
+    ROUTE_REWARD_IDS,
+  ).slice(0, 3);
+  const rewards = selectedTemplateIds.map((templateId, index) =>
+    rollRouteReward(args, templateId, index)
   );
-  // Slot capabilities already encode the deck-side / mutation-consumer
-  // constraints, so we deliberately do NOT pass `targetModes` or `valueBands`
-  // here: that would re-narrow the candidate set and re-introduce the same
-  // gate the topology allow-list used to apply. In particular, all-matching
-  // entries (e.g. `all-event-transfiguration`) and premium entries are
-  // legal companions for this slot and must remain reachable.
-  const companionCardOperation = compatibleCardOperations(drawContext, {
-    slot: {
-      provides: [
-        "single_target",
-        "all_matching_scope",
-        "named_target",
-        "deck_side",
-        "deck_mutation_consumer",
-        "text_or_subtype_mutation_consumer",
-      ],
-    },
-    targetClasses: ["deck_card"],
-    timings: ["immediate"],
-    context,
-    stage,
-    label: `${SHAPE_LABEL}:route-card-operation`,
-    count: 1,
-  })[0]!;
-  const companionCardTarget = companionCardTargetFor(companionCardOperation);
-  const routeOptions = routeMenu.rewards.map((reward, index) => {
-    const effects: unknown[] = [];
-    const targets: unknown[] = [];
-    let text = reward.text;
-    let effect = reward.effect;
-    let burden = 0;
-    let burdens: unknown[] = [];
-
-    if (reward.companion === "small_essence_reward") {
-      const amount = 45;
-
-      text = `${text} Gain ${amount} essence.`;
-      effects.push(gainEssence(amount));
-      effect += amount;
-    } else if (reward.companion === "small_omen_reward") {
-      const amount = 1;
-
-      text = `${text} Gain ${amount} omen.`;
-      effects.push(gainOmen(amount));
-      effect += valueOmenGain(amount);
-    } else if (reward.companion === "bane_burden") {
-      const compensation = Math.max(
-        45,
-        Math.min(
-          90,
-          Math.round(Math.abs(routeBane.burden) * 0.7 / 5) * 5,
-        ),
-      );
-
-      text = `${routeBane.prefix} ${text}`;
-      text = `${text} Gain ${compensation} essence.`;
-      effects.push(gainEssence(compensation));
-      effect += compensation;
-      burdens = routeBane.burdens;
-      burden = routeBane.burden;
-    } else if (reward.companion === "card_operation") {
-      text = `${text} ${renderChosenCardOperationText(companionCardOperation)}`;
-      effects.push(companionCardOperation.effect);
-      targets.push(companionCardTarget);
-      effect += companionCardOperation.value;
-    }
-
-    return option({
-      number: index + 1,
-      text,
-      effects,
-      burdens,
-      targets,
-      routeEffects: [reward.payload],
-      burden,
-      effect,
-      uncertainty: reward.companion === "card_operation"
-        ? companionCardOperation.uncertainty
-        : undefined,
-    });
-  });
+  const options = rewards.map((reward, index) => optionFor(index + 1, reward));
 
   return {
-    options: routeOptions,
+    options,
     precommitted: {
-      routeEdits: routeOptions
-        .flatMap((reward) => reward.routeEffects ?? []),
+      routeEdits: options.flatMap((option) => option.routeEffects),
     },
-    symmetryContracts: [
-      symmetryContract({
-        contractKind: "shared_source_site_destinations",
-        sharedProperty: routeMenu.sharedProperty,
-        variedProperty: "route destination or companion payload",
-        sharedFirst: true,
-        optionNumbers: routeOptions.map((entry) => entry.number),
-        sharedPayloadKeys: [routeMenu.variantId],
-        variedPayloadKeys: routeMenu.rewards.map((reward) => reward.key),
-        weight: 1,
-      }),
-    ],
   };
 }
