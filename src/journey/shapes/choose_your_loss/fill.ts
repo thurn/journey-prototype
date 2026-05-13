@@ -1,78 +1,56 @@
-import { shuffleDeterministic } from "../../../util/rng.js";
-import {
-  baneBurden,
-  baneNameText,
-  cost,
-  option,
-  pickSequentialVariant,
-  renumberOptions,
-} from "../../fillers/shared.js";
 import type { JourneyOption } from "../../manifest.js";
-import { valueBaneBurden, valueOmenLoss } from "../../value.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
-import {
-  CHOOSE_YOUR_LOSS_BANE_COUNTS,
-  chooseYourLossBaneCandidates,
-  comparableEssenceLossAmount,
-} from "./losses.js";
+import { chooseLosses, type RolledLoss } from "./losses.js";
 
-const SHAPE_LABEL = "choose_your_loss";
+type SharedCostLossPayload = {
+  readonly kind: "shared_cost_template";
+  readonly templateId: string;
+  readonly params: unknown;
+  readonly text: string;
+  readonly convertedEssence: number;
+  readonly family: string;
+};
+
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
+function payloadFor(loss: RolledLoss): SharedCostLossPayload {
+  return {
+    kind: "shared_cost_template",
+    templateId: loss.template.id,
+    params: loss.params,
+    text: loss.text,
+    convertedEssence: loss.convertedEssence,
+    family: loss.family,
+  };
+}
+
+function lossOption(number: number, loss: RolledLoss): JourneyOption {
+  return {
+    number,
+    symbols: ["loss", loss.family],
+    text: sentence(loss.text),
+    operations: [],
+    costs: [payloadFor(loss)],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: loss.convertedEssence,
+    effectConvertedEssence: 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: -loss.convertedEssence,
+    pickBehavior: "record_and_generate_next",
+  };
+}
 
 export function chooseYourLossFill(args: ShapeFillArgs): FilledJourney {
-  const { context, drawContext, stage } = args;
-  const includeOmenLoss = context.state.quest.resources.omens >= 1;
-  const baneCount = pickSequentialVariant(
-    drawContext,
-    `${SHAPE_LABEL}:bane-count`,
-    CHOOSE_YOUR_LOSS_BANE_COUNTS[stage],
-  );
-  const baneName = pickSequentialVariant(
-    drawContext,
-    `${SHAPE_LABEL}:bane-name`,
-    chooseYourLossBaneCandidates(baneCount, includeOmenLoss),
-  );
-  const omenLoss = valueOmenLoss(1);
-  const baneLoss = valueBaneBurden({ baneName, count: baneCount });
-  const essenceLoss = comparableEssenceLossAmount(
-    [...(includeOmenLoss ? [omenLoss] : []), baneLoss],
-    context.state.quest.resources.essence,
-  );
-  const options: JourneyOption[] = [];
-
-  if (essenceLoss !== null) {
-    options.push(
-      option({
-        number: options.length + 1,
-        text: `Pay ${essenceLoss} essence.`,
-        costs: [cost("essence", essenceLoss)],
-        cost: essenceLoss,
-      }),
-    );
-  }
-
-  if (includeOmenLoss && baneCount === 1) {
-    options.push(
-      option({
-        number: options.length + 1,
-        text: "Lose 1 omen.",
-        costs: [cost("omens", 1)],
-        cost: Math.abs(omenLoss),
-      }),
-    );
-  }
-
-  options.push(
-    option({
-      number: options.length + 1,
-      text: `Gain ${baneNameText(baneName, baneCount)}.`,
-      burdens: [baneBurden(baneName, baneCount)],
-      burden: baneLoss,
-    }),
-  );
-
   return {
-    options: renumberOptions(
-      shuffleDeterministic(drawContext, `${SHAPE_LABEL}:loss-order`, options),
+    options: chooseLosses(args.context, args.drawContext).map((loss, index) =>
+      lossOption(index + 1, loss)
     ),
     precommitted: {},
   };
