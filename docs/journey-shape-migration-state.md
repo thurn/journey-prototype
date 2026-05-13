@@ -26,8 +26,8 @@ Each queued shape follows this sequence:
 | 12 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 13 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 14 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 15 | `prize_ladder` | 4 | Complete | Complete | In progress | Complete | Current |
-| 16 | `single_reward` | 3 | Pending | Pending | Pending | Pending | Queued |
+| 15 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
+| 16 | `single_reward` | 3 | In progress | Pending | Pending | Pending | Current |
 | 17 | `single_offer` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 18 | `single_rule_trial` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 19 | `risk_or_skip` | 2 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `prize_ladder` is the active shape.
+- `single_reward` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -69,7 +69,7 @@ These shapes are reference implementations for the migration target:
 - `random_pool_draws` completed migration commits `f8a7ebd` and `5466d75`, audit commit `66da12a`, and fix commit `68ef48c`.
 - `resolved_random_series` completed migration commits `9496e74` and `2b4b002`, audit commit `a42356e`, and fix commit `21d11de`.
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
-- `prize_ladder` completed migration commit `9cdf1b7`, and audit commit `ff3505c`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/prize_ladder/`.
+- `prize_ladder` completed migration commit `9cdf1b7`, audit commit `ff3505c`, and fix commit `07b853b`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/single_reward/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
