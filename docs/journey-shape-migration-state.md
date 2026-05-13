@@ -34,7 +34,7 @@ Each queued shape follows this sequence:
 | 20 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 21 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 22 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 23 | `escalating_reward_chain` | 1 | Complete | In progress | Pending | Complete | Current |
+| 23 | `escalating_reward_chain` | 1 | Complete | Complete | In progress | Complete | Current |
 | 24 | `shared_prefix_menu` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 25 | `reward_after_trigger` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 26 | `paired_return` | 1.0 | Pending | Pending | Pending | Pending | Queued |
@@ -77,7 +77,7 @@ These shapes are reference implementations for the migration target:
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `reveal_choice_menu` completed migration commit `b872093`, audit commit `0843b8e`, and fix commit `6ebc12e`.
 - `probability_ladder` completed migration commit `69cdfb7`, audit commit `e5090e8`, and fix commit `adaa912`.
-- `escalating_reward_chain` completed migration commit `216c863`.
+- `escalating_reward_chain` completed migration commit `216c863` and audit commit `e7cf2e8`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/escalating_reward_chain/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
