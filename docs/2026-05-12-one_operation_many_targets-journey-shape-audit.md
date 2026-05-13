@@ -11,54 +11,6 @@ Generated 10 early, 10 mid, and 10 late journeys with `--debug --show-deck`.
 
 ## Findings
 
-### Named Target Choices Need Target-Aware Value
-
-Severity: high
-
-Seeds:
-
-- `audit:one_operation_many_targets:mid:08`
-- `audit:one_operation_many_targets:mid:09`
-- `audit:one_operation_many_targets:late:01`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:mid:08 --stage mid --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* card Choose a starter card to transform into 'Key to the Moment'`
-2. `* card Choose a starter card to transform into 'Tidecaller'`
-3. `* card Choose a starter card to transform into 'Vesper Outsider'`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:mid:09 --stage mid --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* card Choose a starter card to transform into 'Avatar of Oblivion'`
-2. `* card Choose a starter card to transform into 'Warfield Stalwart'`
-3. `* card Choose a starter card to transform into 'Field Reverent'`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:late:01 --stage late --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* card Transform 'Veinwalker' into 'Shadow March'`
-2. `* card Transform 'Veinwalker' into 'Ferryman of the Falls'`
-3. `* card Transform 'Veinwalker' into 'Whisper of the Past'`
-
-Issue:
-
-The shape's only decision axis is the target, but named-card templates score all named targets with the same converted essence. `mid:09` assigns +32 converted essence to three different starter transformations, while `late:01` assigns +40 converted essence to three different transformations from the same source card. Players evaluate these as card-specific power and synergy choices, so equal value accounting can produce fake choices when one target is broadly stronger or much more relevant to the current deck.
-
-Recommendation:
-
-Give named-card target templates a target-aware value function. Use card metadata, rarity, cost, keyword density, predicate matches, and deck synergy to filter and score candidate targets before the three options are selected. For high-variance catalog transformations, constrain all three targets to the same value band or attach an explicit cost/risk to stronger targets.
-
 ### Late Offers Include Low-Impact Maintenance Rewards
 
 Severity: medium
@@ -202,43 +154,6 @@ Every sampled option begins with a symbol label such as `card`, `dreamwell`, or 
 Recommendation:
 
 Render symbols separately from the option sentence in the CLI output. The sentence should begin with the player action: `Add Reclaim 2 to 'Wellspring'`, `Shuffle 3 'Wellspring' copies into your dreamwell`, or `Gain a copy of 'Skull Codex'`.
-
-### Route Options Render an Orphan Marker
-
-Severity: low
-
-Seeds:
-
-- `audit:one_operation_many_targets:mid:02`
-- `audit:one_operation_many_targets:mid:06`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:mid:02 --stage mid --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* > Add a Specialty Shop site to this dreamscape`
-2. `* > Add a Transfiguration site to this dreamscape`
-3. `* > Add a Shop site to this dreamscape`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:mid:06 --stage mid --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* > Replace a Dream Journey site in this dreamscape with a Duplication site`
-2. `* > Replace a Dream Journey site in this dreamscape with a Specialty Shop site`
-3. `* > Replace a Dream Journey site in this dreamscape with a Purge site`
-
-Issue:
-
-Route-edit rewards display `* >` before the action sentence. The `>` marker does not read as project vocabulary, and players must infer that it means a route or site operation. `Dream Journey site` also looks like a product/system label rather than a site type in the dreamscape.
-
-Recommendation:
-
-Render route symbols through the same symbol presentation used for card, dreamwell, and Dreamsign rewards. Keep the option text focused on the action and site type, and prefer site names that read as in-world destination types.
 
 ### Singular Count Grammar Needs Template Handling
 
