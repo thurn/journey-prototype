@@ -1,55 +1,196 @@
-import { drawInt } from "../../../util/rng.js";
+import { drawInt, shuffleDeterministic } from "../../../util/rng.js";
 import type {
   JourneyOption,
+  JourneyStage,
   RandomPrecommittedOutcome,
+  RandomVisibilityPolicy,
 } from "../../manifest.js";
-import {
-  averageValue,
-  flattenPayloads,
-  randomVisibility,
-  revealCount,
-  revealPoolSize,
-  type RandomPoolCandidate,
-  visibleWheelPool,
-  worstCaseBurden,
-} from "../../fillers/randomPayloads.js";
-import { gainOmen, lowerFirst, option } from "../../fillers/shared.js";
-import { valueOmenGain } from "../../value.js";
+import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import { BANE_NAMES } from "../../shared/content.js";
+import { getReward } from "../../shared/rewards.js";
+import type { TemplateParams } from "../../shared/types.js";
+import { valueBaneBurden, valueOmenGain } from "../../value.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
-import { revealBurdenProfile } from "./payloads.js";
 
 const SHAPE_LABEL = "reveal_choice_menu";
+const REWARD_IDS = [
+  "gain_essence",
+  "gain_omens",
+  "increase_max_essence",
+  "next_X_shop_rerolls_free",
+  "shop_essence_discount",
+  "add_site_to_next_dreamscape",
+] as const;
 
-function candidateText(candidate: RandomPoolCandidate): string {
-  return lowerFirst(candidate.text).replace(/\.$/u, "");
+type RevealRewardId = (typeof REWARD_IDS)[number];
+
+type PoolCandidate = {
+  readonly key: string;
+  readonly text: string;
+  readonly payloads: readonly Record<string, unknown>[];
+  readonly value: number;
+};
+
+function poolSize(stage: JourneyStage): number {
+  return stage === "early" ? 4 : 5;
 }
 
-function poolSummary(candidates: readonly RandomPoolCandidate[]): string {
+function revealCount(stage: JourneyStage, candidateCount: number): number {
+  const count = stage === "late" ? 3 : 2;
+
+  return Math.min(count, candidateCount);
+}
+
+function randomVisibility(
+  outcomeVisibility: RandomVisibilityPolicy["outcomeVisibility"],
+  disclosure: string,
+  playerVisible: boolean,
+  revealTiming?: string,
+): RandomVisibilityPolicy {
+  return {
+    outcomeVisibility,
+    disclosure,
+    playerVisible,
+    ...(revealTiming ? { revealTiming } : {}),
+  };
+}
+
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function stripTerminalPeriod(text: string): string {
+  return text.replace(/\.$/u, "");
+}
+
+function averageValue(candidates: readonly PoolCandidate[]): number {
+  return Math.round(
+    candidates.reduce((total, candidate) => total + candidate.value, 0) /
+      Math.max(1, candidates.length),
+  );
+}
+
+function flattenPayloads(candidates: readonly PoolCandidate[]): Record<string, unknown>[] {
+  return candidates.flatMap((candidate) => [...candidate.payloads]);
+}
+
+function materializeReward(args: ShapeFillArgs, templateId: RevealRewardId): PoolCandidate {
+  const template = getReward(templateId);
+  const params = template.rollParams(args.context, {
+    ...args.drawContext,
+    selectionAttempt:
+      (args.drawContext.selectionAttempt ?? 0) * 100 + templateId.length,
+  }) as TemplateParams;
+
+  if (!template.viable(params as never, args.context)) {
+    throw new Error(`${SHAPE_LABEL} reward ${templateId} is not viable`);
+  }
+
+  const text = template.render(params as never, args.context);
+  const value = template.cec(params as never, args.context);
+
+  return {
+    key: templateId,
+    text,
+    value,
+    payloads: [
+      {
+        kind: "shared_reward_template",
+        templateId,
+        params,
+        text,
+        convertedEssence: value,
+      },
+    ],
+  };
+}
+
+function rewardPool(args: ShapeFillArgs): readonly PoolCandidate[] {
+  return shuffleDeterministic(
+    args.drawContext,
+    `${SHAPE_LABEL}:reward-order`,
+    REWARD_IDS,
+  )
+    .slice(0, poolSize(args.stage))
+    .map((templateId) => materializeReward(args, templateId));
+}
+
+function candidateText(candidate: PoolCandidate): string {
+  return stripTerminalPeriod(lowerFirst(candidate.text));
+}
+
+function poolSummary(candidates: readonly PoolCandidate[]): string {
   return `Visible reward pool: ${candidates.map(candidateText).join("; ")}.`;
+}
+
+function worstCaseBurden(): number {
+  return 0;
+}
+
+function revealBurdenProfile(args: ShapeFillArgs) {
+  const baneName = BANE_NAMES[
+    drawInt(args.drawContext, `${SHAPE_LABEL}:reveal-burden-name`, 0, BANE_NAMES.length - 1)
+  ]!;
+  const count = 1;
+
+  return {
+    text: `gain ${count} {${baneName}}`,
+    payload: {
+      kind: "bane_gain",
+      baneName,
+      count,
+      timing: "immediate",
+      source: SHAPE_LABEL,
+    },
+    value: valueBaneBurden({ baneName, count }),
+  };
+}
+
+function option(args: {
+  readonly number: number;
+  readonly text: string;
+  readonly effects?: readonly unknown[];
+  readonly burdens?: readonly unknown[];
+  readonly effect?: number;
+  readonly burden?: number;
+  readonly uncertainty?: number;
+}): JourneyOption {
+  const effectConvertedEssence = args.effect ?? 0;
+  const burdenConvertedEssence = args.burden ?? 0;
+  const uncertaintyConvertedEssence = args.uncertainty ?? 0;
+  const built = {
+    number: args.number,
+    symbols: [],
+    text: args.text,
+    operations: [],
+    costs: [],
+    effects: [...(args.effects ?? [])],
+    burdens: [...(args.burdens ?? [])],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 0,
+    effectConvertedEssence,
+    burdenConvertedEssence,
+    uncertaintyConvertedEssence,
+    netConvertedEssence:
+      effectConvertedEssence + burdenConvertedEssence + uncertaintyConvertedEssence,
+    pickBehavior: "record_and_generate_next" as const,
+  };
+
+  return {
+    ...built,
+    operations: adaptJourneyOptionOperations(built),
+  };
 }
 
 function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
   options: JourneyOption[];
   precommitted: RandomPrecommittedOutcome[];
 } {
-  const poolSize = revealPoolSize(args.drawContext, args.label, args.stage);
-  const wheel = visibleWheelPool({
-    context: args.context,
-    drawContext: args.drawContext,
-    label: args.label,
-    stage: args.stage,
-    size: poolSize + 2,
-  });
-  const candidates = wheel.candidates
-    .filter((candidate) => candidate.family !== "burden")
-    .slice(0, poolSize);
+  const candidates = rewardPool(args);
   const poolId = `${args.label}:visible-wheel`;
-  const revealCountValue = revealCount({
-    drawContext: args.drawContext,
-    label: args.label,
-    stage: args.stage,
-    candidateCount: candidates.length,
-  });
+  const revealCountValue = revealCount(args.stage, candidates.length);
   const allPayloads = flattenPayloads(candidates);
   const revealedCandidates = candidates.slice(0, revealCountValue);
   const revealed = flattenPayloads(revealedCandidates);
@@ -59,31 +200,37 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
     0,
     candidates.length - 1,
   );
-  const revealedText = candidates
-    .slice(0, revealCountValue)
-    .map(candidateText)
-    .join("; ");
+  const revealedText = revealedCandidates.map(candidateText).join("; ");
   const randomRevealed = candidates.reduce((best, candidate) =>
     candidate.value > best.value ? candidate : best,
   candidates[0]!);
   const hiddenReward = candidates[hiddenIndex]!;
-  const randomRevealBurden = revealBurdenProfile({
-    drawContext: args.drawContext,
-    label: args.label,
-    stage: args.stage,
-  });
-  const optionTwoOmenBonus = args.stage === "early" ? 2 : 1;
-  const optionTwoOmenPayload = gainOmen(optionTwoOmenBonus);
+  const randomRevealBurden = revealBurdenProfile(args);
+  const optionTwoOmenBonus: number = 2;
+  const optionTwoOmenPayload = {
+    kind: "gain_omens",
+    amount: optionTwoOmenBonus,
+    timing: "immediate",
+  };
   const optionTwoOmenValue = valueOmenGain(optionTwoOmenBonus);
   const optionTwoOmenText =
     `${optionTwoOmenBonus} ${optionTwoOmenBonus === 1 ? "omen" : "omens"}`;
   const visiblePoolSummary = poolSummary(candidates);
   const visiblePoolEnvelope = {
-    ...wheel.visiblePoolEnvelope,
+    kind: "visible_pool",
+    poolId,
     summary: visiblePoolSummary,
     rewards: allPayloads,
+    replacement: "with_replacement",
+    visibilityPolicy: randomVisibility(
+      "visible",
+      "The full reward pool and replacement policy are visible before choosing.",
+      true,
+    ),
     expectedConvertedEssence: averageValue(candidates),
-    worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+    riskPremiumConvertedEssence: -8,
+    worstCaseBurdenConvertedEssence: worstCaseBurden(),
+    presentation: "visible_shared_reward_pool",
   } satisfies RandomPrecommittedOutcome;
 
   return {
@@ -139,7 +286,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
         ),
         expectedConvertedEssence: averageValue(revealedCandidates),
         riskPremiumConvertedEssence: -5,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(),
         presentation: "reveal_choice_menu_reveal",
       },
       {
@@ -156,7 +303,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
           ...revealedCandidates.map((candidate) => candidate.value),
         ),
         riskPremiumConvertedEssence: 0,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(),
         presentation: "reveal_choice_menu_choose_revealed",
       },
       {
@@ -172,7 +319,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
         ),
         expectedConvertedEssence: averageValue(candidates) + optionTwoOmenValue,
         riskPremiumConvertedEssence: -10,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(),
         presentation: "reveal_choice_menu_choose_random_revealed",
       },
       {
@@ -189,7 +336,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
         ),
         expectedConvertedEssence: averageValue(candidates),
         riskPremiumConvertedEssence: -14,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        worstCaseBurdenConvertedEssence: worstCaseBurden(),
         presentation: "reveal_choice_menu_gain_random_reward",
       },
     ],

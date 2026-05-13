@@ -109,7 +109,7 @@ the target end state.
 | `probability_ladder` | Complete | Complete |
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
-| `reveal_choice_menu` | Needed | Needed |
+| `reveal_choice_menu` | Complete | Complete |
 | `resolved_random_series` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
 | `risk_or_skip` | Needed | Needed |
