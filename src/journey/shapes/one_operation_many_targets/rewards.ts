@@ -1,8 +1,8 @@
 // src/journey/shapes/one_operation_many_targets/rewards.ts
-import { drawInt, type DrawContext } from "../../../util/rng.js";
+import { drawInt, shuffleDeterministic, type DrawContext } from "../../../util/rng.js";
 import type { CardContent, DreamsignContent } from "../../../content/model.js";
 import type { JourneyContext } from "../../../quest/context.js";
-import type { JourneyOperation, TargetSelector } from "../../manifest.js";
+import type { JourneyOperation, JourneyStage, TargetSelector } from "../../manifest.js";
 import { CARD_CEC, STAGE_MULTIPLIER, cardPoolCEC } from "../../shared/cec.js";
 import {
   JOURNEY_REPLACEABLE_SITE_TYPES,
@@ -64,6 +64,60 @@ function boostSiteCec(siteType: string, percent: number): number {
   const multiplier = BOOST_SITE_TYPE_MULTIPLIER[siteType] ?? 1.0;
   return baseline * multiplier;
 }
+
+type MetaRewardPair = {
+  readonly cardId: string;
+  readonly cardName: string;
+  readonly dreamsignId: string;
+  readonly dreamsignName: string;
+};
+
+type MetaRewardPairParams = {
+  readonly pairs: readonly MetaRewardPair[];
+};
+
+function stageCardGainPool(ctx: JourneyContext, stage: JourneyStage): readonly CardContent[] {
+  const cards = namedCardGainPool(ctx);
+  const preferredRarities = stage === "early"
+    ? new Set(["Common", "Uncommon"])
+    : stage === "mid"
+      ? new Set(["Uncommon", "Rare"])
+      : new Set(["Rare", "Legendary"]);
+  const preferred = cards.filter((card) => preferredRarities.has(card.rarity));
+
+  return preferred.length >= 3 ? preferred : cards;
+}
+
+function pairedMetaRewardTargets(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  stage: JourneyStage,
+): readonly MetaRewardPair[] {
+  const cards = shuffleDeterministic(
+    draw,
+    `oomt_meta_gain_2_rewards:${stage}:cards`,
+    stageCardGainPool(ctx, stage),
+  );
+  const dreamsigns = shuffleDeterministic(
+    draw,
+    `oomt_meta_gain_2_rewards:${stage}:dreamsigns`,
+    dreamsignMatches(ctx),
+  );
+  const pairCount = Math.min(cards.length, dreamsigns.length);
+
+  return Array.from({ length: pairCount }, (_entry, index) => {
+    const card = cards[index]!;
+    const dreamsign = dreamsigns[index]!;
+
+    return {
+      cardId: card.id,
+      cardName: card.name,
+      dreamsignId: dreamsign.id,
+      dreamsignName: dreamsign.name,
+    };
+  });
+}
+
 export type TargetedRewardTarget = {
   readonly key: string;
   readonly text: string;
@@ -75,7 +129,8 @@ export type OneOperationManyTargetsReward<P extends TemplateParams = TemplatePar
   readonly rewardTypeId: string;
   readonly targetKind: string;
   readonly symbols: readonly string[];
-  readonly rollParams: (ctx: JourneyContext, draw: DrawContext) => P;
+  readonly stages?: readonly JourneyStage[];
+  readonly rollParams: (ctx: JourneyContext, draw: DrawContext, stage: JourneyStage) => P;
   readonly operationKey: (params: P) => string;
   readonly targets: (params: P, ctx: JourneyContext) => readonly TargetedRewardTarget[];
   readonly cec: (params: P, target: TargetedRewardTarget, ctx: JourneyContext) => number;
@@ -356,6 +411,7 @@ const targetApplyNamedTransfiguration: OneOperationManyTargetsReward<ApplyTransf
   rewardTypeId: "apply_named_transfiguration_to_card_name",
   targetKind: "visible_named_card_target",
   symbols: ["reward", "card"],
+  stages: ["early", "mid"],
   rollParams: (ctx, draw) => {
     const deckCards = cardMatches(ctx, { source: "deck" });
     const viableTransfigurations = JOURNEY_TRANSFIGURATIONS.filter((transfiguration) =>
@@ -419,6 +475,7 @@ const targetOpeningHand: OneOperationManyTargetsReward<BattleWindowParams> = {
   rewardTypeId: "opening_hand_grant_for_X_battles",
   targetKind: "visible_named_card_target",
   symbols: ["reward", "card"],
+  stages: ["early", "mid"],
   rollParams: (_ctx, draw) => ({ battles: rollPositiveTemporaryBattles(draw, "oomt_opening_hand:b") }),
   operationKey: (p) => `opening_hand:${p.battles}`,
   targets: (_p, ctx) => cardMatches(ctx, { source: "deck" }).map((card) => cardTarget(card, "deck")),
@@ -716,11 +773,13 @@ const targetModifyRandomCardsToTypes: OneOperationManyTargetsReward<CountParams>
   rewardTypeId: "modify_random_cards_to_types",
   targetKind: "card_type",
   symbols: ["reward", "card"],
+  stages: ["early", "mid"],
   rollParams: (_ctx, draw) => ({ count: drawInt(draw, "oomt_modify_random_types:n", 1, 3) }),
   operationKey: (p) => `modify_random_cards_to_types:${p.count}`,
   targets: () => CARD_TYPE_PREDICATE_IDS.map((predicateId) => cardTypeTarget(predicateId)),
   cec: (p) => CARD_CEC * 0.5 * p.count,
-  render: (p, target) => `Modify ${p.count} random cards to become ${target.text}`,
+  render: (p, target) =>
+    `Modify ${p.count} random card${p.count === 1 ? "" : "s"} to become ${target.text}`,
   operations: (p, target, args) => rewardOperations({
     ...args,
     target,
@@ -1385,39 +1444,29 @@ const targetReplaceSiteType: OneOperationManyTargetsReward<{ fromType: string }>
   },
 };
 
-const targetMetaGain2Rewards: OneOperationManyTargetsReward<EmptyParams> = {
+const targetMetaGain2Rewards: OneOperationManyTargetsReward<MetaRewardPairParams> = {
   id: "target_meta_gain_2_rewards",
   rewardTypeId: "meta_gain_2_rewards",
   targetKind: "sub_reward_templates",
   symbols: ["reward"],
-  rollParams: () => ({}),
+  rollParams: (ctx, draw, stage) => ({ pairs: pairedMetaRewardTargets(ctx, draw, stage) }),
   operationKey: () => "meta_gain_2_rewards",
-  targets: (_p, ctx) => {
-    const cards = namedCardGainPool(ctx).slice(0, 3);
-    const dreamsigns = dreamsignMatches(ctx).slice(0, 3);
-    return [0, 1, 2].flatMap((index) => {
-      const card = cards[index];
-      const dreamsign = dreamsigns[index];
-      if (!card || !dreamsign) {
-        return [];
-      }
-      return [
-        vocabularyTarget(
-          "meta_reward_pair",
-          `${card.id}:${dreamsign.id}`,
-          `${quoteName(card.name)} and ${quoteName(dreamsign.name)}`,
-          {
-            selectorKind: "status",
-            selection: "exact",
-            referenceKind: "controlled_vocabulary",
-            scope: "reward",
-            statusName: `${card.name} / ${dreamsign.name}`,
-            description: `${quoteName(card.name)} and ${quoteName(dreamsign.name)}`,
-          },
-        ),
-      ];
-    });
-  },
+  targets: (p) =>
+    p.pairs.map((pair) =>
+      vocabularyTarget(
+        "meta_reward_pair",
+        `${pair.cardId}:${pair.dreamsignId}`,
+        `${quoteName(pair.cardName)} and ${quoteName(pair.dreamsignName)}`,
+        {
+          selectorKind: "status",
+          selection: "exact",
+          referenceKind: "controlled_vocabulary",
+          scope: "reward",
+          statusName: `${pair.cardName} / ${pair.dreamsignName}`,
+          description: `${quoteName(pair.cardName)} and ${quoteName(pair.dreamsignName)}`,
+        },
+      ),
+    ),
   cec: () => CARD_CEC * STAGE_MULTIPLIER + DREAMSIGN_CEC,
   render: (_p, target) => {
     const [, cardId, dreamsignId] = String(target.key).split(":");
@@ -1433,7 +1482,7 @@ const targetMetaGain2Rewards: OneOperationManyTargetsReward<EmptyParams> = {
     ...args,
     target,
     templateId: targetMetaGain2Rewards.id,
-    operationKey: targetMetaGain2Rewards.operationKey({}),
+    operationKey: targetMetaGain2Rewards.operationKey(_p),
     rewardKind: "unknown",
     payload: {
       rewardTypeId: "meta_gain_2_rewards",

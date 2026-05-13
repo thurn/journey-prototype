@@ -6,20 +6,16 @@ Generated 10 early, 10 mid, and 10 late journeys with `--debug --show-deck`.
 
 - Shape: `one_operation_many_targets`
 - Stages: early, mid, late
-- Seeds: `audit:one_operation_many_targets:<stage>:01` through `audit:one_operation_many_targets:<stage>:10`
+- Audit seeds: `audit:one_operation_many_targets:<stage>:01` through `audit:one_operation_many_targets:<stage>:10`
 - Command template: `npm run journey -- --seed audit:one_operation_many_targets:<stage>:NN --stage <stage> --shape one_operation_many_targets --debug --show-deck --no-color`
 
-## Findings
+## Current Verification
 
-### Late Offers Include Low-Impact Maintenance Rewards
+### Late Offers Use Stage-Appropriate Value
 
-Severity: medium
+Status: verified
 
-Seeds:
-
-- `audit:one_operation_many_targets:late:02`
-- `audit:one_operation_many_targets:late:04`
-- `audit:one_operation_many_targets:late:09`
+Seed: `audit:one_operation_many_targets:late:02`
 
 Replay:
 
@@ -27,47 +23,17 @@ Replay:
 
 Generated options:
 
-1. `* card Modify 1 random cards to become Survivors`
-2. `* card Modify 1 random cards to become Spirit Animals`
-3. `* card Modify 1 random cards to become Warriors`
+1. `* Transform up to 2 chosen Survivors into random Survivors`
+2. `* Transform up to 2 chosen cards with spark 4 or more into random cards with spark 4 or more`
+3. `* Transform up to 2 chosen cards with cost 4 or more into random cards with cost 4 or more`
 
-Replay:
+Observation:
 
-`npm run journey -- --seed audit:one_operation_many_targets:late:04 --stage late --shape one_operation_many_targets --debug --show-deck --no-color`
+Late-stage forced-shape offers use reward templates with at least 60 converted essence available across their targets. Single-target maintenance templates are stage-scoped to early and mid offers.
 
-Generated options:
+### Compound Reward Pairs Vary By Seed And Stage
 
-1. `* card Your opening hand contains 'Nomad of Endless Paths' for the next 3 battles`
-2. `* card Your opening hand contains 'Tidecaller' for the next 3 battles`
-3. `* card Your opening hand contains 'Fleeting Reunion' for the next 3 battles`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:late:09 --stage late --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* card Apply Viridian to 'Fragments of Vision'`
-2. `* card Apply Viridian to 'Fathomscourge'`
-3. `* card Apply Viridian to 'Key Sifter'`
-
-Issue:
-
-Late-stage one-operation menus can be narrow maintenance rewards. In a 35-card late deck at 400/500 essence, modifying one random card's type, applying one transfiguration, or guaranteeing one card for three battles often reads like tuning rather than a late Journey reward. The debug values for these examples are +20, +36, and +32 converted essence, which is far below late Dreamsign-copy rewards sampled in the same audit at +240 converted essence.
-
-Recommendation:
-
-Stage-gate or scale low-impact templates. Late versions should increase count, apply to chosen rather than random targets, affect all matching targets, add a second reward, or be limited to cards with high deck relevance. Keep single-card maintenance templates primarily in early and mid stages unless the target is proven important in the shown deck context.
-
-### Compound Reward Pairs Repeat Across Stages
-
-Severity: medium
-
-Seeds:
-
-- `audit:one_operation_many_targets:early:09`
-- `audit:one_operation_many_targets:mid:10`
-- `audit:one_operation_many_targets:late:05`
+Status: verified
 
 Replay:
 
@@ -75,9 +41,9 @@ Replay:
 
 Generated options:
 
-1. `* Gain 'Beacon of Tomorrow'. Gain 'Amanita'`
-2. `* Gain 'Titan of Forgotten Echoes'. Gain 'Algae'`
-3. `* Gain 'Scrap Reclaimer'. Gain 'Amber Eye'`
+1. `* Gain 'Nightmare Manifest'. Gain 'Flower Petals'`
+2. `* Gain 'Looming Oracle'. Gain 'White Rat'`
+3. `* Gain 'Ridge Vortex Explorer'. Gain 'Pyramid Relic'`
 
 Replay:
 
@@ -85,9 +51,9 @@ Replay:
 
 Generated options:
 
-1. `* Gain 'Titan of Forgotten Echoes'. Gain 'Algae'`
-2. `* Gain 'Beacon of Tomorrow'. Gain 'Amanita'`
-3. `* Gain 'Scrap Reclaimer'. Gain 'Amber Eye'`
+1. `* Gain 'Celestial Reverie'. Gain 'Black Horn'`
+2. `* Gain 'Fell the Mighty'. Gain 'Eyeball Plant'`
+3. `* Gain 'Curio Dealer'. Gain 'Red Shard'`
 
 Replay:
 
@@ -95,27 +61,17 @@ Replay:
 
 Generated options:
 
-1. `* Gain 'Beacon of Tomorrow'. Gain 'Amanita'`
-2. `* Gain 'Scrap Reclaimer'. Gain 'Amber Eye'`
-3. `* Gain 'Titan of Forgotten Echoes'. Gain 'Algae'`
+1. `* Gain 'Infernal Cavalier'. Gain 'Charm Staff'`
+2. `* Gain 'Vortex Claimant'. Gain 'Purple Crystal'`
+3. `* Gain 'Scrapyard Custodian'. Gain 'Gold Feather'`
 
-Issue:
+Observation:
 
-The same three card-plus-Dreamsign pairs recur in early, mid, and late samples. Only the option order changes. The offer feels stale when the same template appears again because the pair pool appears anchored to the first catalog entries rather than the quest, deck, stage, or seed.
+Compound card-plus-Dreamsign targets come from seeded card and Dreamsign pools. Card pools prefer stage-appropriate rarity bands before pairing.
 
-Recommendation:
+### Human Output Uses Player-Facing Glyphs
 
-Build compound reward pairs from a seeded, context-aware pool. Shuffle eligible cards and Dreamsigns before pairing, prefer stage-appropriate card bands, and use active Dreamsigns, deck predicates, or quest tags to increase relevance. Avoid presenting the same fixed three pairs as the full target space for this shape.
-
-### Player-Facing Lines Expose Symbol Labels
-
-Severity: medium
-
-Seeds:
-
-- `audit:one_operation_many_targets:early:01`
-- `audit:one_operation_many_targets:early:02`
-- `audit:one_operation_many_targets:late:06`
+Status: verified
 
 Replay:
 
@@ -123,68 +79,45 @@ Replay:
 
 Generated options:
 
-1. `* card Add Reclaim 2 to 'Wellspring'`
-2. `* card Add Reclaim 2 to 'Warfield Stalwart'`
-3. `* card Add Reclaim 2 to 'Crimson Pilgrimage'`
+1. `* Add Reclaim 2 to 'Wellspring'`
+2. `* Add Reclaim 2 to 'Warfield Stalwart'`
+3. `* Add Reclaim 2 to 'Crimson Pilgrimage'`
 
 Replay:
 
-`npm run journey -- --seed audit:one_operation_many_targets:early:02 --stage early --shape one_operation_many_targets --debug --show-deck --no-color`
+`npm run journey -- --seed audit:one_operation_many_targets:mid:02 --stage mid --shape one_operation_many_targets --no-color`
 
 Generated options:
 
-1. `* dreamwell Shuffle 3 'Wellspring' copies into your dreamwell`
-2. `* dreamwell Shuffle 3 'Echo of Dawn' copies into your dreamwell`
-3. `* dreamwell Shuffle 3 'Lantern' copies into your dreamwell`
+1. `> Add a Specialty Shop site to this dreamscape`
+2. `> Add a Transfiguration site to this dreamscape`
+3. `> Add a Shop site to this dreamscape`
+
+Observation:
+
+Human output renders player-facing glyphs before the action sentence. Structured symbols remain available in JSON output.
+
+### Singular Count Grammar Is Count-Aware
+
+Status: verified
 
 Replay:
 
-`npm run journey -- --seed audit:one_operation_many_targets:late:06 --stage late --shape one_operation_many_targets --debug --show-deck --no-color`
+`npm run journey -- --seed audit:one_operation_many_targets:grammar:18 --stage early --shape one_operation_many_targets --no-color`
 
 Generated options:
 
-1. `* dreamsign Gain a copy of 'Skull Codex'`
-2. `* dreamsign Gain a copy of 'Skull Pendant'`
-3. `* dreamsign Gain a copy of 'Spice Blossoms'`
+1. `* Modify 1 random card to become Survivors`
+2. `* Modify 1 random card to become Warriors`
+3. `* Modify 1 random card to become Spirit Animals`
 
-Issue:
+Observation:
 
-Every sampled option begins with a symbol label such as `card`, `dreamwell`, or `dreamsign`. These labels read like internal tags placed before the action sentence. They also make otherwise clean reward text harder to scan in a direct menu.
-
-Recommendation:
-
-Render symbols separately from the option sentence in the CLI output. The sentence should begin with the player action: `Add Reclaim 2 to 'Wellspring'`, `Shuffle 3 'Wellspring' copies into your dreamwell`, or `Gain a copy of 'Skull Codex'`.
-
-### Singular Count Grammar Needs Template Handling
-
-Severity: low
-
-Seed: `audit:one_operation_many_targets:late:02`
-
-Stage: `late`
-
-Replay:
-
-`npm run journey -- --seed audit:one_operation_many_targets:late:02 --stage late --shape one_operation_many_targets --debug --show-deck --no-color`
-
-Generated options:
-
-1. `* card Modify 1 random cards to become Survivors`
-2. `* card Modify 1 random cards to become Spirit Animals`
-3. `* card Modify 1 random cards to become Warriors`
-
-Issue:
-
-The template uses plural `cards` when the count is 1. This is a small grammar issue, but it is prominent because all three options repeat the same phrase.
-
-Recommendation:
-
-Use count-aware noun rendering for `modify_random_cards_to_types`: `Modify 1 random card...` and `Modify N random cards...`.
+The random card type-change template renders singular and plural card nouns from the selected count.
 
 ## Passing Observations
 
-- All 30 forced-shape generations completed successfully.
-- Each sampled offer produced exactly three root options.
-- Debug metadata recorded a `shared_axis_rotated_attribute` symmetry contract for every sample.
-- Target selectors resolved to concrete cards, Dreamsigns, predicates, dreamwell cards, or site types with structured target metadata.
-- Early dreamwell and starter-cleanup samples were coherent for early-stage deck shaping.
+- Forced-shape replay commands complete successfully.
+- Each sampled offer produces exactly three root options.
+- Debug metadata records a `shared_axis_rotated_attribute` symmetry contract for each sampled offer.
+- Target selectors resolve to concrete cards, Dreamsigns, predicates, dreamwell cards, or site types with structured target metadata.

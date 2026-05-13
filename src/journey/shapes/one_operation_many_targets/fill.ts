@@ -15,6 +15,18 @@ type Candidate = {
   readonly targets: readonly TargetedRewardTarget[];
 };
 
+const LATE_MIN_EFFECT_CEC = 60;
+
+function hasLateStageValue(candidate: Candidate, args: ShapeFillArgs): boolean {
+  if (args.stage !== "late") {
+    return true;
+  }
+
+  return candidate.targets.some((target) =>
+    candidate.template.cec(candidate.params, target, args.context) >= LATE_MIN_EFFECT_CEC
+  );
+}
+
 function optionFor(
   number: number,
   template: OneOperationManyTargetsReward,
@@ -63,11 +75,17 @@ function symmetryContract(
 
 export function oneOperationManyTargetsFill(args: ShapeFillArgs): FilledJourney {
   const candidates: Candidate[] = ONE_OPERATION_MANY_TARGETS_REWARDS.flatMap((template) => {
-    const params = template.rollParams(args.context, args.drawContext);
+    if (template.stages !== undefined && !template.stages.includes(args.stage)) {
+      return [];
+    }
+
+    const params = template.rollParams(args.context, args.drawContext, args.stage);
     const targets = template.targets(params, args.context);
 
-    return targets.length >= 3
-      ? [{ template, params, targets }]
+    const candidate = { template, params, targets };
+
+    return targets.length >= 3 && hasLateStageValue(candidate, args)
+      ? [candidate]
       : [];
   });
 

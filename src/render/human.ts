@@ -65,8 +65,13 @@ function journeyResourceLine(state: JourneyState, manifest: JourneyManifest, opt
 }
 
 function displaySymbols(option: JourneyOption): string {
-  return option.symbols
-    .map((symbol) => SYMBOL_GLYPHS[symbol] ?? symbol)
+  const symbols = option.symbols.filter((symbol) => symbol in SYMBOL_GLYPHS);
+  const visibleSymbols = symbols.includes("route")
+    ? symbols.filter((symbol) => symbol !== "reward")
+    : symbols;
+
+  return visibleSymbols
+    .map((symbol) => SYMBOL_GLYPHS[symbol]!)
     .slice(0, 2)
     .join(" ");
 }

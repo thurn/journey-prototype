@@ -266,6 +266,36 @@ describe("review feedback regressions", () => {
     expect(output).not.toContain("Precommitted outcomes:");
   });
 
+  it("renders only player-facing glyph symbols before option text", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      options: [
+        {
+          ...fixtureManifest().options[0]!,
+          symbols: ["reward", "card"],
+          text: "Add Reclaim 2 to 'Wellspring'",
+        },
+        {
+          ...fixtureManifest().options[0]!,
+          number: 2,
+          symbols: ["reward", "route"],
+          text: "Add a Shop site to this dreamscape",
+        },
+      ],
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: false,
+      color: false,
+    });
+
+    expect(output).toContain("1. * Add Reclaim 2 to 'Wellspring'");
+    expect(output).toContain("2. > Add a Shop site to this dreamscape");
+    expect(output).not.toContain("* card");
+    expect(output).not.toContain("* >");
+  });
+
   it("renders state history effect simulation in human-readable text", () => {
     const state = fixtureState();
 
