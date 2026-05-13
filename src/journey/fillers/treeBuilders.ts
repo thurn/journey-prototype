@@ -1,16 +1,13 @@
 import type { JourneyContext } from "../../quest/context.js";
 import type { DrawContext } from "../../util/rng.js";
 import type {
-  JourneyRewardPool,
   JourneyTree,
   JourneyTreeBranch,
-  PrecommittedOutcomes,
 } from "../manifest.js";
 import {
   adaptTreeBranchOperations,
   adaptTreeTerminalOperations,
 } from "../operationAdapters.js";
-import type { JourneyShapeId } from "../shapes.js";
 import {
   valueCardDraft,
   valueDreamsignDraft,
@@ -214,7 +211,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     CARD_DRAFT_PROFILES,
     DREAMSIGN_POOL_TARGET_DESCRIPTION,
     cardDraftText,
-    cost,
     draftCards,
     dreamsignDraft,
     gainEssence,
@@ -223,8 +219,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     lowerFirst,
     payableSequentialCost,
     pickSequentialVariant,
-    sentenceCase,
-    sequentialReward,
     target,
   } = tools;
 
@@ -295,32 +289,6 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
 
       return payableSequentialCost(context, Math.round(desired / 5) * 5);
     });
-  }
-
-  function chanceProgression(
-    drawContext: DrawContext,
-    label: string,
-    levels: number,
-    band: "push" | "ladder",
-  ): number[] {
-    const selected =
-      band === "push"
-        ? {
-            start: pickSequentialVariant(drawContext, `${label}:start`, [75, 80, 85]),
-            step: pickSequentialVariant(drawContext, `${label}:step`, [15, 20]),
-            floor: 30,
-          }
-        : {
-            start: pickSequentialVariant(drawContext, `${label}:start`, [25, 30, 35]),
-            step: pickSequentialVariant(drawContext, `${label}:step`, [15, 20]),
-            floor: 95,
-          };
-
-    return Array.from({ length: levels }, (_, index) =>
-      band === "push"
-        ? Math.max(selected.floor, selected.start - selected.step * index)
-        : Math.min(selected.floor, selected.start + selected.step * index),
-    );
   }
 
   function omenProgression(
@@ -589,166 +557,10 @@ function createDecisionTreeBuilders(tools: TreeBuilderTools) {
     ]);
   }
 
-  function buildProbabilityLadderTree(
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): JourneyTree {
-    const reward = sequentialReward(
-      context,
-      drawContext,
-      "probability-ladder:reward",
-    );
-    const levels = pickSequentialVariant(
-      drawContext,
-      "probability-ladder:levels",
-      [3, 4],
-    );
-    const costs = essenceCostProgression(
-      context,
-      drawContext,
-      "probability-ladder:costs",
-      levels,
-      "standard",
-    );
-    const chances = chanceProgression(
-      drawContext,
-      "probability-ladder:chances",
-      levels,
-      "ladder",
-    );
-
-    return tree(
-      costs.map((price, index) => {
-        const level = index + 1;
-        const chance = chances[index]!;
-        const isFinal = level === costs.length;
-
-        return {
-          id: `level-${level}`,
-          levelLabel: `Level ${level}`,
-          branches: [
-            treeBranch({
-              id: `level-${level}-stop`,
-              label: "Stop",
-              text: "Leave.",
-              terminal: {
-                text: "Leave.",
-                outcome: "leave",
-                costs: [],
-                effects: [],
-                burdens: [],
-                targets: [],
-                routeEffects: [],
-              },
-            }),
-            treeBranch({
-              id: `level-${level}-attempt`,
-              label: "Attempt",
-              text: `Pay ${price} essence for a ${chance}% chance to ${reward.text}`,
-              costs: [cost("essence", price)],
-              cost: price,
-              odds: odds(chance),
-            }),
-            treeBranch({
-              id: `level-${level}-success`,
-              label: "Success",
-              kind: "random_chance",
-              text: `${sentenceCase(reward.text)} End the Journey.`,
-              effects: reward.effects,
-              targets: reward.targets ?? [],
-              effect: reward.effect,
-              odds: odds(chance),
-              terminal: {
-                text: "End the Journey.",
-                outcome: "claim",
-                costs: [],
-                effects: reward.effects,
-                burdens: [],
-                targets: reward.targets ?? [],
-                routeEffects: [],
-              },
-            }),
-            treeBranch({
-              id: `level-${level}-failure`,
-              label: "Failure",
-              kind: "random_chance",
-              text: isFinal ? "End the Journey." : `Go to Level ${level + 1}.`,
-              odds: odds(100 - chance),
-              ...(isFinal
-                ? {
-                    terminal: {
-                      text: "End the Journey.",
-                      outcome: "failure" as const,
-                      costs: [],
-                      effects: [],
-                      burdens: [],
-                      targets: [],
-                      routeEffects: [],
-                    },
-                  }
-                : { nextNodeId: `level-${level + 1}` }),
-            }),
-          ],
-        };
-      }),
-    );
-  }
-
-  function decisionTreeForShape(
-    shapeId: JourneyShapeId,
-    context: JourneyContext,
-    drawContext: DrawContext,
-  ): {
-    tree?: JourneyTree;
-    rewardPool?: JourneyRewardPool;
-    precommitted: PrecommittedOutcomes;
-  } {
-    switch (shapeId) {
-      case "probability_ladder":
-        return {
-          tree: buildProbabilityLadderTree(context, drawContext),
-          precommitted: {
-            random: [
-              {
-                kind: "probability_ladder",
-                bounded: true,
-                visibilityPolicy: {
-                  outcomeVisibility: "visible",
-                  disclosure:
-                    "Probability ladder odds are bounded and shown on each branch.",
-                  playerVisible: true,
-                },
-              },
-            ],
-          },
-        };
-      default:
-        return { precommitted: {} };
-    }
-  }
-
   return {
-    decisionTreeForShape,
     treeRewardFamily,
     essenceCostProgression,
   };
-}
-
-export function decisionTreeForShape(
-  shapeId: JourneyShapeId,
-  context: JourneyContext,
-  drawContext: DrawContext,
-  tools: TreeBuilderTools,
-): {
-  tree?: JourneyTree;
-  rewardPool?: JourneyRewardPool;
-  precommitted: PrecommittedOutcomes;
-} {
-  return createDecisionTreeBuilders(tools).decisionTreeForShape(
-    shapeId,
-    context,
-    drawContext,
-  );
 }
 
 export function createTreePrimitives(tools: TreeBuilderTools): {

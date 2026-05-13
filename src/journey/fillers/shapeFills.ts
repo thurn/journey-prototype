@@ -5,7 +5,6 @@ import {
   weightedChoice,
   type DrawContext,
 } from "../../util/rng.js";
-import { decisionTreeForShape, odds } from "./treeBuilders.js";
 import {
   cardOperationTargetModeForClass,
   compatibleCardOperations,
@@ -382,19 +381,6 @@ export function fillOptions(
           });
         }),
         precommitted: {},
-      };
-    }
-    case "probability_ladder": {
-      const filled = decisionTreeForShape(
-        shapeId,
-        context,
-        drawContext,
-        treeBuilderTools,
-      );
-
-      return {
-        options: [],
-        ...filled,
       };
     }
     case "one_operation_many_targets": {
