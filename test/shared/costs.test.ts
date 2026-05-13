@@ -277,6 +277,17 @@ describe("costs table (bane/dreamwell/starter family)", () => {
     );
   });
 
+  it("renders singular random transfiguration-removal card costs", () => {
+    const t = getCost("remove_transfigurations_from_random_predicate");
+
+    expect(t.render({ predicateId: "starter", count: 1 }, fakeCtx())).toBe(
+      "Remove the transfiguration from 1 random Starter card",
+    );
+    expect(t.render({ predicateId: "events", count: 2 }, fakeCtx())).toBe(
+      "Remove the transfigurations from 2 random Event cards",
+    );
+  });
+
   it("weights negative dreamwell shuffle costs as rare random trade costs", () => {
     expect(getCost("shuffle_negative_dreamwell_cards").weight).toBe(0.25);
   });

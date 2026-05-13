@@ -191,7 +191,7 @@ describe("random_trades fill", () => {
   });
 
   it("renders random trade essence costs before rewards with Lose wording", async () => {
-    const seed = "rt-v16-1";
+    const seed = "rt-v16-2";
     const { content, contentVersion } = await loadContentContext(process.cwd());
     const state = createInitialJourneyState({
       seed,

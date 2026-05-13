@@ -371,8 +371,12 @@ const removeTransfigurationsFromRandomPredicate: Cost<RemoveTransfigRandomPredPa
   cec: (p) => cardPoolCEC(CARD_CEC * 0.5, p.count, getPredicate(p.predicateId)),
   viable: (p, ctx) =>
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
-  render: (p) =>
-    `Remove the transfigurations from ${p.count} random ${getPredicate(p.predicateId).text.plural}`,
+  render: (p) => {
+    const noun = p.count === 1
+      ? getPredicate(p.predicateId).text.singular
+      : getPredicate(p.predicateId).text.plural;
+    return `Remove the transfiguration${p.count === 1 ? "" : "s"} from ${p.count} random ${noun}`;
+  },
 };
 
 type DrawXPurgeChosenParams = { drawCount: number };

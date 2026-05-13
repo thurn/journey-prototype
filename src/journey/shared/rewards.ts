@@ -30,6 +30,14 @@ function sentenceCase(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
+function onlyActiveDreamsignName(
+  ctx: import("../../quest/context.js").JourneyContext,
+): string | undefined {
+  if (ctx.state.quest.activeDreamsigns.length !== 1) return undefined;
+  const [{ dreamsignId }] = ctx.state.quest.activeDreamsigns;
+  return ctx.content.dreamsigns.find((dreamsign) => dreamsign.id === dreamsignId)?.name;
+}
+
 // Roll a transfiguration that is compatible with the given predicate's
 // match set. Falls back to the canonical set when no transfiguration is
 // applicable (the surrounding `viable` check is responsible for filtering
@@ -645,7 +653,12 @@ const gainCopyOfRandomDreamsign: Reward<GainCopyRandomDreamsignParams> = {
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 2.5,
   viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
-  render: () => "Gain a copy of one of your dreamsigns chosen at random",
+  render: (_p, ctx) => {
+    const name = onlyActiveDreamsignName(ctx);
+    return name
+      ? `Gain a copy of ${quoteName(name)}`
+      : "Gain a copy of one of your dreamsigns chosen at random";
+  },
 };
 
 type GainCopyChosenDreamsignParams = Record<string, never>;
@@ -655,7 +668,12 @@ const gainCopyOfChosenDreamsign: Reward<GainCopyChosenDreamsignParams> = {
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC * 3.0,
   viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1,
-  render: () => "Gain a copy of one of your dreamsigns of your choice",
+  render: (_p, ctx) => {
+    const name = onlyActiveDreamsignName(ctx);
+    return name
+      ? `Gain a copy of ${quoteName(name)}`
+      : "Gain a copy of one of your dreamsigns of your choice";
+  },
 };
 
 type AddSiteParams = { siteType: string };

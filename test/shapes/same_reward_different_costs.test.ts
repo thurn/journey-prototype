@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { validateJourneyManifest } from "../../src/journey/validate/index.js";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
 import type { JourneyContext } from "../../src/quest/context.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import { createInitialJourneyState, simulateQuestStateForStage } from "../../src/quest/init.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import type { DrawContext } from "../../src/util/rng.js";
 import { sameRewardDifferentCostsPlugin } from "../../src/journey/shapes/same_reward_different_costs/index.js";
@@ -61,6 +65,12 @@ function rewardText(text: string): string {
 
 function costText(text: string): string {
   return strippedText(text).replace(/^Cost: /u, "").replace(/\. Reward: .+$/u, "");
+}
+
+function isCurrentEssenceCost(text: string): boolean {
+  return /^Lose (?:\d+|\d+-\d+) essence(?: \(random roll\))?$/u.test(text)
+    || /^Lose \d+% of your essence$/u.test(text)
+    || text === "Lose all remaining essence";
 }
 
 describe("same_reward_different_costs fill", () => {
@@ -142,6 +152,76 @@ describe("same_reward_different_costs fill", () => {
     ]);
     if (!result.ok) {
       expect(heavyRules.has(result.rule ?? "")).toBe(false);
+    }
+  });
+
+  it("keeps audit regression offers unlocked and non-dominated", async () => {
+    const cases: Array<{ seed: string; stage: JourneyStage }> = [
+      { seed: "audit:same_reward_different_costs:early:06", stage: "early" },
+      { seed: "audit:same_reward_different_costs:mid:10", stage: "mid" },
+      { seed: "audit:same_reward_different_costs:late:04", stage: "late" },
+      { seed: "audit:same_reward_different_costs:early:10", stage: "early" },
+    ];
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    for (const { seed, stage } of cases) {
+      const state = createInitialJourneyState({ seed, content, contentVersion });
+      simulateQuestStateForStage({
+        state,
+        stage,
+        drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "same_reward_different_costs",
+        forcedStage: stage,
+      });
+
+      expect(manifest.options.some((option) => option.text.includes("[LOCKED]"))).toBe(false);
+      const currentEssenceCostCount = manifest.options.filter((option) =>
+        isCurrentEssenceCost(costText(option.text))
+      ).length;
+      expect(currentEssenceCostCount).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("keeps broad transfiguration regression rewards below runaway all-predicate offers", async () => {
+    const cases: Array<{ seed: string; stage: JourneyStage }> = [
+      { seed: "audit:same_reward_different_costs:early:06", stage: "early" },
+      { seed: "audit:same_reward_different_costs:mid:06", stage: "mid" },
+      { seed: "audit:same_reward_different_costs:late:05", stage: "late" },
+    ];
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+
+    for (const { seed, stage } of cases) {
+      const state = createInitialJourneyState({ seed, content, contentVersion });
+      simulateQuestStateForStage({
+        state,
+        stage,
+        drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "same_reward_different_costs",
+        forcedStage: stage,
+      });
+
+      for (const option of manifest.options) {
+        expect(rewardText(option.text)).not.toMatch(/^Apply .+ to all /u);
+        expect(option.effectConvertedEssence).toBeLessThan(1000);
+      }
     }
   });
 });

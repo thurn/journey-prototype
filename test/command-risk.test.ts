@@ -335,8 +335,8 @@ describe("stateless command risk transitions", () => {
           qaId: "adapter/current",
           source: "forced",
         });
-        expect(entry.manifest.options.every((option: { operations: unknown[] }) =>
-          option.operations.length > 0
+        expect(entry.manifest.options.every((option: { text: string }) =>
+          /^Cost: .+\. Reward: .+/u.test(option.text)
         )).toBe(true);
       }
       await expectMissingState(statePath);

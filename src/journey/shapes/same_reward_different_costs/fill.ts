@@ -1,7 +1,9 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
-import type { JourneyOption } from "../../manifest.js";
+import type { JourneyOption, JourneyStage } from "../../manifest.js";
+import { cardMatches, essenceAmount } from "../../shared/content.js";
 import { COSTS, getCost } from "../../shared/costs.js";
+import { getPredicate } from "../../shared/predicates.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Cost, Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -13,11 +15,28 @@ const MIN_SHARED_REWARD_CEC = 120;
 const MAX_COST_RATIO = 0.75;
 const FALLBACK_ESSENCE_COST_MIN = 10;
 const FALLBACK_ESSENCE_COST_STEP = 5;
+const ALL_PREDICATE_TRANSFIGURATION_REWARD_ID =
+  "apply_named_transfiguration_to_all_predicate_cards";
 
 const EXCLUDED_SHARED_COST_IDS = new Set([
   "gain_random_cards_from_pool",
   "gain_additional_starters",
 ]);
+const CURRENT_ESSENCE_COST_IDS = new Set([
+  "pay_essence",
+  "pay_essence_random_range",
+  "pay_percent_essence",
+  "pay_all_remaining_essence",
+]);
+const OMEN_COST_IDS = new Set(["pay_omens"]);
+const ALL_PREDICATE_TRANSFIGURATION_LIMITS: Record<
+  JourneyStage,
+  { maxTargets: number; maxCec: number }
+> = {
+  early: { maxTargets: 3, maxCec: 320 },
+  mid: { maxTargets: 4, maxCec: 440 },
+  late: { maxTargets: 5, maxCec: 560 },
+};
 
 type RolledReward = { template: Reward; params: unknown; cec: number };
 type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
@@ -106,10 +125,25 @@ function consumedRewardIds(rolled: RolledReward): readonly string[] {
   return [rolled.template.id, ...rewardSubIds(rolled)];
 }
 
+function rewardFitsShape(rolled: RolledReward, ctx: JourneyContext, stage: JourneyStage): boolean {
+  if (rolled.template.id !== ALL_PREDICATE_TRANSFIGURATION_REWARD_ID) {
+    return true;
+  }
+
+  const params = rolled.params as { predicateId?: string };
+  if (!params.predicateId) return false;
+  const predicate = getPredicate(params.predicateId);
+  const targetCount = cardMatches(ctx, predicate.cardPredicate ?? {}).length;
+  const limits = ALL_PREDICATE_TRANSFIGURATION_LIMITS[stage];
+
+  return targetCount <= limits.maxTargets && rolled.cec <= limits.maxCec;
+}
+
 function rollReward(
   ctx: JourneyContext,
   draw: DrawContext,
   label: string,
+  stage: JourneyStage,
 ): RolledReward | undefined {
   const candidates: Array<{ rolled: RolledReward; weight: number }> = [];
 
@@ -123,6 +157,7 @@ function rollReward(
     const cec = template.cec(params as never, ctx);
     if (cec < MIN_SHARED_REWARD_CEC) continue;
     const rolled = { template, params, cec };
+    if (!rewardFitsShape(rolled, ctx, stage)) continue;
     if (new Set(consumedRewardIds(rolled)).size !== consumedRewardIds(rolled).length) {
       continue;
     }
@@ -169,18 +204,46 @@ function rolledCostCandidates(
   return candidates;
 }
 
+function hasLockedText(cost: RolledCost): boolean {
+  return cost.rendered.includes("[LOCKED]");
+}
+
+function dominanceKey(cost: RolledCost): string | undefined {
+  if (CURRENT_ESSENCE_COST_IDS.has(cost.template.id)) return "current_essence";
+  if (OMEN_COST_IDS.has(cost.template.id)) return "omens";
+  return undefined;
+}
+
+function removeDominatedResourceCosts(candidates: readonly RolledCost[]): RolledCost[] {
+  const cheapestByKey = new Map<string, number>();
+  for (const candidate of candidates) {
+    const key = dominanceKey(candidate);
+    if (!key) continue;
+    const existing = cheapestByKey.get(key);
+    if (existing === undefined || candidate.cec < existing) {
+      cheapestByKey.set(key, candidate.cec);
+    }
+  }
+
+  return candidates.filter((candidate) => {
+    const key = dominanceKey(candidate);
+    return !key || candidate.cec === cheapestByKey.get(key);
+  });
+}
+
 function fallbackEssenceCost(
   ctx: JourneyContext,
   draw: DrawContext,
   reward: RolledReward,
   index: number,
-): RolledCost {
+): RolledCost | undefined {
   const template = getCost("pay_essence");
-  const cap = Math.max(
-    FALLBACK_ESSENCE_COST_MIN,
+  const cap = Math.min(
+    essenceAmount(ctx),
     Math.floor((reward.cec * MAX_COST_RATIO) / FALLBACK_ESSENCE_COST_STEP) *
       FALLBACK_ESSENCE_COST_STEP,
   );
+  if (cap < FALLBACK_ESSENCE_COST_MIN) return undefined;
   const floor = Math.min(cap, FALLBACK_ESSENCE_COST_MIN + index * 15);
   const stepCount = Math.max(
     0,
@@ -209,7 +272,9 @@ function rollCosts(
   const usedText = new Set<string>();
   const usedCec = new Set<number>();
   const selected: RolledCost[] = [];
-  let candidates = rolledCostCandidates(ctx, draw, reward);
+  let candidates = removeDominatedResourceCosts(
+    rolledCostCandidates(ctx, draw, reward).filter((candidate) => !hasLockedText(candidate)),
+  );
 
   for (let index = 0; index < OPTION_COUNT; index += 1) {
     const viable = candidates.filter((candidate) => {
@@ -251,6 +316,7 @@ function rollCosts(
         reward,
         index + attempt,
       );
+      if (!fallback) continue;
       if (usedText.has(fallback.rendered) || usedCec.has(fallback.cec)) {
         continue;
       }
@@ -282,6 +348,7 @@ function rollOffer(args: ShapeFillArgs, attempt: number): RolledOffer | undefine
     context,
     attemptDraw,
     `${SHAPE_LABEL}:attempt${attempt}:reward`,
+    args.stage,
   );
   if (!reward) return undefined;
 

@@ -635,6 +635,22 @@ describe("rewards table (dreamsign family)", () => {
     expect(cec).toBeLessThanOrEqual(220);
   });
 
+  it("gain_copy_of_random_dreamsign names the only active dreamsign", () => {
+    const t = getReward("gain_copy_of_random_dreamsign");
+    const ctx = fakeCtx();
+    ctx.content.dreamsigns = [{
+      id: "golden-acorn",
+      name: "Golden Acorn",
+      kind: "neutral",
+      renderedText: "",
+      tides: [],
+      raw: {},
+    }];
+    ctx.state.quest.activeDreamsigns = [{ dreamsignId: "golden-acorn" }];
+
+    expect(t.render({} as never, ctx)).toBe("Gain a copy of 'Golden Acorn'");
+  });
+
   it("gain_copy_of_chosen_dreamsign uses chosen wording and CEC >= random variant", () => {
     const chosen = getReward("gain_copy_of_chosen_dreamsign");
     const random = getReward("gain_copy_of_random_dreamsign");
@@ -643,6 +659,22 @@ describe("rewards table (dreamsign family)", () => {
     expect(chosen.cec({} as never, fakeCtx())).toBeGreaterThanOrEqual(
       random.cec({} as never, fakeCtx()),
     );
+  });
+
+  it("gain_copy_of_chosen_dreamsign names the only active dreamsign", () => {
+    const t = getReward("gain_copy_of_chosen_dreamsign");
+    const ctx = fakeCtx();
+    ctx.content.dreamsigns = [{
+      id: "golden-acorn",
+      name: "Golden Acorn",
+      kind: "neutral",
+      renderedText: "",
+      tides: [],
+      raw: {},
+    }];
+    ctx.state.quest.activeDreamsigns = [{ dreamsignId: "golden-acorn" }];
+
+    expect(t.render({} as never, ctx)).toBe("Gain a copy of 'Golden Acorn'");
   });
 
   it("choose_1_of_X_dreamsigns clarifies that the player gains the chosen dreamsign", () => {
