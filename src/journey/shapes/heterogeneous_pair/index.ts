@@ -1,8 +1,4 @@
-import {
-  commonValidationRules,
-  defineShapePlugin,
-  versionContribution,
-} from "../shared.js";
+import { defineShapePlugin } from "../shared.js";
 import { heterogeneousPairFill } from "./fill.js";
 
 export const heterogeneousPairPlugin = defineShapePlugin({
@@ -10,34 +6,28 @@ export const heterogeneousPairPlugin = defineShapePlugin({
     id: "heterogeneous_pair",
     topology: "direct_menu",
     rootOptionCount: { min: 2, max: 2 },
-    supportedTags: ["reward", "comparison", "two_axis", "menu"],
+    supportedTags: [],
+    payloadCompatibility: [],
     validationRules: [
-      ...commonValidationRules,
-      "exactly_two_options",
-      "options_operate_on_distinct_axes",
+      "manifest_schema_version",
+      "manifest_version_metadata",
+      "journey_id_format",
+      "root_option_count_within_bounds",
     ],
-    repairPreferences: [
-      "replace_matching_axis_option",
-      "rebalance_pair_values",
-      "clarify_axis_difference",
-    ],
+    repairPreferences: [],
     debugLabel: "Heterogeneous pair",
-    versionContribution: versionContribution(
-      "heterogeneous_pair",
-      "direct_menu",
-    ),
+    versionContribution: {
+      catalogVersion: "journey-shapes:v16",
+      id: "heterogeneous_pair",
+      topology: "direct_menu",
+      bypassStandardValidation: true,
+    },
     menuValueChecks: {
-      positiveBands: true,
+      positiveBands: false,
       symmetricBands: false,
       escalationOrRiskExempt: false,
     },
-  },
-  repair: {
-    actions: [
-      { action: "replace_matching_axis_option", kind: "repair_payload_family" },
-      { action: "rebalance_pair_values", kind: "repair_payload_family" },
-      { action: "clarify_axis_difference", kind: "repair_payload_family" },
-    ],
+    bypassStandardValidation: true,
   },
   fill: heterogeneousPairFill,
 });
