@@ -4,7 +4,7 @@ import { buildPrizeLadderTree } from "./tree.js";
 export function prizeLadderFill(args: ShapeFillArgs): FilledJourney {
   return {
     options: [],
-    tree: buildPrizeLadderTree(args.context, args.drawContext),
+    tree: buildPrizeLadderTree(args.context, args.drawContext, args.stage),
     precommitted: {},
   };
 }

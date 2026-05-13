@@ -18,9 +18,19 @@ import { makeTestContext } from "../helpers/journey-context.js";
 
 const prizeLadderPlugin = getShapePlugin("prize_ladder");
 const auditStages: readonly JourneyStage[] = ["early", "mid", "late"];
-const auditSeedNumbers = Array.from({ length: 5 }, (_entry, index) =>
+const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
+const stageEssenceBudget: Record<JourneyStage, number> = {
+  early: 120,
+  mid: 400,
+  late: 400,
+};
+const stagePathMargin: Record<JourneyStage, number> = {
+  early: 15,
+  mid: 80,
+  late: 30,
+};
 
 let contentContextPromise:
   | ReturnType<typeof loadContentContext>
@@ -152,6 +162,9 @@ function assertPrizeLadderTree(tree: JourneyTree) {
       expect(advance.effectConvertedEssence).toBeGreaterThan(
         stop.effectConvertedEssence,
       );
+      expect(
+        advance.effectConvertedEssence - advance.costConvertedEssence,
+      ).toBeGreaterThan(stop.effectConvertedEssence);
       rewardKinds.add(primaryEffectKind(advance) ?? "missing");
     } else {
       expect(advance.nextNodeId).toBe(`level-${level + 1}`);
@@ -167,6 +180,25 @@ function assertPrizeLadderTree(tree: JourneyTree) {
   expect(continueCosts).toEqual(
     [...continueCosts].sort((left, right) => left - right),
   );
+}
+
+function fullClaimPathCost(tree: JourneyTree): number {
+  return tree.nodes.reduce(
+    (total, node) => total + node.branches[1]!.costConvertedEssence,
+    0,
+  );
+}
+
+function levelThreeBranches(tree: JourneyTree): {
+  readonly stop: JourneyTreeBranch;
+  readonly claim: JourneyTreeBranch;
+} {
+  const levelThree = tree.nodes[2]!;
+
+  return {
+    stop: levelThree.branches[0]!,
+    claim: levelThree.branches[1]!,
+  };
 }
 
 describe("prize_ladder fill", () => {
@@ -232,6 +264,47 @@ describe("prize_ladder fill", () => {
         }
       }
     }
+  });
+
+  it("keeps every audited claim path reachable with a final net premium", async () => {
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:prize_ladder:${stage}:${seedNumber}`;
+        const manifest = await forcedPrizeLadderManifest(seed, stage);
+        const tree = manifest.tree!;
+        const { stop, claim } = levelThreeBranches(tree);
+
+        expect(fullClaimPathCost(tree), seed).toBeLessThanOrEqual(
+          stageEssenceBudget[stage] - stagePathMargin[stage],
+        );
+        expect(
+          claim.effectConvertedEssence - claim.costConvertedEssence,
+          seed,
+        ).toBeGreaterThanOrEqual(stop.effectConvertedEssence + 25);
+      }
+    }
+  });
+
+  it("scales cited audit ladder costs by stage", async () => {
+    const early = await forcedPrizeLadderManifest(
+      "audit:prize_ladder:early:07",
+      "early",
+    );
+    const mid = await forcedPrizeLadderManifest(
+      "audit:prize_ladder:mid:04",
+      "mid",
+    );
+    const late = await forcedPrizeLadderManifest(
+      "audit:prize_ladder:late:02",
+      "late",
+    );
+
+    expect(fullClaimPathCost(early.tree!)).toBeLessThan(
+      fullClaimPathCost(mid.tree!),
+    );
+    expect(fullClaimPathCost(mid.tree!)).toBeLessThan(
+      fullClaimPathCost(late.tree!),
+    );
   });
 
   it("is deterministic for a fixed seed and stage", async () => {
