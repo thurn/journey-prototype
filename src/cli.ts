@@ -24,9 +24,6 @@ export type RawCommonOptions = {
   stage?: "early" | "mid" | "late";
   shape?: string;
   count?: number;
-  debugPayloadFamily?: string;
-  debugPayloadVariant?: string;
-  debugListPayloads?: boolean;
 };
 
 function defaultProjectRoot(): string {
@@ -50,13 +47,10 @@ export function buildCommonOptions(rawOptions: RawCommonOptions): CommonCommandO
     stderrColor,
     projectRoot,
     statePath: join(projectRoot, ".journey", "state.json"),
-    debugListPayloads: rawOptions.debugListPayloads ?? false,
     ...(rawOptions.seed !== undefined ? { seed: rawOptions.seed } : {}),
     ...(rawOptions.stage !== undefined ? { stage: rawOptions.stage } : {}),
     ...(rawOptions.shape !== undefined ? { shape: rawOptions.shape } : {}),
     ...(rawOptions.count !== undefined ? { count: rawOptions.count } : {}),
-    ...(rawOptions.debugPayloadFamily !== undefined ? { debugPayloadFamily: rawOptions.debugPayloadFamily } : {}),
-    ...(rawOptions.debugPayloadVariant !== undefined ? { debugPayloadVariant: rawOptions.debugPayloadVariant } : {}),
   };
 }
 
@@ -79,22 +73,10 @@ function addGenerationFlags(command: Command): Command {
     .option("--json", "print JSON output")
     .option("--no-color", "disable colored output")
     .option("--debug", "print generation metadata")
-    .option("--verbose", "include exhaustive --debug detail (fingerprint components, all validation, all operations)")
+    .option("--verbose", "include exhaustive --debug detail")
     .option("--debug-context", "print generated quest context")
     .option("--show-deck", "print deck cards and active dreamsigns (comma separated, wrapped)")
     .option("--seed <seed>", "seed for deterministic generation")
-    .addOption(
-      new Option("--debug-payload-family <family>", "force a debug payload family")
-        .hideHelp(),
-    )
-    .addOption(
-      new Option("--debug-payload-variant <variant>", "force a debug payload variant")
-        .hideHelp(),
-    )
-    .addOption(
-      new Option("--debug-list-payloads", "list deterministic debug payload families")
-        .hideHelp(),
-    )
     .option(
       "--count <count>",
       "generate multiple stateless Dream Journeys",

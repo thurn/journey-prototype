@@ -183,7 +183,6 @@ export function canonicalShapeDefinitions(): unknown {
         scoreWeight: plugin.scoreWeight,
         repair: cloneSerializable(plugin.repair ?? null),
         generatedObjects: cloneSerializable(plugin.generatedObjects ?? null),
-        debugPayloads: cloneSerializable(plugin.debugPayloads ?? null),
         versionContribution: cloneSerializable(
           plugin.versionContribution ?? definition.versionContribution,
         ),

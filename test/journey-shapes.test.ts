@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContentBundle } from "../src/content/model.js";
 import { computeContentVersion } from "../src/content/version.js";
-import { DEBUG_PAYLOAD_FAMILIES } from "../src/journey/debugPayloads.js";
 import {
   canonicalShapeDefinitions,
   fallbackShapeIds,
@@ -172,53 +171,6 @@ describe("JOURNEY_SHAPES", () => {
     }
   });
 
-  it("keeps concrete debug payload variants aligned with shape compatibility metadata", () => {
-    const availableDebugVariants = new Map(
-      DEBUG_PAYLOAD_FAMILIES.flatMap((family) =>
-        family.variants
-          .filter((variant) => variant.availability === "available")
-          .map((variant) => [`${family.id}/${variant.id}`, { family, variant }] as const)
-      ),
-    );
-
-    for (const { family, variant } of availableDebugVariants.values()) {
-      const supportedShapes = variant.supportedShapes === "all"
-        ? JOURNEY_SHAPES.filter((shape) => !shape.bypassStandardValidation).map((shape) => shape.id)
-        : variant.supportedShapes;
-
-      for (const shapeId of supportedShapes) {
-        const compatibility = getShapeDefinition(shapeId).payloadCompatibility.find((entry) =>
-          entry.familyId === family.id
-        );
-
-        expect(compatibility?.legality, `${variant.qaId}:${shapeId}`).toBe("legal");
-        expect(compatibility?.variants, `${variant.qaId}:${shapeId}`).toContain(variant.id);
-      }
-    }
-
-    for (const shape of JOURNEY_SHAPES) {
-      for (const compatibility of shape.payloadCompatibility) {
-        if (compatibility.legality !== "legal") {
-          continue;
-        }
-
-        for (const variantId of compatibility.variants) {
-          const debugVariant = availableDebugVariants.get(`${compatibility.familyId}/${variantId}`);
-
-          if (!debugVariant) {
-            continue;
-          }
-
-          const supportedShapes = debugVariant.variant.supportedShapes === "all"
-            ? JOURNEY_SHAPES.map((entry) => entry.id)
-            : debugVariant.variant.supportedShapes;
-
-          expect(supportedShapes, `${compatibility.familyId}/${variantId}:${shape.id}`).toContain(shape.id);
-        }
-      }
-    }
-  });
-
   it("requires non-tree shapes to expose a root choice", () => {
     for (const definition of JOURNEY_SHAPES) {
       if (definition.topology === "decision_tree") {
@@ -373,7 +325,6 @@ describe("JOURNEY_SHAPES", () => {
       valueModelContribution: { version: "value:v2" },
       manifestSchemaVersion: 2,
       manifestContractVersion: "manifest:v2",
-      validationContractVersion: "validation:v1",
       rendererVersion: "renderer:v1",
       questInitializationVersion: "quest-init:v1",
     });

@@ -242,9 +242,6 @@ describe("prize_ladder fill", () => {
     expect(manifest.options).toEqual([]);
     expect(manifest.shapeId).toBe("prize_ladder");
     assertPrizeLadderTree(manifest.tree!);
-    expect(manifest.debug.validation.rules.map((rule) => rule.ruleId)).toContain(
-      "decision_tree_invariants",
-    );
   });
 
   it("generates valid progressive trees for every audited stage seed", async () => {

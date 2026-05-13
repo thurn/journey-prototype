@@ -148,11 +148,6 @@ export function runShapeValidators(
     context,
     definition: plugin.definition,
     generatedObjects: [],
-    checked: [],
-    manifestChecked: [],
-    optionChecked: [],
-    treeChecked: [],
-    precommittedChecked: [],
   };
   const failures: ShapeValidatorFailure[] = [];
 
@@ -171,7 +166,7 @@ export function runShapeValidators(
  * Builds a minimal `random_trades` manifest claiming the
  * `distinct_everything_trio` contract while embedding duplicate axis values.
  * The manifest is intended for validator-isolation tests of the
- * distinct-everything pairwise-distinctness rule and is not a fully valid
+ * pairwise uniqueness rule and is not a fully valid
  * manifest in any other respect.
  */
 export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifest {
@@ -211,7 +206,6 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
       valueModelVersion: "value:test",
       rendererVersion: "renderer:test",
       manifestContractVersion: "manifest:test",
-      validationContractVersion: "validation:test",
     },
     journeyId: "J-000002",
     seed: "synth-distinct-everything-dups",
@@ -242,12 +236,6 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
         },
       ],
       repairs: [],
-      semanticFingerprint: {
-        algorithm: "semantic-fingerprint:v1",
-        value: "synth",
-        components: [],
-      },
-      validation: { ok: true, passed: 0, failed: 0, rules: [] },
       repair: {
         status: "accepted_immediately",
         forcedShape: false,
@@ -304,7 +292,6 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
       valueModelVersion: "value:test",
       rendererVersion: "renderer:test",
       manifestContractVersion: "manifest:test",
-      validationContractVersion: "validation:test",
     },
     journeyId: "J-000001",
     seed: "synth-identical-rows",
@@ -325,12 +312,6 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
       selectedTags: [],
       optionValues: [],
       repairs: [],
-      semanticFingerprint: {
-        algorithm: "semantic-fingerprint:v1",
-        value: "synth",
-        components: [],
-      },
-      validation: { ok: true, passed: 0, failed: 0, rules: [] },
       repair: {
         status: "accepted_immediately",
         forcedShape: false,

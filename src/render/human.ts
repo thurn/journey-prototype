@@ -1,6 +1,10 @@
 import type { ContentBundle } from "../content/model.js";
-import { renderLifetimeText } from "../journey/fillers/generatedObjects.js";
-import type { JourneyManifest, JourneyOption } from "../journey/manifest.js";
+import type {
+  GeneratedObjectDefinition,
+  HookTriggerSelector,
+  JourneyManifest,
+  JourneyOption,
+} from "../journey/manifest.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import { ansiTruecolor } from "../util/ansi.js";
 import { stableStringify } from "../util/stableJson.js";
@@ -29,6 +33,57 @@ const SYMBOL_GLYPHS: Record<string, string> = {
   loss: "-",
   "no-op": ".",
 };
+
+type GeneratedObjectLifetime = NonNullable<
+  GeneratedObjectDefinition["lifetime"]
+>;
+
+const TRIGGER_KIND_LABELS: Record<
+  HookTriggerSelector["triggerKind"],
+  string
+> = {
+  battle: "battle",
+  victory: "victory",
+  each_battle: "battle",
+  dreamscape: "dreamscape",
+  site_visit: "site visit",
+  named_card_play: "named card play",
+  dreamsign_trigger: "Dreamsign trigger",
+  card_added: "card add",
+  essence_payment: "essence payment",
+  future_shop: "future Shop",
+  future_dream_journey: "future Dream Journey",
+};
+
+function pluralize(label: string, count: number): string {
+  if (count === 1) {
+    return label;
+  }
+  if (label.endsWith("s")) {
+    return `${label}es`;
+  }
+  return `${label}s`;
+}
+
+function renderLifetimeText(lifetime: GeneratedObjectLifetime): string {
+  if (typeof lifetime === "string") {
+    switch (lifetime) {
+      case "one_time":
+        return "resolves once, then dissolves";
+      case "temporary":
+        return "dissolves at the end of the active window";
+      case "persistent":
+        return "persists for the rest of the journey";
+      case "until_returned":
+        return "remains until returned at the next Dream Journey site";
+      case "journey_only":
+        return "lasts only within this journey";
+    }
+  }
+
+  const trigger = TRIGGER_KIND_LABELS[lifetime.triggerKind];
+  return `lasts for ${lifetime.count} ${pluralize(trigger, lifetime.count)}`;
+}
 
 function color(
   text: string,
@@ -597,39 +652,6 @@ function optionValueDebugLines(
   ];
 }
 
-function validationDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
-  const validation = manifest.debug.validation;
-  if (!validation) {
-    return [];
-  }
-
-  if (!verbose && validation.ok) {
-    return [];
-  }
-
-  const lines = [
-    "",
-    "Validation:",
-    `Summary: ${validation.ok ? "pass" : "fail"} (${validation.passed} passed, ${validation.failed} failed).`,
-  ];
-
-  for (const rule of validation.rules) {
-    if (!verbose && rule.status === "pass") {
-      continue;
-    }
-
-    const checked = rule.checked[0];
-    const payload = checked?.payloadFamily ? ` payload ${checked.payloadFamily}` : "";
-    const target = checked?.targetResolution
-      ? ` target ${checked.targetResolution.selectorKind}/${checked.targetResolution.sourcePool} candidates=${checked.targetResolution.candidateCount}`
-      : "";
-
-    lines.push(`${rule.ruleId}: ${rule.status} (${rule.severity}); ${rule.message}${payload}${target}.`);
-  }
-
-  return lines;
-}
-
 function timingDebugText(operation: JourneyOption["operations"][number]): string {
   if (!operation.timing) {
     return "timing=unspecified";
@@ -868,40 +890,6 @@ function operationDebugLines(manifest: JourneyManifest, verbose: boolean): strin
   return lines;
 }
 
-function fingerprintDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
-  const fingerprint = manifest.distinctness ?? manifest.debug.semanticFingerprint;
-  const lines = [
-    `Semantic fingerprint: ${fingerprint.value} (${fingerprint.algorithm}).`,
-  ];
-
-  if (!verbose) {
-    return lines;
-  }
-
-  const components = fingerprint.components ?? [];
-  const equivalenceBands = fingerprint.equivalenceBands ?? [];
-  lines.push("Fingerprint components:");
-
-  if (components.length === 0) {
-    lines.push("  none");
-  } else {
-    for (const component of components) {
-      lines.push(`  ${component}`);
-    }
-  }
-
-  lines.push("Equivalence bands:");
-  if (equivalenceBands.length === 0) {
-    lines.push("  none");
-  } else {
-    for (const band of equivalenceBands) {
-      lines.push(`  ${band.field}:${band.band} - ${band.description}`);
-    }
-  }
-
-  return lines;
-}
-
 function reachabilityDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
   const reachability = manifest.debug.reachability;
 
@@ -918,12 +906,6 @@ function reachabilityDebugLines(manifest: JourneyManifest, verbose: boolean): st
     `Selector families: ${reachability.selectorFamilies.join(", ") || "none"}.`,
     `Timing families: ${reachability.timingFamilies.join(", ") || "none"}.`,
   ];
-
-  if (reachability.debugFixture) {
-    lines.push(
-      `Debug fixture: ${reachability.debugFixture.qaId}; coverage=${reachability.debugFixture.coverageKind ?? "debug_fixture"}.`,
-    );
-  }
 
   const decisions = verbose
     ? reachability.featureDecisions
@@ -1027,16 +1009,7 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
     paint(`Stage: ${manifest.stage}`),
     `${paint("Selected shape: ")}${highlight(manifest.debug.selectedShapeId)}`,
     paint(`Selected tags: ${manifest.selectedTags.join(", ")}`),
-    paint(`Selected payload family: ${manifest.debug.debugPayload?.familyId ?? "adapter"}`),
   );
-
-  if (manifest.debug.debugPayload) {
-    out.push(
-      paint(`Debug payload: ${manifest.debug.debugPayload.qaId}`),
-      paint(`Payload source: ${manifest.debug.debugPayload.source}`),
-      paint(`Forced QA controls: family=${manifest.debug.debugPayload.familyId}; variant=${manifest.debug.debugPayload.variantId}; shapes=${manifest.debug.debugPayload.supportedShapes === "all" ? "all" : manifest.debug.debugPayload.supportedShapes.join(",")}; stages=${manifest.debug.debugPayload.supportedStages === "all" ? "all" : manifest.debug.debugPayload.supportedStages.join(",")}`),
-    );
-  }
 
   if (manifest.sequence) {
     const max = manifest.sequence.maxSteps ? ` of ${manifest.sequence.maxSteps}` : "";
@@ -1059,8 +1032,6 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
   if (outcomes.length > 0) {
     out.push("", paint("Precommitted outcomes:"), ...outcomes.map(paint));
   }
-
-  out.push(...fingerprintDebugLines(manifest, verbose).map(paint));
 
   const reachability = manifest.debug.reachability;
   const reachabilityRaw = reachabilityDebugLines(manifest, verbose);
@@ -1090,7 +1061,6 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
 
   out.push(...operationDebugLines(manifest, verbose).map(paint));
   out.push(...generatedObjectDebugLines(manifest).map(paint));
-  out.push(...validationDebugLines(manifest, verbose).map(paint));
 
   for (const optionValue of manifest.debug.optionValues) {
     out.push("", ...optionValueDebugLines(optionValue, options));
@@ -1104,13 +1074,7 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
       ));
 
       if (repair.validation) {
-        const checked = repair.validation.checked[0];
-        const payload = checked?.payloadFamily ? ` payload ${checked.payloadFamily}` : "";
-        const target = checked?.targetResolution
-          ? ` target ${checked.targetResolution.selectorKind}/${checked.targetResolution.sourcePool} candidates=${checked.targetResolution.candidateCount}`
-          : "";
-
-        out.push(paint(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}${payload}${target}.`));
+        out.push(paint(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}.`));
       }
     }
   }

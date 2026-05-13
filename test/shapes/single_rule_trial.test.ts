@@ -225,7 +225,6 @@ describe("singleRuleTrialFill", () => {
 
         assertSingleRuleTrialManifest(manifest);
         expect(manifest.stage).toBe(stage);
-        expect(manifest.debug.validation.ok, seed).toBe(true);
       }
     }
   });
@@ -280,7 +279,6 @@ describe("singleRuleTrialFill", () => {
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
     expect(first.references).toEqual(second.references);
-    expect(first.distinctness).toEqual(second.distinctness);
   });
 });
 
@@ -301,7 +299,6 @@ function synthesizeSingleRuleTrialManifestWithCost(): JourneyManifest {
       valueModelVersion: "value:test",
       rendererVersion: "renderer:test",
       manifestContractVersion: "manifest:test",
-      validationContractVersion: "validation:test",
     },
     journeyId: "J-000003",
     seed: "synth-single-rule-cost",
@@ -338,12 +335,6 @@ function synthesizeSingleRuleTrialManifestWithCost(): JourneyManifest {
       selectedTags: [],
       optionValues: [],
       repairs: [],
-      semanticFingerprint: {
-        algorithm: "semantic-fingerprint:v1",
-        value: "synth",
-        components: [],
-      },
-      validation: { ok: true, passed: 0, failed: 0, rules: [] },
       repair: {
         status: "accepted_immediately",
         forcedShape: false,

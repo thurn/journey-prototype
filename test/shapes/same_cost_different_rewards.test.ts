@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { validateJourneyManifest } from "../../src/journey/validate/index.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import type { DrawContext } from "../../src/util/rng.js";
@@ -95,53 +94,6 @@ describe("same_cost_different_rewards fill", () => {
     expect(fill.options).toHaveLength(3);
     for (const option of fill.options) {
       expect(option.text).toMatch(/essence|omen/u);
-    }
-  });
-
-  it("bypasses standard validation rules", () => {
-    const ctx = fakeCtx();
-    const fill = sameCostDifferentRewardsPlugin.fill({
-      context: ctx,
-      drawContext: fakeDraw("scdr-validate"),
-      stage: "mid" as JourneyStage,
-    });
-    const manifest = {
-      schemaVersion: 2 as const,
-      versions: {} as never,
-      journeyId: "J-000001",
-      seed: "scdr-test",
-      rootJourneyIndex: 0,
-      shapeId: "same_cost_different_rewards" as const,
-      stage: "mid" as JourneyStage,
-      dreamscape: 1,
-      selectedTags: [],
-      options: fill.options,
-      distinctness: {
-        algorithm: "semantic-fingerprint:v1" as const,
-        value: "",
-        components: [],
-        explanation: {} as never,
-        equivalenceBands: [],
-      },
-      generatedObjects: [],
-      precommitted: fill.precommitted,
-      debug: { generation: [], symmetryContracts: [] } as never,
-      references: {} as never,
-    };
-    const result = validateJourneyManifest(manifest as never, ctx);
-    const heavyRules = new Set([
-      "typed_payload_contracts",
-      "unresolved_reference",
-      "root_option_payloads",
-      "duplicate_root_option_mechanics",
-      "route_effects",
-      "shape_value_comparability",
-      "offer_refusal_invariants",
-      "random_precommitted_outcomes",
-      "delayed_precommitted_outcomes",
-    ]);
-    if (!result.ok) {
-      expect(heavyRules.has(result.rule ?? "")).toBe(false);
     }
   });
 });

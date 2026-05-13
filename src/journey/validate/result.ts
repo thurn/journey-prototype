@@ -1,7 +1,4 @@
 
-
-export const VALIDATION_CONTRACT_VERSION = "validation:v1";
-
 export type ValidationResult =
   | { ok: true }
   | { ok: false; rule: string; message: string; debug?: Record<string, unknown> };

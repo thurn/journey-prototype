@@ -215,9 +215,6 @@ describe("probability_ladder fill", () => {
         }),
       }),
     ]);
-    expect(manifest.debug.validation.rules.map((rule) => rule.ruleId)).toContain(
-      "decision_tree_invariants",
-    );
   });
 
   it("generates valid ladders for every audited stage seed", async () => {

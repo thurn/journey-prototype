@@ -185,7 +185,6 @@ describe("risk_or_skip fill", () => {
 
         assertRiskOrSkipManifest(manifest);
         expect(manifest.stage).toBe(stage);
-        expect(manifest.debug.validation.ok, seed).toBe(true);
       }
     }
   });
@@ -199,7 +198,6 @@ describe("risk_or_skip fill", () => {
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
     expect(first.references).toEqual(second.references);
-    expect(first.distinctness).toEqual(second.distinctness);
   });
 
   it("samples both tempting and skippable accept values across audited seeds", async () => {

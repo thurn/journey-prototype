@@ -248,12 +248,6 @@ describe("random_pool_draws fill", () => {
       "visible_pool",
       "repeated_pool_draws",
     ]);
-    expect(manifest.debug.validation.rules.map((rule) => rule.ruleId)).toEqual([
-      "manifest_schema_version",
-      "manifest_version_metadata",
-      "journey_id_format",
-      "root_option_count_within_bounds",
-    ]);
   });
 
   it.each([

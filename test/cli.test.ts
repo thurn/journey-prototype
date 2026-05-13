@@ -113,7 +113,6 @@ describe("buildProgram", () => {
           valueModelVersion: "value:v10",
           rendererVersion: "renderer:v1",
           manifestContractVersion: "manifest:v2",
-          validationContractVersion: "validation:v1",
         },
       },
       context: {
@@ -209,91 +208,6 @@ describe("buildProgram", () => {
       expect(entry.manifest.versions.contentVersion).toBe(payload.contentVersion);
       expect(entry.manifest.versions.shapeCatalogVersion).toBe(payload.catalogVersion);
     }
-  }, 30_000);
-
-  it("parses the hidden debug payload listing flag through Commander", async () => {
-    const result = await execFileAsync(
-      "npm",
-      ["run", "journey", "--", "--debug-list-payloads", "--json"],
-      { cwd: process.cwd(), timeout: 15_000 },
-    );
-
-    expect(result.stderr).toBe("");
-    expect(result.stdout).not.toMatch(ANSI_PATTERN);
-
-    const payload = JSON.parse(result.stdout);
-
-    expect(payload).toMatchObject({
-      status: "ok",
-      command: "debug-list-payloads",
-      payloads: {
-        families: expect.arrayContaining([
-          expect.objectContaining({
-            id: "adapter",
-            variants: expect.arrayContaining([
-              expect.objectContaining({
-                id: "current",
-                qaId: "adapter/current",
-                availability: "available",
-              }),
-            ]),
-          }),
-        ]),
-      },
-    });
-    expect(payload).not.toHaveProperty("manifest");
-  }, 30_000);
-
-  it("parses hidden forced payload flags on the run alias through Commander", async () => {
-    const result = await execFileAsync(
-      "npm",
-      [
-        "run",
-        "journey",
-        "--",
-        "run",
-        "--seed",
-        "qa",
-        "--stage",
-        "mid",
-        "--shape",
-        "same_reward_different_costs",
-        "--debug-payload-family",
-        "adapter",
-        "--debug-payload-variant",
-        "current",
-        "--json",
-      ],
-      { cwd: process.cwd(), timeout: 15_000 },
-    );
-
-    expect(result.stderr).toBe("");
-    expect(result.stdout).not.toMatch(ANSI_PATTERN);
-
-    const payload = JSON.parse(result.stdout);
-
-    expect(payload).toMatchObject({
-      status: "ok",
-      command: "run",
-      parameters: {
-        debugPayloadFamily: "adapter",
-        debugPayloadVariant: "current",
-        shape: "same_reward_different_costs",
-        stage: "mid",
-      },
-      manifest: {
-        shapeId: "same_reward_different_costs",
-        stage: "mid",
-        debug: {
-          debugPayload: {
-            familyId: "adapter",
-            variantId: "current",
-            qaId: "adapter/current",
-            source: "forced",
-          },
-        },
-      },
-    });
   }, 30_000);
 
   it("runs bare npm run journey without writing simulator state", async () => {

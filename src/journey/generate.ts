@@ -6,9 +6,8 @@ import {
   type DrawContext,
 } from "../util/rng.js";
 import {
-  buildConservativeJourneyForShape,
-  withDistinctnessFingerprint,
-} from "./fillers/index.js";
+  buildJourneyForShape,
+} from "./assembly.js";
 import { attachTargetResolutionMetadata } from "./effects.js";
 import type {
   JourneyManifest,
@@ -28,15 +27,10 @@ import {
   repairOrFallbackJourney,
 } from "./repair.js";
 import {
-  buildValidationReport,
   validateJourneyManifest,
   type ValidationResult,
 } from "./validate/index.js";
 import { evaluateOptionValue } from "./value.js";
-import {
-  validateDebugPayloadCompatibility,
-  type DebugPayloadSelection,
-} from "./debugPayloads.js";
 import { withReachabilityMetadata } from "./reachability.js";
 
 export type GenerationInput = {
@@ -44,8 +38,6 @@ export type GenerationInput = {
   previousPick?: PickHistoryEntry;
   forcedShapeId?: JourneyShapeDefinition["id"] | string;
   forcedStage?: JourneyStage;
-  forcedDebugPayload?: DebugPayloadSelection;
-  distinctnessAttempt?: number;
 };
 
 export type SequenceAdvanceInput = {
@@ -309,19 +301,6 @@ function freezeSerializable<T>(value: T): T {
   return value;
 }
 
-function withValidationReport(
-  manifest: JourneyManifest,
-  context: JourneyContext,
-): JourneyManifest {
-  return {
-    ...manifest,
-    debug: {
-      ...manifest.debug,
-      validation: buildValidationReport(manifest, context),
-    },
-  };
-}
-
 function forcedFailureMessage(
   forcedShapeId: JourneyShapeDefinition["id"] | string,
   manifest: JourneyManifest,
@@ -331,17 +310,9 @@ function forcedFailureMessage(
     return `Forced shape ${forcedShapeId} could not be generated legally`;
   }
 
-  const payload = manifest.debug.debugPayload?.qaId ?? "adapter/current";
-  const targetResolution = manifest.debug.validation.firstFailure?.checked.find(
-    (entry) => entry.targetResolution,
-  )?.targetResolution;
-  const targetContext = targetResolution
-    ? `${targetResolution.selectorKind} ${targetResolution.sourcePool} candidates=${targetResolution.candidateCount}`
-    : "none";
-
   return [
     `Forced shape ${forcedShapeId} failed validation: ${validation.message}`,
-    `(shape: ${manifest.shapeId}; payload: ${payload}; target: ${targetContext}; rule: ${validation.rule})`,
+    `(shape: ${manifest.shapeId}; rule: ${validation.rule})`,
   ].join(" ");
 }
 
@@ -351,9 +322,6 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     seed: context.state.quest.seed,
     contentVersion: context.contentVersion,
     rootJourneyIndex: context.state.generator.rootJourneyIndex,
-    ...(input.distinctnessAttempt
-      ? { selectionAttempt: input.distinctnessAttempt }
-      : {}),
   };
   const stage =
     input.forcedStage ??
@@ -372,24 +340,11 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     }
 
     selectedShapeId = input.forcedShapeId;
-  } else if (
-    input.forcedDebugPayload &&
-    input.forcedDebugPayload.supportedShapes !== "all"
-  ) {
-    selectedShapeId = input.forcedDebugPayload.supportedShapes[0]!;
   } else {
     selectedShapeId = selectShape(drawContext, shapeScores);
   }
 
-  if (input.forcedDebugPayload) {
-    validateDebugPayloadCompatibility({
-      selection: input.forcedDebugPayload,
-      shapeId: selectedShapeId,
-      stage,
-    });
-  }
-
-  const manifest = buildConservativeJourneyForShape({
+  const manifest = buildJourneyForShape({
     context,
     drawContext,
     journeyId: journeyId(context.state.generator.rootJourneyIndex),
@@ -398,15 +353,11 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     selectedTags,
     shapeScores,
     previousPick: previousPickDebug(previousPick),
-    debugPayload: input.forcedDebugPayload,
   });
-  const resolvedManifest = withValidationReport(
-    attachTargetResolutionMetadata(
-      manifest,
-      context.content,
-      context.state.quest,
-    ),
-    context,
+  const resolvedManifest = attachTargetResolutionMetadata(
+    manifest,
+    context.content,
+    context.state.quest,
   );
   const validation = validateJourneyManifest(resolvedManifest, context);
   const finalManifest = validation.ok
@@ -418,15 +369,10 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
         forcedShape: input.forcedShapeId !== undefined,
       });
   const resolvedFinalManifest = withReachabilityMetadata(
-    withDistinctnessFingerprint(
-      withValidationReport(
-        attachTargetResolutionMetadata(
-          finalManifest,
-          context.content,
-          context.state.quest,
-        ),
-        context,
-      ),
+    attachTargetResolutionMetadata(
+      finalManifest,
+      context.content,
+      context.state.quest,
     ),
   );
 
@@ -437,14 +383,6 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     throw new Error(
       `Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`,
     );
-  }
-
-  if (input.forcedDebugPayload) {
-    validateDebugPayloadCompatibility({
-      selection: input.forcedDebugPayload,
-      shapeId: resolvedFinalManifest.shapeId,
-      stage: resolvedFinalManifest.stage,
-    });
   }
 
   const finalValidation = validateJourneyManifest(
@@ -565,8 +503,7 @@ export function advanceSequenceJourney(
       ),
     },
   };
-  const reportedAdvanced = withValidationReport(advanced, context);
-  const validation = validateJourneyManifest(reportedAdvanced, context);
+  const validation = validateJourneyManifest(advanced, context);
 
   if (!validation.ok) {
     throw new Error(
@@ -576,6 +513,6 @@ export function advanceSequenceJourney(
 
   return {
     kind: "advanced",
-    manifest: freezeSerializable(withReachabilityMetadata(reportedAdvanced)),
+    manifest: freezeSerializable(withReachabilityMetadata(advanced)),
   };
 }

@@ -1,8 +1,4 @@
 import { describe, expect, it } from "vitest";
-// Import the validate barrel first so the shapes registry finishes loading
-// before our shape plugin module is evaluated. This avoids a known circular
-// import (shared.ts → validate/tree.ts → shapes.ts → registry → shapes/*/index.ts → shared.ts).
-import { validateJourneyManifest } from "../../src/journey/validate/index.js";
 import { loadContentContext } from "../../src/commands/shared.js";
 import { generateNextJourney } from "../../src/journey/generate.js";
 import { randomRewardsPlugin } from "../../src/journey/shapes/random_rewards/index.js";
@@ -79,7 +75,7 @@ describe("random_rewards fill", () => {
         stage: "mid" as JourneyStage,
       });
       const ids = fill.options.map((o) => o.text.split("|")[0]); // ids encoded in text via prefix; we'll switch this if rendering doesn't include id
-      // text-only distinctness check: no two rendered texts should be identical
+      // Text-only uniqueness check: no two rendered texts should be identical.
       expect(new Set(fill.options.map((o) => o.text)).size).toBe(3);
     }
   });
@@ -101,47 +97,6 @@ describe("random_rewards fill", () => {
       }
     }
   });
-
-  it("bypass-validation: synthetic manifest passes the full pipeline", () => {
-    const ctx = fakeCtx();
-    const fill = randomRewardsPlugin.fill({
-      context: ctx,
-      drawContext: fakeDraw("validate"),
-      stage: "mid" as JourneyStage,
-    });
-    const manifest = {
-      schemaVersion: 2 as const,
-      versions: {} as never,
-      journeyId: "J-000001",
-      seed: "rr-test",
-      rootJourneyIndex: 0,
-      shapeId: "random_rewards" as const,
-      stage: "mid" as JourneyStage,
-      dreamscape: 1,
-      selectedTags: [],
-      options: fill.options,
-      distinctness: { algorithm: "semantic-fingerprint:v1" as const, value: "", components: [], explanation: {} as never, equivalenceBands: [] },
-      generatedObjects: [],
-      precommitted: fill.precommitted,
-      debug: { generation: [], symmetryContracts: [] } as never,
-      references: {} as never,
-    };
-    const result = validateJourneyManifest(manifest as never, ctx);
-    // We can't necessarily assert ok:true here without complete metadata (the four cheap checks may fail on missing versions).
-    // The strict assertion is: the result does NOT contain any of the heavy validators' rule ids.
-    const heavyRules = new Set([
-      "typed_payload_contracts", "unresolved_reference",
-      "root_option_payloads", "duplicate_root_option_mechanics",
-      "route_effects", "shape_value_comparability",
-      "offer_refusal_invariants", "random_precommitted_outcomes",
-      "delayed_precommitted_outcomes",
-    ]);
-    if (!result.ok) {
-      // No heavy rule should be the firstFailure.
-      expect(heavyRules.has(result.rule ?? "")).toBe(false);
-    }
-  });
-
   it("uses current random reward text for drafts and named objects", async () => {
     const seed = "random:72a92a8f-1e7e-44d2-87d1-1256f6524e01";
     const { content, contentVersion } = await loadContentContext(process.cwd());

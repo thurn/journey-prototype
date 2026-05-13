@@ -397,12 +397,11 @@ export function reachabilityMetadataForManifest(
 
   addGeneratedObjectEvidence(manifest, evidence);
 
-  const debugPayload = manifest.debug.debugPayload;
   const shapeTopology = getShapeDefinition(manifest.shapeId).topology;
 
   return {
     evidenceSource: "structured_manifest_operations",
-    generatorMode: debugPayload ? "forced_debug_fixture" : "normal_generation",
+    generatorMode: "normal_generation",
     shapeTopology,
     shapeId: manifest.shapeId,
     payloadFamilies: sortedUnique(
@@ -422,18 +421,6 @@ export function reachabilityMetadataForManifest(
     ),
     featureDecisions: featureDecisionsForManifest(manifest, evidence),
     evidence,
-    ...(debugPayload
-      ? {
-          debugFixture: {
-            qaId: debugPayload.qaId,
-            familyId: debugPayload.familyId,
-            variantId: debugPayload.variantId,
-            ...(debugPayload.coverageKind
-              ? { coverageKind: debugPayload.coverageKind }
-              : {}),
-          },
-        }
-      : {}),
   };
 }
 

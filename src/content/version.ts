@@ -14,7 +14,6 @@ export type ContentVersionInput = {
   valueModelContribution: unknown;
   manifestSchemaVersion: number;
   manifestContractVersion: string;
-  validationContractVersion: string;
   rendererVersion: string;
   questInitializationVersion: string;
 };
@@ -59,7 +58,6 @@ export function computeContentVersion(input: ContentVersionInput): string {
     "value-model-version": utf8Bytes(input.valueModelVersion),
     "manifest-schema-version": utf8Bytes(String(input.manifestSchemaVersion)),
     "manifest-contract-version": utf8Bytes(input.manifestContractVersion),
-    "validation-contract-version": utf8Bytes(input.validationContractVersion),
     "renderer-version": utf8Bytes(input.rendererVersion),
     "quest-initialization-version": utf8Bytes(input.questInitializationVersion),
   };

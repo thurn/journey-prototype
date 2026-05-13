@@ -40,7 +40,6 @@ function input(overrides: Partial<Parameters<typeof computeContentVersion>[0]> =
     },
     manifestSchemaVersion: 2,
     manifestContractVersion: "manifest:v2",
-    validationContractVersion: "validation:v1",
     rendererVersion: "v1",
     questInitializationVersion: "v1",
     ...overrides,
@@ -103,10 +102,6 @@ describe("computeContentVersion", () => {
     {
       name: "manifest contract version",
       overrides: { manifestContractVersion: "manifest:v3" },
-    },
-    {
-      name: "validation contract version",
-      overrides: { validationContractVersion: "validation:v2" },
     },
     {
       name: "renderer version",

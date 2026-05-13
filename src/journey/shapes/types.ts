@@ -9,7 +9,7 @@ import type {
   JourneySymmetryContractDebug,
   JourneyTree,
   PrecommittedOutcomes,
-  ValidationCheckedPayload,
+  SequenceState,
 } from "../manifest.js";
 import type { ValidationResult } from "../validate/result.js";
 
@@ -88,6 +88,8 @@ export type FilledJourney = {
   readonly options: JourneyOption[];
   readonly tree?: JourneyTree;
   readonly rewardPool?: JourneyRewardPool;
+  readonly sequence?: SequenceState;
+  readonly generatedObjects?: readonly GeneratedObjectDefinition[];
   readonly precommitted: PrecommittedOutcomes;
   readonly symmetryContracts?: readonly JourneySymmetryContractDebug[];
 };
@@ -113,17 +115,11 @@ export type ShapeValidatorArgs = {
   readonly context: JourneyContext;
   readonly definition: JourneyShapeDefinition;
   readonly generatedObjects: readonly GeneratedObjectDefinition[];
-  readonly checked: readonly ValidationCheckedPayload[];
-  readonly manifestChecked: readonly ValidationCheckedPayload[];
-  readonly optionChecked: readonly ValidationCheckedPayload[];
-  readonly treeChecked: readonly ValidationCheckedPayload[];
-  readonly precommittedChecked: readonly ValidationCheckedPayload[];
 };
 
 export type ShapeValidator = {
   readonly ruleId: string;
   readonly passMessage: string;
-  readonly checkedPayloads: (args: ShapeValidatorArgs) => readonly ValidationCheckedPayload[];
   readonly validate: (args: ShapeValidatorArgs) => ValidationResult;
 };
 
@@ -164,6 +160,5 @@ export type JourneyShapePlugin = {
     readonly natural: boolean;
     readonly highWeirdness?: boolean;
   };
-  readonly debugPayloads?: readonly ShapeDebugPayloadCompatibility[];
   readonly versionContribution?: unknown;
 };

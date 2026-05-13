@@ -102,7 +102,5 @@ export const riskOrSkipValidator: ShapeValidator = {
   ruleId: "risk_or_skip_envelope",
   passMessage:
     "Risk-or-skip envelopes expose bounded downside metadata when applicable.",
-  checkedPayloads: ({ optionChecked, precommittedChecked }) =>
-    optionChecked.length > 0 ? optionChecked : precommittedChecked,
   validate: ({ manifest }) => validateRiskOrSkip(manifest),
 };

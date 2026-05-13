@@ -12,9 +12,6 @@ export type CommonCommandOptions = {
   stage?: "early" | "mid" | "late";
   shape?: string;
   count?: number;
-  debugPayloadFamily?: string;
-  debugPayloadVariant?: string;
-  debugListPayloads: boolean;
 };
 
 export type CommandResult = {

@@ -74,6 +74,5 @@ export const singleOfferValidator: ShapeValidator = {
   ruleId: "single_offer_take_or_leave_contract",
   passMessage:
     "single_offer exposes exactly one meaningful take option and one no-effect leave option.",
-  checkedPayloads: ({ optionChecked }) => optionChecked,
   validate: ({ manifest }) => validateSingleOffer(manifest),
 };

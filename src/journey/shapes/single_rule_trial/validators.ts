@@ -74,7 +74,6 @@ const singleOptionAppliesARuleStatus: ShapeValidator = {
   ruleId: "single_option_applies_a_rule_status",
   passMessage:
     "single_rule_trial declares one option that applies a status rule mutation.",
-  checkedPayloads: ({ optionChecked }) => optionChecked,
   validate: ({ manifest }) => validateSingleOptionAppliesARuleStatus(manifest),
 };
 
@@ -82,7 +81,6 @@ const singleOptionHasNoMeaningfulCostOrChoice: ShapeValidator = {
   ruleId: "single_option_has_no_meaningful_cost_or_choice",
   passMessage:
     "single_rule_trial option carries no meaningful cost, burden, or refusal.",
-  checkedPayloads: ({ optionChecked }) => optionChecked,
   validate: ({ manifest }) =>
     validateSingleOptionHasNoMeaningfulCostOrChoice(manifest),
 };

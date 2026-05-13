@@ -1,4 +1,3 @@
-import { fillOptions as legacyFillOptions } from "../fillers/shapeFills.js";
 import { validateDecisionTree } from "../validate/tree.js";
 import { getShapeScoreWeight } from "./scoreWeights.js";
 import type {
@@ -287,10 +286,9 @@ export function freezeShapeDefinition(
 
 export type DefineShapePluginInput = Omit<
   JourneyShapePlugin,
-  "id" | "definition" | "fill" | "scoreWeight"
+  "id" | "definition" | "scoreWeight"
 > & {
   readonly definition: RawJourneyShapeDefinition;
-  readonly fill?: JourneyShapePlugin["fill"];
   // Production shapes get their weight from `scoreWeights.ts`. This override
   // exists only for test fixtures whose IDs aren't in the table.
   readonly scoreWeight?: number;
@@ -304,10 +302,7 @@ export function defineShapePlugin(
     id: definition.id,
     definition,
     scoreWeight: input.scoreWeight ?? getShapeScoreWeight(definition.id),
-    fill:
-      input.fill ??
-      ((args) =>
-        legacyFillOptions(definition.id, args.context, args.drawContext, args.stage)),
+    fill: input.fill,
     ...(input.validators
       ? { validators: Object.freeze([...input.validators]) }
       : {}),
@@ -333,9 +328,6 @@ export function defineShapePlugin(
     ...(input.generatedObjects
       ? { generatedObjects: freezeSerializable(input.generatedObjects) }
       : {}),
-    ...(input.debugPayloads
-      ? { debugPayloads: freezeSerializable([...input.debugPayloads]) }
-      : {}),
     ...(input.versionContribution
       ? { versionContribution: freezeSerializable(input.versionContribution) }
       : {}),
@@ -348,8 +340,6 @@ export const decisionTreeValidator: ShapeValidator = {
   ruleId: "decision_tree_invariants",
   passMessage:
     "Decision-tree topology is complete and legal when applicable.",
-  checkedPayloads: ({ treeChecked, checked }) =>
-    treeChecked.length > 0 ? treeChecked : checked,
   validate: ({ manifest, context, generatedObjects }) =>
     validateDecisionTree(manifest, context, generatedObjects),
 };

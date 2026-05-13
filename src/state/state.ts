@@ -150,7 +150,6 @@ const MANIFEST_VERSION_METADATA_FIELDS: (keyof JourneyVersionMetadata)[] = [
   "valueModelVersion",
   "rendererVersion",
   "manifestContractVersion",
-  "validationContractVersion",
 ];
 
 function validateManifestVersions(

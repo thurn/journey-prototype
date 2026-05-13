@@ -43,18 +43,7 @@ const MIGRATED_SHAPE_IDS = [
   "timed_window_menu",
 ];
 
-// Files allowed to mention any shape ID (legacy code path during migration).
-// Shrinks toward zero as the remaining shapes migrate.
-const FILES_EXEMPT_FROM_ISOLATION = new Set(
-  [
-    // Legacy centralized fillers; deleted shape-by-shape as plugins take over.
-    "src/journey/fillers/shapeFills.ts",
-    "src/journey/fillers/treeBuilders.ts",
-    // Debug fixtures registry keyed by shape ID; cleanup deferred per plan.
-    "src/journey/fixtures/debug/metadata.ts",
-    "src/journey/fixtures/debug/random.ts",
-  ].map((path) => path.replace(/\//g, sep)),
-);
+const FILES_EXEMPT_FROM_ISOLATION = new Set<string>();
 
 const FILES_ALLOWED_BY_SHAPE_ID = new Map(
   Object.entries({
@@ -62,22 +51,18 @@ const FILES_ALLOWED_BY_SHAPE_ID = new Map(
       "src/journey/manifest.ts",
     ],
     paired_return: [
-      "src/journey/fillers/fingerprint.ts",
       "src/journey/manifest.ts",
       "src/journey/operationAdapters.ts",
       "src/journey/reachability.ts",
-      "src/journey/validate/payloadContracts.ts",
       "src/render/human.ts",
     ],
     probability_ladder: [
-      "src/journey/fillers/fingerprint.ts",
       "src/journey/manifest.ts",
       "src/journey/operationAdapters.ts",
       "src/journey/validate/randomContracts.ts",
       "src/render/human.ts",
     ],
     resolved_random_series: [
-      "src/journey/fillers/fingerprint.ts",
       "src/journey/manifest.ts",
       "src/journey/operationAdapters.ts",
       "src/journey/validate/randomContracts.ts",

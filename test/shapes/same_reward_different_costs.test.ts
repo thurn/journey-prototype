@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { validateJourneyManifest } from "../../src/journey/validate/index.js";
 import { loadContentContext } from "../../src/commands/shared.js";
 import { generateNextJourney } from "../../src/journey/generate.js";
 import type { JourneyContext } from "../../src/quest/context.js";
@@ -107,54 +106,6 @@ describe("same_reward_different_costs fill", () => {
       }
     }
   });
-
-  it("bypasses standard validation rules", () => {
-    const ctx = fakeCtx();
-    const fill = sameRewardDifferentCostsPlugin.fill({
-      context: ctx,
-      drawContext: fakeDraw("srdc-validate"),
-      stage: "mid" as JourneyStage,
-    });
-    const manifest = {
-      schemaVersion: 2 as const,
-      versions: {} as never,
-      journeyId: "J-000001",
-      seed: "srdc-test",
-      rootJourneyIndex: 0,
-      shapeId: "same_reward_different_costs" as const,
-      stage: "mid" as JourneyStage,
-      dreamscape: 1,
-      selectedTags: [],
-      options: fill.options,
-      distinctness: {
-        algorithm: "semantic-fingerprint:v1" as const,
-        value: "",
-        components: [],
-        explanation: {} as never,
-        equivalenceBands: [],
-      },
-      generatedObjects: [],
-      precommitted: fill.precommitted,
-      debug: { generation: [], symmetryContracts: [] } as never,
-      references: {} as never,
-    };
-    const result = validateJourneyManifest(manifest as never, ctx);
-    const heavyRules = new Set([
-      "typed_payload_contracts",
-      "unresolved_reference",
-      "root_option_payloads",
-      "duplicate_root_option_mechanics",
-      "route_effects",
-      "shape_value_comparability",
-      "offer_refusal_invariants",
-      "random_precommitted_outcomes",
-      "delayed_precommitted_outcomes",
-    ]);
-    if (!result.ok) {
-      expect(heavyRules.has(result.rule ?? "")).toBe(false);
-    }
-  });
-
   it("keeps audit regression offers unlocked and non-dominated", async () => {
     const cases: Array<{ seed: string; stage: JourneyStage }> = [
       { seed: "audit:same_reward_different_costs:early:06", stage: "early" },

@@ -1,6 +1,5 @@
 import type { JourneyShapeId } from "./shapes.js";
 import type { ValueBreakdown } from "./value.js";
-import type { DebugPayloadSelection } from "./debugPayloads.js";
 
 export const MANIFEST_SCHEMA_VERSION: 2 = 2;
 export const MANIFEST_CONTRACT_VERSION = "manifest:v2";
@@ -711,89 +710,6 @@ export type JourneyOperation =
   | GeneratedObjectOperation
   | ValidationRequirementOperation;
 
-export type ValidationSeverity = "error" | "warning";
-
-export type ValidationCheckedPayload = {
-  path: string;
-  scope:
-    | "manifest"
-    | "option"
-    | "tree_branch"
-    | "tree_terminal"
-    | "reward_pool"
-    | "precommitted";
-  optionNumber?: number;
-  shapeId?: JourneyShapeId;
-  payloadFamily?: string;
-  targetResolution?: TargetResolutionMetadata;
-};
-
-export type ValidationRuleOutcome = {
-  ruleId: string;
-  severity: ValidationSeverity;
-  status: "pass" | "fail";
-  message: string;
-  checked: ValidationCheckedPayload[];
-  debug?: Record<string, unknown>;
-};
-
-export type ValidationReport = {
-  ok: boolean;
-  passed: number;
-  failed: number;
-  firstFailure?: Pick<ValidationRuleOutcome, "ruleId" | "message" | "severity" | "checked">;
-  rules: ValidationRuleOutcome[];
-};
-
-export type SemanticEquivalenceBand = {
-  field:
-    | "essence_amount"
-    | "omen_count"
-    | "chance_percentage"
-    | "duration_count"
-    | "choice_count"
-    | "percentage_cost"
-    | "max_resource_effect"
-    | "all_remaining_cost"
-    | "random_range"
-    | "batch_size"
-    | "hook_counter"
-    | "route_scope"
-    | "operation_arity";
-  band: string;
-  description: string;
-};
-
-export type DistinctnessFingerprint = {
-  algorithm: "semantic-fingerprint:v1";
-  value: string;
-  components: string[];
-  explanation: {
-    shapeId: JourneyShapeId;
-    topology: string;
-    stage: JourneyStage;
-    payloadFamilies: string[];
-    operationVerbs: string[];
-    targetClasses: string[];
-    namedObjectIdentities: string[];
-    generatedObjectArchetypes: string[];
-    timingClasses: string[];
-    triggerClasses: string[];
-    routeScopes: string[];
-    statusScopes: string[];
-    randomEnvelopeTypes: string[];
-    revealEnvelopeTypes: string[];
-    visibilityPolicies: string[];
-    majorCostFamilies: string[];
-    majorRewardFamilies: string[];
-    majorBurdenFamilies: string[];
-    motifs: string[];
-    curatedVariantIds: string[];
-    semanticValueBands: string[];
-  };
-  equivalenceBands: SemanticEquivalenceBand[];
-};
-
 export type RepairOutcomeStatus =
   | "accepted_immediately"
   | "adjusted"
@@ -841,7 +757,7 @@ export type ReachabilityEvidence = {
 
 export type ReachabilityMetadata = {
   evidenceSource: "structured_manifest_operations";
-  generatorMode: "normal_generation" | "forced_debug_fixture";
+  generatorMode: "normal_generation";
   shapeTopology: string;
   shapeId: JourneyShapeId;
   payloadFamilies: string[];
@@ -849,12 +765,6 @@ export type ReachabilityMetadata = {
   timingFamilies: string[];
   featureDecisions: FeatureReachabilityDecision[];
   evidence: ReachabilityEvidence[];
-  debugFixture?: {
-    qaId: string;
-    familyId: string;
-    variantId: string;
-    coverageKind?: string;
-  };
 };
 
 export type FeatureReachabilityDecision = {
@@ -886,11 +796,12 @@ export type JourneyDebug = {
     actionCategory: Exclude<RepairOutcomeStatus, "accepted_immediately" | "forced_shape_failed" | "unrepaired">;
     action: string;
     result: "repaired" | "fallback" | "failed";
-    validation?: Pick<ValidationRuleOutcome, "ruleId" | "message" | "severity" | "checked">;
+    validation?: {
+      ruleId: string;
+      message: string;
+    };
   }[];
-  validation: ValidationReport;
   repair: RepairOutcomeMetadata;
-  semanticFingerprint: DistinctnessFingerprint;
   reachability?: ReachabilityMetadata;
   previousPick?: {
     journeyId: string;
@@ -899,9 +810,6 @@ export type JourneyDebug = {
     effectSimulation: "not_applied";
     sequenceStep?: number;
     sequenceStatus?: SequenceState["status"];
-  };
-  debugPayload?: DebugPayloadSelection & {
-    source: "forced";
   };
 };
 
@@ -940,7 +848,6 @@ export type JourneyVersionMetadata = {
   valueModelVersion: string;
   rendererVersion: string;
   manifestContractVersion: string;
-  validationContractVersion: string;
 };
 
 export type JourneyOption = {
@@ -1034,7 +941,6 @@ export type JourneyManifest = {
   dreamscape: number;
   selectedTags: string[];
   options: JourneyOption[];
-  distinctness: DistinctnessFingerprint;
   generatedObjects: GeneratedObjectDefinition[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;

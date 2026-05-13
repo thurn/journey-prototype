@@ -92,7 +92,6 @@ export function fixtureManifest(): JourneyManifest {
       valueModelVersion: "value:v8",
       rendererVersion: "renderer:v1",
       manifestContractVersion: MANIFEST_CONTRACT_VERSION,
-      validationContractVersion: "validation:v1",
     },
     journeyId: "J-000001",
     seed: "seed-a",
@@ -131,17 +130,6 @@ export function fixtureManifest(): JourneyManifest {
         },
       ],
       repairs: [],
-      semanticFingerprint: {
-        algorithm: "semantic-fingerprint:v1",
-        value: "fixture",
-        components: ["shape:single_offer"],
-      },
-      validation: {
-        ok: true,
-        passed: 0,
-        failed: 0,
-        rules: [],
-      },
       repair: {
         status: "accepted_immediately",
         forcedShape: false,

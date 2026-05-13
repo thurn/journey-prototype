@@ -255,7 +255,6 @@ describe("single_offer fill", () => {
 
         assertSingleOfferManifest(manifest);
         expect(manifest.stage).toBe(stage);
-        expect(manifest.debug.validation.ok, seed).toBe(true);
 
         const take = acceptOption(manifest);
 
@@ -300,6 +299,5 @@ describe("single_offer fill", () => {
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
     expect(first.references).toEqual(second.references);
-    expect(first.distinctness).toEqual(second.distinctness);
   });
 });

@@ -23,7 +23,6 @@ import { RENDERER_VERSION } from "../render/theme.js";
 import type { JourneyState } from "../state/schema.js";
 import { ExitCode } from "../util/exitCodes.js";
 import type { CommandResult, CommonCommandOptions } from "./options.js";
-import { VALIDATION_CONTRACT_VERSION } from "../journey/validate/index.js";
 
 export type LoadedContentContext = {
   content: ContentBundle;
@@ -46,7 +45,6 @@ export async function loadContentContext(
     valueModelContribution: VALUE_MODEL_CONTRIBUTION,
     manifestSchemaVersion: MANIFEST_SCHEMA_VERSION,
     manifestContractVersion: MANIFEST_CONTRACT_VERSION,
-    validationContractVersion: VALIDATION_CONTRACT_VERSION,
     rendererVersion: RENDERER_VERSION,
     questInitializationVersion: QUEST_INITIALIZATION_VERSION,
   });
