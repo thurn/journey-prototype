@@ -111,7 +111,7 @@ the target end state.
 | `random_pool_draws` | Complete | Complete |
 | `reveal_choice_menu` | Needed | Needed |
 | `resolved_random_series` | Complete | Complete |
-| `reward_after_trigger` | Needed | Needed |
+| `reward_after_trigger` | Complete | Complete |
 | `risk_or_skip` | Needed | Needed |
 | `shared_prefix_menu` | Complete | Complete |
 | `service_menu` | Complete | Complete |
