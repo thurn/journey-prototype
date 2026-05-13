@@ -30,6 +30,10 @@ function sentenceCase(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
+function indefiniteArticleFor(text: string): "a" | "an" {
+  return /^[aeiou]/iu.test(text.trim()) ? "an" : "a";
+}
+
 function onlyActiveDreamsignName(
   ctx: import("../../quest/context.js").JourneyContext,
 ): string | undefined {
@@ -685,7 +689,8 @@ const addSiteToDreamscape: Reward<AddSiteParams> = {
   }),
   cec: () => 100,
   viable: () => true,
-  render: (p) => `Add a ${p.siteType} site to this dreamscape`,
+  render: (p) =>
+    `Add ${indefiniteArticleFor(p.siteType)} ${p.siteType} site to this dreamscape`,
 };
 
 const addSiteToNextDreamscape: Reward<AddSiteParams> = {
@@ -696,7 +701,8 @@ const addSiteToNextDreamscape: Reward<AddSiteParams> = {
   }),
   cec: () => 75,
   viable: () => true,
-  render: (p) => `Add a ${p.siteType} site to the next dreamscape you visit`,
+  render: (p) =>
+    `Add ${indefiniteArticleFor(p.siteType)} ${p.siteType} site to the next dreamscape you visit`,
 };
 
 type StartingDreamwellPosParams = { cardName: string };

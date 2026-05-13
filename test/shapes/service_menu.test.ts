@@ -3,7 +3,7 @@ import { serviceMenuFill } from "../../src/journey/shapes/service_menu/fill.js";
 import { makeTestContext } from "../helpers/journey-context.js";
 
 describe("service_menu", () => {
-  it("builds deterministic text and CEC service rows from shared templates", () => {
+  it("builds deterministic themed service rows from shared templates", () => {
     const first = makeTestContext({ seed: "service-menu-shared-templates" });
     const second = makeTestContext({ seed: "service-menu-shared-templates" });
 
@@ -14,9 +14,13 @@ describe("service_menu", () => {
     expect(firstFill.options).toHaveLength(3);
     expect(firstFill.precommitted).toEqual({});
     expect(firstFill.symmetryContracts).toBeUndefined();
+    const sceneNames = new Set<string>();
 
     for (const option of firstFill.options) {
-      expect(option.text).toMatch(/^Cost: .+\. Reward: .+/u);
+      expect(option.text).toMatch(/^[^:]+: .+\. Price: .+/u);
+      expect(option.text).not.toContain("Cost:");
+      expect(option.text).not.toContain("Reward:");
+      sceneNames.add(option.text.split(":")[0]!);
       expect(option.symbols).toEqual(["service", "cost", "reward"]);
       expect(option.operations).toEqual([]);
       expect(option.costs).toEqual([]);
@@ -29,6 +33,23 @@ describe("service_menu", () => {
       expect(option.costConvertedEssence).toBeGreaterThan(0);
       expect(option.netConvertedEssence).toBeGreaterThan(0);
       expect(option.pickBehavior).toBe("record_and_generate_next");
+    }
+
+    expect(sceneNames.size).toBe(1);
+  });
+
+  it("keeps card and Dreamsign surgery out of service prices", () => {
+    for (let index = 0; index < 20; index += 1) {
+      const fill = serviceMenuFill(
+        makeTestContext({ seed: `service-menu-price-audit-${index}` }),
+      );
+
+      for (const option of fill.options) {
+        const price = option.text.split(". Price: ")[1] ?? "";
+        expect(price).not.toMatch(
+          /Purge (?:a chosen|a random|'|all duplicate|the transfiguration)|Transform .* into|Draw \d+ cards/u,
+        );
+      }
     }
   });
 });

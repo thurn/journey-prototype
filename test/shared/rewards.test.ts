@@ -727,6 +727,18 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     );
   });
 
+  it("uses the matching article when rendering added route sites", () => {
+    const here = getReward("add_site_to_dreamscape");
+    const next = getReward("add_site_to_next_dreamscape");
+
+    expect(here.render({ siteType: "Essence" } as never, fakeCtx())).toBe(
+      "Add an Essence site to this dreamscape",
+    );
+    expect(next.render({ siteType: "Purge" } as never, fakeCtx())).toBe(
+      "Add a Purge site to the next dreamscape you visit",
+    );
+  });
+
   it("dreamwell rewards are down-weighted to 0.25 so they appear less often", () => {
     // Dreamwell rewards otherwise crowd the random_rewards pool; their pool
     // weight is reduced to a quarter of the default to thin out their
