@@ -4,6 +4,7 @@ import {
   versionContribution,
 } from "../shared.js";
 import { singleOfferFill } from "./fill.js";
+import { singleOfferValidator } from "./validators.js";
 
 export const singleOfferPlugin = defineShapePlugin({
   definition: {
@@ -124,5 +125,6 @@ export const singleOfferPlugin = defineShapePlugin({
       { action: "rebalance_offer_value", kind: "repair_payload_family" },
     ],
   },
+  validators: [singleOfferValidator],
   fill: singleOfferFill,
 });
