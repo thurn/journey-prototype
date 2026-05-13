@@ -693,6 +693,36 @@ describe("rewards table (dreamsign family)", () => {
     expect(cec3).toBeGreaterThan(cec2);
     expect(cec4).toBeGreaterThan(cec3);
   });
+
+  it("transform_dreamsign_to_named rolls an inactive destination", () => {
+    const t = getReward("transform_dreamsign_to_named");
+    const ctx = fakeCtx();
+    ctx.content.dreamsigns = [
+      {
+        id: "purple-potion",
+        name: "Purple Potion",
+        kind: "neutral",
+        renderedText: "",
+        tides: [],
+        raw: {},
+      },
+      {
+        id: "serpent-manual",
+        name: "Serpent Manual",
+        kind: "neutral",
+        renderedText: "",
+        tides: [],
+        raw: {},
+      },
+    ];
+    ctx.state.quest.activeDreamsigns = [{ dreamsignId: "purple-potion" }];
+
+    const params = t.rollParams(ctx, draw) as { name: string };
+
+    expect(t.viable(params as never, ctx)).toBe(true);
+    expect(params.name).toBe("Serpent Manual");
+    expect(t.render(params as never, ctx)).toBe("Transform a chosen dreamsign into 'Serpent Manual'");
+  });
 });
 
 describe("rewards table (site/dreamwell/misc family)", () => {

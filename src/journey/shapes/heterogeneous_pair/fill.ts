@@ -1,6 +1,6 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { weightedChoice, type DrawContext } from "../../../util/rng.js";
-import type { JourneyOption } from "../../manifest.js";
+import type { JourneyOption, JourneyStage } from "../../manifest.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -22,12 +22,59 @@ type RewardAxis =
   | "dreamwell"
   | "shop";
 
+type TargetClass =
+  | "resource"
+  | "deck"
+  | "card_pool"
+  | "starter"
+  | "bane"
+  | "dreamsign"
+  | "route"
+  | "dreamwell"
+  | "shop";
+
+type OperationFamily =
+  | "resource_gain"
+  | "draft"
+  | "gain"
+  | "transform"
+  | "transfigure"
+  | "duplicate"
+  | "cleanup"
+  | "repair"
+  | "discount"
+  | "route_add"
+  | "route_replace"
+  | "route_weight"
+  | "dreamwell_setup"
+  | "temporary";
+
+type ResultObjectType =
+  | "resource"
+  | "omen"
+  | "card"
+  | "card_upgrade"
+  | "deck_trim"
+  | "starter_repair"
+  | "bane_removal"
+  | "dreamsign"
+  | "site"
+  | "shop_economy"
+  | "dreamwell_card";
+
+type RewardProfile = {
+  readonly targetClasses: ReadonlySet<TargetClass>;
+  readonly operationFamilies: ReadonlySet<OperationFamily>;
+  readonly resultObjectTypes: ReadonlySet<ResultObjectType>;
+};
+
 type RolledReward = {
   readonly template: Reward;
   readonly params: unknown;
   readonly cec: number;
   readonly text: string;
   readonly axes: ReadonlySet<RewardAxis>;
+  readonly profile: RewardProfile;
   readonly consumedIds: readonly string[];
 };
 
@@ -39,7 +86,13 @@ function emptyOption(
 ): JourneyOption {
   return {
     number,
-    symbols: ["reward", ...reward.axes],
+    symbols: [
+      "semantic:reward",
+      ...Array.from(reward.axes, (axis) => `axis:${axis}`),
+      ...Array.from(reward.profile.targetClasses, (target) => `target:${target}`),
+      ...Array.from(reward.profile.operationFamilies, (operation) => `operation:${operation}`),
+      ...Array.from(reward.profile.resultObjectTypes, (result) => `result:${result}`),
+    ],
     text: reward.text,
     operations: [],
     costs: [],
@@ -209,6 +262,125 @@ function rewardAxes(consumedIds: readonly string[]): ReadonlySet<RewardAxis> {
   return new Set(consumedIds.map(rewardAxis));
 }
 
+function profileForTemplateId(templateId: string): RewardProfile {
+  switch (templateId) {
+    case "gain_essence":
+    case "set_essence_to_percent_of_max":
+    case "gain_essence_random_range":
+    case "gain_essence_to_max":
+    case "increase_max_essence":
+      return profile(["resource"], ["resource_gain"], ["resource"]);
+    case "gain_omens":
+      return profile(["resource"], ["resource_gain"], ["omen"]);
+    case "gain_random_predicate_cards":
+    case "gain_named_card":
+      return profile(["card_pool"], ["gain"], ["card"]);
+    case "draft_predicate_cards_from_4":
+    case "take_any_from_predicate_choices":
+    case "draft_2_predicate_cards_from_4":
+    case "draft_predicate_card_with_copies":
+    case "draft_predicate_card_with_transfiguration":
+      return profile(["card_pool"], ["draft"], ["card"]);
+    case "apply_chosen_transfiguration_to_chosen_card":
+    case "apply_named_transfiguration_to_chosen_predicate_cards":
+    case "apply_named_transfiguration_to_card_name":
+    case "apply_named_transfiguration_to_random_predicate_cards":
+    case "change_card_to_become_type":
+    case "modify_random_cards_to_types":
+    case "make_random_cards_fast":
+    case "make_card_reclaim":
+    case "make_random_cards_reclaim":
+    case "apply_named_transfiguration_to_all_predicate_cards":
+    case "apply_random_transfigurations_to_random_cards":
+      return profile(["deck"], ["transfigure"], ["card_upgrade"]);
+    case "transform_card_in_deck_into_named":
+    case "transform_chosen_predicate_into_named":
+      return profile(["deck"], ["transform"], ["card"]);
+    case "duplicate_named_card_X":
+    case "duplicate_chosen_cards":
+    case "duplicate_random_predicate":
+    case "draw_X_and_duplicate_chosen":
+      return profile(["deck"], ["duplicate"], ["card"]);
+    case "opening_hand_grant_for_X_battles":
+    case "temporary_card_copy_for_X_battles":
+    case "card_cost_reduction_for_X_battles":
+      return profile(["deck"], ["temporary"], ["card_upgrade"]);
+    case "purge_chosen_predicate_cards":
+    case "purge_chosen_predicate_with_replacement":
+      return profile(["deck"], ["cleanup"], ["deck_trim"]);
+    case "transfigure_random_starters":
+    case "transfigure_all_starters":
+    case "transfigure_chosen_starters":
+      return profile(["starter"], ["transfigure"], ["starter_repair"]);
+    case "purge_named_starter":
+    case "purge_random_starter":
+    case "purge_chosen_starters":
+    case "purge_all_starters":
+      return profile(["starter"], ["cleanup"], ["starter_repair"]);
+    case "purge_random_starter_with_predicate_replacement":
+    case "transform_starter_into_named_card":
+    case "replace_starter_via_draft":
+      return profile(["starter"], ["repair"], ["starter_repair"]);
+    case "purge_X_banes":
+    case "purge_all_banes":
+      return profile(["bane"], ["cleanup"], ["bane_removal"]);
+    case "gain_random_dreamsign":
+    case "gain_named_dreamsign":
+    case "choose_1_of_X_dreamsigns":
+      return profile(["dreamsign"], ["gain"], ["dreamsign"]);
+    case "gain_copy_of_random_dreamsign":
+    case "gain_copy_of_chosen_dreamsign":
+      return profile(["dreamsign"], ["duplicate"], ["dreamsign"]);
+    case "transform_dreamsign_to_named":
+      return profile(["dreamsign"], ["transform"], ["dreamsign"]);
+    case "temporary_dreamsign_for_X_battles":
+      return profile(["dreamsign"], ["temporary"], ["dreamsign"]);
+    case "add_site_to_dreamscape":
+    case "add_site_to_next_dreamscape":
+      return profile(["route"], ["route_add"], ["site"]);
+    case "replace_site_type":
+      return profile(["route"], ["route_replace"], ["site"]);
+    case "boost_site_appearance_chance":
+      return profile(["route"], ["route_weight"], ["site"]);
+    case "set_starting_dreamwell_positive":
+    case "shuffle_positive_dreamwell_cards":
+      return profile(["dreamwell"], ["dreamwell_setup"], ["dreamwell_card"]);
+    case "next_X_shop_rerolls_free":
+    case "shop_essence_discount":
+    case "shop_omen_discount":
+      return profile(["shop"], ["discount"], ["shop_economy"]);
+    default:
+      return profile(["deck"], ["transfigure"], ["card_upgrade"]);
+  }
+}
+
+function profile(
+  targetClasses: readonly TargetClass[],
+  operationFamilies: readonly OperationFamily[],
+  resultObjectTypes: readonly ResultObjectType[],
+): RewardProfile {
+  return {
+    targetClasses: new Set(targetClasses),
+    operationFamilies: new Set(operationFamilies),
+    resultObjectTypes: new Set(resultObjectTypes),
+  };
+}
+
+function mergeProfiles(templateIds: readonly string[]): RewardProfile {
+  const targetClasses = new Set<TargetClass>();
+  const operationFamilies = new Set<OperationFamily>();
+  const resultObjectTypes = new Set<ResultObjectType>();
+
+  for (const templateId of templateIds) {
+    const templateProfile = profileForTemplateId(templateId);
+    for (const target of templateProfile.targetClasses) targetClasses.add(target);
+    for (const operation of templateProfile.operationFamilies) operationFamilies.add(operation);
+    for (const result of templateProfile.resultObjectTypes) resultObjectTypes.add(result);
+  }
+
+  return { targetClasses, operationFamilies, resultObjectTypes };
+}
+
 function hasAxisOverlap(
   left: ReadonlySet<RewardAxis>,
   right: ReadonlySet<RewardAxis>,
@@ -231,6 +403,41 @@ function hasConsumedIdOverlap(left: RolledReward, right: RolledReward): boolean 
   const leftIds = new Set(left.consumedIds);
 
   return right.consumedIds.some((id) => leftIds.has(id));
+}
+
+function hasSetOverlap<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): boolean {
+  for (const value of left) {
+    if (right.has(value)) return true;
+  }
+
+  return false;
+}
+
+function pairHasPlayerVisibleSeparation(left: RolledReward, right: RolledReward): boolean {
+  const targetSeparated = !hasSetOverlap(left.profile.targetClasses, right.profile.targetClasses);
+  const operationSeparated = !hasSetOverlap(left.profile.operationFamilies, right.profile.operationFamilies);
+  const resultSeparated = !hasSetOverlap(left.profile.resultObjectTypes, right.profile.resultObjectTypes);
+
+  if ([targetSeparated, operationSeparated, resultSeparated].filter(Boolean).length < 2) {
+    return false;
+  }
+
+  const deckLikeTargets = new Set<TargetClass>(["deck", "card_pool", "starter"]);
+  const leftDeckLike = Array.from(left.profile.targetClasses).some((target) => deckLikeTargets.has(target));
+  const rightDeckLike = Array.from(right.profile.targetClasses).some((target) => deckLikeTargets.has(target));
+
+  return !(leftDeckLike && rightDeckLike);
+}
+
+function minimumImpactForStage(stage: JourneyStage): number {
+  switch (stage) {
+    case "early":
+      return 30;
+    case "mid":
+      return 40;
+    case "late":
+      return 65;
+  }
 }
 
 function rollCandidates(
@@ -262,6 +469,7 @@ function rollCandidates(
       cec,
       text: template.render(params as never, ctx),
       axes: rewardAxes(consumedIds),
+      profile: mergeProfiles(consumedIds),
       consumedIds,
     });
   }
@@ -272,6 +480,7 @@ function rollCandidates(
 function pairCandidates(
   rewards: readonly RolledReward[],
   maxSpreadRatio: number,
+  minimumImpact: number,
 ): RewardPair[] {
   const pairs: RewardPair[] = [];
 
@@ -285,8 +494,10 @@ function pairCandidates(
       const right = rewards[rightIndex]!;
 
       if (left.text === right.text) continue;
+      if (left.cec < minimumImpact || right.cec < minimumImpact) continue;
       if (hasAxisOverlap(left.axes, right.axes)) continue;
       if (hasConsumedIdOverlap(left, right)) continue;
+      if (!pairHasPlayerVisibleSeparation(left, right)) continue;
       if (spreadRatio(left, right) > maxSpreadRatio) continue;
 
       pairs.push([left, right]);
@@ -296,12 +507,14 @@ function pairCandidates(
   return pairs;
 }
 
-function rollPair(ctx: JourneyContext, draw: DrawContext): RewardPair {
+function rollPair(ctx: JourneyContext, draw: DrawContext, stage: JourneyStage): RewardPair {
+  const minimumImpact = minimumImpactForStage(stage);
+
   for (let attempt = 0; attempt < OFFER_ATTEMPTS; attempt += 1) {
     const candidates = rollCandidates(ctx, draw, attempt);
     const maxSpreadRatio =
       INITIAL_MAX_SPREAD_RATIO + attempt * SPREAD_RATIO_WIDEN_STEP;
-    const pairs = pairCandidates(candidates, maxSpreadRatio);
+    const pairs = pairCandidates(candidates, maxSpreadRatio, minimumImpact);
 
     if (pairs.length > 0) {
       const picked = weightedChoice(
@@ -326,8 +539,8 @@ function rollPair(ctx: JourneyContext, draw: DrawContext): RewardPair {
 }
 
 export function heterogeneousPairFill(args: ShapeFillArgs): FilledJourney {
-  const { context, drawContext } = args;
-  const pair = rollPair(context, drawContext);
+  const { context, drawContext, stage } = args;
+  const pair = rollPair(context, drawContext, stage);
 
   return {
     options: pair.map((reward, index) => emptyOption(index + 1, reward)),

@@ -42,6 +42,13 @@ function onlyActiveDreamsignName(
   return ctx.content.dreamsigns.find((dreamsign) => dreamsign.id === dreamsignId)?.name;
 }
 
+function inactiveDreamsignMatches(
+  ctx: import("../../quest/context.js").JourneyContext,
+): ReturnType<typeof dreamsignMatches> {
+  const activeIds = new Set(ctx.state.quest.activeDreamsigns.map((entry) => entry.dreamsignId));
+  return dreamsignMatches(ctx).filter((dreamsign) => !activeIds.has(dreamsign.id));
+}
+
 // Roll a transfiguration that is compatible with the given predicate's
 // match set. Falls back to the canonical set when no transfiguration is
 // applicable (the surrounding `viable` check is responsible for filtering
@@ -974,11 +981,11 @@ const transformDreamsignToNamed: Reward<TransformDreamsignToNamedParams> = {
   id: "transform_dreamsign_to_named",
   weight: 1.0,
   rollParams: (ctx, draw) => {
-    const pool = dreamsignMatches(ctx);
+    const pool = inactiveDreamsignMatches(ctx);
     return { name: pool.length > 0 ? pickFromList(draw, "xform_ds_named:c", pool).name : "Placeholder Dreamsign" };
   },
   cec: () => DREAMSIGN_CEC * 0.6,
-  viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1 && dreamsignMatches(ctx).length >= 1,
+  viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1 && inactiveDreamsignMatches(ctx).length >= 1,
   render: (p) => `Transform a chosen dreamsign into ${quoteName(p.name)}`,
 };
 
