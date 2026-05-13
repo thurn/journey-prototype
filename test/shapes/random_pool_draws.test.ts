@@ -12,6 +12,35 @@ import {
 import type { DrawContext } from "../../src/util/rng.js";
 
 const randomPoolDrawsPlugin = getShapePlugin("random_pool_draws");
+const TARGET_DEPENDENT_POOL_IDS = new Set([
+  "apply_named_transfiguration_to_all_predicate_cards",
+  "gain_essence_random_range",
+  "meta_gain_2_rewards",
+  "purge_X_banes",
+  "purge_all_banes",
+  "replace_site_type",
+]);
+const EARLY_SCALE_POOL_IDS = new Set([
+  "draw_X_and_duplicate_chosen",
+  "gain_copy_of_chosen_dreamsign",
+  "gain_copy_of_random_dreamsign",
+  "gain_essence_to_max",
+  "increase_max_essence",
+  "set_essence_to_percent_of_max",
+  "shop_essence_discount",
+]);
+const NESTED_RANDOM_POOL_IDS = new Set([
+  "apply_named_transfiguration_to_random_predicate_cards",
+  "apply_random_transfigurations_to_random_cards",
+  "duplicate_random_predicate",
+  "gain_random_predicate_cards",
+  "modify_random_cards_to_types",
+  "purge_random_starter",
+  "purge_random_starter_with_predicate_replacement",
+  "temporary_dreamsign_for_X_battles",
+  "transfigure_all_starters",
+  "transfigure_random_starters",
+]);
 
 function fakeCtx(): JourneyContext {
   return {
@@ -57,6 +86,49 @@ function fakeCtx(): JourneyContext {
 
 function fakeDraw(seed: string): DrawContext {
   return { seed, contentVersion: "v1", rootJourneyIndex: 0 };
+}
+
+async function forcedRandomPoolManifest(seed: string, stage: JourneyStage) {
+  const { content, contentVersion } = await loadContentContext(process.cwd());
+  const state = createInitialJourneyState({ seed, content, contentVersion });
+  simulateQuestStateForStage({
+    state,
+    stage,
+    drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+  });
+  const context = buildJourneyContext({
+    projectRoot: process.cwd(),
+    content,
+    state,
+    contentVersion,
+  });
+
+  return generateNextJourney({
+    context,
+    forcedShapeId: "random_pool_draws",
+    forcedStage: stage,
+  });
+}
+
+function poolTemplateIds(manifest: Awaited<ReturnType<typeof forcedRandomPoolManifest>>): string[] {
+  return (manifest.rewardPool?.rewards ?? []).flatMap((reward) => {
+    if (typeof reward !== "object" || reward === null || !("templateId" in reward)) {
+      return [];
+    }
+
+    const templateId = (reward as { readonly templateId?: unknown }).templateId;
+
+    return typeof templateId === "string" ? [templateId] : [];
+  });
+}
+
+function drawCosts(manifest: Awaited<ReturnType<typeof forcedRandomPoolManifest>>): number[] {
+  return (manifest.tree?.nodes ?? []).map((node) => {
+    const drawBranch = node.branches.find((branch) => branch.label === "Draw");
+    const match = drawBranch?.text.match(/^Pay (\d+) essence/u);
+
+    return match ? Number(match[1]) : Number.NaN;
+  });
 }
 
 describe("random_pool_draws fill", () => {
@@ -182,5 +254,91 @@ describe("random_pool_draws fill", () => {
       "journey_id_format",
       "root_option_count_within_bounds",
     ]);
+  });
+
+  it.each([
+    ["audit:random_pool_draws:early:03", "early"],
+    ["audit:random_pool_draws:early:07", "early"],
+    ["audit:random_pool_draws:early:10", "early"],
+  ] as const)("keeps early audit pool %s inside early-stage bands", async (seed, stage) => {
+    const manifest = await forcedRandomPoolManifest(seed, stage);
+    const ids = poolTemplateIds(manifest);
+
+    for (const id of ids) {
+      expect(EARLY_SCALE_POOL_IDS.has(id)).toBe(false);
+    }
+    expect(ids.filter((id) => NESTED_RANDOM_POOL_IDS.has(id)).length)
+      .toBeLessThanOrEqual(1);
+    for (const reward of manifest.rewardPool?.rewards ?? []) {
+      if (typeof reward !== "object" || reward === null) {
+        continue;
+      }
+      const templateId = (reward as { readonly templateId?: unknown }).templateId;
+      const params = (reward as { readonly params?: unknown }).params;
+      if (
+        templateId === "duplicate_chosen_cards" ||
+        templateId === "duplicate_named_card_X"
+      ) {
+        expect((params as { readonly count?: number }).count).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it.each([
+    ["audit:random_pool_draws:early:01", "early"],
+    ["audit:random_pool_draws:mid:08", "mid"],
+    ["audit:random_pool_draws:late:05", "late"],
+  ] as const)("renders audit pool %s as numbered outcomes with policy line", async (seed, stage) => {
+    const manifest = await forcedRandomPoolManifest(seed, stage);
+    const summary = manifest.rewardPool?.summary ?? "";
+
+    expect(summary).toMatch(/^Randomly gain one:\n1\. /u);
+    expect(summary).toContain("\n2. ");
+    expect(summary).toMatch(/\nReplacement policy: Outcomes draw (with|without) replacement\.$/u);
+  });
+
+  it.each([
+    ["audit:random_pool_draws:late:03", "late"],
+    ["audit:random_pool_draws:late:08", "late"],
+    ["audit:random_pool_draws:late:10", "late"],
+  ] as const)("filters hidden-state pool outcomes for audit seed %s", async (seed, stage) => {
+    const manifest = await forcedRandomPoolManifest(seed, stage);
+    const ids = poolTemplateIds(manifest);
+
+    for (const id of ids) {
+      expect(TARGET_DEPENDENT_POOL_IDS.has(id)).toBe(false);
+    }
+  });
+
+  it.each([
+    ["audit:random_pool_draws:early:07", "early"],
+    ["audit:random_pool_draws:mid:10", "mid"],
+    ["audit:random_pool_draws:late:09", "late"],
+  ] as const)("escalates draw prices for audit seed %s", async (seed, stage) => {
+    const manifest = await forcedRandomPoolManifest(seed, stage);
+    const costs = drawCosts(manifest);
+
+    expect(costs.length).toBeGreaterThanOrEqual(3);
+    expect(costs.every((cost) => Number.isFinite(cost))).toBe(true);
+    expect(costs[0]).toBeGreaterThanOrEqual(stage === "early" ? 35 : stage === "mid" ? 45 : 55);
+    for (let index = 1; index < costs.length; index += 1) {
+      expect(costs[index]).toBeGreaterThan(costs[index - 1]!);
+    }
+  });
+
+  it("shows the committed draw order in debug metadata", async () => {
+    const manifest = await forcedRandomPoolManifest(
+      "audit:random_pool_draws:mid:01",
+      "mid",
+    );
+    const repeatedDraws = manifest.precommitted.random?.find((entry) =>
+      entry.kind === "repeated_pool_draws"
+    );
+
+    expect(repeatedDraws?.visibilityPolicy?.disclosure).toMatch(
+      /^Committed draw order: #\d+ /u,
+    );
+    expect(repeatedDraws?.visibilityPolicy?.disclosure).toContain(" -> ");
+    expect(repeatedDraws?.visibilityPolicy?.disclosure.endsWith(".")).toBe(false);
   });
 });

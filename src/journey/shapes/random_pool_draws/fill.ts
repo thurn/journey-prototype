@@ -9,6 +9,8 @@ import type {
   RandomPoolReplacementPolicy,
 } from "../../manifest.js";
 import { getCost } from "../../shared/costs.js";
+import { cardMatches } from "../../shared/content.js";
+import { getPredicate } from "../../shared/predicates.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -25,16 +27,81 @@ const POOL_SIZE_BANDS = {
   late: [6],
 } as const satisfies Record<JourneyStage, readonly number[]>;
 
-const MIN_DRAW_COST = 25;
+const MIN_DRAW_COST_BY_STAGE = {
+  early: 35,
+  mid: 45,
+  late: 55,
+} as const satisfies Record<JourneyStage, number>;
 const DRAW_COST_STEP = 5;
 const MIN_POOL_REWARD_CEC = 35;
 const MAX_POOL_REWARD_CEC_BY_STAGE = {
-  early: 220,
-  mid: 320,
+  early: 130,
+  mid: 260,
   late: 460,
+} as const satisfies Record<JourneyStage, number>;
+const LEVEL_COST_STEP_BY_STAGE = {
+  early: 15,
+  mid: 20,
+  late: 25,
 } as const satisfies Record<JourneyStage, number>;
 const POOL_ID = "random-pool-draws";
 const PAY_ESSENCE = getCost("pay_essence");
+
+const EXCLUDED_TEMPLATE_IDS = new Set([
+  "apply_named_transfiguration_to_all_predicate_cards",
+  "gain_essence_random_range",
+  "gain_random_dreamsign",
+  "meta_gain_2_rewards",
+  "purge_X_banes",
+  "purge_all_banes",
+  "replace_site_type",
+]);
+
+const EARLY_EXCLUDED_TEMPLATE_IDS = new Set([
+  "apply_chosen_transfiguration_to_chosen_card",
+  "boost_site_appearance_chance",
+  "draw_X_and_duplicate_chosen",
+  "draft_2_predicate_cards_from_4",
+  "draft_predicate_card_with_copies",
+  "draft_predicate_card_with_transfiguration",
+  "gain_copy_of_chosen_dreamsign",
+  "gain_copy_of_random_dreamsign",
+  "gain_essence_to_max",
+  "increase_max_essence",
+  "set_essence_to_percent_of_max",
+  "shop_essence_discount",
+  "transform_chosen_predicate_into_named",
+  "transform_dreamsign_to_named",
+]);
+
+const MID_EXCLUDED_TEMPLATE_IDS = new Set([
+  "gain_copy_of_chosen_dreamsign",
+  "gain_copy_of_random_dreamsign",
+  "gain_essence_to_max",
+]);
+
+const NESTED_RANDOM_TEMPLATE_IDS = new Set([
+  "apply_named_transfiguration_to_random_predicate_cards",
+  "apply_random_transfigurations_to_random_cards",
+  "duplicate_random_predicate",
+  "gain_random_predicate_cards",
+  "modify_random_cards_to_types",
+  "purge_random_starter",
+  "purge_random_starter_with_predicate_replacement",
+  "temporary_dreamsign_for_X_battles",
+  "transfigure_all_starters",
+  "transfigure_random_starters",
+]);
+
+const DECK_TARGETED_PREDICATE_TEMPLATE_IDS = new Set([
+  "apply_named_transfiguration_to_chosen_predicate_cards",
+  "apply_named_transfiguration_to_random_predicate_cards",
+  "card_cost_reduction_for_X_battles",
+  "duplicate_random_predicate",
+  "purge_chosen_predicate_cards",
+  "purge_chosen_predicate_with_replacement",
+  "transform_chosen_predicate_into_named",
+]);
 
 type SharedRewardOutcome = {
   readonly kind: "shared_reward_template";
@@ -46,12 +113,14 @@ type SharedRewardOutcome = {
 
 type PoolCandidate = {
   readonly key: string;
+  readonly poolIndex: number;
   readonly template: Reward;
   readonly params: TemplateParams;
   readonly text: string;
   readonly payload: SharedRewardOutcome;
   readonly convertedEssence: number;
   readonly weight: number;
+  readonly nestedRandom: boolean;
 };
 
 function pickVariant<T>(
@@ -76,6 +145,123 @@ function templateSubIds(templateId: string, params: TemplateParams): readonly st
   }
 
   return [];
+}
+
+function paramsRecord(params: TemplateParams): Record<string, unknown> {
+  return params as Record<string, unknown>;
+}
+
+function numericParam(params: TemplateParams, key: string): number | undefined {
+  const value = paramsRecord(params)[key];
+
+  return typeof value === "number" ? value : undefined;
+}
+
+function predicateIdParam(params: TemplateParams): string | undefined {
+  const value = paramsRecord(params).predicateId;
+
+  return typeof value === "string" ? value : undefined;
+}
+
+function deckHasPredicateTargets(
+  context: JourneyContext,
+  params: TemplateParams,
+): boolean {
+  const predicateId = predicateIdParam(params);
+  if (!predicateId) {
+    return true;
+  }
+
+  const predicate = getPredicate(predicateId);
+  const needed = numericParam(params, "count") ?? 1;
+
+  return cardMatches(context, {
+    ...(predicate.cardPredicate ?? {}),
+    source: "deck",
+  }).length >= needed;
+}
+
+function rewardAllowedForStage(args: {
+  readonly context: JourneyContext;
+  readonly stage: JourneyStage;
+  readonly templateId: string;
+  readonly params: TemplateParams;
+}): boolean {
+  if (EXCLUDED_TEMPLATE_IDS.has(args.templateId)) {
+    return false;
+  }
+
+  if (DECK_TARGETED_PREDICATE_TEMPLATE_IDS.has(args.templateId) &&
+    !deckHasPredicateTargets(args.context, args.params)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "shop_omen_discount" &&
+    (numericParam(args.params, "count") ?? 1) > 1 &&
+    args.stage === "early"
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "take_any_from_predicate_choices" &&
+    (numericParam(args.params, "choices") ?? 0) > 3 &&
+    args.stage === "early"
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "duplicate_chosen_cards" &&
+    (numericParam(args.params, "count") ?? 1) > (args.stage === "late" ? 2 : 1)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "duplicate_named_card_X" &&
+    (numericParam(args.params, "count") ?? 1) > (args.stage === "late" ? 2 : 1)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "transfigure_random_starters" &&
+    (numericParam(args.params, "count") ?? 1) > (args.stage === "early" ? 1 : 2)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "apply_random_transfigurations_to_random_cards" &&
+    (numericParam(args.params, "count") ?? 1) > (args.stage === "late" ? 2 : 1)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "make_random_cards_reclaim" &&
+    (numericParam(args.params, "count") ?? 1) > (args.stage === "late" ? 2 : 1)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "increase_max_essence" &&
+    (numericParam(args.params, "amount") ?? 0) > (args.stage === "late" ? 100 : 75)
+  ) {
+    return false;
+  }
+
+  if (args.templateId === "gain_omens" &&
+    (numericParam(args.params, "x") ?? 1) > (args.stage === "late" ? 2 : 1)
+  ) {
+    return false;
+  }
+
+  if (args.stage === "early" && EARLY_EXCLUDED_TEMPLATE_IDS.has(args.templateId)) {
+    return false;
+  }
+
+  if (args.stage === "mid" && MID_EXCLUDED_TEMPLATE_IDS.has(args.templateId)) {
+    return false;
+  }
+
+  return true;
 }
 
 function consumedTemplateIds(candidate: PoolCandidate): readonly string[] {
@@ -110,11 +296,21 @@ function materializeReward(
     return undefined;
   }
 
+  if (!rewardAllowedForStage({
+    context,
+    stage,
+    templateId: template.id,
+    params,
+  })) {
+    return undefined;
+  }
+
   const text = template.render(params as never, context);
   const key = [template.id, ...templateSubIds(template.id, params)].join(":");
 
   return {
     key,
+    poolIndex: 0,
     template,
     params,
     text,
@@ -127,6 +323,7 @@ function materializeReward(
     },
     convertedEssence,
     weight: template.weight,
+    nestedRandom: NESTED_RANDOM_TEMPLATE_IDS.has(template.id),
   };
 }
 
@@ -165,7 +362,8 @@ function selectRewardPool(args: {
 
   while (selected.length < args.size && available.length > 0) {
     const viable = available.filter((candidate) =>
-      consumedTemplateIds(candidate).every((id) => !usedIds.has(id)),
+      consumedTemplateIds(candidate).every((id) => !usedIds.has(id)) &&
+      (!candidate.nestedRandom || !selected.some((entry) => entry.nestedRandom)),
     );
     if (viable.length === 0) {
       break;
@@ -177,7 +375,7 @@ function selectRewardPool(args: {
       viable.map((candidate) => ({ item: candidate, weight: candidate.weight })),
     );
 
-    selected.push(chosen);
+    selected.push({ ...chosen, poolIndex: selected.length + 1 });
     for (const id of consumedTemplateIds(chosen)) {
       usedIds.add(id);
     }
@@ -198,19 +396,35 @@ function averageConvertedEssence(candidates: readonly PoolCandidate[]): number {
   );
 }
 
-function costAmountForAverageReward(
-  context: JourneyContext,
-  averageReward: number,
-): number {
-  const availableEssence = Math.max(0, context.state.quest.resources.essence);
-  const target = Math.max(MIN_DRAW_COST, Math.round(averageReward * 0.45));
-  const affordableTarget = availableEssence >= MIN_DRAW_COST
-    ? Math.min(target, availableEssence)
-    : target;
+function strongestConvertedEssence(candidates: readonly PoolCandidate[]): number {
+  return Math.max(...candidates.map((candidate) => candidate.convertedEssence));
+}
 
+function roundCost(value: number): number {
   return Math.max(
     DRAW_COST_STEP,
-    Math.round(affordableTarget / DRAW_COST_STEP) * DRAW_COST_STEP,
+    Math.round(value / DRAW_COST_STEP) * DRAW_COST_STEP,
+  );
+}
+
+function costAmountsForDraws(
+  context: JourneyContext,
+  stage: JourneyStage,
+  averageReward: number,
+  strongestReward: number,
+  levelCount: number,
+): readonly number[] {
+  const availableEssence = Math.max(0, context.state.quest.resources.essence);
+  const baseTarget = Math.max(
+    MIN_DRAW_COST_BY_STAGE[stage],
+    strongestReward * 0.55 + averageReward * 0.2,
+  );
+  const affordableBase = availableEssence >= MIN_DRAW_COST_BY_STAGE[stage]
+    ? Math.min(baseTarget, Math.max(MIN_DRAW_COST_BY_STAGE[stage], availableEssence * 0.75))
+    : baseTarget;
+
+  return Array.from({ length: levelCount }, (_, index) =>
+    roundCost(affordableBase + index * LEVEL_COST_STEP_BY_STAGE[stage]),
   );
 }
 
@@ -220,10 +434,27 @@ function replacementSentence(replacement: RandomPoolReplacementPolicy): string {
     : "Outcomes draw without replacement.";
 }
 
-function poolSummary(candidates: readonly PoolCandidate[]): string {
-  return `Randomly gain one: ${candidates
-    .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
-    .join(", ")}.`;
+function outcomeLabel(candidate: PoolCandidate): string {
+  return `#${candidate.poolIndex} ${stripTerminalPeriod(lowerFirst(candidate.text))}`;
+}
+
+function poolSummary(
+  candidates: readonly PoolCandidate[],
+  replacement: RandomPoolReplacementPolicy,
+): string {
+  return [
+    "Randomly gain one:",
+    ...candidates.map((candidate) => `${candidate.poolIndex}. ${stripTerminalPeriod(candidate.text)}`),
+    `Replacement policy: ${replacementSentence(replacement)}`,
+  ].join("\n");
+}
+
+function visiblePoolDebugSummary(candidates: readonly PoolCandidate[]): string {
+  return [
+    "Randomly gain one:",
+    ...candidates.map((candidate) => `${candidate.poolIndex}. ${stripTerminalPeriod(candidate.text)}`),
+    "Replacement policy:",
+  ].join("\n");
 }
 
 function pickCommittedDraws(args: {
@@ -350,7 +581,7 @@ function drawBranch(args: {
 function buildTree(args: {
   readonly context: JourneyContext;
   readonly levelCount: number;
-  readonly costAmount: number;
+  readonly costAmounts: readonly number[];
   readonly averageReward: number;
   readonly replacement: RandomPoolReplacementPolicy;
 }): JourneyTree {
@@ -368,7 +599,7 @@ function buildTree(args: {
             context: args.context,
             level,
             levelCount: args.levelCount,
-            costAmount: args.costAmount,
+            costAmount: args.costAmounts[index]!,
             averageReward: args.averageReward,
             replacement: args.replacement,
           }),
@@ -396,21 +627,33 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     size: poolSize,
   });
   const averageReward = averageConvertedEssence(candidates);
-  const costAmount = costAmountForAverageReward(args.context, averageReward);
+  const strongestReward = strongestConvertedEssence(candidates);
+  const costAmounts = costAmountsForDraws(
+    args.context,
+    args.stage,
+    averageReward,
+    strongestReward,
+    levelCount,
+  );
   const replacement = pickVariant(
     args.drawContext,
     "random_pool_draws:replacement",
     ["with_replacement", "without_replacement"] as const,
   );
-  const baseSummary = poolSummary(candidates);
-  const visiblePoolSummary = `${baseSummary} Replacement policy:`;
-  const summary = `${baseSummary} ${replacementSentence(replacement)}`;
+  const summary = poolSummary(candidates, replacement);
+  const debugVisibleSummary = visiblePoolDebugSummary(candidates);
   const rewards = candidates.map((candidate) => candidate.payload);
   const committedDraws = pickCommittedDraws({
     drawContext: args.drawContext,
     candidates,
     drawCount: levelCount,
     replacement,
+  });
+  const committedLabels = committedDraws.map((draws) => {
+    const [draw] = draws;
+    const candidate = candidates.find((entry) => entry.payload === draw);
+
+    return candidate ? outcomeLabel(candidate) : "unknown outcome";
   });
   const rewardPool: JourneyRewardPool = {
     summary,
@@ -421,13 +664,13 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
   const visiblePool: RandomPrecommittedOutcome = {
     kind: "visible_pool",
     poolId: POOL_ID,
-    summary: visiblePoolSummary,
+    summary: debugVisibleSummary,
     rewards,
     replacement,
     visibilityPolicy: {
       outcomeVisibility: "visible",
       disclosure:
-        "The full reward pool and replacement policy are visible before drawing.",
+        "The full reward pool and replacement policy are visible before drawing",
       playerVisible: true,
     },
     expectedConvertedEssence: averageReward,
@@ -445,7 +688,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     visibilityPolicy: {
       outcomeVisibility: "pre_rolled",
       disclosure:
-        "The draw sequence is committed in metadata for deterministic replay.",
+        `Committed draw order: ${committedLabels.join(" -> ")}`,
       playerVisible: true,
     },
     expectedConvertedEssence: averageReward * levelCount,
@@ -459,7 +702,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     tree: buildTree({
       context: args.context,
       levelCount,
-      costAmount,
+      costAmounts,
       averageReward,
       replacement,
     }),
