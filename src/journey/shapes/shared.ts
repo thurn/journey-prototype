@@ -119,9 +119,7 @@ function payloadCompatibilityFor(
     supportedTags.includes("target") ||
     supportedTags.includes("rewrite");
   const hasDreamsign = supportedTags.includes("dreamsign");
-  const generatedObjectShape = [
-    "same_cost_different_rewards",
-  ].includes(id);
+  const generatedObjectShape = false;
 
   return Object.freeze([
     compatibility(
