@@ -3,7 +3,11 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { buildProbabilityLadderTree } from "./tree.js";
 
 export function probabilityLadderFill(args: ShapeFillArgs): FilledJourney {
-  const ladderTree = buildProbabilityLadderTree(args.context, args.drawContext);
+  const ladderTree = buildProbabilityLadderTree(
+    args.context,
+    args.drawContext,
+    args.stage,
+  );
   const firstAttempt = ladderTree.nodes[0]?.branches.find(
     (branch) => branch.label === "Attempt",
   );

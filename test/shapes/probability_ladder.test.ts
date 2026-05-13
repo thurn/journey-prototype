@@ -93,6 +93,7 @@ function assertProbabilityLadderTree(tree: JourneyTree) {
 
   const attemptCosts: number[] = [];
   const successOdds: number[] = [];
+  const successValues: number[] = [];
 
   for (const [index, node] of tree.nodes.entries()) {
     const level = index + 1;
@@ -139,7 +140,12 @@ function assertProbabilityLadderTree(tree: JourneyTree) {
     expect(success?.terminal?.effects).toEqual(success?.effects);
     expect(success?.effectConvertedEssence).toBeGreaterThan(0);
     expect(success?.odds?.percent).toBe(attempt?.odds?.percent);
+    expect(
+      (success!.effectConvertedEssence * success!.odds!.percent) / 100 -
+        attempt!.costConvertedEssence,
+    ).toBeGreaterThanOrEqual(5);
     successOdds.push(success!.odds!.percent);
+    successValues.push(success!.effectConvertedEssence);
 
     expect(failure).toMatchObject({
       id: `level-${level}-failure`,
@@ -162,6 +168,9 @@ function assertProbabilityLadderTree(tree: JourneyTree) {
   );
   expect(successOdds).toEqual(
     [...successOdds].sort((left, right) => left - right),
+  );
+  expect(successValues).toEqual(
+    [...successValues].sort((left, right) => left - right),
   );
 }
 
