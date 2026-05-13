@@ -106,12 +106,6 @@ target for the attached operation.
 - `replace_starter_via_draft`: replace a chosen starter card with one of four
   drafted cards.
 
-## Named Starter Card
-
-A named starter target is a concrete starter card selected from the deck.
-
-- `purge_named_starter`: purge the named starter card.
-
 ## Chosen Starter Card
 
 A chosen starter target is selected by the player from starter cards in the
