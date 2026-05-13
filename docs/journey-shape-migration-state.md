@@ -100,6 +100,7 @@ the target end state.
 | `escalating_reward_chain` | Needed | Needed |
 | `flat_escalating_trade` | Complete | Complete |
 | `heterogeneous_pair` | Complete | Complete |
+| `now_vs_later` | Complete | Complete |
 | `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
 | `paired_return` | Needed | Needed |
