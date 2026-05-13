@@ -98,7 +98,7 @@ the target end state.
 | `alter_dreamscapes` | Complete | Complete |
 | `choose_your_loss` | Complete | Cost-axis shape |
 | `commit_now_future_payoff` | Complete | Complete |
-| `escalating_reward_chain` | Needed | Needed |
+| `escalating_reward_chain` | Complete | Complete |
 | `flat_escalating_trade` | Complete | Complete |
 | `heterogeneous_pair` | Complete | Complete |
 | `now_vs_later` | Complete | Complete |

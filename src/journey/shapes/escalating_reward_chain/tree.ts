@@ -1,183 +1,175 @@
 import type { JourneyContext } from "../../../quest/context.js";
-import type { DrawContext } from "../../../util/rng.js";
-import { treeBuilderTools } from "../../fillers/shared.js";
+import { drawInt, type DrawContext } from "../../../util/rng.js";
+import type { JourneyStage, JourneyTree, JourneyTreeBranch } from "../../manifest.js";
 import {
-  createTreePrimitives,
-  tree,
-  treeBranch,
-} from "../../fillers/treeBuilders.js";
-import type { JourneyStage, JourneyTree } from "../../manifest.js";
-import { valueOmenGain } from "../../value.js";
+  adaptTreeBranchOperations,
+  adaptTreeTerminalOperations,
+} from "../../operationAdapters.js";
+import { getReward } from "../../shared/rewards.js";
+import type { TemplateParams } from "../../shared/types.js";
 
 type EscalatingReward = {
   readonly text: string;
-  readonly effects: unknown[];
-  readonly targets?: unknown[];
+  readonly effects: readonly unknown[];
   readonly effect: number;
 };
 
-const REWARD_FAMILIES = [
-  "essence",
-  "omens",
-  "card_draft",
-  "dreamsign_draft",
-] as const;
-
-const STAGE_OMEN_BONUS: Record<JourneyStage, readonly number[]> = {
-  early: [0, 1, 2],
-  mid: [1, 2, 3],
-  late: [2, 3, 4],
+type TreeBranchArgs = {
+  id: string;
+  label: string;
+  text: string;
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  cost?: number;
+  effect?: number;
+  nextNodeId?: string;
+  terminal?: {
+    readonly text: string;
+    readonly outcome: NonNullable<JourneyTreeBranch["terminal"]>["outcome"];
+    readonly costs?: readonly unknown[];
+    readonly effects?: readonly unknown[];
+    readonly burdens?: readonly unknown[];
+    readonly targets?: readonly unknown[];
+    readonly routeEffects?: readonly unknown[];
+  };
 };
 
-const STAGE_PATH_MARGIN: Record<JourneyStage, number> = {
-  early: 15,
-  mid: 60,
-  late: 80,
+const COSTS: Record<JourneyStage, readonly [number, number, number]> = {
+  early: [10, 25, 45],
+  mid: [35, 80, 145],
+  late: [45, 95, 165],
 };
 
-const COST_SHARES = [0.2, 0.3, 0.5] as const;
+const ESSENCE_AMOUNTS: Record<JourneyStage, readonly [number, number, number]> = {
+  early: [45, 90, 150],
+  mid: [90, 175, 300],
+  late: [130, 250, 430],
+};
 
-function withoutFinalPeriod(text: string): string {
-  return text.replace(/\.$/u, "");
-}
+const OMEN_COUNTS: Record<JourneyStage, readonly [number, number, number]> = {
+  early: [1, 2, 3],
+  mid: [2, 4, 6],
+  late: [3, 6, 9],
+};
 
-function stripOmenBonusText(text: string): string {
-  return text
-    .replace(/\s+Gain \d+ omens?\.?$/u, "")
-    .replace(/\s+and gain \d+ omens?\.?$/u, "")
-    .trim();
-}
-
-function omenText(amount: number): string {
-  return `${amount} ${amount === 1 ? "omen" : "omens"}`;
-}
-
-function isGainOmenPayload(effect: unknown): effect is { amount: number } {
-  return (
-    typeof effect === "object" &&
-    effect !== null &&
-    "kind" in effect &&
-    effect.kind === "gain_omens" &&
-    "amount" in effect &&
-    typeof effect.amount === "number"
-  );
-}
-
-function roundDownToFive(amount: number): number {
-  return Math.floor(amount / 5) * 5;
-}
-
-function addOmenBonus(
-  reward: EscalatingReward,
-  omenBonus: number,
-): EscalatingReward {
-  if (omenBonus <= 0) {
-    return reward;
-  }
-
-  const { gainOmen } = treeBuilderTools;
-  const primaryEffect = reward.effects[0];
-  const existingOmenIndex = reward.effects.findIndex(isGainOmenPayload);
-
-  if (isGainOmenPayload(primaryEffect)) {
-    const amount = primaryEffect.amount + omenBonus;
-
-    return {
-      ...reward,
-      text: `gain ${omenText(amount)}.`,
-      effects: [gainOmen(amount), ...reward.effects.slice(1)],
-      effect: reward.effect + valueOmenGain(omenBonus),
-    };
-  }
-
-  if (existingOmenIndex >= 0) {
-    const existingOmen = reward.effects[existingOmenIndex] as { amount: number };
-    const amount = existingOmen.amount + omenBonus;
-    const effects = reward.effects.filter(
-      (effect, index) => index !== existingOmenIndex && !isGainOmenPayload(effect),
-    );
-
-    return {
-      ...reward,
-      text: `${withoutFinalPeriod(stripOmenBonusText(reward.text))}. Gain ${omenText(amount)}.`,
-      effects: [...effects, gainOmen(amount)],
-      effect: reward.effect + valueOmenGain(omenBonus),
-    };
-  }
+function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+  const costs = [...(args.costs ?? [])];
+  const effects = [...(args.effects ?? [])];
+  const terminal = args.terminal
+    ? {
+        text: args.terminal.text,
+        outcome: args.terminal.outcome,
+        operations: [],
+        costs,
+        effects,
+        burdens: [],
+        targets: [],
+        routeEffects: [],
+      }
+    : undefined;
+  const branch = {
+    id: args.id,
+    label: args.label,
+    kind: "player_choice" as const,
+    text: args.text,
+    operations: [],
+    costs,
+    effects,
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: args.cost ?? 0,
+    effectConvertedEssence: args.effect ?? 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: (args.effect ?? 0) - (args.cost ?? 0),
+    ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
+    ...(terminal ? { terminal } : {}),
+  };
 
   return {
-    ...reward,
-    text: `${withoutFinalPeriod(reward.text)}. Gain ${omenText(omenBonus)}.`,
-    effects: [...reward.effects, gainOmen(omenBonus)],
-    effect: reward.effect + valueOmenGain(omenBonus),
+    ...branch,
+    operations: adaptTreeBranchOperations(branch),
+    ...(branch.terminal
+      ? {
+          terminal: {
+            ...branch.terminal,
+            operations: adaptTreeTerminalOperations(
+              branch.terminal,
+              `tree:${branch.id}:terminal`,
+            ),
+          },
+        }
+      : {}),
   };
 }
 
-function rewardForStageAndLevel(
-  reward: EscalatingReward,
-  stage: JourneyStage,
-  levelIndex: number,
+function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+  return {
+    rootNodeId: nodes[0]?.id ?? "level-1",
+    nodes,
+  };
+}
+
+function pickSequentialVariant<T>(
+  drawContext: DrawContext,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
+}
+
+function cost(amount: number): Record<string, unknown> {
+  return {
+    kind: "essence",
+    amount,
+    timing: "immediate",
+  };
+}
+
+function sharedRewardPayload(
+  context: JourneyContext,
+  templateId: "gain_essence" | "gain_omens",
+  params: TemplateParams,
 ): EscalatingReward {
-  return addOmenBonus(reward, STAGE_OMEN_BONUS[stage][levelIndex]!);
+  const template = getReward(templateId);
+  const text = template.render(params as never, context);
+  const convertedEssence = template.cec(params as never, context);
+
+  return {
+    text: `${text.charAt(0).toLowerCase()}${text.slice(1)}.`,
+    effects: [
+      {
+        kind: "shared_reward_template",
+        templateId,
+        params,
+        text,
+        convertedEssence,
+      },
+    ],
+    effect: convertedEssence,
+  };
 }
 
-function enforceRewardProgression(
-  rewards: readonly EscalatingReward[],
-): EscalatingReward[] {
-  const minimumStep = 25;
-
-  return rewards.reduce<EscalatingReward[]>((progression, reward) => {
-    const previous = progression[progression.length - 1];
-    const minimumValue = previous
-      ? previous.effect + minimumStep
-      : reward.effect;
-    let adjusted = reward;
-
-    if (adjusted.effect < minimumValue) {
-      const extraOmens = Math.ceil(
-        (minimumValue - adjusted.effect) / valueOmenGain(1),
-      );
-      adjusted = addOmenBonus(adjusted, extraOmens);
-    }
-
-    progression.push(adjusted);
-
-    return progression;
-  }, []);
-}
-
-function chainPathBudget(
+function rewardsFor(
   context: JourneyContext,
+  drawContext: DrawContext,
   stage: JourneyStage,
-): number {
-  return Math.max(
-    15,
-    context.state.quest.resources.essence - STAGE_PATH_MARGIN[stage],
+): readonly EscalatingReward[] {
+  const family = pickSequentialVariant(
+    drawContext,
+    "escalating-chain:reward-family",
+    ["essence", "omens"] as const,
   );
-}
 
-function takeCosts(
-  context: JourneyContext,
-  stage: JourneyStage,
-  rewards: readonly EscalatingReward[],
-): number[] {
-  const pathBudget = chainPathBudget(context, stage);
-
-  return rewards.reduce<number[]>((costs, reward, index) => {
-    const rewardCeiling = Math.max(5, roundDownToFive(reward.effect - 20));
-    const budgetTarget = roundDownToFive(pathBudget * COST_SHARES[index]!);
-    const progressionFloor = costs[index - 1] === undefined
-      ? 5
-      : costs[index - 1]! + 5;
-    const price = Math.min(
-      rewardCeiling,
-      Math.max(progressionFloor, budgetTarget, 5),
-    );
-
-    costs.push(price);
-
-    return costs;
-  }, []);
+  return family === "essence"
+    ? ESSENCE_AMOUNTS[stage].map((x) =>
+        sharedRewardPayload(context, "gain_essence", { x })
+      )
+    : OMEN_COUNTS[stage].map((x) =>
+        sharedRewardPayload(context, "gain_omens", { x })
+      );
 }
 
 export function buildEscalatingRewardChainTree(
@@ -185,28 +177,15 @@ export function buildEscalatingRewardChainTree(
   drawContext: DrawContext,
   stage: JourneyStage,
 ): JourneyTree {
-  const { treeRewardFamily } = createTreePrimitives(treeBuilderTools);
-  const { cost } = treeBuilderTools;
-  const profile = {
-    rewards: enforceRewardProgression(
-      treeRewardFamily(
-        context,
-        drawContext,
-        "escalating-chain:reward-family",
-        3,
-        REWARD_FAMILIES,
-      ).rewards.map((reward, index) =>
-        rewardForStageAndLevel(reward, stage, index),
-      ),
-    ),
-  };
-  const costs = takeCosts(context, stage, profile.rewards);
+  const rewards = rewardsFor(context, drawContext, stage);
+  const costs = COSTS[stage];
 
   return tree(
-    profile.rewards.map((reward, index) => {
+    rewards.map((reward, index) => {
       const level = index + 1;
       const price = costs[index]!;
-      const isFinal = level === profile.rewards.length;
+      const isFinal = level === rewards.length;
+      const takeCost = cost(price);
 
       return {
         id: `level-${level}`,
@@ -230,9 +209,8 @@ export function buildEscalatingRewardChainTree(
             id: `level-${level}-take`,
             label: "Take",
             text: `Pay ${price} essence and ${reward.text} ${isFinal ? "End the Journey." : `Go to Level ${level + 1}.`}`,
-            costs: [cost("essence", price)],
+            costs: [takeCost],
             effects: reward.effects,
-            targets: reward.targets ?? [],
             cost: price,
             effect: reward.effect,
             ...(isFinal
@@ -240,10 +218,10 @@ export function buildEscalatingRewardChainTree(
                   terminal: {
                     text: "End the Journey.",
                     outcome: "claim" as const,
-                    costs: [cost("essence", price)],
+                    costs: [takeCost],
                     effects: reward.effects,
                     burdens: [],
-                    targets: reward.targets ?? [],
+                    targets: [],
                     routeEffects: [],
                   },
                 }
