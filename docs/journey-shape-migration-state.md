@@ -108,6 +108,7 @@ the target end state.
 | `prize_ladder` | Needed | Needed |
 | `probability_ladder` | Needed | Needed |
 | `push_your_luck` | Needed | Needed |
+| `random_pool_draws` | Complete | Complete |
 | `reveal_choice_menu` | Needed | Needed |
 | `reward_after_trigger` | Needed | Needed |
 | `risk_or_skip` | Needed | Needed |
