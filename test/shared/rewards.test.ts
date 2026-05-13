@@ -566,8 +566,10 @@ describe("rewards table (purge/transform family)", () => {
     }
   });
 
-  it("modify_random_cards_to_types renders with a plural capitalized card type", () => {
+  it("modify_random_cards_to_types renders with matching random-card grammar", () => {
     const t = getReward("modify_random_cards_to_types");
+    expect(t.render({ count: 1, cardTypePredicateId: "warriors" } as never, fakeCtx()))
+      .toBe("Modify 1 random card to become a Warrior");
     expect(t.render({ count: 2, cardTypePredicateId: "warriors" } as never, fakeCtx()))
       .toBe("Modify 2 random cards to become Warriors");
     expect(t.render({ count: 3, cardTypePredicateId: "spirit_animals" } as never, fakeCtx()))
@@ -767,6 +769,10 @@ describe("rewards table (site/dreamwell/misc family)", () => {
     expect(next.render({ siteType: "Purge" } as never, fakeCtx())).toBe(
       "Add a Purge site to the next dreamscape you visit",
     );
+
+    const replace = getReward("replace_site_type");
+    expect(replace.render({ fromType: "Transfiguration", toType: "Essence" } as never, fakeCtx()))
+      .toBe("Replace a Transfiguration site in this dreamscape with an Essence site");
   });
 
   it("dreamwell rewards are down-weighted to 0.25 so they appear less often", () => {

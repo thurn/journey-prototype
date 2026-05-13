@@ -399,8 +399,13 @@ const modifyRandomCardsToTypes: Reward<ModifyRandomCardsToTypesParams> = {
   }),
   cec: (p) => CARD_CEC * 0.5 * p.count,
   viable: (p, ctx) => ctx.content.cards.length >= p.count,
-  render: (p) =>
-    `Modify ${p.count} random cards to become ${getPredicate(p.cardTypePredicateId).text.plural}`,
+  render: (p) => {
+    const predicate = getPredicate(p.cardTypePredicateId);
+    const noun = p.count === 1 ? "card" : "cards";
+    const typeName = p.count === 1 ? predicate.text.singular : predicate.text.plural;
+    const article = p.count === 1 ? `${indefiniteArticleFor(typeName)} ` : "";
+    return `Modify ${p.count} random ${noun} to become ${article}${typeName}`;
+  },
 };
 
 type MakeRandomCardsFastParams = { count: number };
@@ -1019,7 +1024,8 @@ const replaceSiteType: Reward<ReplaceSiteTypeParams> = {
   },
   cec: () => 35,
   viable: () => true,
-  render: (p) => `Replace a ${p.fromType} site in this dreamscape with a ${p.toType} site`,
+  render: (p) =>
+    `Replace ${indefiniteArticleFor(p.fromType)} ${p.fromType} site in this dreamscape with ${indefiniteArticleFor(p.toType)} ${p.toType} site`,
 };
 
 type ShopEssenceDiscountParams = { percent: number };
