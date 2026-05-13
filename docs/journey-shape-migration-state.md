@@ -113,6 +113,7 @@ the target end state.
 | `service_menu` | Complete | Complete |
 | `shop_row` | Complete | Complete |
 | `single_offer` | Complete | Complete |
+| `single_random_outcome` | Complete | Complete |
 | `single_reward` | Complete | Complete |
 | `single_rule_trial` | Complete | Complete |
 | `single_wager` | Complete | Complete |
