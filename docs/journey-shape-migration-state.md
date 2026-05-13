@@ -108,7 +108,7 @@ the target end state.
 | `shared_prefix_menu` | Needed | Needed |
 | `single_offer` | Complete | Complete |
 | `single_reward` | Needed | Needed |
-| `single_rule_trial` | Needed | Needed |
+| `single_rule_trial` | Complete | Complete |
 | `timed_window_menu` | Needed | Complete |
 
 Generic typed-contract plumbing still carries shape IDs for structured
