@@ -17,6 +17,12 @@ function seriesPayloads(entry: RandomPrecommittedOutcome | undefined) {
     : [];
 }
 
+function optionSpread(fill: ReturnType<typeof fillFor>): number {
+  const values = fill.options.map((option) => option.netConvertedEssence);
+
+  return Math.max(...values) / Math.max(1, Math.min(...values));
+}
+
 describe("resolved_random_series fill", () => {
   it("uses the shape-owned validation bypass contract", () => {
     expect(resolvedRandomSeriesPlugin.definition).toMatchObject({
@@ -89,5 +95,24 @@ describe("resolved_random_series fill", () => {
     expect(fillFor("resolved-random-series-deterministic")).toEqual(
       fillFor("resolved-random-series-deterministic"),
     );
+  });
+
+  it("keeps deterministic early series values in a comparable band", () => {
+    const fill = resolvedRandomSeriesPlugin.fill(
+      makeTestContext({
+        seed: "qa-resolved-random-series",
+        stage: "early",
+      }),
+    );
+
+    expect(optionSpread(fill)).toBeLessThanOrEqual(1.8);
+    for (const entry of fill.precommitted.random ?? []) {
+      for (const payload of seriesPayloads(entry)) {
+        const templateId = (payload as { readonly templateId?: unknown }).templateId;
+
+        expect(templateId).not.toBe("choose_1_of_X_dreamsigns");
+        expect(templateId).not.toBe("shop_essence_discount");
+      }
+    }
   });
 });

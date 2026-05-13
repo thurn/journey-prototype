@@ -12,8 +12,10 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 const SERIES_LENGTH = 3;
 const OPTION_COUNT = 2;
 const MIN_REWARD_CEC = 15;
+const MAX_SERIES_SPREAD_RATIO = 1.8;
+const ROLL_ATTEMPTS = 32;
 const MAX_REWARD_CEC_BY_STAGE = {
-  early: 180,
+  early: 130,
   mid: 280,
   late: 520,
 } as const;
@@ -28,6 +30,19 @@ const NESTED_RANDOM_TEMPLATE_IDS = new Set([
   "purge_random_starter_with_predicate_replacement",
   "temporary_dreamsign_for_X_battles",
   "transfigure_random_starters",
+]);
+const EARLY_EXCLUDED_TEMPLATE_IDS = new Set([
+  "choose_1_of_X_dreamsigns",
+  "draft_2_predicate_cards_from_4",
+  "draft_predicate_card_with_copies",
+  "draft_predicate_card_with_transfiguration",
+  "gain_copy_of_chosen_dreamsign",
+  "gain_copy_of_random_dreamsign",
+  "gain_essence_to_max",
+  "increase_max_essence",
+  "set_essence_to_percent_of_max",
+  "shop_essence_discount",
+  "transform_dreamsign_to_named",
 ]);
 
 type SharedRewardSeriesPayload = {
@@ -78,6 +93,10 @@ function materializeReward(args: {
   readonly attempt: number;
 }): SeriesReward | undefined {
   if (args.template.weight <= 0 || NESTED_RANDOM_TEMPLATE_IDS.has(args.template.id)) {
+    return undefined;
+  }
+
+  if (args.stage === "early" && EARLY_EXCLUDED_TEMPLATE_IDS.has(args.template.id)) {
     return undefined;
   }
 
@@ -256,17 +275,54 @@ function precommittedSeries(
   };
 }
 
+function seriesSpreadRatio(rows: readonly (readonly SeriesReward[])[]): number {
+  const values = rows.map(seriesConvertedEssence).filter((value) => value > 0);
+  if (values.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(...values) / Math.max(1, Math.min(...values));
+}
+
+function selectSeriesRows(args: ShapeFillArgs): readonly (readonly SeriesReward[])[] {
+  let bestRows: readonly (readonly SeriesReward[])[] | undefined;
+  let bestSpread = Number.POSITIVE_INFINITY;
+
+  for (let attempt = 0; attempt < ROLL_ATTEMPTS; attempt += 1) {
+    const drawContext = {
+      ...args.drawContext,
+      selectionAttempt: ((args.drawContext.selectionAttempt ?? 0) * 1000) + attempt,
+    };
+    const usedTemplateIds = new Set<string>();
+    const rows = Array.from({ length: OPTION_COUNT }, (_, index) =>
+      selectSeries({
+        context: args.context,
+        drawContext,
+        stage: args.stage,
+        optionNumber: index + 1,
+        usedTemplateIds,
+      }),
+    );
+    const spread = seriesSpreadRatio(rows);
+
+    if (spread < bestSpread) {
+      bestRows = rows;
+      bestSpread = spread;
+    }
+    if (spread <= MAX_SERIES_SPREAD_RATIO) {
+      return rows;
+    }
+  }
+
+  if (!bestRows) {
+    throw new Error("resolved_random_series fill could not roll balanced shared reward series");
+  }
+
+  return bestRows;
+}
+
 export function resolvedRandomSeriesFill(args: ShapeFillArgs): FilledJourney {
-  const usedTemplateIds = new Set<string>();
-  const seriesRows = Array.from({ length: OPTION_COUNT }, (_, index) =>
-    selectSeries({
-      context: args.context,
-      drawContext: args.drawContext,
-      stage: args.stage,
-      optionNumber: index + 1,
-      usedTemplateIds,
-    }),
-  );
+  const seriesRows = selectSeriesRows(args);
 
   return {
     options: seriesRows.map((series, index) => optionFor(index + 1, series)),
