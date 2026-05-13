@@ -102,25 +102,26 @@ describe("commit_now_future_payoff fill", () => {
     );
   });
 
-  it("renders victory hooks with the visible two-battle payoff window", async () => {
+  it("renders a visible payoff window for every commitment row", async () => {
     const manifest = await manifestFor("audit:commit_now_future_payoff:early:01", "early");
+    const payoffWindow = /(?:If you win within the next 2 battles|After two battles|At the next dreamscape),/u;
 
     expect(manifest.options).toHaveLength(3);
-    expect(manifest.options.every((option) =>
-      option.text.includes("If you win within the next 2 battles,")
-    )).toBe(true);
+    for (const option of manifest.options) {
+      expect(option.text).toMatch(payoffWindow);
+    }
   });
 
   it("keeps multi-action delayed rewards under one timing clause", async () => {
-    const manifest = await manifestFor("audit:commit_now_future_payoff:mid:05", "mid");
-    const multiAction = manifest.options.find((option) =>
-      option.text.includes("transform a chosen card with a 'judgment' ability")
+    const fill = commitNowFuturePayoffPlugin.fill(
+      makeTestContext({ seed: "commit-now-future-payoff:multi:4" }),
     );
+    const multiAction = fill.options.find((option) => option.text.includes(", and "));
 
-    expect(multiAction?.text).toContain(
-      "If you win within the next 2 battles, draft 1 of 4 Characters, apply Scarlet to it, and transform a chosen card with a 'judgment' ability into 'Peak Plunder'.",
-    );
-    expect(multiAction?.text).not.toMatch(/\. Transform/u);
+    expect(multiAction).toBeDefined();
+    expect(multiAction!.text).toMatch(/^Commit now: .+ At the next dreamscape, .+, and .+\.$/u);
+    expect(multiAction!.text.split("At the next dreamscape, ")[1]!.slice(0, -1))
+      .not.toContain(".");
   });
 
   it("excludes target-dependent transfiguration-removal commitments", async () => {
