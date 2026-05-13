@@ -637,7 +637,7 @@ const gainRandomDreamsign: Reward<GainRandomDreamsignParams> = {
   rollParams: () => ({}),
   cec: () => DREAMSIGN_CEC,
   viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
-  render: () => "Gain a random dreamsign",
+  render: () => "Gain a random Dreamsign",
 };
 
 type GainNamedDreamsignParams = { name: string };
@@ -660,7 +660,7 @@ const choose1OfXDreamsigns: Reward<Choose1OfXDreamsignsParams> = {
   rollParams: (_ctx, draw) => ({ choices: drawInt(draw, "choose_ds:n", 2, 4) }),
   cec: (p) => DREAMSIGN_CEC * (1 + Math.log2(p.choices)),
   viable: (p, ctx) => dreamsignMatches(ctx).length >= p.choices,
-  render: (p) => `Choose 1 of ${p.choices} dreamsigns to gain`,
+  render: (p) => `Choose 1 of ${p.choices} Dreamsigns to gain`,
 };
 
 type GainCopyRandomDreamsignParams = Record<string, never>;
@@ -674,7 +674,7 @@ const gainCopyOfRandomDreamsign: Reward<GainCopyRandomDreamsignParams> = {
     const name = onlyActiveDreamsignName(ctx);
     return name
       ? `Gain a copy of ${quoteName(name)}`
-      : "Gain a copy of one of your dreamsigns chosen at random";
+      : "Gain a copy of one of your Dreamsigns chosen at random";
   },
 };
 
@@ -689,7 +689,7 @@ const gainCopyOfChosenDreamsign: Reward<GainCopyChosenDreamsignParams> = {
     const name = onlyActiveDreamsignName(ctx);
     return name
       ? `Gain a copy of ${quoteName(name)}`
-      : "Gain a copy of one of your dreamsigns of your choice";
+      : "Gain a copy of one of your Dreamsigns of your choice";
   },
 };
 
@@ -992,7 +992,7 @@ const transformDreamsignToNamed: Reward<TransformDreamsignToNamedParams> = {
   },
   cec: () => DREAMSIGN_CEC * 0.6,
   viable: (_p, ctx) => ctx.state.quest.activeDreamsigns.length >= 1 && inactiveDreamsignMatches(ctx).length >= 1,
-  render: (p) => `Transform a chosen dreamsign into ${quoteName(p.name)}`,
+  render: (p) => `Transform a chosen Dreamsign into ${quoteName(p.name)}`,
 };
 
 type TemporaryDreamsignParams = { battles: number };
@@ -1006,7 +1006,7 @@ const temporaryDreamsignForXBattles: Reward<TemporaryDreamsignParams> = {
   cec: (p) => 25 * (1 + (p.battles - 1) * 0.5),
   viable: (_p, ctx) => dreamsignMatches(ctx).length >= 1,
   render: (p) =>
-    `Gain a random dreamsign for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
+    `Gain a random Dreamsign for the next ${p.battles} battle${p.battles === 1 ? "" : "s"}`,
 };
 
 type ReplaceSiteTypeParams = { fromType: string; toType: string };

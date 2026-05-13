@@ -626,8 +626,8 @@ describe("rewards table (dreamsign family)", () => {
   it("gain_copy_of_random_dreamsign makes clear the copy is of an active dreamsign", () => {
     const t = getReward("gain_copy_of_random_dreamsign");
     const text = t.render({} as never, fakeCtx());
-    expect(text).toBe("Gain a copy of one of your dreamsigns chosen at random");
-    expect(text).toMatch(/your dreamsigns/);
+    expect(text).toBe("Gain a copy of one of your Dreamsigns chosen at random");
+    expect(text).toMatch(/your Dreamsigns/);
   });
 
   it("gain_copy_of_random_dreamsign has CEC around 200 reflecting copy value", () => {
@@ -657,7 +657,7 @@ describe("rewards table (dreamsign family)", () => {
     const chosen = getReward("gain_copy_of_chosen_dreamsign");
     const random = getReward("gain_copy_of_random_dreamsign");
     const text = chosen.render({} as never, fakeCtx());
-    expect(text).toBe("Gain a copy of one of your dreamsigns of your choice");
+    expect(text).toBe("Gain a copy of one of your Dreamsigns of your choice");
     expect(chosen.cec({} as never, fakeCtx())).toBeGreaterThanOrEqual(
       random.cec({} as never, fakeCtx()),
     );
@@ -681,8 +681,8 @@ describe("rewards table (dreamsign family)", () => {
 
   it("choose_1_of_X_dreamsigns clarifies that the player gains the chosen dreamsign", () => {
     const t = getReward("choose_1_of_X_dreamsigns");
-    expect(t.render({ choices: 2 } as never, fakeCtx())).toBe("Choose 1 of 2 dreamsigns to gain");
-    expect(t.render({ choices: 4 } as never, fakeCtx())).toBe("Choose 1 of 4 dreamsigns to gain");
+    expect(t.render({ choices: 2 } as never, fakeCtx())).toBe("Choose 1 of 2 Dreamsigns to gain");
+    expect(t.render({ choices: 4 } as never, fakeCtx())).toBe("Choose 1 of 4 Dreamsigns to gain");
   });
 
   it("choose_1_of_X_dreamsigns CEC is ~150 at choices=2 and scales upward with more choices", () => {
@@ -723,7 +723,7 @@ describe("rewards table (dreamsign family)", () => {
 
     expect(t.viable(params as never, ctx)).toBe(true);
     expect(params.name).toBe("Serpent Manual");
-    expect(t.render(params as never, ctx)).toBe("Transform a chosen dreamsign into 'Serpent Manual'");
+    expect(t.render(params as never, ctx)).toBe("Transform a chosen Dreamsign into 'Serpent Manual'");
   });
 });
 

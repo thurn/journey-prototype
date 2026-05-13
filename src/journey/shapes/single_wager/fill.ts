@@ -18,12 +18,32 @@ const FIRST_STAKE_CAP = 30;
 const SECOND_STAKE_CAP = 50;
 const FIRST_ODDS = [45, 50, 55] as const;
 const SECOND_ODDS = [60, 65, 70] as const;
+const FIRST_RISK_PREMIUM = -12;
+const SECOND_RISK_PREMIUM = -16;
+const REWARD_CANDIDATE_ATTEMPTS = 3;
+const NEAR_NEUTRAL_NET_FLOOR = -10;
 
 type RolledReward = {
   readonly template: Reward;
   readonly params: TemplateParams;
   readonly cec: number;
   readonly text: string;
+  readonly weight: number;
+};
+
+type WagerRewardCandidate = {
+  readonly reward: RolledReward;
+  readonly stake: SharedCostStake;
+  readonly successPercent: number;
+  readonly riskPremiumConvertedEssence: number;
+  readonly netConvertedEssence: number;
+};
+
+type WagerRewardPair = {
+  readonly first: WagerRewardCandidate;
+  readonly second: WagerRewardCandidate;
+  readonly spread: number;
+  readonly weight: number;
 };
 
 type SharedRewardOutcome = {
@@ -41,10 +61,6 @@ type SharedCostStake = {
   readonly text: string;
   readonly convertedEssence: number;
 };
-
-function lowerFirst(text: string): string {
-  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
-}
 
 function pickVariant<T>(
   draw: DrawContext,
@@ -94,59 +110,67 @@ function meetsRewardDistinctness(
   return consumedRewardIds(rolled).every((id) => !used.has(id));
 }
 
-function rollReward(
+function materializeReward(
   context: JourneyContext,
   draw: DrawContext,
-  label: string,
+  template: Reward,
+  attempt: number,
+): RolledReward | undefined {
+  const params = template.rollParams(context, {
+    ...draw,
+    selectionAttempt:
+      ((draw.selectionAttempt ?? 0) * 100) + attempt * 100 + template.id.length,
+  }) as TemplateParams;
+
+  if (!template.viable(params as never, context)) {
+    return undefined;
+  }
+
+  const cec = template.cec(params as never, context);
+  if (cec <= 0) {
+    return undefined;
+  }
+
+  return {
+    template,
+    params,
+    cec,
+    text: template.render(params as never, context),
+    weight: template.weight,
+  };
+}
+
+function rewardCandidates(
+  context: JourneyContext,
+  draw: DrawContext,
   used: ReadonlySet<string>,
-): RolledReward {
-  const candidates: Array<{ readonly reward: RolledReward; readonly weight: number }> = [];
+): readonly RolledReward[] {
+  const candidates: RolledReward[] = [];
 
-  for (const template of REWARDS) {
-    if (used.has(template.id)) {
-      continue;
+  for (let attempt = 0; attempt < REWARD_CANDIDATE_ATTEMPTS; attempt += 1) {
+    for (const template of REWARDS) {
+      if (used.has(template.id)) {
+        continue;
+      }
+
+      const reward = materializeReward(context, draw, template, attempt);
+      if (!reward) {
+        continue;
+      }
+
+      if (!meetsRewardDistinctness(reward, used)) {
+        continue;
+      }
+
+      candidates.push(reward);
     }
-
-    const params = template.rollParams(context, {
-      ...draw,
-      selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
-    }) as TemplateParams;
-
-    if (!template.viable(params as never, context)) {
-      continue;
-    }
-
-    const cec = template.cec(params as never, context);
-    if (cec <= 0) {
-      continue;
-    }
-
-    const reward = {
-      template,
-      params,
-      cec,
-      text: template.render(params as never, context),
-    };
-
-    if (!meetsRewardDistinctness(reward, used)) {
-      continue;
-    }
-
-    candidates.push({ reward, weight: template.weight });
   }
 
   if (candidates.length === 0) {
     throw new Error("single_wager fill could not roll a viable shared reward");
   }
 
-  return weightedChoice(
-    draw,
-    label,
-    candidates.map((candidate) => ({
-      item: candidate.reward,
-      weight: candidate.weight,
-    })),
-  );
+  return candidates;
 }
 
 function essenceStake(context: JourneyContext, amount: number): SharedCostStake {
@@ -169,6 +193,195 @@ function rewardOutcome(reward: RolledReward): SharedRewardOutcome {
     text: reward.text,
     convertedEssence: reward.cec,
   };
+}
+
+function stripTerminalPeriod(text: string): string {
+  return text.replace(/\.$/u, "");
+}
+
+function expectedNetConvertedEssence(args: {
+  readonly reward: RolledReward;
+  readonly stake: SharedCostStake;
+  readonly successPercent: number;
+  readonly riskPremiumConvertedEssence: number;
+}): number {
+  return (
+    Math.round(args.reward.cec * (args.successPercent / 100)) -
+    args.stake.convertedEssence +
+    args.riskPremiumConvertedEssence
+  );
+}
+
+function expectedValueBand(netConvertedEssence: number): number {
+  if (netConvertedEssence < NEAR_NEUTRAL_NET_FLOOR) return 0;
+  if (netConvertedEssence < 30) return 1;
+  if (netConvertedEssence < 90) return 2;
+  if (netConvertedEssence < 180) return 3;
+  if (netConvertedEssence < 400) return 4;
+  if (netConvertedEssence < 900) return 5;
+  return 6;
+}
+
+function comparableExpectedValues(
+  firstNetConvertedEssence: number,
+  secondNetConvertedEssence: number,
+): boolean {
+  if (
+    Math.max(firstNetConvertedEssence, secondNetConvertedEssence) <
+    NEAR_NEUTRAL_NET_FLOOR
+  ) {
+    return false;
+  }
+
+  const firstBand = expectedValueBand(firstNetConvertedEssence);
+  const secondBand = expectedValueBand(secondNetConvertedEssence);
+  if (Math.abs(firstBand - secondBand) > 1) {
+    return false;
+  }
+
+  const spread = Math.abs(firstNetConvertedEssence - secondNetConvertedEssence);
+  const magnitude = Math.max(
+    Math.abs(firstNetConvertedEssence),
+    Math.abs(secondNetConvertedEssence),
+  );
+  const spreadLimit = Math.max(50, magnitude * 0.35);
+
+  return spread <= spreadLimit;
+}
+
+function candidateFor(args: {
+  readonly reward: RolledReward;
+  readonly stake: SharedCostStake;
+  readonly successPercent: number;
+  readonly riskPremiumConvertedEssence: number;
+}): WagerRewardCandidate {
+  return {
+    ...args,
+    netConvertedEssence: expectedNetConvertedEssence(args),
+  };
+}
+
+function pairWeight(
+  first: WagerRewardCandidate,
+  second: WagerRewardCandidate,
+): number {
+  const spread = Math.abs(first.netConvertedEssence - second.netConvertedEssence);
+  const balanceWeight = 1 / (1 + spread / 50);
+  const upsideWeight =
+    Math.max(first.netConvertedEssence, second.netConvertedEssence) >= 0
+      ? 2
+      : 1;
+
+  return first.reward.weight * second.reward.weight * balanceWeight * upsideWeight;
+}
+
+function buildRewardPairs(args: {
+  readonly firstRewards: readonly RolledReward[];
+  readonly secondRewards: readonly RolledReward[];
+  readonly firstStake: SharedCostStake;
+  readonly secondStake: SharedCostStake;
+  readonly firstSuccessPercent: number;
+  readonly secondSuccessPercent: number;
+}): readonly WagerRewardPair[] {
+  const pairs: WagerRewardPair[] = [];
+
+  for (const firstReward of args.firstRewards) {
+    const usedByFirst = new Set(consumedRewardIds(firstReward));
+    const first = candidateFor({
+      reward: firstReward,
+      stake: args.firstStake,
+      successPercent: args.firstSuccessPercent,
+      riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
+    });
+
+    for (const secondReward of args.secondRewards) {
+      if (!meetsRewardDistinctness(secondReward, usedByFirst)) {
+        continue;
+      }
+
+      const second = candidateFor({
+        reward: secondReward,
+        stake: args.secondStake,
+        successPercent: args.secondSuccessPercent,
+        riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
+      });
+
+      if (
+        !comparableExpectedValues(
+          first.netConvertedEssence,
+          second.netConvertedEssence,
+        )
+      ) {
+        continue;
+      }
+
+      pairs.push({
+        first,
+        second,
+        spread: Math.abs(first.netConvertedEssence - second.netConvertedEssence),
+        weight: pairWeight(first, second),
+      });
+    }
+  }
+
+  return pairs;
+}
+
+function fallbackRewardPair(args: {
+  readonly firstRewards: readonly RolledReward[];
+  readonly secondRewards: readonly RolledReward[];
+  readonly firstStake: SharedCostStake;
+  readonly secondStake: SharedCostStake;
+  readonly firstSuccessPercent: number;
+  readonly secondSuccessPercent: number;
+}): WagerRewardPair {
+  let best: WagerRewardPair | undefined;
+
+  for (const firstReward of args.firstRewards) {
+    const usedByFirst = new Set(consumedRewardIds(firstReward));
+    const first = candidateFor({
+      reward: firstReward,
+      stake: args.firstStake,
+      successPercent: args.firstSuccessPercent,
+      riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
+    });
+
+    for (const secondReward of args.secondRewards) {
+      if (!meetsRewardDistinctness(secondReward, usedByFirst)) {
+        continue;
+      }
+
+      const second = candidateFor({
+        reward: secondReward,
+        stake: args.secondStake,
+        successPercent: args.secondSuccessPercent,
+        riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
+      });
+      const pair = {
+        first,
+        second,
+        spread: Math.abs(first.netConvertedEssence - second.netConvertedEssence),
+        weight: pairWeight(first, second),
+      };
+
+      if (
+        best === undefined ||
+        Math.max(pair.first.netConvertedEssence, pair.second.netConvertedEssence) >
+          Math.max(best.first.netConvertedEssence, best.second.netConvertedEssence) ||
+        (Math.max(pair.first.netConvertedEssence, pair.second.netConvertedEssence) ===
+          Math.max(best.first.netConvertedEssence, best.second.netConvertedEssence) &&
+          pair.spread < best.spread)
+      ) {
+        best = pair;
+      }
+    }
+  }
+
+  if (!best) {
+    throw new Error("single_wager fill could not pair viable shared rewards");
+  }
+
+  return best;
 }
 
 function wagerConstraint(): RandomEnvelopeConstraint {
@@ -199,7 +412,7 @@ function optionFor(args: {
   return {
     number: args.number,
     symbols: ["cost", "reward", "random"],
-    text: `Pay ${args.stake.params.x} essence. ${args.successPercent}% chance to ${lowerFirst(args.reward.text).replace(/\.$/u, "")}; otherwise gain nothing.`,
+    text: `Pay ${args.stake.params.x} essence. ${args.successPercent}% chance. On success: ${stripTerminalPeriod(args.reward.text)}; on failure: gain nothing.`,
     operations: [],
     costs: [args.stake],
     effects: [],
@@ -259,20 +472,6 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
     context,
     Math.min(SECOND_STAKE_CAP, availableEssence),
   );
-  const used = new Set<string>();
-  const firstReward = rollReward(
-    context,
-    drawContext,
-    "single_wager:reward:1",
-    used,
-  );
-  consumedRewardIds(firstReward).forEach((id) => used.add(id));
-  const secondReward = rollReward(
-    context,
-    { ...drawContext, sequenceStep: (drawContext.sequenceStep ?? 0) + 1 },
-    "single_wager:reward:2",
-    used,
-  );
   const firstSuccessPercent = pickVariant(
     drawContext,
     "single_wager:odds:1",
@@ -283,6 +482,35 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
     "single_wager:odds:2",
     SECOND_ODDS,
   );
+  const firstRewards = rewardCandidates(context, drawContext, new Set());
+  const secondRewards = rewardCandidates(
+    context,
+    { ...drawContext, sequenceStep: (drawContext.sequenceStep ?? 0) + 1 },
+    new Set(),
+  );
+  const viablePairs = buildRewardPairs({
+    firstRewards,
+    secondRewards,
+    firstStake,
+    secondStake,
+    firstSuccessPercent,
+    secondSuccessPercent,
+  });
+  const selectedPair =
+    viablePairs.length > 0
+      ? weightedChoice(
+          drawContext,
+          "single_wager:reward_pair",
+          viablePairs.map((pair) => ({ item: pair, weight: pair.weight })),
+        )
+      : fallbackRewardPair({
+          firstRewards,
+          secondRewards,
+          firstStake,
+          secondStake,
+          firstSuccessPercent,
+          secondSuccessPercent,
+        });
   const firstRoll = drawInt(drawContext, "single_wager:roll:1", 1, 100);
   const secondRoll = drawInt(drawContext, "single_wager:roll:2", 1, 100);
 
@@ -291,16 +519,16 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
       optionFor({
         number: 1,
         stake: firstStake,
-        reward: firstReward,
+        reward: selectedPair.first.reward,
         successPercent: firstSuccessPercent,
-        riskPremiumConvertedEssence: -12,
+        riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
       }),
       optionFor({
         number: 2,
         stake: secondStake,
-        reward: secondReward,
+        reward: selectedPair.second.reward,
         successPercent: secondSuccessPercent,
-        riskPremiumConvertedEssence: -16,
+        riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
       }),
     ],
     precommitted: {
@@ -308,18 +536,18 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
         precommittedWager({
           optionNumber: 1,
           stake: firstStake,
-          reward: firstReward,
+          reward: selectedPair.first.reward,
           successPercent: firstSuccessPercent,
           roll: firstRoll,
-          riskPremiumConvertedEssence: -12,
+          riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
         }),
         precommittedWager({
           optionNumber: 2,
           stake: secondStake,
-          reward: secondReward,
+          reward: selectedPair.second.reward,
           successPercent: secondSuccessPercent,
           roll: secondRoll,
-          riskPremiumConvertedEssence: -16,
+          riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
         }),
       ],
     },
