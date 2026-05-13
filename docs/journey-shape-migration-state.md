@@ -95,6 +95,7 @@ the target end state.
 
 | Shape | Filler dependency cleanup | Shared reward axis |
 | --- | --- | --- |
+| `alter_dreamscapes` | Complete | Complete |
 | `choose_your_loss` | Complete | Cost-axis shape |
 | `escalating_reward_chain` | Needed | Needed |
 | `flat_escalating_trade` | Complete | Complete |
