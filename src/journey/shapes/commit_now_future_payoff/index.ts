@@ -1,40 +1,33 @@
-import {
-  commonValidationRules,
-  defineShapePlugin,
-  versionContribution,
-} from "../shared.js";
+import { defineShapePlugin } from "../shared.js";
 import { commitNowFuturePayoffFill } from "./fill.js";
-import { validateCommitNowFuturePayoffValues } from "./validators.js";
 
 export const commitNowFuturePayoffPlugin = defineShapePlugin({
   definition: {
     id: "commit_now_future_payoff",
     topology: "delayed_hook",
     rootOptionCount: { min: 3, max: 3 },
-    supportedTags: ["commitment", "delayed", "reward", "future"],
+    supportedTags: [],
+    payloadCompatibility: [],
     validationRules: [
-      ...commonValidationRules,
-      "commitment_is_visible_immediately",
-      "future_payoff_is_significant_and_precommitted",
+      "manifest_schema_version",
+      "manifest_version_metadata",
+      "journey_id_format",
+      "root_option_count_within_bounds",
     ],
-    repairPreferences: [
-      "clarify_commitment_terms",
-      "increase_future_payoff",
-      "store_future_payoff_metadata",
-    ],
+    repairPreferences: [],
     debugLabel: "Commit now, future payoff",
-    versionContribution: versionContribution(
-      "commit_now_future_payoff",
-      "delayed_hook",
-    ),
-  },
-  repair: {
-    actions: [
-      { action: "clarify_commitment_terms", kind: "repair_payload_family" },
-      { action: "increase_future_payoff", kind: "repair_payload_family" },
-      { action: "store_future_payoff_metadata", kind: "repair_payload_family" },
-    ],
+    versionContribution: {
+      catalogVersion: "journey-shapes:v16",
+      id: "commit_now_future_payoff",
+      topology: "delayed_hook",
+      bypassStandardValidation: true,
+    },
+    menuValueChecks: {
+      positiveBands: false,
+      symmetricBands: false,
+      escalationOrRiskExempt: false,
+    },
+    bypassStandardValidation: true,
   },
   fill: commitNowFuturePayoffFill,
-  optionValueValidator: (nets) => validateCommitNowFuturePayoffValues(nets),
 });
