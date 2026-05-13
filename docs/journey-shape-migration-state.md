@@ -113,7 +113,7 @@ the target end state.
 | `resolved_random_series` | Complete | Complete |
 | `reward_after_trigger` | Needed | Needed |
 | `risk_or_skip` | Needed | Needed |
-| `shared_prefix_menu` | Needed | Needed |
+| `shared_prefix_menu` | Complete | Complete |
 | `service_menu` | Complete | Complete |
 | `shop_row` | Complete | Complete |
 | `single_offer` | Complete | Complete |
