@@ -80,7 +80,7 @@ These shapes are reference implementations for the migration target:
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
 - `shared_prefix_menu` completed migration commit `6c00aa2`, audit commit `b8d1014`, and fix commit `d026c29`.
 - `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
-- `paired_return` completed migration commit `5265c18`, audit commit `c84da7f`, fix commit `9bf8ac3`, and colocation commit `3966ddf`.
+- `paired_return` completed migration commit `5265c18`, audit commit `c84da7f`, fix commit `9bf8ac3`, colocation commit `3966ddf`, and dependency cleanup commit `58ae214`.
 - Migrated shape fills live in `src/journey/shapes/<shape>/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
