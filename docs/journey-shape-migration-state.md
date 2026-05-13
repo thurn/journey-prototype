@@ -54,7 +54,9 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- All queued shapes are complete.
+- The queue phase columns track directory-backed migration, audit, fix, and
+  verification passes. The completion audit table tracks shared-system
+  dependency cleanup for the target end state.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -109,6 +111,7 @@ the target end state.
 | `single_offer` | Complete | Complete |
 | `single_reward` | Complete | Complete |
 | `single_rule_trial` | Complete | Complete |
+| `take_any_number` | Complete | Complete |
 | `timed_window_menu` | Needed | Complete |
 
 Generic typed-contract plumbing still carries shape IDs for structured
