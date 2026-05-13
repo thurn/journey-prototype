@@ -32,7 +32,7 @@ Each queued shape follows this sequence:
 | 18 | `single_rule_trial` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 19 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 20 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 21 | `reveal_choice_menu` | 2 | Complete | In progress | Pending | Complete | Current |
+| 21 | `reveal_choice_menu` | 2 | Complete | Complete | In progress | Complete | Current |
 | 22 | `probability_ladder` | 2 | Pending | Pending | Pending | Pending | Queued |
 | 23 | `escalating_reward_chain` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 24 | `shared_prefix_menu` | 1 | Pending | Pending | Pending | Pending | Queued |
@@ -75,7 +75,7 @@ These shapes are reference implementations for the migration target:
 - `single_rule_trial` completed migration commit `19cd77d`, audit commit `d39cd6e`, and fix commit `7c022a0`.
 - `risk_or_skip` completed migration commit `9ddb42d`, audit commit `7c2dd50`, and fix commit `4ca9d0b`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
-- `reveal_choice_menu` completed migration commit `b872093`.
+- `reveal_choice_menu` completed migration commit `b872093`, and audit commit `0843b8e`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/reveal_choice_menu/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
