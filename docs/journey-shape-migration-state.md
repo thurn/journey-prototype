@@ -29,7 +29,7 @@ Each queued shape follows this sequence:
 | 15 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 16 | `single_reward` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 17 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 18 | `single_rule_trial` | 3 | In progress | Pending | Pending | Pending | Current |
+| 18 | `single_rule_trial` | 3 | Complete | In progress | Pending | Complete | Current |
 | 19 | `risk_or_skip` | 2 | Pending | Pending | Pending | Pending | Queued |
 | 20 | `flat_escalating_trade` | 2 | Pending | Pending | Pending | Pending | Queued |
 | 21 | `reveal_choice_menu` | 2 | Pending | Pending | Pending | Pending | Queued |
@@ -72,6 +72,7 @@ These shapes are reference implementations for the migration target:
 - `prize_ladder` completed migration commit `9cdf1b7`, audit commit `ff3505c`, and fix commit `07b853b`.
 - `single_reward` completed migration commit `b088331`, audit commit `455f4da`, and fix commit `6a3caaf`.
 - `single_offer` completed migration commit `e50cefb`, audit commit `7a01663`, and fix commit `e84877e`.
+- `single_rule_trial` completed migration commit `19cd77d`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/single_rule_trial/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
