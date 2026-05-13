@@ -18,7 +18,7 @@ Each queued shape follows this sequence:
 | 4 | `shop_row` | 7.0 | Complete | Complete | Complete | Complete | Complete |
 | 5 | `alter_dreamscapes` | 6 | Complete | Complete | Complete | Complete | Complete |
 | 6 | `single_wager` | 6 | Complete | Complete | Complete | Complete | Complete |
-| 7 | `single_random_outcome` | 6 | In progress | Pending | Pending | Pending | Current |
+| 7 | `single_random_outcome` | 6 | Complete | In progress | Pending | Pending | Current |
 | 8 | `now_vs_later` | 5 | Pending | Pending | Pending | Pending | Queued |
 | 9 | `choose_your_loss` | 5 | Pending | Pending | Pending | Pending | Queued |
 | 10 | `commit_now_future_payoff` | 5 | Pending | Pending | Pending | Pending | Queued |
@@ -61,6 +61,7 @@ These shapes are reference implementations for the migration target:
 - `shop_row` completed migration commit `ee5f59a`, audit commit `aa3c0cf`, and fix commit `e912755`.
 - `alter_dreamscapes` completed migration commit `4ced08f`, audit commit `f0ba652`, and fix commit `50c3736`.
 - `single_wager` completed migration commit `70a274d`, audit commit `d884f8e`, and fix commit `00c3a7a`.
+- `single_random_outcome` completed migration commit `8305b41`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/single_random_outcome/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
