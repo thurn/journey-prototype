@@ -240,7 +240,7 @@ const operations: readonly OperationTemplate[] = Object.freeze([
     rollParams: () => ({}),
     viable: () => true,
     cec: () => CARD_CEC * STAGE_MULTIPLIER,
-    render: (_params, _ctx, target) => `Gain ${target.text}`,
+    render: (_params, _ctx, target) => `Duplicate ${target.text}`,
   },
   {
     id: "apply_named_transfiguration_to_card_name",
@@ -314,17 +314,6 @@ const operations: readonly OperationTemplate[] = Object.freeze([
     cec: (params) => CARD_CEC * 0.3 * Number(params.battles),
     render: (params, _ctx, target) =>
       `Your opening hand contains ${target.text} for the next ${Number(params.battles)} battles`,
-  },
-  {
-    id: "temporary_card_copy_for_X_battles",
-    symbols: ["reward", "card"],
-    targetKinds: ["named_card"],
-    weight: 1,
-    rollParams: () => ({ battles: POSITIVE_TEMPORARY_BATTLES }),
-    viable: () => true,
-    cec: (params) => CARD_CEC * 0.25 * Number(params.battles),
-    render: (params, _ctx, target) =>
-      `Gain a temporary copy of ${target.text} for the next ${Number(params.battles)} battles`,
   },
   {
     id: "gain_random_predicate_cards",

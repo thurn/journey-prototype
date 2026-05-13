@@ -53,7 +53,6 @@ export function naturalGeneratedObjectKind(args: {
     `generated-object:${args.stage}:${args.shapeId}:kind`,
     [
       { item: "card" as const, weight: args.stage === "early" ? 4 : 3 },
-      { item: "dreamsign" as const, weight: args.stage === "late" ? 4 : 2 },
       { item: "status" as const, weight: args.stage === "mid" ? 4 : 2 },
       {
         item: "transfiguration" as const,

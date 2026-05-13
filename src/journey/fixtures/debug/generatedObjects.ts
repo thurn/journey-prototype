@@ -1,7 +1,10 @@
 import type { GeneratedObjectDefinition } from "../../manifest.js";
 import { generatedObjectDuration } from "../../fillers/generatedObjects.js";
 
-type GeneratedObjectKind = GeneratedObjectDefinition["generatedObjectKind"];
+type GeneratedObjectKind = Exclude<
+  GeneratedObjectDefinition["generatedObjectKind"],
+  "dreamsign"
+>;
 
 export function debugGeneratedObjectDefinition(
   kind: GeneratedObjectKind,
@@ -39,42 +42,6 @@ export function debugGeneratedObjectDefinition(
         energyCost: 0,
         cardType: "Event",
         keywords: ["Fast"],
-        source: "manifest_generated",
-      },
-    },
-    dreamsign: {
-      generatedObjectKind: "dreamsign",
-      generatedObjectId: "generated-dreamsign-mirror-moon",
-      name: "Mirror Moon",
-      objectType: "Dreamsign",
-      rulesText:
-        "The next time you gain a Dreamsign, choose one: duplicate it, or gain 90 essence.",
-      tags: ["journey-only", "dreamsign", "choice", "late"],
-      references: {
-        rules: ["dreamsign", "essence"],
-      },
-      duration: generatedObjectDuration("until the next Dreamsign gain", 3),
-      lifetime: "until_returned",
-      valueEstimate: {
-        convertedEssence: 155,
-        confidence: "medium",
-        basis:
-          "Comparable to a named Dreamsign with a narrow one-time trigger.",
-      },
-      validation: {
-        source: "generated_manifest_local",
-        status: "validated",
-        ruleIds: [
-          "stable_id",
-          "dreamsign_rules_text",
-          "duration",
-          "value_estimate",
-          "manifest_local",
-        ],
-      },
-      payload: {
-        trigger: "next Dreamsign gain",
-        choices: ["duplicate gained Dreamsign", "gain 90 essence"],
         source: "manifest_generated",
       },
     },

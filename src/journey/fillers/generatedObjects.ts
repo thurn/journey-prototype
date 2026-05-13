@@ -201,8 +201,6 @@ function generatedObjectBattleWindow(
 
 const CARD_PREFIXES = ["Amber", "Hollow", "Rain", "Silver", "Thistle"] as const;
 const CARD_NOUNS = ["Bell", "Compass", "Key", "Lantern", "Ribbon"] as const;
-const DREAMSIGN_PREFIXES = ["Ashen", "Mirror", "Violet", "Waking"] as const;
-const DREAMSIGN_NOUNS = ["Anchor", "Moon", "Prism", "Toll"] as const;
 const STATUS_PREFIXES = ["Afterimage", "Borrowed", "Liminal", "Veiled"] as const;
 const STATUS_NOUNS = ["Oath", "Pattern", "Promise", "Wake"] as const;
 const TRANSFIGURATION_NAMES = ["Amber", "Glass", "Hollow", "Silver", "Thistle"] as const;
@@ -336,138 +334,6 @@ function naturalCardBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody 
     ruleIds: [
       "stable_id",
       "card_rules_text",
-      "value_estimate",
-      "manifest_local",
-    ],
-  };
-}
-
-function naturalDreamsignBody(
-  args: NaturalGeneratedObjectArgs,
-): GeneratedObjectBody {
-  const anchorCard = referencedName(
-    args.drawContext,
-    "generated-object:dreamsign:anchor-card",
-    args.cards,
-  );
-  const anchorDreamsign = referencedName(
-    args.drawContext,
-    "generated-object:dreamsign:anchor-dreamsign",
-    args.dreamsigns,
-  );
-  const name = `${pick(args.drawContext, "generated-object:dreamsign:prefix", DREAMSIGN_PREFIXES)} ${pick(args.drawContext, "generated-object:dreamsign:noun", DREAMSIGN_NOUNS)}`;
-  const fragment = pick(args.drawContext, "generated-object:dreamsign:rules", [
-    "duplicate-choice",
-    "shop-discount",
-    "omen-foresee",
-  ] as const);
-
-  if (fragment === "shop-discount") {
-    const cardText = anchorCard
-      ? ` If that card is {${anchorCard}}, gain 1 omen.`
-      : "";
-
-    return {
-      idPart: `shop-discount-${anchorCard ? kebab(anchorCard) : "shop"}`,
-      name,
-      objectType: "Dreamsign",
-      rulesText: `At the next Shop, the first card you buy costs 30 less essence.${cardText}`,
-      tags: ["journey-only", "dreamsign", "shop", "discount"],
-      references: optionalReferences({
-        ...(anchorCard ? { cards: [anchorCard] } : {}),
-        rules: ["Shop", "essence", "omens", "card"],
-      }),
-      duration: generatedObjectDuration("next Shop", 1, "shop_count"),
-      lifetime: "one_time",
-      valueEstimate: {
-        convertedEssence: anchorCard ? 140 : 120,
-        confidence: "medium",
-        basis: "One-shop discount with a small named-card upside.",
-      },
-      payload: {
-        trigger: "next Shop",
-        discountEssence: 30,
-        ...(anchorCard ? { bonusCard: anchorCard } : {}),
-        source: "manifest_generated",
-      },
-      ruleIds: [
-        "stable_id",
-        "dreamsign_rules_text",
-        "duration",
-        "content_reference",
-        "value_estimate",
-        "manifest_local",
-      ],
-    };
-  }
-
-  if (fragment === "omen-foresee") {
-    const window = generatedObjectBattleWindow(args, "dreamsign:omen-foresee");
-
-    return {
-      idPart: `omen-foresee-${window.count}-battles`,
-      name,
-      objectType: "Dreamsign",
-      rulesText: `For the ${window.label}, the first time you gain an omen each battle, Foresee 2.`,
-      tags: ["journey-only", "dreamsign", "battle", "omens"],
-      references: {
-        rules: ["battle", "omens", "Foresee"],
-      },
-      duration: generatedObjectDuration(window.label, window.count),
-      lifetime: "temporary",
-      valueEstimate: {
-        convertedEssence: 115 + window.count * 10,
-        confidence: "medium",
-        basis: "Short battle window that converts omen gains into card selection.",
-      },
-      payload: {
-        trigger: "omen gain",
-        durationBattles: window.count,
-        action: "Foresee 2",
-        source: "manifest_generated",
-      },
-      ruleIds: [
-        "stable_id",
-        "dreamsign_rules_text",
-        "duration",
-        "value_estimate",
-        "manifest_local",
-      ],
-    };
-  }
-
-  const dreamsignText = anchorDreamsign
-    ? ` If it is {${anchorDreamsign}}, gain 120 essence instead.`
-    : "";
-
-  return {
-    idPart: `duplicate-choice-${anchorDreamsign ? kebab(anchorDreamsign) : "any"}`,
-    name,
-    objectType: "Dreamsign",
-    rulesText: `The next time you gain a Dreamsign, choose one: duplicate it, or gain 90 essence.${dreamsignText}`,
-    tags: ["journey-only", "dreamsign", "choice"],
-    references: optionalReferences({
-      ...(anchorDreamsign ? { dreamsigns: [anchorDreamsign] } : {}),
-      rules: ["dreamsign", "essence"],
-    }),
-    duration: generatedObjectDuration("until the next Dreamsign gain", 3),
-    lifetime: "until_returned",
-    valueEstimate: {
-      convertedEssence: anchorDreamsign ? 170 : 155,
-      confidence: "medium",
-      basis: "Named Dreamsign choice hook with a narrow one-time trigger.",
-    },
-    payload: {
-      trigger: "next Dreamsign gain",
-      choices: ["duplicate gained Dreamsign", "gain 90 essence"],
-      ...(anchorDreamsign ? { bonusDreamsign: anchorDreamsign } : {}),
-      source: "manifest_generated",
-    },
-    ruleIds: [
-      "stable_id",
-      "dreamsign_rules_text",
-      "duration",
-      "content_reference",
       "value_estimate",
       "manifest_local",
     ],
@@ -782,10 +648,15 @@ function naturalGeneratedObjectDefinition(
     args.kind === "card"
       ? naturalCardBody(args)
       : args.kind === "dreamsign"
-        ? naturalDreamsignBody(args)
+        ? undefined
         : args.kind === "status"
           ? naturalStatusBody(args)
           : naturalTransfigurationBody(args);
+
+  if (!body) {
+    throw new Error("Generated Dreamsign definitions are not supported");
+  }
+
   const generatedObjectId = `generated-${args.kind}-${kebab(body.name)}-${body.idPart}`;
 
   return {
@@ -914,7 +785,7 @@ export function generatedObjectOptions(
     }),
     option({
       number: 2,
-      text: `Transform a chosen eligible object into {${generatedObject.name}}. ${compactRules}`,
+      text: `Delete a chosen card, Dreamsign, status, or transfiguration and gain {${generatedObject.name}}. ${compactRules}`,
       effects: [transform],
       effect: Math.max(120, value - 10),
       uncertainty: -10,

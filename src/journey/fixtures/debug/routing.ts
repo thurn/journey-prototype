@@ -87,12 +87,10 @@ export function isDebugCompleteDecisionTreePayload(
 
 export function debugGeneratedObjectVariant(
   debugPayload: DebugPayloadSelection | undefined,
-): GeneratedObjectDefinition["generatedObjectKind"] | undefined {
+): Exclude<GeneratedObjectDefinition["generatedObjectKind"], "dreamsign"> | undefined {
   switch (debugPayload?.qaId) {
     case "generated_object/generated-card":
       return "card";
-    case "generated_object/generated-dreamsign":
-      return "dreamsign";
     case "generated_object/generated-status":
       return "status";
     case "generated_object/generated-transfiguration":

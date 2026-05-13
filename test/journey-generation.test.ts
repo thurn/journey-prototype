@@ -798,10 +798,10 @@ describe.concurrent("generateNextJourney", () => {
     );
   });
 
-  it("selects generated objects naturally rarely, with late high-weirdness weighting", async () => {
+  it("does not substitute generated-object menus during natural generation", async () => {
     const content = await loadContent(process.cwd());
-    const indexes = [0, 10, 16];
-    const countGenerated = (stage: "early" | "late") =>
+    const indexes = Array.from({ length: 24 }, (_entry, index) => index);
+    const generatedCounts = (stage: "early" | "late") =>
       indexes.map((index) => {
         const journeyContext = contextFromContent(
           content,
@@ -838,13 +838,8 @@ describe.concurrent("generateNextJourney", () => {
         return manifest;
       }).filter((manifest) => manifest.generatedObjects.length > 0).length;
 
-    const earlyGenerated = countGenerated("early");
-    const lateGenerated = countGenerated("late");
-
-    expect(earlyGenerated).toBeGreaterThan(0);
-    expect(earlyGenerated).toBeLessThanOrEqual(1);
-    expect(lateGenerated).toBeGreaterThan(earlyGenerated);
-    expect(lateGenerated).toBeLessThanOrEqual(3);
+    expect(generatedCounts("early")).toBe(0);
+    expect(generatedCounts("late")).toBe(0);
   });
 
   it("builds one_target_many_operations as three operations on one target", async () => {
@@ -886,10 +881,9 @@ describe.concurrent("generateNextJourney", () => {
 
     for (const kind of [
       "card",
-      "dreamsign",
       "status",
       "transfiguration",
-    ] satisfies GeneratedObjectDefinition["generatedObjectKind"][]) {
+    ] satisfies Exclude<GeneratedObjectDefinition["generatedObjectKind"], "dreamsign">[]) {
       const definitions = Array.from({ length: 48 }, (_, index) =>
         buildGeneratedObjectDefinition({
           kind,
@@ -938,15 +932,12 @@ describe.concurrent("generateNextJourney", () => {
     const dreamsigns = journeyContext.content.dreamsigns
       .slice(0, 16)
       .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name }));
-    const definitionsFor = (
-      kind: "dreamsign" | "status",
-      stage: "early" | "late",
-    ) =>
+    const definitionsFor = (stage: "early" | "late") =>
       Array.from({ length: 128 }, (_, index) =>
         buildGeneratedObjectDefinition({
-          kind,
+          kind: "status",
           drawContext: {
-            seed: `natural-generated-window-${kind}-${stage}-${index}`,
+            seed: `natural-generated-window-status-${stage}-${index}`,
             contentVersion: journeyContext.contentVersion,
             rootJourneyIndex: 0,
           },
@@ -957,25 +948,35 @@ describe.concurrent("generateNextJourney", () => {
         }),
       );
 
-    const earlyOmenForeseeDurations = new Set(
-      definitionsFor("dreamsign", "early")
-        .filter((definition) =>
-          definition.generatedObjectId.includes("omen-foresee")
-        )
-        .map((definition) => definition.duration?.count),
-    );
     const latePurgeCopyDurations = new Set(
-      definitionsFor("status", "late")
+      definitionsFor("late")
         .filter((definition) =>
           definition.generatedObjectId.includes("purge-copy")
         )
         .map((definition) => definition.duration?.count),
     );
 
-    expect([...earlyOmenForeseeDurations].sort()).toEqual([1, 2]);
     expect([...latePurgeCopyDurations].sort()).toEqual([2, 3, 4]);
   });
 
+  it("does not build generated Dreamsign definitions", async () => {
+    const journeyContext = await context("generated-ds-disabled");
+
+    expect(() =>
+      buildGeneratedObjectDefinition({
+        kind: "dreamsign",
+        drawContext: {
+          seed: "generated-ds-disabled",
+          contentVersion: journeyContext.contentVersion,
+          rootJourneyIndex: 0,
+        },
+        shapeId: "one_target_many_operations",
+        stage: "late",
+        cards: [],
+        dreamsigns: [],
+      }),
+    ).toThrow("Generated Dreamsign definitions are not supported");
+  });
 
   it("exposes resource edge-case value-band semantics in operations and value debug", async () => {
     const journeyContext = await context("value-resource");

@@ -30,5 +30,4 @@ export const oneTargetManyOperationsPlugin = defineShapePlugin({
     bypassStandardValidation: true,
   },
   fill: oneTargetManyOperationsFill,
-  generatedObjects: { natural: true, highWeirdness: true },
 });

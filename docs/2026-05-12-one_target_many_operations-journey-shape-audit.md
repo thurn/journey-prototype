@@ -56,6 +56,64 @@ Recommendation:
 
 Build `one_target_many_operations` operation groups from value-compatible operations for the selected target and stage. Add visible costs, caps, or narrower targets to high-output operations such as multi-duplicate and take-any-number rewards, and reject zero-cost offers whose highest expected value is more than roughly 50% above the lowest option unless the lower-value option has a clear contextual advantage.
 
+### Deck-Card Rewards Use The Wrong Acquisition Verb
+
+Severity: high
+
+Seed: `random:929df556-067e-408b-a2a6-ea4a9de1432a`
+Stage: `early`
+Replay:
+`npm run journey -- --seed random:929df556-067e-408b-a2a6-ea4a9de1432a --stage early --shape one_target_many_operations --debug --show-deck --no-color`
+
+Steps to reproduce:
+
+1. Run the replay command from the repository root.
+2. Confirm the generated deck contains `Runebound Champion`.
+3. Read the three `one_target_many_operations` options.
+
+Generated options:
+
+1. `* Change 'Runebound Champion' to become a Warrior`
+2. `* Apply Viridian to 'Runebound Champion'`
+3. `* Gain 'Runebound Champion'`
+
+Issue:
+
+`one_target_many_operations` chooses a shared target from the current deck. The option text should treat that target as an existing deck card. `Gain 'Runebound Champion'` reads as though the card is outside the deck and being newly acquired.
+
+Recommendation:
+
+Render deck-card acquisition in this shape as duplication. The option should say `Duplicate 'Runebound Champion'` when the selected target is already in the deck. Audit `random_rewards` and `random_trades` for any shared reward path that chooses a deck card and renders it as `Gain`.
+
+### Temporary Named-Card Copies Are Dominated By Permanent Copies
+
+Severity: high
+
+Seed: `random:e334de9a-d7b0-4ab6-a194-2087241b1493`
+Stage: `early`
+Replay:
+`npm run journey -- --seed random:e334de9a-d7b0-4ab6-a194-2087241b1493 --stage early --shape one_target_many_operations --debug --show-deck --no-color`
+
+Steps to reproduce:
+
+1. Run the replay command from the repository root.
+2. Read the three `one_target_many_operations` options.
+3. Compare the permanent card acquisition option against the temporary copy option.
+
+Generated options:
+
+1. `* Gain 'Dimensional Pathfinder'`
+2. `* Gain a temporary copy of 'Dimensional Pathfinder' for the next 3 battles`
+3. `* Apply Viridian to 'Dimensional Pathfinder'`
+
+Issue:
+
+The temporary copy option is strictly worse than the permanent acquisition option when both target the same named card and neither has a visible cost.
+
+Recommendation:
+
+Delete temporary named-card copy operations from `one_target_many_operations` offers that can also include permanent named-card duplication. Use temporary copies only in shapes where timing, cost, or risk makes the temporary reward a meaningful trade. Audit `random_rewards` and `random_trades` for any shared reward set that can offer a temporary copy beside a permanent copy of the same named card.
+
 ### Late Single-Card Offers Are Too Small
 
 Severity: medium
@@ -135,39 +193,39 @@ Recommendation:
 
 Render starter operations with an explicit noun phrase in every root option, such as "Transform a chosen Starter card into ..." and "Replace a chosen Starter card with ...". Keep the target wording consistent across all options in the same offer.
 
-### Generated Object Options Use Ambiguous Selectors
+### Delete Generated-Object Menus From This Shape
 
-Severity: medium
+Severity: high
 
 Seed: `audit:one_target_many_operations:mid:01`
 Stage: `mid`
 Replay:
 `npm run journey -- --seed audit:one_target_many_operations:mid:01 --stage mid --shape one_target_many_operations --debug --show-deck --no-color`
 
-Generated options:
+Steps to reproduce:
 
-1. `* Create and gain {Violet Anchor}. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
-2. `* ! Transform a chosen eligible object into {Violet Anchor}. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
-3. `* ! Gain {Violet Anchor} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
+1. Run the replay command from the repository root.
+2. Read the generated-object offer that creates `Violet Anchor`.
+3. Confirm the offer describes a manifest-local Dreamsign rather than an existing canonical Dreamsign.
 
-Seed: `audit:one_target_many_operations:late:07`
-Stage: `late`
+Seed: `audit:one_target_many_operations:mid:07`
+Stage: `mid`
 Replay:
-`npm run journey -- --seed audit:one_target_many_operations:late:07 --stage late --shape one_target_many_operations --debug --show-deck --no-color`
+`npm run journey -- --seed audit:one_target_many_operations:mid:07 --stage mid --shape one_target_many_operations --debug --show-deck --no-color`
 
-Generated options:
+Steps to reproduce:
 
-1. `* Create and gain {Silver Compass}. Silver Compass: 1 energy Event. Discover a card from the draft pool; if it is {Crossfire Specialist}, it gains Reclaim 1 until end of battle.`
-2. `* ! Transform a chosen eligible object into {Silver Compass}. Silver Compass: 1 energy Event. Discover a card from the draft pool; if it is {Crossfire Specialist}, it gains Reclaim 1 until end of battle.`
-3. `* ! Gain {Silver Compass} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Silver Compass: 1 energy Event. Discover a card from the draft pool; if it is {Crossfire Specialist}, it gains Reclaim 1 until end of battle.`
+1. Run the replay command from the repository root.
+2. Read the generated-object offer that creates `Afterimage Promise`.
+3. Confirm the offer describes a manifest-local status rather than an existing canonical Dreamsign or card.
 
 Issue:
 
-"Chosen eligible object" does not tell the player what can be selected. The temporary option also combines return timing, trade timing, and object usage timing in one sentence. For a generated Event card such as Silver Compass, "after using it once" reads especially unclear because the object is itself a playable one-shot card.
+`one_target_many_operations` should not call the generic generated-object menu pipeline. The shape is built around one existing target with several operations. Manifest-local objects such as `Violet Anchor` and `Afterimage Promise` create new Dreamsign/status designs inside the Journey pipeline and break that shape contract.
 
 Recommendation:
 
-Render generated-object transform options with the concrete selectable class, such as card, Dreamsign, status, or generated object. Split temporary generated-object rewards into clear timing clauses that state when the object is usable, when it returns, and when the trade is available.
+Delete generated-object menu substitution from `one_target_many_operations`. Delete generated Dreamsign definition builders and generated Dreamsign debug variants from the Journey pipeline. Delete the player-facing generated-object transform text path from Journey output. Keep Dreamsign Journey rewards pointed at existing canonical Dreamsigns.
 
 ### Generated Object Debug Contracts Point At Different Offers
 
@@ -181,7 +239,7 @@ Replay:
 Generated options:
 
 1. `* Create and gain {Violet Anchor}. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
-2. `* ! Transform a chosen eligible object into {Violet Anchor}. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
+2. `* ! [generated-object transform option for Violet Anchor]`
 3. `* ! Gain {Violet Anchor} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
 
 Debug metadata:
@@ -196,7 +254,7 @@ Replay:
 Generated options:
 
 1. `* Create and gain {Afterimage Promise}. Afterimage Promise: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
-2. `* ! Transform a chosen eligible object into {Afterimage Promise}. Afterimage Promise: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
+2. `* ! [generated-object transform option for Afterimage Promise]`
 3. `* ! Gain {Afterimage Promise} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Afterimage Promise: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
 
 Debug metadata:

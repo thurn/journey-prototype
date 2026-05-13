@@ -257,8 +257,8 @@ describe("evaluateOptionValue", () => {
           },
           {
             kind: "generated_object_grant",
-            generatedObjectId: "generated-dreamsign",
-            generatedObjectKind: "dreamsign",
+            generatedObjectId: "generated-status",
+            generatedObjectKind: "status",
             generatedObjectName: "Lantern Echo",
             generatedObjectReferenceKind: "placeholder",
             componentConvertedEssence: 155,
