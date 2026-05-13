@@ -12,24 +12,50 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 const SERIES_LENGTH = 3;
 const OPTION_COUNT = 2;
 const MIN_REWARD_CEC = 15;
-const MAX_SERIES_SPREAD_RATIO = 1.8;
-const ROLL_ATTEMPTS = 32;
+const MAX_SERIES_SPREAD_RATIO = 1.3;
+const ROLL_ATTEMPTS = 128;
 const MAX_REWARD_CEC_BY_STAGE = {
   early: 130,
   mid: 280,
   late: 520,
 } as const;
-const NESTED_RANDOM_TEMPLATE_IDS = new Set([
+const RESOLVED_SERIES_EXCLUDED_TEMPLATE_IDS = new Set([
+  "apply_chosen_transfiguration_to_chosen_card",
+  "apply_named_transfiguration_to_chosen_predicate_cards",
   "gain_essence_random_range",
   "gain_random_predicate_cards",
+  "gain_random_dreamsign",
+  "gain_copy_of_random_dreamsign",
+  "gain_copy_of_chosen_dreamsign",
+  "choose_1_of_X_dreamsigns",
+  "draft_predicate_cards_from_4",
+  "draft_2_predicate_cards_from_4",
+  "draft_predicate_card_with_copies",
+  "draft_predicate_card_with_transfiguration",
+  "take_any_from_predicate_choices",
   "apply_named_transfiguration_to_random_predicate_cards",
   "apply_random_transfigurations_to_random_cards",
   "duplicate_random_predicate",
+  "duplicate_chosen_cards",
+  "draw_X_and_duplicate_chosen",
   "modify_random_cards_to_types",
+  "make_random_cards_fast",
+  "make_random_cards_reclaim",
+  "meta_gain_2_rewards",
+  "purge_chosen_predicate_cards",
+  "purge_chosen_predicate_with_replacement",
   "purge_random_starter",
   "purge_random_starter_with_predicate_replacement",
+  "purge_chosen_starters",
+  "replace_starter_via_draft",
   "temporary_dreamsign_for_X_battles",
+  "transfigure_all_starters",
+  "transfigure_chosen_starters",
   "transfigure_random_starters",
+  "transform_chosen_predicate_into_named",
+  "transform_dreamsign_to_named",
+  "transform_starter_into_named_card",
+  "replace_site_type",
 ]);
 const EARLY_EXCLUDED_TEMPLATE_IDS = new Set([
   "choose_1_of_X_dreamsigns",
@@ -92,7 +118,7 @@ function materializeReward(args: {
   readonly template: Reward;
   readonly attempt: number;
 }): SeriesReward | undefined {
-  if (args.template.weight <= 0 || NESTED_RANDOM_TEMPLATE_IDS.has(args.template.id)) {
+  if (args.template.weight <= 0 || RESOLVED_SERIES_EXCLUDED_TEMPLATE_IDS.has(args.template.id)) {
     return undefined;
   }
 
@@ -136,6 +162,36 @@ function materializeReward(args: {
     convertedEssence,
     weight: args.template.weight,
   };
+}
+
+function targetsStarterSet(reward: SeriesReward): boolean {
+  if (reward.template.id === "purge_named_starter") {
+    return true;
+  }
+
+  const predicateId = (reward.params as { readonly predicateId?: unknown }).predicateId;
+
+  return predicateId === "starter";
+}
+
+function consumesAllStarters(reward: SeriesReward): boolean {
+  return reward.template.id === "purge_all_starters";
+}
+
+function keepsTargetsLiveInOrder(series: readonly SeriesReward[]): boolean {
+  let startersAvailable = true;
+
+  for (const reward of series) {
+    if (!startersAvailable && targetsStarterSet(reward)) {
+      return false;
+    }
+
+    if (consumesAllStarters(reward)) {
+      startersAvailable = false;
+    }
+  }
+
+  return true;
 }
 
 function candidateRewards(args: {
@@ -303,6 +359,11 @@ function selectSeriesRows(args: ShapeFillArgs): readonly (readonly SeriesReward[
         usedTemplateIds,
       }),
     );
+
+    if (!rows.every(keepsTargetsLiveInOrder)) {
+      continue;
+    }
+
     const spread = seriesSpreadRatio(rows);
 
     if (spread < bestSpread) {
