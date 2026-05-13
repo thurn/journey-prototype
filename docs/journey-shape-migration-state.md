@@ -33,8 +33,8 @@ Each queued shape follows this sequence:
 | 19 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 20 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 21 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 22 | `probability_ladder` | 2 | Complete | Complete | In progress | Complete | Current |
-| 23 | `escalating_reward_chain` | 1 | Pending | Pending | Pending | Pending | Queued |
+| 22 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 23 | `escalating_reward_chain` | 1 | In progress | Pending | Pending | Pending | Current |
 | 24 | `shared_prefix_menu` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 25 | `reward_after_trigger` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 26 | `paired_return` | 1.0 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `probability_ladder` is the active shape.
+- `escalating_reward_chain` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -76,7 +76,7 @@ These shapes are reference implementations for the migration target:
 - `risk_or_skip` completed migration commit `9ddb42d`, audit commit `7c2dd50`, and fix commit `4ca9d0b`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `reveal_choice_menu` completed migration commit `b872093`, audit commit `0843b8e`, and fix commit `6ebc12e`.
-- `probability_ladder` completed migration commit `69cdfb7` and audit commit `e5090e8`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/probability_ladder/`.
+- `probability_ladder` completed migration commit `69cdfb7`, audit commit `e5090e8`, and fix commit `adaa912`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/escalating_reward_chain/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
