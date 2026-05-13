@@ -20,7 +20,7 @@ export function buildPrizeLadderTree(
     drawContext,
     "prize-ladder:reward-family",
     4,
-    ["essence", "omens", "card_draft", "dreamsign_draft", "starter_cleanup"],
+    ["essence", "omens", "card_draft", "dreamsign_draft"],
   );
   const claimReward =
     rewardFamily.rewards[3] ??
