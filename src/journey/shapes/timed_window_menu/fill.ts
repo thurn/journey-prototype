@@ -9,6 +9,7 @@ const SHAPE_ID = "timed_window_menu";
 const OPTION_COUNT = 3;
 const ROLL_ATTEMPTS = 24;
 const MIN_REWARD_CEC = 35;
+const MAX_MENU_NET_SPREAD_RATIO = 2.35;
 const MAX_REWARD_CEC_BY_STAGE = {
   early: 220,
   mid: 320,
@@ -92,6 +93,8 @@ const REWARD_FAMILIES: Record<TimedWindowScope, RewardFamily> = Object.freeze({
       "next_X_shop_rerolls_free",
       "shop_omen_discount",
       "shop_essence_discount",
+      "gain_omens",
+      "gain_essence",
     ],
     burdenIds: [],
   },
@@ -116,6 +119,16 @@ function sentence(text: string): string {
 
 function lowerFirst(text: string): string {
   return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function numberParam(params: TemplateParams, key: string): number | undefined {
+  const value = params[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function stringParam(params: TemplateParams, key: string): string | undefined {
+  const value = params[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function timingWindowPayload(window: TimedWindow): Record<string, unknown> {
@@ -193,6 +206,41 @@ function renderReward(
   window: TimedWindow,
 ): string {
   const rendered = template.render(params as never, context);
+  const battles = numberParam(params, "battles");
+  const count = numberParam(params, "count");
+  const percent = numberParam(params, "percent");
+  const siteType = stringParam(params, "siteType");
+  const cardName = stringParam(params, "cardName");
+
+  if (template.id === "opening_hand_grant_for_X_battles" && cardName) {
+    return `Your opening hand contains '${cardName}'`;
+  }
+
+  if (template.id === "temporary_card_copy_for_X_battles" && cardName) {
+    return `Gain a temporary copy of '${cardName}'`;
+  }
+
+  if (template.id === "temporary_dreamsign_for_X_battles") {
+    return "Gain a temporary random Dreamsign";
+  }
+
+  if (template.id === "card_cost_reduction_for_X_battles") {
+    return rendered.replace(
+      new RegExp(` for the next ${battles ?? window.count} battles?$`, "u"),
+      "",
+    );
+  }
+
+  if (window.scope === "shop" && template.id === "gain_omens") {
+    const omens = numberParam(params, "x") ?? 1;
+    return `Gain ${omens} omen${omens === 1 ? "" : "s"} before your first purchase in the window`;
+  }
+
+  if (window.scope === "shop" && template.id === "gain_essence") {
+    const essence = numberParam(params, "x") ?? 50;
+    return `Gain ${essence} essence before your first purchase in the window`;
+  }
+
   const normalized = rendered
     .replace(
       /\bShuffle (\d+) ('[^']+') copies into your dreamwell/gu,
@@ -201,31 +249,73 @@ function renderReward(
     );
 
   if (template.id === "shop_essence_discount") {
-    const percent = typeof params.percent === "number" ? params.percent : 20;
-
-    return `Shop essence costs are reduced by ${percent}%`;
+    return `Shop essence costs are reduced by ${percent ?? 20}%`;
   }
 
   if (template.id === "add_site_to_dreamscape") {
-    return normalized.replace("to this dreamscape", "to one route if possible");
+    return normalized.replace(
+      "to this dreamscape",
+      "to the first generated route with an open site slot",
+    );
   }
 
   if (template.id === "add_site_to_next_dreamscape") {
     return normalized.replace(
       "to the next dreamscape you visit",
-      "to one upcoming dreamscape if possible",
+      "to the next generated route with an open site slot",
     );
   }
 
   if (template.id === "replace_site_type") {
-    return normalized.replace("in this dreamscape", "in one upcoming dreamscape");
+    return normalized.replace(
+      "in this dreamscape",
+      "in the first eligible upcoming dreamscape",
+    );
   }
 
-  if (window.scope === "dreamwell" && template.id === "temporary_dreamsign_for_X_battles") {
-    return "Gain a random Dreamsign as a temporary Dreamsign";
+  if (template.id === "boost_site_appearance_chance" && siteType && percent) {
+    return `Increase ${siteType} site appearance by ${percent}% in each dreamscape in the window`;
+  }
+
+  if (template.id === "shuffle_positive_dreamwell_cards" && cardName && count) {
+    return `Shuffle ${count} ${count === 1 ? "copy" : "copies"} of '${cardName}' into your dreamwell`;
   }
 
   return normalized;
+}
+
+function timedRewardCec(
+  templateId: string,
+  params: TemplateParams,
+  window: TimedWindow,
+  rawCec: number,
+): number {
+  if (window.scope === "route") {
+    if (templateId === "replace_site_type") return Math.max(rawCec, 55);
+    if (templateId === "add_site_to_next_dreamscape") return 70;
+    if (templateId === "add_site_to_dreamscape") return 85;
+    if (templateId === "boost_site_appearance_chance") {
+      const percent = numberParam(params, "percent") ?? 20;
+      return Math.min(95, Math.max(55, percent * 1.7));
+    }
+  }
+
+  if (window.scope === "shop") {
+    if (templateId === "next_X_shop_rerolls_free") return Math.max(rawCec, 45);
+    if (templateId === "shop_essence_discount") {
+      const percent = numberParam(params, "percent") ?? 20;
+      return Math.max(45, Math.min(90, percent * 1.5));
+    }
+    if (templateId === "gain_omens") return Math.min(90, Math.max(45, rawCec * 0.75));
+    if (templateId === "gain_essence") return Math.min(95, Math.max(45, rawCec * 0.55));
+  }
+
+  if (window.scope === "battle") {
+    if (templateId === "card_cost_reduction_for_X_battles") return Math.min(rawCec, 95);
+    if (templateId === "temporary_dreamsign_for_X_battles") return Math.max(rawCec, 45);
+  }
+
+  return rawCec;
 }
 
 function rollRewardCandidates(
@@ -245,7 +335,12 @@ function rollRewardCandidates(
     const params = withWindowParams(template.id, baseParams, window);
 
     if (!template.viable(params as never, args.context)) continue;
-    const cec = template.cec(params as never, args.context);
+    const cec = timedRewardCec(
+      template.id,
+      params,
+      window,
+      template.cec(params as never, args.context),
+    );
     if (cec < MIN_REWARD_CEC) continue;
     if (cec > MAX_REWARD_CEC_BY_STAGE[args.stage]) continue;
 
@@ -281,13 +376,49 @@ function rollBurdenCandidates(
     if (!template.viable(params as never, args.context)) continue;
     const cec = template.cec(params as never, args.context);
     if (cec <= 0 || cec > reward.cec * MAX_BURDEN_RATIO) continue;
-    const text = template.render(params as never, args.context);
+    const text = renderBurden(template, params, args.context);
     if (text.includes("[LOCKED]")) continue;
 
     candidates.push({ template, params, cec, text });
   }
 
   return candidates;
+}
+
+function renderBurden(
+  template: Cost,
+  params: TemplateParams,
+  context: ShapeFillArgs["context"],
+): string {
+  const text = template.render(params as never, context);
+
+  switch (template.id) {
+    case "battle_reward_reduction_flat":
+      return text.replace(/ for the next \d+ battles?$/u, "");
+    case "battle_reward_reduction_percent":
+      return text.replace(/ for the next \d+ battles?$/u, "");
+    case "gain_named_banes_for_X_battles":
+      return text.replace(/ for the next \d+ battles?$/u, " during the window");
+    case "set_starting_dreamwell_negative":
+      return text.replace(/ for the next \d+ battles?$/u, "");
+    case "shuffle_negative_dreamwell_cards":
+      return text.replace(/ for the next \d+ battles?$/u, "");
+    case "remove_shop_sites_from_next_dreamscapes":
+      return "Remove shop sites from dreamscapes in the window";
+    case "remove_dreamsign_sites_from_next_dreamscapes":
+      return "Remove Dreamsign sites from dreamscapes in the window";
+    default:
+      return text;
+  }
+}
+
+function menuNetSpreadRatio(options: readonly TimedOption[]): number {
+  const values = options
+    .map((option) => option.reward.cec - (option.burden?.cec ?? 0))
+    .filter((value) => value > 0);
+
+  if (values.length === 0) return Number.POSITIVE_INFINITY;
+  return Math.max(...values) / Math.max(1, Math.min(...values));
 }
 
 function timedWindow(draw: DrawContext, requestedScope: unknown): TimedWindow {
@@ -386,7 +517,10 @@ function pickTimedOptions(args: ShapeFillArgs, window: TimedWindow): readonly Ti
       if (burden) usedBurdenIds.add(burden.template.id);
     }
 
-    if (options.length === OPTION_COUNT) {
+    if (
+      options.length === OPTION_COUNT &&
+      menuNetSpreadRatio(options) <= MAX_MENU_NET_SPREAD_RATIO
+    ) {
       return options;
     }
   }
