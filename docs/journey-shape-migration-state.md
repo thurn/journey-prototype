@@ -36,8 +36,8 @@ Each queued shape follows this sequence:
 | 22 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 23 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 24 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 25 | `reward_after_trigger` | 1 | Complete | Complete | In progress | Complete | Current |
-| 26 | `paired_return` | 1.0 | Pending | Pending | Pending | Pending | Queued |
+| 25 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
+| 26 | `paired_return` | 1.0 | In progress | Pending | Pending | Pending | Current |
 
 ## Reference Shapes
 
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `reward_after_trigger` is the active shape.
+- `paired_return` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -79,7 +79,7 @@ These shapes are reference implementations for the migration target:
 - `probability_ladder` completed migration commit `69cdfb7`, audit commit `e5090e8`, and fix commit `adaa912`.
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
 - `shared_prefix_menu` completed migration commit `6c00aa2`, audit commit `b8d1014`, and fix commit `d026c29`.
-- `reward_after_trigger` completed migration commit `67b8c1c` and audit commit `90a630f`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/reward_after_trigger/`.
+- `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/paired_return/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
