@@ -148,6 +148,40 @@ Keep shape-specific orchestration in the shape directory. Shared templates
 should describe reusable effects; the shape chooses how to assemble them into
 its menu topology.
 
+## Shared Reward and Cost Audit
+
+Before implementing a migrated shape, audit `src/journey/shared/rewards.ts`.
+When the shape's menu topology includes explicit costs, audit
+`src/journey/shared/costs.ts` as well. The audit should answer this question:
+what is the largest number of existing rewards that will work with the target
+Journey shape?
+
+Use the existing audit documents as models:
+
+- `docs/2026-05-12-one-operation-many-targets-reward-axis-audit.md`
+- `docs/2026-05-12-one-target-many-operations-shared-rewards-audit.md`
+
+The audit should classify shared templates by the shape axis they can support:
+target, operation, predicate, named object, resource amount, duration, site
+type, Dreamsign surface, or another axis that is meaningful for the shape being
+migrated. Treat `src/journey/fillers` content as non-authoritative reference
+material, and build the migration around the shared reward and cost templates
+instead of preserving filler structure.
+
+Migrated shapes should try to adapt existing `rewards.ts` templates to their
+target topology. Defining new rewards should be unusual; prefer small,
+shape-local assembly code that selects, groups, filters, or parameterizes the
+shared templates already available. The default generation policy is that every
+shared reward or cost is eligible whenever its own viability check passes.
+Shape-specific filters should be light and should exist only to preserve the
+shape's topology, avoid incoherent text, or satisfy a clear balance constraint.
+
+CEC balancing is a secondary migration concern, but the generated options
+should have roughly equivalent value once rewards and costs are combined. Use
+each reward's CEC value as the positive side of the option. Costs subtract CEC
+value from their paired reward, so a high-value reward can remain comparable to
+other menu options when it carries an appropriate cost.
+
 ## Migration Steps
 
 1. Inventory all references to the shape ID.
@@ -157,31 +191,37 @@ its menu topology.
    rg '<ShapeName>|<shape_id>' src test
    ```
 
-2. Create `src/journey/shapes/<shape_id>/index.ts` with a
+2. Audit `src/journey/shared/rewards.ts`, and audit
+   `src/journey/shared/costs.ts` when the shape has an explicit cost axis.
+   Classify existing templates by the axes the target shape can vary, and
+   design the migration around the largest viable set of existing shared
+   templates.
+
+3. Create `src/journey/shapes/<shape_id>/index.ts` with a
    `defineShapePlugin()` declaration.
 
-3. Create `fill.ts` and implement the shape's deterministic generation
+4. Create `fill.ts` and implement the shape's deterministic generation
    algorithm against `ShapeFillArgs`.
 
-4. Move shape-specific helper code into the shape directory. Promote genuinely
+5. Move shape-specific helper code into the shape directory. Promote genuinely
    reusable effect data into `src/journey/shared/`.
 
-5. Update `src/journey/shapes/registry.ts` to import the directory entry point.
+6. Update `src/journey/shapes/registry.ts` to import the directory entry point.
 
-6. Update generated-object policy in `src/journey/shapes/shared.ts` when the
+7. Update generated-object policy in `src/journey/shapes/shared.ts` when the
    migrated shape should use its own fill output instead of natural generated
    object substitution.
 
-7. Add the shape ID to `MIGRATED_SHAPE_IDS` in
+8. Add the shape ID to `MIGRATED_SHAPE_IDS` in
    `test/journey-shape-isolation.test.ts`.
 
-8. Update focused tests for the current validation contract. For bypassed
+9. Update focused tests for the current validation contract. For bypassed
    shapes, assertions should expect the universal validation checks and should
    not assert failures from skipped heavy validators.
 
-9. Run focused verification.
+10. Run focused verification.
 
-10. Commit and push the migration.
+11. Commit and push the migration.
 
 ## Tests and QA
 
