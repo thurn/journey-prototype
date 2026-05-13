@@ -84,3 +84,34 @@ These shapes are reference implementations for the migration target:
 - Migrated shape fills live in `src/journey/shapes/<shape>/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
+
+## Completion Audit Follow-Up
+
+The queue phase columns track the three requested migration passes for each
+shape. The final shared-system audit tracks remaining dependency cleanup for
+the target end state.
+
+| Shape | Filler dependency cleanup | Shared reward axis |
+| --- | --- | --- |
+| `choose_your_loss` | Complete | Cost-axis shape |
+| `escalating_reward_chain` | Needed | Needed |
+| `flat_escalating_trade` | Needed | Needed |
+| `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
+| `one_target_many_operations` | Complete | Shape-local shared reward adapter |
+| `paired_return` | Needed | Needed |
+| `prize_ladder` | Needed | Needed |
+| `probability_ladder` | Needed | Needed |
+| `push_your_luck` | Needed | Needed |
+| `reveal_choice_menu` | Needed | Needed |
+| `reward_after_trigger` | Needed | Needed |
+| `risk_or_skip` | Needed | Needed |
+| `shared_prefix_menu` | Needed | Needed |
+| `single_offer` | Needed | Needed |
+| `single_reward` | Needed | Needed |
+| `single_rule_trial` | Needed | Needed |
+| `timed_window_menu` | Needed | Complete |
+
+Generic typed-contract plumbing still carries shape IDs for structured
+manifest kinds such as `probability_ladder`, `paired_return`, and
+`flat_escalating_trade`. Debug fixture metadata also carries shape filters for
+renderer fixtures.
