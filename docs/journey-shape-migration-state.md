@@ -30,8 +30,8 @@ Each queued shape follows this sequence:
 | 16 | `single_reward` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 17 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 18 | `single_rule_trial` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 19 | `risk_or_skip` | 2 | Complete | Complete | In progress | Complete | Current |
-| 20 | `flat_escalating_trade` | 2 | Pending | Pending | Pending | Pending | Queued |
+| 19 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 20 | `flat_escalating_trade` | 2 | In progress | Pending | Pending | Pending | Current |
 | 21 | `reveal_choice_menu` | 2 | Pending | Pending | Pending | Pending | Queued |
 | 22 | `probability_ladder` | 2 | Pending | Pending | Pending | Pending | Queued |
 | 23 | `escalating_reward_chain` | 1 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `risk_or_skip` is the active shape.
+- `flat_escalating_trade` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -73,7 +73,7 @@ These shapes are reference implementations for the migration target:
 - `single_reward` completed migration commit `b088331`, audit commit `455f4da`, and fix commit `6a3caaf`.
 - `single_offer` completed migration commit `e50cefb`, audit commit `7a01663`, and fix commit `e84877e`.
 - `single_rule_trial` completed migration commit `19cd77d`, audit commit `d39cd6e`, and fix commit `7c022a0`.
-- `risk_or_skip` completed migration commit `9ddb42d`, and audit commit `7c2dd50`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/risk_or_skip/`.
+- `risk_or_skip` completed migration commit `9ddb42d`, audit commit `7c2dd50`, and fix commit `4ca9d0b`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/flat_escalating_trade/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
