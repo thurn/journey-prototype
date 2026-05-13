@@ -3,6 +3,7 @@ import { drawInt, type DrawContext } from "../../../util/rng.js";
 import {
   averageValue,
   emptyOption,
+  essenceCost,
   flattenPayloads,
   lowerFirst,
   randomVisibility,
@@ -48,26 +49,30 @@ export function revealChoiceOptions(args: {
     0,
     revealCountValue - 1,
   );
-  const hiddenIndex = drawInt(
-    args.drawContext,
-    `${args.label}:hidden-random-index`,
-    0,
-    candidates.length - 1,
+  const bonusDrawCount = { early: 3, mid: 3, late: 4 }[args.stage];
+  const bonusDrawIndexes = Array.from({ length: bonusDrawCount }, (_, index) =>
+    drawInt(args.drawContext, `${args.label}:bonus-draw:${index + 1}`, 0, candidates.length - 1)
   );
   const revealedText = candidates
     .slice(0, revealCountValue)
     .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
     .join("; ");
   const randomRevealed = candidates[randomIndex]!;
-  const hiddenReward = candidates[hiddenIndex]!;
   const expectedConvertedEssence = averageValue(revealedCandidates);
+  const visiblePoolExpectedConvertedEssence = averageValue(candidates);
+  const selectionPremium = essenceCost(
+    args.context,
+    Math.min({ early: 20, mid: 30, late: 40 }[args.stage], args.context.state.quest.resources.essence),
+  );
 
   return {
     options: [
       emptyOption({
         number: 1,
-        text: `Reveal ${revealCountValue} rewards (${revealedText}). Choose one revealed reward.`,
-        symbols: ["random", "reward"],
+        text: `${selectionPremium.text}. Reveal ${revealCountValue} rewards (${revealedText}). Choose one revealed reward.`,
+        symbols: ["cost", "random", "reward"],
+        costs: [selectionPremium],
+        costConvertedEssence: selectionPremium.convertedEssence,
         effectConvertedEssence: Math.max(
           ...revealedCandidates.map((candidate) => candidate.value),
         ),
@@ -75,10 +80,11 @@ export function revealChoiceOptions(args: {
       }),
       emptyOption({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${stripTerminalPeriod(lowerFirst(randomRevealed.text))}) or gain one random reward from the visible pool.`,
+        text: `Reveal ${candidates.length} rewards. The revealed random reward is: ${stripTerminalPeriod(lowerFirst(randomRevealed.text))}. Then gain ${bonusDrawCount} random rewards from the visible pool.`,
         symbols: ["random", "reward"],
-        effectConvertedEssence: averageValue(candidates),
-        uncertaintyConvertedEssence: -14,
+        effectConvertedEssence:
+          randomRevealed.value + visiblePoolExpectedConvertedEssence * bonusDrawCount,
+        uncertaintyConvertedEssence: -10 - bonusDrawCount * 2,
       }),
     ],
     precommitted: [
@@ -132,21 +138,23 @@ export function revealChoiceOptions(args: {
         presentation: "covered_cups_choose_random_revealed",
       },
       {
-        kind: "gain_one_random_reward",
+        kind: "repeated_pool_draws",
         optionNumber: 2,
         poolId,
+        drawCount: bonusDrawCount,
         rewards: allPayloads,
-        committedReward: hiddenReward.payloads,
+        committedDraws: bonusDrawIndexes.map((index) => candidates[index]!.payloads),
+        replacement: "with_replacement",
         visibilityPolicy: randomVisibility(
           "hidden_until_resolution",
-          "The visible pool is disclosed, but this selected reward stays hidden until resolution.",
+          "The visible pool is disclosed, but these bonus draws stay hidden until resolution.",
           false,
           "after entry",
         ),
-        expectedConvertedEssence: averageValue(candidates),
-        riskPremiumConvertedEssence: -14,
+        expectedConvertedEssence: visiblePoolExpectedConvertedEssence * bonusDrawCount,
+        riskPremiumConvertedEssence: -8 - bonusDrawCount * 2,
         worstCaseBurdenConvertedEssence: 0,
-        presentation: "covered_cups_gain_random_reward",
+        presentation: "covered_cups_bonus_pool_draws",
       },
     ],
   };

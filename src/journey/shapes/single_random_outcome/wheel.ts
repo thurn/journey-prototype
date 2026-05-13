@@ -16,6 +16,10 @@ import type {
   RandomPrecommittedOutcome,
 } from "../../manifest.js";
 
+function essenceAmountForKeptRoll(minimum: number, maximum: number, keptRoll: number): number {
+  return minimum + Math.round(((maximum - minimum) * (keptRoll - 1)) / 99);
+}
+
 export function wheelRootOptions(args: {
   context: JourneyContext;
   drawContext: DrawContext;
@@ -38,60 +42,53 @@ export function wheelRootOptions(args: {
   const randomRangeMaximum = randomRangeMinimum + [40, 60, 80][
     drawInt(args.drawContext, `${args.label}:range-width`, 0, 2)
   ]!;
-  const committedAmount = drawInt(
-    args.drawContext,
-    `${args.label}:range-amount`,
+  const committedAmount = essenceAmountForKeptRoll(
     randomRangeMinimum,
     randomRangeMaximum,
+    keptRoll,
   );
   const drawCount = 2;
   const drawIndexes = Array.from({ length: drawCount }, (_, index) =>
     drawInt(args.drawContext, `${args.label}:draw:${index + 1}`, 0, candidates.length - 1)
   );
-  const selected = candidates[drawIndexes[0] ?? 0] ?? candidates[0]!;
-  const price = Math.min(60, args.context.state.quest.resources.essence);
-  const entryCost = essenceCost(args.context, price);
-  const expectedConvertedEssence = averageValue(candidates);
+  const drawnCandidates = drawIndexes.map((index) => candidates[index] ?? candidates[0]!);
+  const drawnText = drawnCandidates
+    .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
+    .join("; ");
+  const drawnValue = drawnCandidates.reduce((total, candidate) => total + candidate.value, 0);
+  const wheelPrice = Math.min(
+    args.context.state.quest.resources.essence,
+    Math.max(10, Math.round(drawnValue * 0.15)),
+  );
+  const rollPrice = Math.min(20, args.context.state.quest.resources.essence);
+  const entryCost = essenceCost(args.context, wheelPrice);
+  const rollCost = essenceCost(args.context, rollPrice);
   const randomRangeExpected = Math.round((randomRangeMinimum + randomRangeMaximum) / 2);
 
   return {
     options: [
       emptyOption({
         number: 1,
-        text: `${entryCost.text}. Spin the visible wheel; committed outcome: ${stripTerminalPeriod(lowerFirst(selected.text))}.`,
+        text: `${entryCost.text}. Spin the visible wheel twice; gain both shown results: ${drawnText}.`,
         symbols: ["cost", "random", "reward"],
         costs: [entryCost],
         costConvertedEssence: entryCost.convertedEssence,
-        effectConvertedEssence: expectedConvertedEssence,
-        uncertaintyConvertedEssence: -12,
+        effectConvertedEssence: drawnValue,
+        uncertaintyConvertedEssence: -8,
       }),
       emptyOption({
         number: 2,
-        text: `Roll twice and keep one (${firstRoll}, ${secondRoll}; kept ${keptRoll}). Gain ${randomRangeMinimum}-${randomRangeMaximum} random essence.`,
-        symbols: ["random", "reward"],
-        effectConvertedEssence: randomRangeExpected,
-        uncertaintyConvertedEssence: -10,
+        text: `${rollCost.text}. Gain the better of two essence rolls: ${committedAmount} essence (rolls ${firstRoll}, ${secondRoll}; kept ${keptRoll}).`,
+        symbols: ["cost", "random", "reward"],
+        costs: [rollCost],
+        costConvertedEssence: rollCost.convertedEssence,
+        effectConvertedEssence: committedAmount,
+        uncertaintyConvertedEssence: -4,
       }),
     ],
     rewardPool: wheel.rewardPool,
     precommitted: [
       wheel.visiblePoolEnvelope,
-      {
-        kind: "gain_one_random_reward",
-        optionNumber: 1,
-        poolId,
-        rewards: wheel.rewardPool.rewards,
-        committedReward: selected.payloads,
-        visibilityPolicy: randomVisibility(
-          "pre_rolled",
-          "The wheel result is pre-rolled and shown in root option copy.",
-          true,
-        ),
-        expectedConvertedEssence,
-        riskPremiumConvertedEssence: -12,
-        worstCaseBurdenConvertedEssence: 0,
-        presentation: "bounded_wheel_visible_result",
-      },
       {
         kind: "roll_twice_keep_one",
         optionNumber: 2,
@@ -115,11 +112,11 @@ export function wheelRootOptions(args: {
         ],
         visibilityPolicy: randomVisibility(
           "pre_rolled",
-          "Both rolls are committed in metadata; the better roll is kept.",
+          "Both rolls are committed in metadata; the kept roll maps to the visible essence amount.",
           true,
         ),
-        expectedConvertedEssence: randomRangeExpected,
-        riskPremiumConvertedEssence: -6,
+        expectedConvertedEssence: committedAmount,
+        riskPremiumConvertedEssence: -4,
         worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_roll_twice_keep_one",
       },
@@ -132,11 +129,11 @@ export function wheelRootOptions(args: {
         committedAmount,
         visibilityPolicy: randomVisibility(
           "visible",
-          "The random resource range is visible before choosing.",
+          "The committed essence result is visible before choosing.",
           true,
         ),
         expectedConvertedEssence: randomRangeExpected,
-        riskPremiumConvertedEssence: -5,
+        riskPremiumConvertedEssence: -2,
         worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_random_range",
       },
@@ -150,11 +147,11 @@ export function wheelRootOptions(args: {
         replacement: "with_replacement",
         visibilityPolicy: randomVisibility(
           "pre_rolled",
-          "Repeated draws use the visible pool with replacement and are committed in metadata.",
+          "Repeated wheel draws use the visible pool with replacement and are shown in root option copy.",
           true,
         ),
-        expectedConvertedEssence: expectedConvertedEssence * drawCount,
-        riskPremiumConvertedEssence: -12,
+        expectedConvertedEssence: drawnValue,
+        riskPremiumConvertedEssence: -8,
         worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_repeated_pool_draws",
       },
