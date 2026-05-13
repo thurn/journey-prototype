@@ -43,6 +43,31 @@ async function shopRowManifest(seed: string, stage: "early" | "mid" | "late" = "
   };
 }
 
+function priceFor(text: string): number {
+  return Number(/^Pay (\d+) essence\./u.exec(text)?.[1] ?? 0);
+}
+
+function transfigurationDominanceProfile(templateId: string):
+  | { readonly control: number; readonly scope: number }
+  | undefined {
+  switch (templateId) {
+    case "apply_chosen_transfiguration_to_chosen_card":
+      return { control: 5, scope: 5 };
+    case "apply_named_transfiguration_to_chosen_predicate_cards":
+      return { control: 4, scope: 3 };
+    case "transfigure_chosen_starters":
+      return { control: 3, scope: 1 };
+    case "apply_named_transfiguration_to_random_predicate_cards":
+      return { control: 2, scope: 3 };
+    case "apply_random_transfigurations_to_random_cards":
+      return { control: 1, scope: 4 };
+    case "transfigure_random_starters":
+      return { control: 1, scope: 1 };
+    default:
+      return undefined;
+  }
+}
+
 describe("shop_row fill", () => {
   it("builds deterministic priced reward rows from shared templates", async () => {
     const first = await shopRowManifest("shop-row-shared");
@@ -104,19 +129,50 @@ describe("shop_row fill", () => {
     }
   });
 
-  it("prices equal-row dominated transfiguration choices below their broader comparison", async () => {
-    const { manifest } = await shopRowManifest("audit:shop_row:mid:01", "mid");
-    const priceFor = (text: string) => Number(/^Pay (\d+) essence\./u.exec(text)?.[1] ?? 0);
-    const broad = manifest.options.find((option) =>
-      option.text.includes("Apply a transfiguration of your choice to a chosen card")
-    );
-    const narrow = manifest.options.find((option) =>
-      option.text.includes("Apply a random transfiguration to 1 chosen starter card")
-    );
+  it("keeps dominated transfiguration choices below their broader comparison", async () => {
+    const seeds = [
+      "audit:shop_row:mid:01",
+      "audit:shop_row:mid:02",
+      "audit:shop_row:mid:03",
+      "audit:shop_row:late:02",
+      "audit:shop_row:late:10",
+    ];
 
-    expect(broad).toBeDefined();
-    expect(narrow).toBeDefined();
-    expect(priceFor(narrow!.text)).toBeLessThan(priceFor(broad!.text));
+    for (const seed of seeds) {
+      const { manifest } = await shopRowManifest(
+        seed,
+        seed.includes(":late:") ? "late" : "mid",
+      );
+      const rows = manifest.options.flatMap((option) => {
+        const rewardOperation = option.operations.find((operation) =>
+          operation.role === "reward"
+        );
+        const templateId = String(rewardOperation?.payload.templateId ?? "");
+        const profile = transfigurationDominanceProfile(templateId);
+
+        return profile === undefined
+          ? []
+          : [{
+              effectCec: option.effectConvertedEssence,
+              price: priceFor(option.text),
+              profile,
+              text: option.text,
+            }];
+      });
+
+      for (const candidate of rows) {
+        for (const other of rows) {
+          if (candidate === other) continue;
+          const dominated =
+            other.profile.control > candidate.profile.control &&
+            other.profile.scope >= candidate.profile.scope &&
+            other.effectCec >= candidate.effectCec;
+          if (!dominated) continue;
+
+          expect(candidate.price, candidate.text).toBeLessThan(other.price);
+        }
+      }
+    }
   });
 
   it("renders shop-row offer text without simple article or singular agreement defects", async () => {
