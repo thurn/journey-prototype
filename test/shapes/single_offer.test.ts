@@ -16,9 +16,19 @@ import {
 import { makeTestContext } from "../helpers/journey-context.js";
 
 const auditStages: readonly JourneyStage[] = ["early", "mid", "late"];
-const auditSeedNumbers = Array.from({ length: 8 }, (_entry, index) =>
+const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
+const maximumTakeNetByStage: Record<JourneyStage, number> = {
+  early: 190,
+  mid: 170,
+  late: 180,
+};
+const minimumTakeNetByStage: Record<JourneyStage, number> = {
+  early: 20,
+  mid: -20,
+  late: -40,
+};
 
 let contentContextPromise:
   | ReturnType<typeof loadContentContext>
@@ -109,6 +119,27 @@ function assertSingleOfferManifest(manifest: JourneyManifest) {
   expect(leave.burdenConvertedEssence).toBe(0);
   expect(leave.uncertaintyConvertedEssence).toBe(0);
   expect(leave.netConvertedEssence).toBe(0);
+}
+
+function assertNoObscuredSingleOfferExchange(option: JourneyOption) {
+  expect(option.text).not.toMatch(
+    /\b(?:Draft \d|Choose 1 of|random|chosen Starter)\b/iu,
+  );
+
+  const serializedOption = JSON.stringify(option);
+
+  expect(serializedOption).not.toContain("hidden_random");
+  expect(serializedOption).not.toContain("card_draft");
+  expect(serializedOption).not.toContain("dreamsign_draft");
+}
+
+function assertNoGenericPersistentProhibition(option: JourneyOption) {
+  const serializedOption = JSON.stringify(option);
+
+  expect(serializedOption).not.toContain("status_persistent_prohibition");
+  expect(serializedOption).not.toContain("persistent_prohibition");
+  expect(serializedOption).not.toContain("modify_deck");
+  expect(serializedOption).not.toContain("transfigure_cards");
 }
 
 describe("single_offer fill", () => {
@@ -225,8 +256,34 @@ describe("single_offer fill", () => {
         assertSingleOfferManifest(manifest);
         expect(manifest.stage).toBe(stage);
         expect(manifest.debug.validation.ok, seed).toBe(true);
+
+        const take = acceptOption(manifest);
+
+        expect(
+          take.netConvertedEssence,
+          `${seed}: ${take.text}`,
+        ).toBeGreaterThanOrEqual(minimumTakeNetByStage[stage]);
+        expect(
+          take.netConvertedEssence,
+          `${seed}: ${take.text}`,
+        ).toBeLessThanOrEqual(maximumTakeNetByStage[stage]);
+        assertNoObscuredSingleOfferExchange(take);
+        assertNoGenericPersistentProhibition(take);
       }
     }
+  });
+
+  it("renders near-cap fixed essence rewards as realizable value", async () => {
+    const manifest = await forcedSingleOfferManifest(
+      "audit:single_offer:mid:02",
+      "mid",
+    );
+    const take = acceptOption(manifest);
+
+    expect(take.text).toContain("Pay 25% of current essence (100).");
+    expect(take.text).toContain("Gain 200 essence.");
+    expect(take.effectConvertedEssence).toBe(200);
+    expect(take.netConvertedEssence).toBe(100);
   });
 
   it("replays the same forced seed without changing offer structure", async () => {
