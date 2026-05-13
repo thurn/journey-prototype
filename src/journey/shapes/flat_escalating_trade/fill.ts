@@ -1,11 +1,11 @@
 import { shuffleDeterministic } from "../../../util/rng.js";
-import {
-  cost,
-  gainOmen,
-  option,
-  symmetryContract,
-} from "../../fillers/shared.js";
-import type { JourneyStage } from "../../manifest.js";
+import type { JourneyContext } from "../../../quest/context.js";
+import type {
+  JourneyOption,
+  JourneyStage,
+  JourneySymmetryContractDebug,
+} from "../../manifest.js";
+import { getReward } from "../../shared/rewards.js";
 import { valueOmenGain } from "../../value.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
@@ -71,6 +71,71 @@ const FLAT_ESCALATING_TRADE_PROFILES = {
   readonly (readonly FlatEscalatingTradeRow[])[]
 >;
 
+const OMEN_REWARD = getReward("gain_omens");
+
+function essenceCostPayload(price: number, escalationTier: string) {
+  return {
+    kind: "essence",
+    amount: price,
+    timing: "immediate",
+    escalationTier,
+  };
+}
+
+function omenRewardPayload(omens: number, escalationTier: string) {
+  return {
+    kind: "gain_omens",
+    amount: omens,
+    escalationTier,
+  };
+}
+
+function tradeOption(args: {
+  number: number;
+  price: number;
+  omens: number;
+  escalationTier: string;
+  context: JourneyContext;
+}): JourneyOption {
+  const rewardText = OMEN_REWARD.render({ x: args.omens }, args.context);
+
+  return {
+    number: args.number,
+    symbols: ["cost", "reward", "resource", "trade"],
+    text: `Pay ${args.price} essence. ${rewardText}.`,
+    operations: [],
+    costs: [essenceCostPayload(args.price, args.escalationTier)],
+    effects: [omenRewardPayload(args.omens, args.escalationTier)],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: args.price,
+    effectConvertedEssence: valueOmenGain(args.omens),
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: valueOmenGain(args.omens) - args.price,
+    pickBehavior: "record_and_generate_next",
+  };
+}
+
+function flatEscalatingTradeContract(
+  tradeRows: readonly FlatEscalatingTradeRow[],
+): JourneySymmetryContractDebug {
+  return {
+    contractKind: "flat_escalating_trade",
+    sharedProperty: "essence-for-omens trade family",
+    variedProperty: "strictly increasing price and omen reward",
+    sharedFirst: true,
+    optionNumbers: [1, 2, 3],
+    sharedPayloadKeys: ["resource-cost:essence", "shared-reward:gain_omens"],
+    variedPayloadKeys: tradeRows.map((row) =>
+      `essence:${row.price}->omens:${row.omens}`
+    ),
+    weight: 3,
+  };
+}
+
 export function flatEscalatingTradeFill(args: ShapeFillArgs): FilledJourney {
   const { drawContext, stage } = args;
   const tradeProfiles: readonly (readonly FlatEscalatingTradeRow[])[] =
@@ -86,29 +151,17 @@ export function flatEscalatingTradeFill(args: ShapeFillArgs): FilledJourney {
       const { price, omens } = row;
       const escalationTier = `tier_${index + 1}`;
 
-      return option({
+      return tradeOption({
         number: index + 1,
-        text: `Pay ${price} essence. Gain ${omens} ${omens === 1 ? "omen" : "omens"}.`,
-        costs: [{ ...cost("essence", price), escalationTier }],
-        effects: [{ ...gainOmen(omens), escalationTier }],
-        cost: price,
-        effect: valueOmenGain(omens),
+        price,
+        omens,
+        escalationTier,
+        context: args.context,
       });
     }),
     precommitted: {},
     symmetryContracts: [
-      symmetryContract({
-        contractKind: "flat_escalating_trade",
-        sharedProperty: "essence-for-omens trade family",
-        variedProperty: "strictly increasing price and omen reward",
-        sharedFirst: true,
-        optionNumbers: [1, 2, 3],
-        sharedPayloadKeys: ["resource-cost:essence", "resource-reward:omens"],
-        variedPayloadKeys: tradeRows.map((row) =>
-          `essence:${row.price}->omens:${row.omens}`
-        ),
-        weight: 3,
-      }),
+      flatEscalatingTradeContract(tradeRows),
     ],
   };
 }
