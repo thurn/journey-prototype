@@ -24,7 +24,7 @@ Each queued shape follows this sequence:
 | 10 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 11 | `timed_window_menu` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 12 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 13 | `resolved_random_series` | 4 | Pending | Pending | Pending | Pending | Current |
+| 13 | `resolved_random_series` | 4 | In progress | Pending | Pending | Pending | Current |
 | 14 | `push_your_luck` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 15 | `prize_ladder` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 16 | `single_reward` | 3 | Pending | Pending | Pending | Pending | Queued |
