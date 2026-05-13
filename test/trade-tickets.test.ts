@@ -92,4 +92,56 @@ describe("paired_return production generation surfaces a trade ticket anchor", (
     expect(sawAnyFutureTrade).toBe(true);
     expect(sawTicketAnchor).toBe(true);
   });
+
+  it("renders grammatical future-trade callback text", async () => {
+    const content = await loadContent(process.cwd());
+    const contentVersion = "test-content-version";
+    const seed = "audit:paired_return:early:01";
+    const state = createInitialJourneyState({ seed, content, contentVersion });
+    const journeyContext = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedShapeId: "paired_return",
+      forcedStage: "early",
+    });
+    const contracts = (manifest.precommitted.pairedReturn ?? []) as Record<
+      string,
+      unknown
+    >[];
+    const futureTradeContracts = contracts.filter(
+      (contract) => contract.returnFamilyId === "future_named_object_trade" ||
+        contract.returnFamilyId === "return_for_route_edit",
+    );
+
+    expect(futureTradeContracts.length).toBeGreaterThan(0);
+
+    for (const contract of futureTradeContracts) {
+      const optionNumber = Number(contract.optionNumber);
+      const generatedOption = manifest.options.find(
+        (entry) => entry.number === optionNumber,
+      );
+      expect(generatedOption?.text).toBeDefined();
+      expect(generatedOption!.text).not.toMatch(/\.\s+[a-z]/u);
+      expect(generatedOption!.text).not.toMatch(
+        /trade it for (gain|duplicate|add|purge)/u,
+      );
+
+      const returnScene = contract.returnScene as
+        | Record<string, unknown>
+        | undefined;
+      expect(String(returnScene?.resolution ?? "")).not.toMatch(
+        /Trade \{[^}]+\} for (gain|duplicate|add|purge)/u,
+      );
+
+      const created = contract.created as Record<string, unknown> | undefined;
+      if (created?.source === "manifest_generated") {
+        expect(generatedOption!.text).toContain(`{${String(created.ticketName)}}`);
+      }
+    }
+  });
 });

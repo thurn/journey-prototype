@@ -224,6 +224,10 @@ function optionRewardLabel(reward: RewardSlot): string {
   return lowerFirst(reward.text).replace(/\.$/u, "");
 }
 
+function pairedReturnTradeRewardText(reward: { text: string }): string {
+  return lowerFirst(reward.text).replace(/\.$/u, "");
+}
+
 function timingTriggerSelector(timing: DelayedTimingSlot): Record<string, unknown> {
   if (timing.key === "next-battle") {
     return hookTrigger({
@@ -1246,6 +1250,7 @@ export function pairedReturnHookFill(args: {
   const tradeTicketGeneratedObjectId = tradeTicket
     ? `generated-trade-ticket-${tradeTicket.idPart}`
     : undefined;
+  const tradeRewardText = pairedReturnTradeRewardText(reward);
   const tradePayload = namedDreamsignPayload(
     {
       kind: "dreamsign_trade_hook",
@@ -1255,7 +1260,9 @@ export function pairedReturnHookFill(args: {
       resultSource: "catalog",
       extra: {
         timing: "return scene",
-        obligation: `Trade ${tradeDreamsign.name} for ${reward.text}`,
+        obligation: tradeTicket
+          ? `Trade ${tradeTicket.name} to ${tradeRewardText}`
+          : `Trade ${tradeDreamsign.name} to ${tradeRewardText}`,
         giveDreamsignId: tradeDreamsign.id,
         giveDreamsignName: tradeDreamsign.name,
         receiveDreamsignId: receiveDreamsign.id,
@@ -1298,8 +1305,35 @@ export function pairedReturnHookFill(args: {
     ? `Hold a {${tradeTicket.name}} as a future trade ticket.`
     : `Gain {${tradeDreamsign.name}} as a future trade hook.`;
   const resolution = tradeTicket
-    ? `Trade {${tradeTicket.name}} for ${reward.text}.`
-    : `Trade {${tradeDreamsign.name}} for ${reward.text}.`;
+    ? `Trade {${tradeTicket.name}} to ${tradeRewardText}.`
+    : `Trade {${tradeDreamsign.name}} to ${tradeRewardText}.`;
+  const optionAnchorText = tradeTicket
+    ? `Gain {${tradeTicket.name}} as a future trade ticket.`
+    : `Gain {${tradeDreamsign.name}}.`;
+  const optionEffects = tradeTicket && tradeTicketGeneratedObjectId
+    ? [
+        {
+          kind: "generated_object_grant",
+          generatedObjectOperationKind: "grant",
+          generatedObjectId: tradeTicketGeneratedObjectId,
+          generatedObjectKind: "status",
+          generatedObjectName: tradeTicket.name,
+          generatedObjectReferenceKind: "placeholder",
+          rulesText: tradeTicket.rulesText,
+          timing: "immediate",
+          source: "manifest_generated",
+          ticketKind: tradeTicket.payload.ticketKind,
+        },
+      ]
+    : [
+        namedDreamsignGrant(args.context, tradeDreamsign),
+      ];
+  const optionTargets = tradeTicket
+    ? [...(reward.targets ?? [])]
+    : [
+        dreamsignExactTarget(tradeDreamsign, "catalog"),
+        ...(reward.targets ?? []),
+      ];
   const precommit = {
     ...pairedReturnContract({
       pairedReturnId,
@@ -1347,15 +1381,10 @@ export function pairedReturnHookFill(args: {
   return {
     option: option({
       number: args.optionNumber,
-      text: `Gain {${tradeDreamsign.name}}. ${String(triggerSelector.label)}, trade it for ${reward.text}; discard the hook if the window expires.`,
+      text: `${optionAnchorText} ${sentenceStart(String(triggerSelector.label))}, trade it to ${tradeRewardText}; discard the hook if the window expires.`,
       triggers: [precommit],
-      effects: [
-        namedDreamsignGrant(args.context, tradeDreamsign),
-      ],
-      targets: [
-        dreamsignExactTarget(tradeDreamsign, "catalog"),
-        ...(reward.targets ?? []),
-      ],
+      effects: optionEffects,
+      targets: optionTargets,
       effect: expectedValue + 70,
       uncertainty: reward.uncertainty ?? -15,
     }),
