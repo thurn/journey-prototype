@@ -1,32 +1,46 @@
 import type { JourneyContext } from "../../../quest/context.js";
-import type { DrawContext } from "../../../util/rng.js";
-import { treeBuilderTools } from "../../fillers/shared.js";
-import { tree, treeBranch } from "../../fillers/treeBuilders.js";
-import type { JourneyStage, JourneyTree } from "../../manifest.js";
+import { drawInt, type DrawContext } from "../../../util/rng.js";
+import type { JourneyStage, JourneyTree, JourneyTreeBranch } from "../../manifest.js";
 import {
-  valueCardDraft,
-  valueDreamsignDraft,
-  valueOmenGain,
-} from "../../value.js";
+  adaptTreeBranchOperations,
+  adaptTreeTerminalOperations,
+} from "../../operationAdapters.js";
+import { getReward } from "../../shared/rewards.js";
+import type { TemplateParams } from "../../shared/types.js";
 
 type PrizeLadderReward = {
   readonly text: string;
-  readonly effects: unknown[];
-  readonly targets?: unknown[];
+  readonly effects: readonly unknown[];
   readonly effect: number;
 };
 
-type PrizeLadderRewardFamily =
-  | "essence"
-  | "omens"
-  | "card_draft"
-  | "dreamsign_draft";
+type PrizeLadderRewardFamily = "essence" | "omens";
 
 type CostBands = {
   readonly first: readonly number[];
   readonly second: readonly number[];
   readonly claim: readonly number[];
   readonly margin: number;
+};
+
+type TreeBranchArgs = {
+  id: string;
+  label: string;
+  text: string;
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  cost?: number;
+  effect?: number;
+  nextNodeId?: string;
+  terminal?: {
+    readonly text: string;
+    readonly outcome: NonNullable<JourneyTreeBranch["terminal"]>["outcome"];
+    readonly costs?: readonly unknown[];
+    readonly effects?: readonly unknown[];
+    readonly burdens?: readonly unknown[];
+    readonly targets?: readonly unknown[];
+    readonly routeEffects?: readonly unknown[];
+  };
 };
 
 const COST_BANDS: Record<JourneyStage, CostBands> = {
@@ -56,6 +70,90 @@ const CLAIM_PREMIUM: Record<JourneyStage, number> = {
   late: 70,
 };
 
+function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+  const costs = [...(args.costs ?? [])];
+  const effects = [...(args.effects ?? [])];
+  const terminal = args.terminal
+    ? {
+        text: args.terminal.text,
+        outcome: args.terminal.outcome,
+        operations: [],
+        costs,
+        effects,
+        burdens: [],
+        targets: [],
+        routeEffects: [],
+      }
+    : undefined;
+  const branch = {
+    id: args.id,
+    label: args.label,
+    kind: "player_choice" as const,
+    text: args.text,
+    operations: [],
+    costs,
+    effects,
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: args.cost ?? 0,
+    effectConvertedEssence: args.effect ?? 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: (args.effect ?? 0) - (args.cost ?? 0),
+    ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
+    ...(terminal ? { terminal } : {}),
+  };
+
+  return {
+    ...branch,
+    operations: adaptTreeBranchOperations(branch),
+    ...(branch.terminal
+      ? {
+          terminal: {
+            ...branch.terminal,
+            operations: adaptTreeTerminalOperations(
+              branch.terminal,
+              `tree:${branch.id}:terminal`,
+            ),
+          },
+        }
+      : {}),
+  };
+}
+
+function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+  return {
+    rootNodeId: nodes[0]?.id ?? "level-1",
+    nodes,
+  };
+}
+
+function pickSequentialVariant<T>(
+  drawContext: DrawContext,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
+}
+
+function cost(amount: number): Record<string, unknown> {
+  return {
+    kind: "essence",
+    amount,
+    timing: "immediate",
+  };
+}
+
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function sentenceCase(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
 function roundUpToFive(amount: number): number {
   return Math.ceil(amount / 5) * 5;
 }
@@ -83,9 +181,7 @@ function fitCostsToBudget(
       return costs[index]! > floor;
     });
 
-    if (reducibleIndex === undefined) {
-      break;
-    }
+    if (reducibleIndex === undefined) break;
 
     costs[reducibleIndex] -= 5;
   }
@@ -99,7 +195,6 @@ function prizeLadderCosts(
   stage: JourneyStage,
 ): [number, number, number] {
   const band = COST_BANDS[stage];
-  const { pickSequentialVariant } = treeBuilderTools;
   const selected: [number, number, number] = [
     pickSequentialVariant(drawContext, "prize-ladder:costs:first", band.first),
     pickSequentialVariant(drawContext, "prize-ladder:costs:second", band.second),
@@ -113,11 +208,35 @@ function prizeLadderCosts(
   return fitCostsToBudget(selected, pathBudget);
 }
 
+function sharedRewardPayload(
+  context: JourneyContext,
+  templateId: "gain_essence" | "gain_omens",
+  params: TemplateParams,
+): PrizeLadderReward {
+  const template = getReward(templateId);
+  const text = template.render(params as never, context);
+  const convertedEssence = template.cec(params as never, context);
+
+  return {
+    text: `${lowerFirst(text)}.`,
+    effects: [
+      {
+        kind: "shared_reward_template",
+        templateId,
+        params,
+        text,
+        convertedEssence,
+      },
+    ],
+    effect: convertedEssence,
+  };
+}
+
 function essenceStopRewards(
+  context: JourneyContext,
   drawContext: DrawContext,
   stage: JourneyStage,
 ): readonly [PrizeLadderReward, PrizeLadderReward, PrizeLadderReward] {
-  const { gainEssence, pickSequentialVariant } = treeBuilderTools;
   const bands = {
     early: { base: [45, 55], growth: [35, 40] },
     mid: { base: [65, 75], growth: [45, 55] },
@@ -136,13 +255,9 @@ function essenceStopRewards(
   );
 
   return rewardTuple([0, 1, 2].map((index) => {
-    const amount = roundUpToFive(base + growth * index);
+    const x = roundUpToFive(base + growth * index);
 
-    return {
-      text: `gain ${amount} essence.`,
-      effects: [gainEssence(amount)],
-      effect: amount,
-    };
+    return sharedRewardPayload(context, "gain_essence", { x });
   }));
 }
 
@@ -157,14 +272,8 @@ function omenCountsForStage(stage: JourneyStage): [number, number, number] {
   }
 }
 
-function omenReward(amount: number): PrizeLadderReward {
-  const { gainOmen } = treeBuilderTools;
-
-  return {
-    text: `gain ${amount} ${amount === 1 ? "omen" : "omens"}.`,
-    effects: [gainOmen(amount)],
-    effect: valueOmenGain(amount),
-  };
+function omenReward(context: JourneyContext, x: number): PrizeLadderReward {
+  return sharedRewardPayload(context, "gain_omens", { x });
 }
 
 function stopRewards(
@@ -175,98 +284,19 @@ function stopRewards(
   readonly family: PrizeLadderRewardFamily;
   readonly rewards: readonly [PrizeLadderReward, PrizeLadderReward, PrizeLadderReward];
 } {
-  const {
-    CARD_DRAFT_PROFILES,
-    DREAMSIGN_POOL_TARGET_DESCRIPTION,
-    cardDraftText,
-    draftCards,
-    dreamsignDraft,
-    gainOmen,
-    legalCardDraftProfile,
-    lowerFirst,
-    pickSequentialVariant,
-    target,
-  } = treeBuilderTools;
-  const legalFamilies: PrizeLadderRewardFamily[] = [
-    "essence",
-    "omens",
-    "card_draft",
-  ];
-
-  if (context.state.quest.dreamsignPoolIds.length > 0) {
-    legalFamilies.push("dreamsign_draft");
-  }
-
   const family = pickSequentialVariant(
     drawContext,
     "prize-ladder:reward-family:family",
-    legalFamilies,
+    ["essence", "omens"] as const,
   );
 
   if (family === "essence") {
-    return { family, rewards: essenceStopRewards(drawContext, stage) };
-  }
-
-  if (family === "omens") {
-    return {
-      family,
-      rewards: rewardTuple(omenCountsForStage(stage).map(omenReward)),
-    };
-  }
-
-  if (family === "card_draft") {
-    const profile = legalCardDraftProfile(context, [
-      CARD_DRAFT_PROFILES.events,
-      CARD_DRAFT_PROFILES.lowCostCharacters,
-      CARD_DRAFT_PROFILES.characters,
-    ]);
-    const draft = draftCards(profile);
-
-    return {
-      family,
-      rewards: rewardTuple([0, 1, 2].map((index) => {
-        const omenCount = omenCountsForStage(stage)[index] - 1;
-        const effects = omenCount > 0 ? [draft, gainOmen(omenCount)] : [draft];
-
-        return {
-          text:
-            omenCount > 0
-              ? `${lowerFirst(cardDraftText(profile))} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
-              : lowerFirst(cardDraftText(profile)),
-          effects,
-          targets: [
-            target("card", profile.targetDescription, draft.predicate),
-          ],
-          effect: valueCardDraft(draft) + valueOmenGain(omenCount),
-        };
-      })),
-    };
+    return { family, rewards: essenceStopRewards(context, drawContext, stage) };
   }
 
   return {
     family,
-    rewards: rewardTuple([0, 1, 2].map((index) => {
-      const choiceCount = Math.min(4, 2 + Math.floor(index / 2));
-      const omenCount = omenCountsForStage(stage)[index] - 1;
-      const draft = dreamsignDraft(choiceCount);
-      const effects = omenCount > 0 ? [draft, gainOmen(omenCount)] : [draft];
-
-      return {
-        text:
-          omenCount > 0
-            ? `${lowerFirst(`Choose 1 of ${choiceCount} Dreamsigns.`)} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`
-            : lowerFirst(`Choose 1 of ${choiceCount} Dreamsigns.`),
-        effects,
-        targets: [
-          target(
-            "dreamsign",
-            DREAMSIGN_POOL_TARGET_DESCRIPTION,
-            draft.predicate,
-          ),
-        ],
-        effect: valueDreamsignDraft(draft, context) + valueOmenGain(omenCount),
-      };
-    })),
+    rewards: rewardTuple(omenCountsForStage(stage).map((x) => omenReward(context, x))),
   };
 }
 
@@ -278,90 +308,30 @@ function claimReward(args: {
   readonly claimCost: number;
   readonly fullPathCost: number;
 }): PrizeLadderReward {
-  const {
-    CARD_DRAFT_PROFILES,
-    DREAMSIGN_POOL_TARGET_DESCRIPTION,
-    cardDraftText,
-    draftCards,
-    dreamsignDraft,
-    gainEssence,
-    gainOmen,
-    legalCardDraftProfile,
-    lowerFirst,
-    target,
-  } = treeBuilderTools;
   const premium = CLAIM_PREMIUM[args.stage];
-  const minimumClaimEffect =
-    args.levelThreeStop.effect + args.claimCost + premium;
 
   if (args.family === "essence") {
-    const amount = roundUpToFive(
+    const x = roundUpToFive(
       args.levelThreeStop.effect + args.fullPathCost + premium,
     );
 
-    return {
-      text: `gain ${amount} essence.`,
-      effects: [gainEssence(amount)],
-      effect: amount,
-    };
+    return sharedRewardPayload(args.context, "gain_essence", { x });
   }
 
-  if (args.family === "omens") {
-    const amount = Math.max(
-      omenCountsForStage(args.stage)[2] + 3,
-      Math.ceil(minimumClaimEffect / valueOmenGain(1)),
-    );
-
-    return omenReward(amount);
-  }
-
-  if (args.family === "card_draft") {
-    const profile = legalCardDraftProfile(args.context, [
-      CARD_DRAFT_PROFILES.events,
-      CARD_DRAFT_PROFILES.lowCostCharacters,
-      CARD_DRAFT_PROFILES.characters,
-    ]);
-    const takeCount = args.stage === "early" ? 2 : 3;
-    const baseDraft = draftCards(profile);
-    const draft = { ...baseDraft, takeCount };
-    const omenCount = Math.max(
-      omenCountsForStage(args.stage)[2] + 2,
-      Math.ceil(
-        (minimumClaimEffect - valueCardDraft(draft)) /
-          valueOmenGain(1),
-      ),
-    );
-
-    return {
-      text: `${lowerFirst(cardDraftText(profile, takeCount))} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`,
-      effects: [draft, gainOmen(omenCount)],
-      targets: [target("card", profile.targetDescription, draft.predicate)],
-      effect: valueCardDraft(draft) + valueOmenGain(omenCount),
-    };
-  }
-
-  const choiceCount = args.stage === "late" ? 5 : 4;
-  const draft = dreamsignDraft(choiceCount);
-  const omenCount = Math.max(
-    omenCountsForStage(args.stage)[2] + 2,
-    Math.ceil(
-      (minimumClaimEffect - valueDreamsignDraft(draft, args.context)) /
-        valueOmenGain(1),
-    ),
+  const minimumClaimEffect =
+    args.levelThreeStop.effect + args.claimCost + premium;
+  let x = Math.max(
+    omenCountsForStage(args.stage)[2] + 3,
+    1,
   );
+  let reward = omenReward(args.context, x);
 
-  return {
-    text: `${lowerFirst(`Choose 1 of ${choiceCount} Dreamsigns.`)} Gain ${omenCount} ${omenCount === 1 ? "omen" : "omens"}.`,
-    effects: [draft, gainOmen(omenCount)],
-    targets: [
-      target(
-        "dreamsign",
-        DREAMSIGN_POOL_TARGET_DESCRIPTION,
-        draft.predicate,
-      ),
-    ],
-    effect: valueDreamsignDraft(draft, args.context) + valueOmenGain(omenCount),
-  };
+  while (reward.effect < minimumClaimEffect) {
+    x += 1;
+    reward = omenReward(args.context, x);
+  }
+
+  return reward;
 }
 
 export function buildPrizeLadderTree(
@@ -369,7 +339,6 @@ export function buildPrizeLadderTree(
   drawContext: DrawContext,
   stage: JourneyStage,
 ): JourneyTree {
-  const { cost, lowerFirst, sentenceCase } = treeBuilderTools;
   const rewardFamily = stopRewards(context, drawContext, stage);
   const costs = prizeLadderCosts(context, drawContext, stage);
   const finalClaimReward = claimReward({
@@ -387,6 +356,7 @@ export function buildPrizeLadderTree(
       const stopText = `${sentenceCase(stopReward.text)} End the Journey.`;
       const price = costs[level - 1]!;
       const isFinal = level === 3;
+      const advanceCost = cost(price);
 
       return {
         id: `level-${level}`,
@@ -397,7 +367,6 @@ export function buildPrizeLadderTree(
             label: "Stop",
             text: stopText,
             effects: stopReward.effects,
-            targets: stopReward.targets ?? [],
             effect: stopReward.effect,
             terminal: {
               text: "End the Journey.",
@@ -405,7 +374,7 @@ export function buildPrizeLadderTree(
               costs: [],
               effects: stopReward.effects,
               burdens: [],
-              targets: stopReward.targets ?? [],
+              targets: [],
               routeEffects: [],
             },
           }),
@@ -415,9 +384,8 @@ export function buildPrizeLadderTree(
             text: isFinal
               ? `Pay ${price} essence and ${lowerFirst(finalClaimReward.text)} End the Journey.`
               : `Pay ${price} essence. Go to Level ${level + 1}.`,
-            costs: [cost("essence", price)],
+            costs: [advanceCost],
             effects: isFinal ? finalClaimReward.effects : [],
-            targets: isFinal ? (finalClaimReward.targets ?? []) : [],
             cost: price,
             effect: isFinal ? finalClaimReward.effect : 0,
             ...(isFinal
@@ -425,10 +393,10 @@ export function buildPrizeLadderTree(
                   terminal: {
                     text: "End the Journey.",
                     outcome: "claim" as const,
-                    costs: [cost("essence", price)],
+                    costs: [advanceCost],
                     effects: finalClaimReward.effects,
                     burdens: [],
-                    targets: finalClaimReward.targets ?? [],
+                    targets: [],
                     routeEffects: [],
                   },
                 }
