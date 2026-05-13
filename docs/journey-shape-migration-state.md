@@ -108,6 +108,7 @@ the target end state.
 | `reward_after_trigger` | Needed | Needed |
 | `risk_or_skip` | Needed | Needed |
 | `shared_prefix_menu` | Needed | Needed |
+| `service_menu` | Complete | Complete |
 | `single_offer` | Complete | Complete |
 | `single_reward` | Complete | Complete |
 | `single_rule_trial` | Complete | Complete |
