@@ -63,7 +63,10 @@ function statusRuleEffect(option: JourneyOption): Record<string, unknown> {
     (entry) =>
       typeof entry === "object" &&
       entry !== null &&
-      (entry as { kind?: unknown }).kind === "status_reward_replacement",
+      typeof (entry as { kind?: unknown }).kind === "string" &&
+      ((entry as { kind: string }).kind).startsWith("status_") &&
+      typeof (entry as { ruleMutationKind?: unknown }).ruleMutationKind ===
+        "string",
   ) as Record<string, unknown> | undefined;
 
   expect(statusEffect).toBeDefined();
@@ -82,24 +85,40 @@ function assertSingleRuleTrialOption(option: JourneyOption) {
   expect(option.netConvertedEssence).toBe(
     option.effectConvertedEssence + option.uncertaintyConvertedEssence,
   );
-  expect(option.text).toMatch(
-    /^Your next victory yields choose 1 of [23] Dreamsigns instead of card rewards\.$/u,
-  );
+  expect(option.text).not.toMatch(/\byields choose\b/iu);
 
   const statusEffect = statusRuleEffect(option);
 
+  expect(statusEffect.statusName).toEqual(expect.any(String));
+  expect(statusEffect.statusScope).toEqual(expect.any(String));
+  expect(statusEffect.duration).toEqual(expect.any(String));
+  expect(statusEffect.ruleMutationKind).toEqual(expect.any(String));
+}
+
+function statusKind(option: JourneyOption): string {
+  const kind = statusRuleEffect(option).kind;
+
+  expect(typeof kind).toBe("string");
+  return kind as string;
+}
+
+function ruleMutationKind(option: JourneyOption): string {
+  const kind = statusRuleEffect(option).ruleMutationKind;
+
+  expect(typeof kind).toBe("string");
+  return kind as string;
+}
+
+function assertRewardReplacementOption(option: JourneyOption) {
+  const statusEffect = statusRuleEffect(option);
+
+  expect(statusEffect.kind).toBe("status_reward_replacement");
   expect(statusEffect.statusName).toBe("Spoiled Victory");
-  expect(statusEffect.statusScope).toBe("reward");
-  expect(statusEffect.duration).toBe("one_time");
-  expect(statusEffect.ruleMutationKind).toBe(
-    "next_victory_reward_replacement",
-  );
-  expect(statusEffect.rewardTrigger).toBe("next_victory");
+  expect(statusEffect.ruleMutationKind).toBe("next_victory_reward_replacement");
   expect(statusEffect.replacedRewardKind).toBe("card_rewards");
-  expect(statusEffect.replacementKind).toBe("dreamsign_draft");
-  expect(statusEffect.replacementPayload).toMatchObject({
-    kind: "dreamsign_draft",
-  });
+  expect(["dreamsign_draft", "resource"]).toContain(
+    statusEffect.replacementKind,
+  );
 }
 
 function assertSingleRuleTrialManifest(manifest: JourneyManifest) {
@@ -164,7 +183,7 @@ describe("singleRuleTrialFill", () => {
     });
   });
 
-  it("produces exactly one option whose status_reward_replacement effect carries no cost", () => {
+  it("produces exactly one status rule option with no cost", () => {
     const { context, drawContext, stage } = makeTestContext({
       seed: "single-rule-1",
     });
@@ -209,6 +228,47 @@ describe("singleRuleTrialFill", () => {
         expect(manifest.debug.validation.ok, seed).toBe(true);
       }
     }
+  });
+
+  it("varies rule mutations across audited stage seeds", async () => {
+    const sampledRules = new Set<string>();
+    const sampledTexts = new Set<string>();
+
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:single_rule_trial:${stage}:${seedNumber}`;
+        const manifest = await forcedSingleRuleTrialManifest(seed, stage);
+        const [option] = manifest.options;
+
+        expect(option).toBeDefined();
+        sampledRules.add(`${statusKind(option!)}:${ruleMutationKind(option!)}`);
+        sampledTexts.add(option!.text);
+      }
+    }
+
+    expect(sampledRules.size).toBeGreaterThanOrEqual(4);
+    expect(sampledTexts.size).toBeGreaterThanOrEqual(6);
+  });
+
+  it("renders reward replacement trials with clean draft grammar", async () => {
+    let replacementOption: JourneyOption | undefined;
+
+    for (const seedNumber of auditSeedNumbers) {
+      const seed = `audit:single_rule_trial:early:${seedNumber}`;
+      const manifest = await forcedSingleRuleTrialManifest(seed, "early");
+      const [option] = manifest.options;
+
+      if (option && statusKind(option) === "status_reward_replacement") {
+        replacementOption = option;
+        break;
+      }
+    }
+
+    expect(replacementOption).toBeDefined();
+    assertRewardReplacementOption(replacementOption!);
+    expect(replacementOption!.text).toMatch(
+      /^Your next victory yields (?:a \d-Dreamsign draft|\d+ essence) instead of card rewards\.$/u,
+    );
   });
 
   it("replays the same forced seed without changing rule structure", async () => {
