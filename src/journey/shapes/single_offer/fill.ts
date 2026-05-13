@@ -1,21 +1,12 @@
-import {
-  type CostSlot,
-  costSlots,
-  costedRewardOption,
-  option,
-  type RewardSlot,
-  rewardSlots,
-} from "../../fillers/shared.js";
-import type { JourneyStage } from "../../manifest.js";
+import type { JourneyContext } from "../../../quest/context.js";
+import type { DrawContext } from "../../../util/rng.js";
+import type { JourneyOption, JourneyStage } from "../../manifest.js";
+import { COSTS } from "../../shared/costs.js";
+import { REWARDS } from "../../shared/rewards.js";
+import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_ID = "single_offer";
-
-const GENERIC_PERSISTENT_PROHIBITION_COST_KEYS = new Set([
-  "status-no-essence-gain",
-  "status-no-deck-modification",
-  "status-no-transfiguring",
-]);
 
 const STAGE_OFFER_BANDS: Record<
   JourneyStage,
@@ -30,164 +21,240 @@ const STAGE_OFFER_BANDS: Record<
   late: { minimumNet: -40, targetNet: 130, maximumNet: 180 },
 };
 
+const REWARD_IDS = new Set([
+  "gain_essence",
+  "gain_omens",
+  "set_essence_to_percent_of_max",
+  "gain_essence_to_max",
+  "gain_named_card",
+  "gain_named_dreamsign",
+  "duplicate_named_card_X",
+  "duplicate_chosen_cards",
+  "transform_starter_into_named_card",
+  "transform_dreamsign_to_named",
+  "next_X_shop_rerolls_free",
+  "shop_essence_discount",
+  "shop_omen_discount",
+]);
+
+const COST_IDS = new Set([
+  "pay_essence",
+  "pay_omens",
+  "pay_percent_essence",
+  "purge_named_card",
+  "purge_named_dreamsign",
+  "gain_named_banes",
+  "lose_max_essence",
+]);
+
+type MaterializedReward = {
+  readonly template: Reward;
+  readonly params: TemplateParams;
+  readonly text: string;
+  readonly convertedEssence: number;
+};
+
+type MaterializedCost = {
+  readonly template: Cost;
+  readonly params: TemplateParams;
+  readonly text: string;
+  readonly convertedEssence: number;
+};
+
 type OfferCandidate = {
-  readonly cost: CostSlot;
-  readonly reward: RewardSlot;
+  readonly cost: MaterializedCost;
+  readonly reward: MaterializedReward;
   readonly net: number;
   readonly distanceFromTarget: number;
   readonly downside: number;
 };
 
-function isDeterministicSlot(slot: { readonly key: string }): boolean {
-  return !slot.key.includes("random-range");
+function drawFor(
+  drawContext: DrawContext,
+  templateId: string,
+  attempt: number,
+): DrawContext {
+  return {
+    ...drawContext,
+    selectionAttempt:
+      ((drawContext.selectionAttempt ?? 0) * 1000) +
+      attempt * 100 +
+      templateId.length,
+  };
 }
 
-function hasFixedVisibleReward(slot: RewardSlot): boolean {
-  return (
-    slot.key === "essence" ||
-    slot.key === "omens" ||
-    slot.key.startsWith("resource:fixed-essence-gain:") ||
-    slot.key.startsWith("resource:max-essence-gain:") ||
-    slot.key === "resource:restore-to-maximum" ||
-    slot.key.startsWith("resource:set-current-to-percent:") ||
-    slot.key.startsWith("resource:fixed-omen-reward:") ||
-    slot.key.startsWith("named-card:") ||
-    slot.key.startsWith("named-card-operation:") ||
-    slot.key.startsWith("named-dreamsign:") ||
-    slot.key.startsWith("starter-door-named-transform:") ||
-    slot.key === "next-victory-replacement:essence" ||
-    slot.key === "next-victory-replacement:route"
-  );
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
 }
 
-function isSingleOfferReward(slot: RewardSlot, stage: JourneyStage): boolean {
-  if (slot.routeEffects !== undefined || !hasFixedVisibleReward(slot)) {
-    return false;
-  }
-
-  if (stage === "early") {
-    return !slot.key.startsWith("next-victory-replacement:");
-  }
-
-  return true;
-}
-
-function isSingleOfferCost(slot: CostSlot): boolean {
-  return !GENERIC_PERSISTENT_PROHIBITION_COST_KEYS.has(slot.key) &&
-    slot.key !== "status-deck-size-floor" &&
-    slot.key !== "status-exact-deck-size";
-}
-
-function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
-function immediateEssenceCost(slot: CostSlot): number {
-  return (slot.costs ?? []).reduce<number>((total, payload) => {
-    const record = recordValue(payload);
-    const amount = record?.amount;
-
-    return record?.kind === "essence" &&
-        (record.resource === undefined || record.resource === "essence") &&
-        typeof amount === "number"
-      ? total + amount
-      : total;
-  }, 0);
-}
-
-function maximumEssenceDelta(slot: CostSlot): number {
-  return (slot.burdens ?? []).reduce<number>((total, payload) => {
-    const record = recordValue(payload);
-    const capDelta = record?.capDelta;
-
-    return record?.kind === "resource_cap_change" &&
-        record.resource === "maxEssence" &&
-        typeof capDelta === "number"
-      ? total + capDelta
-      : total;
-  }, 0);
-}
-
-function fixedEssenceRewardAmount(slot: RewardSlot): number | undefined {
-  if (
-    slot.effects.length !== 1 ||
-    !/^Gain \d+ essence\.$/u.test(slot.text)
-  ) {
+function materializeReward(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  template: Reward,
+  attempt: number,
+): MaterializedReward | undefined {
+  if (!REWARD_IDS.has(template.id)) {
     return undefined;
   }
 
-  const record = recordValue(slot.effects[0]);
+  const params = template.rollParams(context, drawFor(drawContext, template.id, attempt));
 
-  return record?.kind === "gain_essence" && typeof record.amount === "number"
-    ? record.amount
-    : undefined;
+  if (!template.viable(params as never, context)) {
+    return undefined;
+  }
+
+  const text = template.render(params as never, context);
+
+  if (/\b(?:Draft \d|Choose 1 of|random|chosen Starter)\b/iu.test(text)) {
+    return undefined;
+  }
+
+  return {
+    template,
+    params,
+    text,
+    convertedEssence: template.cec(params as never, context),
+  };
+}
+
+function materializeCost(
+  context: JourneyContext,
+  drawContext: DrawContext,
+  template: Cost,
+  attempt: number,
+): MaterializedCost | undefined {
+  if (!COST_IDS.has(template.id)) {
+    return undefined;
+  }
+
+  const params = template.rollParams(context, drawFor(drawContext, template.id, attempt));
+
+  if (!template.viable(params as never, context)) {
+    return undefined;
+  }
+
+  const text = template.render(params as never, context);
+
+  if (text.startsWith("[LOCKED] ")) {
+    return undefined;
+  }
+
+  return {
+    template,
+    params,
+    text,
+    convertedEssence: template.cec(params as never, context),
+  };
 }
 
 function rewardWithRealizableEssence(
-  reward: RewardSlot,
-  cost: CostSlot,
-  context: ShapeFillArgs["context"],
-): RewardSlot {
-  const rawAmount = fixedEssenceRewardAmount(reward);
+  reward: MaterializedReward,
+  cost: MaterializedCost,
+  context: JourneyContext,
+): MaterializedReward {
+  if (reward.template.id !== "gain_essence") {
+    return reward;
+  }
 
-  if (rawAmount === undefined) {
+  const amount = reward.params.x;
+
+  if (typeof amount !== "number") {
     return reward;
   }
 
   const resources = context.state.quest.resources;
-  const essenceAfterCost = Math.max(
-    0,
-    resources.essence - immediateEssenceCost(cost),
-  );
-  const maxAfterCost = Math.max(
-    0,
-    resources.maxEssence + maximumEssenceDelta(cost),
-  );
+  const availableAfterCost =
+    cost.template.id === "pay_essence" && typeof cost.params.x === "number"
+      ? Math.max(0, resources.essence - cost.params.x)
+      : resources.essence;
   const realizableAmount = Math.max(
     0,
-    Math.min(rawAmount, maxAfterCost - essenceAfterCost),
+    Math.min(amount, resources.maxEssence - availableAfterCost),
   );
 
-  if (realizableAmount === rawAmount && reward.effect === realizableAmount) {
+  if (realizableAmount === amount) {
     return reward;
   }
 
   return {
     ...reward,
-    text: `Gain ${realizableAmount} essence.`,
-    effects: reward.effects.map((payload) => {
-      const record = recordValue(payload);
-
-      return record?.kind === "gain_essence"
-        ? {
-            ...record,
-            amount: realizableAmount,
-            rawAmount,
-            resourceAmountKind: "fixed",
-          }
-        : payload;
-    }),
-    effect: realizableAmount,
+    params: { ...reward.params, x: realizableAmount, rawAmount: amount },
+    text: `Gain ${realizableAmount} essence`,
+    convertedEssence: realizableAmount,
   };
 }
 
-function offerNet(costSlot: CostSlot, reward: RewardSlot): number {
-  return (
-    reward.effect -
-    (costSlot.cost ?? 0) +
-    (costSlot.burden ?? 0) +
-    (reward.uncertainty ?? 0)
-  );
+function rewardPayload(reward: MaterializedReward) {
+  return {
+    kind: "shared_reward_template",
+    templateId: reward.template.id,
+    params: reward.params,
+    text: reward.text,
+    convertedEssence: reward.convertedEssence,
+  };
+}
+
+function costPayload(cost: MaterializedCost) {
+  return {
+    kind: "shared_cost_template",
+    templateId: cost.template.id,
+    params: cost.params,
+    text: cost.text,
+    convertedEssence: cost.convertedEssence,
+  };
+}
+
+function offerOption(
+  cost: MaterializedCost,
+  reward: MaterializedReward,
+): JourneyOption {
+  return {
+    number: 1,
+    symbols: ["cost", "reward", "offer"],
+    text: `${sentence(cost.text)} ${sentence(reward.text)}`,
+    operations: [],
+    costs: [costPayload(cost)],
+    effects: [rewardPayload(reward)],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: cost.convertedEssence,
+    effectConvertedEssence: reward.convertedEssence,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: reward.convertedEssence - cost.convertedEssence,
+    pickBehavior: "record_and_generate_next",
+  };
+}
+
+function leaveOption(): JourneyOption {
+  return {
+    number: 2,
+    symbols: [],
+    text: "Leave with no effect.",
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 0,
+    effectConvertedEssence: 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: 0,
+    pickBehavior: "leave",
+  };
 }
 
 function chooseViableOffer(args: {
-  readonly costs: readonly CostSlot[];
-  readonly rewards: readonly RewardSlot[];
-  readonly context: ShapeFillArgs["context"];
+  readonly costs: readonly MaterializedCost[];
+  readonly rewards: readonly MaterializedReward[];
+  readonly context: JourneyContext;
   readonly stage: JourneyStage;
-}): { cost: CostSlot; reward: RewardSlot } {
+}): { cost: MaterializedCost; reward: MaterializedReward } {
   const band = STAGE_OFFER_BANDS[args.stage];
   const candidates: OfferCandidate[] = [];
   const fallbackCandidates: OfferCandidate[] = [];
@@ -199,13 +266,13 @@ function chooseViableOffer(args: {
         cost,
         args.context,
       );
-      const net = offerNet(cost, adjustedReward);
+      const net = adjustedReward.convertedEssence - cost.convertedEssence;
       const candidate = {
         cost,
         reward: adjustedReward,
         net,
         distanceFromTarget: Math.abs(net - band.targetNet),
-        downside: (cost.cost ?? 0) + Math.abs(Math.min(cost.burden ?? 0, 0)),
+        downside: cost.convertedEssence,
       };
 
       fallbackCandidates.push(candidate);
@@ -237,31 +304,32 @@ function chooseViableOffer(args: {
 }
 
 export function singleOfferFill(args: ShapeFillArgs): FilledJourney {
-  const { context, drawContext, stage } = args;
-  const rewards = rewardSlots(
-    context,
-    drawContext,
-    `${SHAPE_ID}:offer-reward`,
-    stage,
-  ).filter((entry) =>
-    isDeterministicSlot(entry) && isSingleOfferReward(entry, stage)
-  );
-  const costs = costSlots(
-    context,
-    drawContext,
-    `${SHAPE_ID}:offer-cost`,
-    { includeStatusBurdens: stage === "late" },
-  ).filter((entry) => isDeterministicSlot(entry) && isSingleOfferCost(entry));
-  const offer = chooseViableOffer({ costs, rewards, context, stage });
+  const rewards = REWARDS.flatMap((template, index) => {
+    const reward = materializeReward(
+      args.context,
+      args.drawContext,
+      template,
+      index,
+    );
+
+    return reward ? [reward] : [];
+  });
+  const costs = COSTS.flatMap((template, index) => {
+    const cost = materializeCost(args.context, args.drawContext, template, index);
+
+    return cost ? [cost] : [];
+  });
+  const offer = chooseViableOffer({
+    costs,
+    rewards,
+    context: args.context,
+    stage: args.stage,
+  });
 
   return {
     options: [
-      costedRewardOption(1, offer.cost, offer.reward),
-      option({
-        number: 2,
-        text: "Leave with no effect.",
-        pickBehavior: "leave",
-      }),
+      offerOption(offer.cost, offer.reward),
+      leaveOption(),
     ],
     precommitted: {},
   };

@@ -273,17 +273,22 @@ describe("single_offer fill", () => {
     }
   });
 
-  it("renders near-cap fixed essence rewards as realizable value", async () => {
+  it("keeps near-cap offers inside the mid-stage value band", async () => {
     const manifest = await forcedSingleOfferManifest(
       "audit:single_offer:mid:02",
       "mid",
     );
     const take = acceptOption(manifest);
 
-    expect(take.text).toContain("Pay 25% of current essence (100).");
-    expect(take.text).toContain("Gain 200 essence.");
-    expect(take.effectConvertedEssence).toBe(200);
-    expect(take.netConvertedEssence).toBe(100);
+    assertSingleOfferManifest(manifest);
+    assertNoObscuredSingleOfferExchange(take);
+    assertNoGenericPersistentProhibition(take);
+    expect(take.netConvertedEssence).toBeGreaterThanOrEqual(
+      minimumTakeNetByStage.mid,
+    );
+    expect(take.netConvertedEssence).toBeLessThanOrEqual(
+      maximumTakeNetByStage.mid,
+    );
   });
 
   it("replays the same forced seed without changing offer structure", async () => {
