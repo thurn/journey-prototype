@@ -1029,9 +1029,14 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
 
   const topScore = manifest.debug.shapeScores[0];
   if (topScore) {
-    out.push(
-      `${paint("Shape scoring: ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`,
+    const selectedScore = manifest.debug.shapeScores.find((entry) =>
+      entry.shapeId === manifest.debug.selectedShapeId
     );
+    const scoringLine = manifest.debug.repair.forcedShape && selectedScore
+      ? `${paint("Shape scoring: forced ")}${highlight(selectedScore.shapeId)}${paint(" ")}${highlight(String(selectedScore.score))}${paint("; pre-force top ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`
+      : `${paint("Shape scoring: ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`;
+
+    out.push(scoringLine);
   }
 
   const outcomes = committedOutcomeLines(manifest);

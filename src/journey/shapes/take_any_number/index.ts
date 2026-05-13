@@ -5,7 +5,7 @@ export const takeAnyNumberPlugin = defineShapePlugin({
   definition: {
     id: "take_any_number",
     topology: "repeatable_menu",
-    rootOptionCount: { min: 3, max: 3 },
+    rootOptionCount: { min: 4, max: 4 },
     supportedTags: [],
     payloadCompatibility: [],
     validationRules: [

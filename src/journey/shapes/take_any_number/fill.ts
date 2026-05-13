@@ -6,13 +6,19 @@ import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const CAP = 2;
-const TAKE_OPTION_COUNT = 2;
+const TAKE_OPTION_COUNT = 3;
 const MIN_REWARD_CEC = 40;
 const MAX_COST_TO_REWARD_RATIO = 0.85;
+const EXCLUDED_REWARD_IDS = new Set(["take_any_from_predicate_choices"]);
 const EXCLUDED_COST_IDS = new Set([
   "gain_random_cards_from_pool",
   "gain_additional_starters",
 ]);
+const STAGE_VALUE_CEILINGS = {
+  early: { effect: 180, net: 160 },
+  mid: { effect: 260, net: 230 },
+  late: { effect: 380, net: 340 },
+} as const;
 
 type RolledReward = {
   readonly template: Reward;
@@ -87,10 +93,12 @@ function rollReward(
     );
 
     if (!template.viable(params as never, args.context)) continue;
+    if (!rewardIsCoherent(template.id, params)) continue;
     if (hasUsedTemplate(template.id, params, used)) continue;
 
     const cec = template.cec(params as never, args.context);
     if (cec < MIN_REWARD_CEC) continue;
+    if (cec > STAGE_VALUE_CEILINGS[args.stage].effect) continue;
 
     candidates.push({
       rolled: {
@@ -115,6 +123,12 @@ function rollReward(
       weight: candidate.weight,
     })),
   );
+}
+
+function rewardIsCoherent(templateId: string, params: TemplateParams): boolean {
+  if (EXCLUDED_REWARD_IDS.has(templateId)) return false;
+
+  return templateSubIds(templateId, params).every((id) => !EXCLUDED_REWARD_IDS.has(id));
 }
 
 function costIsCoherent(template: Cost, params: TemplateParams): boolean {
@@ -146,6 +160,7 @@ function rollCost(
 
     const cec = template.cec(params as never, args.context);
     if (cec <= 0) continue;
+    if (rewardCec - cec > STAGE_VALUE_CEILINGS[args.stage].net) continue;
 
     candidates.push({
       rolled: { template, params, cec, text },

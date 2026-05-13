@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
 import type { JourneyStage } from "../../src/journey/manifest.js";
 import { getShapePlugin } from "../../src/journey/shapes.js";
 import type { JourneyContext } from "../../src/quest/context.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import { createInitialJourneyState, simulateQuestStateForStage } from "../../src/quest/init.js";
+import { renderJourneyHuman } from "../../src/render/human.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
 const takeAnyNumberPlugin = getShapePlugin("take_any_number");
@@ -60,11 +65,11 @@ describe("take_any_number fill", () => {
       const stage = "mid" as JourneyStage;
       const fill = takeAnyNumberPlugin.fill({ context, drawContext, stage });
 
-      expect(fill.options).toHaveLength(3);
+      expect(fill.options).toHaveLength(4);
       expect(fill.precommitted).toEqual({});
       expect(fill.symmetryContracts).toBeUndefined();
 
-      for (const option of fill.options.slice(0, 2)) {
+      for (const option of fill.options.slice(0, 3)) {
         expect(option.text).toMatch(
           /^Take up to 2 rewards from this cache\. Cost: .+\. Reward: .+/u,
         );
@@ -78,13 +83,15 @@ describe("take_any_number fill", () => {
         expect(option.routeEffects).toEqual([]);
         expect(option.costConvertedEssence).toBeGreaterThan(0);
         expect(option.effectConvertedEssence).toBeGreaterThan(0);
+        expect(option.effectConvertedEssence).toBeLessThanOrEqual(260);
         expect(option.netConvertedEssence).toBe(
           option.effectConvertedEssence - option.costConvertedEssence,
         );
+        expect(option.netConvertedEssence).toBeLessThanOrEqual(230);
       }
 
-      expect(fill.options[2]).toMatchObject({
-        number: 3,
+      expect(fill.options[3]).toMatchObject({
+        number: 4,
         text: "Leave the cache.",
         pickBehavior: "leave",
         netConvertedEssence: 0,
@@ -105,7 +112,7 @@ describe("take_any_number fill", () => {
   it("uses the shape-owned validation bypass contract", () => {
     expect(takeAnyNumberPlugin.definition).toMatchObject({
       topology: "repeatable_menu",
-      rootOptionCount: { min: 3, max: 3 },
+      rootOptionCount: { min: 4, max: 4 },
       supportedTags: [],
       payloadCompatibility: [],
       validationRules: [
@@ -117,5 +124,76 @@ describe("take_any_number fill", () => {
       repairPreferences: [],
       bypassStandardValidation: true,
     });
+  });
+
+  it("keeps forced early rows below the stage ceiling and excludes nested take-any rewards", async () => {
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const seeds = [
+      "audit:take_any_number:early:04",
+      "audit:take_any_number:early:05",
+      "audit:take_any_number:early:10",
+    ];
+
+    for (const seed of seeds) {
+      const state = createInitialJourneyState({ seed, content, contentVersion });
+      simulateQuestStateForStage({
+        state,
+        stage: "early",
+        drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+      });
+      const context = buildJourneyContext({
+        projectRoot: process.cwd(),
+        content,
+        state,
+        contentVersion,
+      });
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "take_any_number",
+        forcedStage: "early",
+      });
+
+      expect(manifest.options).toHaveLength(4);
+      for (const option of manifest.options.slice(0, 3)) {
+        expect(option.text).not.toMatch(/Take any number of .+ from \d+ choices/u);
+        expect(option.effectConvertedEssence).toBeLessThanOrEqual(180);
+        expect(option.netConvertedEssence).toBeLessThanOrEqual(160);
+      }
+      expect(manifest.options[3]?.pickBehavior).toBe("leave");
+    }
+  });
+
+  it("labels forced-shape debug scoring separately from the pre-force scorer", async () => {
+    const seed = "audit:take_any_number:early:01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const state = createInitialJourneyState({ seed, content, contentVersion });
+    simulateQuestStateForStage({
+      state,
+      stage: "early",
+      drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+    });
+    const context = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+    const manifest = generateNextJourney({
+      context,
+      forcedShapeId: "take_any_number",
+      forcedStage: "early",
+    });
+    const rendered = renderJourneyHuman(state, manifest, {
+      color: false,
+      debug: true,
+      debugContext: false,
+      showDeck: false,
+      verbose: false,
+    });
+
+    expect(rendered).toContain("Selected shape: take_any_number");
+    expect(rendered).toMatch(
+      /Shape scoring: forced take_any_number [0-9.]+; pre-force top [a-z_]+ [0-9.]+/u,
+    );
   });
 });
