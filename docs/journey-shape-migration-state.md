@@ -98,6 +98,7 @@ the target end state.
 | `choose_your_loss` | Complete | Cost-axis shape |
 | `escalating_reward_chain` | Needed | Needed |
 | `flat_escalating_trade` | Complete | Complete |
+| `heterogeneous_pair` | Complete | Complete |
 | `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
 | `paired_return` | Needed | Needed |
