@@ -20,8 +20,8 @@ Each queued shape follows this sequence:
 | 6 | `single_wager` | 6 | Complete | Complete | Complete | Complete | Complete |
 | 7 | `single_random_outcome` | 6 | Complete | Complete | Complete | Complete | Complete |
 | 8 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 9 | `choose_your_loss` | 5 | Complete | Complete | In progress | Pending | Current |
-| 10 | `commit_now_future_payoff` | 5 | Pending | Pending | Pending | Pending | Queued |
+| 9 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 10 | `commit_now_future_payoff` | 5 | In progress | Pending | Pending | Pending | Current |
 | 11 | `timed_window_menu` | 5 | Pending | Pending | Pending | Pending | Queued |
 | 12 | `random_pool_draws` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 13 | `resolved_random_series` | 4 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `choose_your_loss` is the active shape.
+- `commit_now_future_payoff` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -63,7 +63,7 @@ These shapes are reference implementations for the migration target:
 - `single_wager` completed migration commit `70a274d`, audit commit `d884f8e`, and fix commit `00c3a7a`.
 - `single_random_outcome` completed migration commit `8305b41`, audit commit `7e3bb8d`, and fix commit `2135ba3`.
 - `now_vs_later` completed migration commit `6003bee`, audit commit `04917a9`, and fix commit `3c0c79e`.
-- `choose_your_loss` completed migration commit `21bfec1` and audit commit `ae9c2a8`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/choose_your_loss/`.
+- `choose_your_loss` completed migration commit `21bfec1`, audit commit `ae9c2a8`, and fix commit `793b996`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/commit_now_future_payoff/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
