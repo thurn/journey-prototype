@@ -27,7 +27,7 @@ Each queued shape follows this sequence:
 | 13 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 14 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 15 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 16 | `single_reward` | 3 | In progress | Pending | Pending | Pending | Current |
+| 16 | `single_reward` | 3 | Complete | Pending | Pending | Complete | Awaiting audit |
 | 17 | `single_offer` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 18 | `single_rule_trial` | 3 | Pending | Pending | Pending | Pending | Queued |
 | 19 | `risk_or_skip` | 2 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `single_reward` is the active shape.
+- `single_offer` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
