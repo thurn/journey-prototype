@@ -104,7 +104,7 @@ the target end state.
 | `now_vs_later` | Complete | Complete |
 | `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
-| `paired_return` | Needed | Needed |
+| `paired_return` | Complete | Complete |
 | `prize_ladder` | Complete | Complete |
 | `probability_ladder` | Complete | Complete |
 | `push_your_luck` | Complete | Complete |
