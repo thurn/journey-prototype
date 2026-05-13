@@ -1,5 +1,5 @@
-import type { DrawContext } from "../../util/rng.js";
-import type { BoundedDuration, GeneratedObjectDefinition } from "../manifest.js";
+import type { DrawContext } from "../../../util/rng.js";
+import type { BoundedDuration, GeneratedObjectDefinition } from "../../manifest.js";
 
 /**
  * Body for a `tradeTicketBody`-produced generated object. Mirrors the relevant

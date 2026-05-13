@@ -8,7 +8,40 @@ const SRC_ROOT = join(REPO_ROOT, "src");
 
 // Shapes whose IDs must not appear in any non-shape file.
 // As shapes migrate, add their IDs here and the test will enforce isolation.
-const MIGRATED_SHAPE_IDS = ["shop_row", "prize_ladder", "single_offer", "heterogeneous_pair", "reward_after_trigger", "take_any_number", "same_reward_different_costs", "random_rewards", "now_vs_later", "shared_prefix_menu", "commit_now_future_payoff", "escalating_reward_chain", "push_your_luck", "random_pool_draws", "same_cost_different_rewards", "single_reward", "choose_your_loss", "alter_dreamscapes", "service_menu", "reveal_choice_menu", "single_random_outcome", "single_rule_trial", "risk_or_skip", "single_wager", "timed_window_menu", "one_operation_many_targets", "one_target_many_operations", "resolved_random_series"];
+const MIGRATED_SHAPE_IDS = [
+  "alter_dreamscapes",
+  "choose_your_loss",
+  "commit_now_future_payoff",
+  "escalating_reward_chain",
+  "flat_escalating_trade",
+  "heterogeneous_pair",
+  "now_vs_later",
+  "one_operation_many_targets",
+  "one_target_many_operations",
+  "paired_return",
+  "prize_ladder",
+  "probability_ladder",
+  "push_your_luck",
+  "random_pool_draws",
+  "random_rewards",
+  "random_trades",
+  "resolved_random_series",
+  "reveal_choice_menu",
+  "reward_after_trigger",
+  "risk_or_skip",
+  "same_cost_different_rewards",
+  "same_reward_different_costs",
+  "service_menu",
+  "shared_prefix_menu",
+  "shop_row",
+  "single_offer",
+  "single_random_outcome",
+  "single_reward",
+  "single_rule_trial",
+  "single_wager",
+  "take_any_number",
+  "timed_window_menu",
+];
 
 // Files allowed to mention any shape ID (legacy code path during migration).
 // Shrinks toward zero as the remaining shapes migrate.
@@ -25,6 +58,24 @@ const FILES_EXEMPT_FROM_ISOLATION = new Set(
 
 const FILES_ALLOWED_BY_SHAPE_ID = new Map(
   Object.entries({
+    flat_escalating_trade: [
+      "src/journey/manifest.ts",
+    ],
+    paired_return: [
+      "src/journey/fillers/fingerprint.ts",
+      "src/journey/manifest.ts",
+      "src/journey/operationAdapters.ts",
+      "src/journey/reachability.ts",
+      "src/journey/validate/payloadContracts.ts",
+      "src/render/human.ts",
+    ],
+    probability_ladder: [
+      "src/journey/fillers/fingerprint.ts",
+      "src/journey/manifest.ts",
+      "src/journey/operationAdapters.ts",
+      "src/journey/validate/randomContracts.ts",
+      "src/render/human.ts",
+    ],
     resolved_random_series: [
       "src/journey/fillers/fingerprint.ts",
       "src/journey/manifest.ts",

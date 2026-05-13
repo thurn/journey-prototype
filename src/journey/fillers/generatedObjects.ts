@@ -70,9 +70,6 @@ export function renderLifetimeText(lifetime: GeneratedObjectLifetime): string {
     }
   }
 }
-export { tradeTicketBody } from "./tradeTicket.js";
-export type { TradeTicketArgs, TradeTicketBody } from "./tradeTicket.js";
-
 type GeneratedObjectKind = GeneratedObjectDefinition["generatedObjectKind"];
 type GeneratedObjectReference = {
   id: string;
