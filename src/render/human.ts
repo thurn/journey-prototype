@@ -433,6 +433,11 @@ function committedOutcomeText(value: unknown): string {
       return `Resolved random series: ${Array.isArray(value.series) ? value.series.length : "?"} committed payloads.`;
     case "no_reward":
       return "Gain nothing.";
+    case "shared_reward_template":
+    case "shared_cost_template":
+      return typeof value.text === "string"
+        ? `${value.text.replace(/\.$/u, "")}.`
+        : stableStringify(value).trim();
     case "essence":
       return `Pay ${value.amount ?? "?"} essence.`;
     case "omens":
