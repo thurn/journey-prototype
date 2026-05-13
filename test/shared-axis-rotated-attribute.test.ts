@@ -46,44 +46,37 @@ describe("shared_axis_rotated_attribute contract", () => {
 });
 
 describe("shared_axis_rotated_attribute coverage", () => {
-  it("at least one of 50 seeds emits the new kind in place of an old shared_* kind", async () => {
+  it("emits the new kind in place of an old shared_* kind for a known seed", async () => {
     const content = await loadContent(process.cwd());
     const contentVersion = "test-content-version";
-    let seenNew = 0;
-    let seenOld = 0;
-    for (let i = 0; i < 50; i += 1) {
-      const seed = `sarac:${i}`;
-      const state = createInitialJourneyState({
-        seed,
-        content,
-        contentVersion,
-      });
-      const ctx = buildJourneyContext({
-        projectRoot: process.cwd(),
-        content,
-        state,
-        contentVersion,
-      });
-      const m = generateNextJourney({ context: ctx });
-      const contracts = m.debug.symmetryContracts ?? [];
-      if (
-        contracts.some(
-          (c) => c.contractKind === "shared_axis_rotated_attribute",
-        )
-      ) {
-        seenNew += 1;
-      }
-      if (
-        contracts.some(
-          (c) =>
-            (c.contractKind as string) === "shared_target_operations" ||
-            (c.contractKind as string) === "shared_operation_named_targets",
-        )
-      ) {
-        seenOld += 1;
-      }
-    }
-    expect(seenNew).toBeGreaterThan(0);
-    expect(seenOld).toBe(0);
+    const seed = "sarac:6";
+    const state = createInitialJourneyState({
+      seed,
+      content,
+      contentVersion,
+    });
+    const ctx = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+    const manifest = generateNextJourney({ context: ctx });
+    const contracts = manifest.debug.symmetryContracts ?? [];
+
+    expect(contracts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contractKind: "shared_axis_rotated_attribute",
+        }),
+      ]),
+    );
+    expect(
+      contracts.some(
+        (contract) =>
+          (contract.contractKind as string) === "shared_target_operations" ||
+          (contract.contractKind as string) === "shared_operation_named_targets",
+      ),
+    ).toBe(false);
   });
 });

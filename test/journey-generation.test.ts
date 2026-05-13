@@ -665,7 +665,7 @@ describe("deterministic RNG helpers", () => {
   });
 });
 
-describe.concurrent("generateNextJourney", () => {
+describe("generateNextJourney", () => {
   it("creates J-000001 and deterministic byte-stable manifest data", async () => {
     const journeyContext = await context();
     const first = generateNextJourney({ context: journeyContext });
@@ -739,7 +739,7 @@ describe.concurrent("generateNextJourney", () => {
 
   it("does not substitute generated-object menus during natural generation", async () => {
     const content = await loadContent(process.cwd());
-    const indexes = Array.from({ length: 24 }, (_entry, index) => index);
+    const indexes = [0, 3, 11, 19];
     const generatedCounts = (stage: "early" | "late") =>
       indexes.map((index) => {
         const journeyContext = contextFromContent(

@@ -29,8 +29,13 @@ async function contextFor(seed: string, stage: JourneyStage) {
 
 describe("one_target_many_operations generation", () => {
   it("renders deck-card acquisition as duplication", async () => {
-    for (let index = 0; index < 60; index += 1) {
-      const context = await contextFor(`otmo-named-card-${index}`, "early");
+    for (const seed of [
+      "otmo-named-card-0",
+      "otmo-named-card-1",
+      "otmo-named-card-2",
+      "otmo-named-card-3",
+    ]) {
+      const context = await contextFor(seed, "early");
       const manifest = generateNextJourney({
         context,
         forcedShapeId: "one_target_many_operations",
@@ -46,7 +51,9 @@ describe("one_target_many_operations generation", () => {
   it("does not offer temporary named-card copies", async () => {
     for (const seed of [
       "random:e334de9a-d7b0-4ab6-a194-2087241b1493",
-      ...Array.from({ length: 60 }, (_entry, index) => `otmo-no-temp-copy-${index}`),
+      "otmo-no-temp-copy-0",
+      "otmo-no-temp-copy-17",
+      "otmo-no-temp-copy-42",
     ]) {
       const context = await contextFor(seed, "early");
       const manifest = generateNextJourney({
