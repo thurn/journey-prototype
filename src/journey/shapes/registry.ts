@@ -2,7 +2,7 @@ import { alterDreamscapesPlugin } from "./alter_dreamscapes/index.js";
 import { chooseYourLossPlugin } from "./choose_your_loss/index.js";
 import { commitNowFuturePayoffPlugin } from "./commit_now_future_payoff/index.js";
 import { escalatingRewardChainPlugin } from "./escalating_reward_chain/index.js";
-import { flatEscalatingTradePlugin } from "./flat_escalating_trade.js";
+import { flatEscalatingTradePlugin } from "./flat_escalating_trade/index.js";
 import { heterogeneousPairPlugin } from "./heterogeneous_pair/index.js";
 import { randomTradesPlugin } from "./random_trades/index.js";
 import { nowVsLaterPlugin } from "./now_vs_later/index.js";
