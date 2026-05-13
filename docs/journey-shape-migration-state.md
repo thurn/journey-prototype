@@ -12,8 +12,8 @@ Each queued shape follows this sequence:
 
 | Order | Shape | Weight | Migration | Audit | Fix | Verification | Status |
 | --- | --- | ---: | --- | --- | --- | --- | --- |
-| 1 | `take_any_number` | 7 | Complete | Complete | In progress | Pending | Current |
-| 2 | `service_menu` | 7 | Pending | Pending | Pending | Pending | Queued |
+| 1 | `take_any_number` | 7 | Complete | Complete | Complete | Complete | Complete |
+| 2 | `service_menu` | 7 | In progress | Pending | Pending | Pending | Current |
 | 3 | `heterogeneous_pair` | 7 | Pending | Pending | Pending | Pending | Queued |
 | 4 | `shop_row` | 7.0 | Pending | Pending | Pending | Pending | Queued |
 | 5 | `alter_dreamscapes` | 6 | Pending | Pending | Pending | Pending | Queued |
@@ -54,9 +54,10 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `take_any_number` is the active shape.
+- `service_menu` is the active shape.
 - Migration subagent completed commit `a0b65c4`.
 - Audit subagent completed commit `2c2161c`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/take_any_number/`.
+- Fix subagent completed commit `c6637f4`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/service_menu/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
