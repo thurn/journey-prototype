@@ -22,8 +22,8 @@ Each queued shape follows this sequence:
 | 8 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 9 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 10 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 11 | `timed_window_menu` | 5 | Complete | Complete | In progress | Pending | Current |
-| 12 | `random_pool_draws` | 4 | Pending | Pending | Pending | Pending | Queued |
+| 11 | `timed_window_menu` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 12 | `random_pool_draws` | 4 | Pending | Pending | Pending | Pending | Current |
 | 13 | `resolved_random_series` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 14 | `push_your_luck` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 15 | `prize_ladder` | 4 | Pending | Pending | Pending | Pending | Queued |
@@ -54,7 +54,7 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `timed_window_menu` is the active shape.
+- `random_pool_draws` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
@@ -65,7 +65,7 @@ These shapes are reference implementations for the migration target:
 - `now_vs_later` completed migration commit `6003bee`, audit commit `04917a9`, and fix commit `3c0c79e`.
 - `choose_your_loss` completed migration commit `21bfec1`, audit commit `ae9c2a8`, and fix commit `793b996`.
 - `commit_now_future_payoff` completed migration commit `8a0dcb5`, audit commit `a80eb5d`, and fix commit `eec82ad`.
-- `timed_window_menu` completed migration commit `ad24ec5` and audit commit `25a297a`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/timed_window_menu/`.
+- `timed_window_menu` completed migration commit `ad24ec5`, audit commit `25a297a`, and fix commit `07f32cb`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/random_pool_draws/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
