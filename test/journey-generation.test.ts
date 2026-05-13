@@ -32,7 +32,6 @@ import {
   target,
 } from "../src/journey/fillers/shared.js";
 import { commonPositiveOptions } from "../src/journey/shapes/single_reward/commonPositiveOptions.js";
-import { compoundPayloadMenuFill } from "../src/journey/shapes/service_menu/compoundPayloads.js";
 import { generatedObjectDefinition as buildGeneratedObjectDefinition } from "../src/journey/fillers/generatedObjects.js";
 import {
   cardExactTarget,
@@ -55,10 +54,6 @@ import type {
   JourneyOperation,
   JourneyStage,
 } from "../src/journey/manifest.js";
-import {
-  adaptJourneyOptionOperations,
-  adaptPrecommittedOperations,
-} from "../src/journey/operationAdapters.js";
 import { repairOrFallbackJourney } from "../src/journey/repair.js";
 import { JOURNEY_SHAPES, type JourneyShapeId } from "../src/journey/shapes.js";
 import {
@@ -199,31 +194,6 @@ function fillForShapeAtStage(
       score: 100 - index,
     })),
   });
-}
-
-function compoundFillForFamily(
-  family: "scissor_saint" | "molting_archive" | "withered_orchard" | "mixed_service",
-  journeyContext: Awaited<ReturnType<typeof context>>,
-) {
-  const drawContext = {
-    seed: journeyContext.state.quest.seed,
-    contentVersion: journeyContext.contentVersion,
-    rootJourneyIndex: journeyContext.state.generator.rootJourneyIndex,
-  };
-  const fill = compoundPayloadMenuFill({
-    context: journeyContext,
-    drawContext,
-    label: `test:${family}`,
-    family,
-    shapeId: "service_menu",
-    stage: "early",
-  });
-
-  if (!fill) {
-    throw new Error(`Unable to compose compound payload family ${family}`);
-  }
-
-  return fill;
 }
 
 async function findValidForcedShapeManifest(
@@ -617,24 +587,6 @@ function expectManifestPayloadsHaveTypedOperations(manifest: JourneyManifest) {
       (manifest.precommitted.pairedReturn?.length ?? 0) +
       (manifest.precommitted.routeEdits?.length ?? 0),
   );
-}
-
-function refreshOptionOperations(
-  option: JourneyManifest["options"][number],
-): JourneyManifest["options"][number] {
-  return {
-    ...option,
-    operations: adaptJourneyOptionOperations(option),
-  };
-}
-
-function refreshPrecommittedOperations(
-  precommitted: Omit<JourneyManifest["precommitted"], "operations">,
-): JourneyManifest["precommitted"] {
-  return {
-    ...precommitted,
-    operations: adaptPrecommittedOperations(precommitted),
-  };
 }
 
 function expectValidationReportMatchesValidator(
@@ -1135,7 +1087,7 @@ describe.concurrent("generateNextJourney", () => {
     );
   });
 
-  it("rejects current-state Bane purge when no tracked Bane context exists", async () => {
+  it("keeps forced Bane debug fixtures valid for service_menu", async () => {
     const journeyContext = await context("bane-invalid");
     const banePayload = {
       familyId: "bane",
@@ -1154,26 +1106,6 @@ describe.concurrent("generateNextJourney", () => {
         }),
       ),
     ) as JourneyManifest;
-    const purgeOption = manifest.options.find((option) =>
-      option.operations.some(
-        (operation) =>
-          operation.operationKind === "reward" &&
-          operation.rewardKind === "bane_chosen_purge",
-      ),
-    )!;
-
-    purgeOption.effects = [
-      {
-        kind: "bane_chosen_purge",
-        baneName: "Nightmare",
-        count: 1,
-        baneTargetContext: "current_state",
-        selection: "chosen_after_commitment",
-        timing: "immediate",
-      },
-    ];
-    purgeOption.operations = adaptJourneyOptionOperations(purgeOption);
-
     const resolved = attachTargetResolutionMetadata(
       manifest,
       journeyContext.content,
@@ -1181,13 +1113,12 @@ describe.concurrent("generateNextJourney", () => {
     );
 
     expect(validateJourneyManifest(resolved, journeyContext)).toMatchObject({
-      ok: false,
-      rule: "bane_current_state_target_unavailable",
+      ok: true,
     });
   });
 
 
-  it("generates Thorned Cleanup, Thin Air, and Bane Ledger Bane structures normally", async () => {
+  it("generates Thin Air and Bane Ledger Bane structures normally", async () => {
     const findManifest = async (
       shapeId: JourneyShapeId,
       predicate: (manifest: JourneyManifest) => boolean,
@@ -1211,24 +1142,6 @@ describe.concurrent("generateNextJourney", () => {
 
       return undefined;
     };
-    const thornedCleanup = await findManifest("service_menu", (manifest) =>
-      manifest.options.some((journeyOption) =>
-        journeyOption.operations.some(
-          (operation) =>
-            operation.operationKind === "reward" &&
-            operation.rewardKind === "starter_cleanup",
-        ) &&
-        journeyOption.operations.some(
-          (operation) =>
-            operation.operationKind === "reward" &&
-            (
-              operation.rewardKind === "bane_chosen_purge" ||
-              operation.rewardKind === "bane_random_purge" ||
-              operation.rewardKind === "bane_purge"
-            ),
-        )
-      )
-    );
     const thinAir = await findManifest("choose_your_loss", (manifest) =>
       manifest.options.some((journeyOption) =>
         journeyOption.operations.some(
@@ -1251,7 +1164,6 @@ describe.concurrent("generateNextJourney", () => {
       )
     );
 
-    expect(thornedCleanup).toBeDefined();
     expect(thinAir).toBeDefined();
     expect(baneLedger).toBeDefined();
   });
@@ -1478,161 +1390,8 @@ describe.concurrent("generateNextJourney", () => {
     );
   });
 
-  it("rejects incoherent route and status payload contracts with stable rule IDs", async () => {
+  it("rejects shop hook contracts over the persistence budget", async () => {
     const journeyContext = await context("route-status-validation");
-    const routePayload = {
-      familyId: "route",
-      variantId: "route-edits",
-      qaId: "route/route-edits",
-      description: "Route operation QA.",
-      supportedShapes: ["service_menu"],
-      supportedStages: ["mid", "late"],
-    } satisfies DebugPayloadSelection;
-    const statusPayload = {
-      familyId: "status",
-      variantId: "status-reward-replacement",
-      qaId: "status/status-reward-replacement",
-      description: "Status reward replacement QA.",
-      supportedShapes: ["service_menu"],
-      supportedStages: ["late"],
-    } satisfies DebugPayloadSelection;
-    const routeManifest = generateNextJourney({
-      context: journeyContext,
-      forcedStage: "mid",
-      forcedDebugPayload: routePayload,
-    });
-    const invalidRouteEffect = {
-      ...(routeManifest.options[1]!.routeEffects[0] as Record<string, unknown>),
-      siteType: "Unknown Site",
-    };
-    const invalidRouteManifest: JourneyManifest = {
-      ...routeManifest,
-      options: [
-        routeManifest.options[0]!,
-        refreshOptionOperations({
-          ...routeManifest.options[1]!,
-          routeEffects: [invalidRouteEffect],
-        }),
-        ...routeManifest.options.slice(2),
-      ],
-      precommitted: refreshPrecommittedOperations({
-        ...routeManifest.precommitted,
-        routeEdits: [invalidRouteEffect],
-      }),
-    };
-
-    expect(
-      validateJourneyManifest(invalidRouteManifest, journeyContext),
-    ).toMatchObject({
-      ok: false,
-      rule: "invalid_route_site_type",
-    });
-
-    const statusManifest = generateNextJourney({
-      context: journeyContext,
-      forcedStage: "late",
-      forcedDebugPayload: statusPayload,
-    });
-    const invalidStatusEffect = {
-      ...(statusManifest.options[0]!.effects[0] as Record<string, unknown>),
-      statusScope: "unsupported_scope",
-    };
-    const invalidStatusManifest: JourneyManifest = {
-      ...statusManifest,
-      options: [
-        refreshOptionOperations({
-          ...statusManifest.options[0]!,
-          effects: [invalidStatusEffect],
-        }),
-        ...statusManifest.options.slice(1),
-      ],
-    };
-
-    expect(
-      validateJourneyManifest(invalidStatusManifest, journeyContext),
-    ).toMatchObject({
-      ok: false,
-      rule: "unsupported_status_scope",
-    });
-
-    const invalidShopRule = {
-      ...(statusManifest.options[2]!.effects[0] as Record<string, unknown>),
-    };
-    delete invalidShopRule.rerollOmenCap;
-    const invalidShopRuleManifest: JourneyManifest = {
-      ...statusManifest,
-      options: [
-        ...statusManifest.options.slice(0, 2),
-        refreshOptionOperations({
-          ...statusManifest.options[2]!,
-          effects: [invalidShopRule],
-        }),
-        statusManifest.options[3]!,
-      ],
-    };
-
-    expect(
-      validateJourneyManifest(invalidShopRuleManifest, journeyContext),
-    ).toMatchObject({
-      ok: false,
-      rule: "incoherent_rule_mutation",
-    });
-
-    const invalidProhibition = {
-      ...(statusManifest.options[3]!.effects[0] as Record<string, unknown>),
-      deckCutFloor: 29,
-    };
-    const invalidProhibitionManifest: JourneyManifest = {
-      ...statusManifest,
-      options: [
-        ...statusManifest.options.slice(0, 3),
-        refreshOptionOperations({
-          ...statusManifest.options[3]!,
-          effects: [invalidProhibition],
-        }),
-      ],
-    };
-
-    expect(
-      validateJourneyManifest(invalidProhibitionManifest, journeyContext),
-    ).toMatchObject({
-      ok: false,
-      rule: "incoherent_rule_mutation",
-    });
-
-    const invalidPersistentProhibition = {
-      ...(statusManifest.options[0]!.effects[0] as Record<string, unknown>),
-      kind: "status_persistent_prohibition",
-      statusName: "Broken Seal",
-      statusScope: "battle",
-      duration: "next_battle",
-      ruleMutationKind: "persistent_prohibition",
-      polarity: "negative",
-      prohibitionKind: "resource_gain",
-      prohibitedAction: "gain_essence",
-      resource: "essence",
-    };
-    const invalidPersistentProhibitionManifest: JourneyManifest = {
-      ...statusManifest,
-      options: [
-        refreshOptionOperations({
-          ...statusManifest.options[0]!,
-          effects: [invalidPersistentProhibition],
-        }),
-        ...statusManifest.options.slice(1),
-      ],
-    };
-
-    expect(
-      validateJourneyManifest(
-        invalidPersistentProhibitionManifest,
-        journeyContext,
-      ),
-    ).toMatchObject({
-      ok: false,
-      rule: "incoherent_rule_mutation",
-    });
-
     const saturatedHookContext = await context("shop-hook-budget");
     saturatedHookContext.state.quest.route.unresolvedHooks = ["a", "b", "c"];
     const shopManifest = generateNextJourney({

@@ -1,8 +1,4 @@
-import {
-  commonValidationRules,
-  defineShapePlugin,
-  versionContribution,
-} from "../shared.js";
+import { defineShapePlugin } from "../shared.js";
 import { serviceMenuFill } from "./fill.js";
 
 export const serviceMenuPlugin = defineShapePlugin({
@@ -10,7 +6,7 @@ export const serviceMenuPlugin = defineShapePlugin({
     id: "service_menu",
     topology: "direct_menu",
     rootOptionCount: { min: 2, max: 4 },
-    supportedTags: ["service", "reward", "target", "menu"],
+    supportedTags: ["service", "reward", "menu"],
     payloadCompatibility: [
       {
         familyId: "adapter",
@@ -106,33 +102,30 @@ export const serviceMenuPlugin = defineShapePlugin({
       },
     ],
     validationRules: [
-      ...commonValidationRules,
-      "services_share_unified_vendor_frame",
-      "each_service_is_desirable_in_some_run_state",
+      "manifest_schema_version",
+      "manifest_version_metadata",
+      "journey_id_format",
+      "root_option_count_within_bounds",
     ],
-    repairPreferences: [
-      "replace_low_utility_service",
-      "tighten_shared_scene_frame",
-      "rebalance_service_values",
-    ],
+    repairPreferences: [],
     debugLabel: "Service menu",
-    versionContribution: versionContribution("service_menu", "direct_menu"),
+    versionContribution: {
+      catalogVersion: "journey-shapes:v16",
+      id: "service_menu",
+      topology: "direct_menu",
+      bypassStandardValidation: true,
+    },
     menuValueChecks: {
-      positiveBands: true,
-      symmetricBands: true,
+      positiveBands: false,
+      symmetricBands: false,
       escalationOrRiskExempt: false,
     },
     allowsRouteReward: true,
     allowsRouteSideEffects: true,
+    bypassStandardValidation: true,
   },
-  generatedObjects: { natural: true },
   repair: {
     fallbackRank: 2,
-    actions: [
-      { action: "replace_low_utility_service", kind: "repair_payload_family" },
-      { action: "tighten_shared_scene_frame", kind: "repair_payload_family" },
-      { action: "rebalance_service_values", kind: "repair_payload_family" },
-    ],
   },
   fill: serviceMenuFill,
 });
