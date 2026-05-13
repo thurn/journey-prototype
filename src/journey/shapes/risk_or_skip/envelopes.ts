@@ -12,12 +12,66 @@ import {
   pickSequentialVariant,
 } from "../../fillers/shared.js";
 import { randomVisibility } from "../../fillers/randomPayloads.js";
-import type { RandomOdds, RandomPrecommittedOutcome } from "../../manifest.js";
+import type {
+  JourneyStage,
+  RandomOdds,
+  RandomPrecommittedOutcome,
+} from "../../manifest.js";
 import { valueBaneGain } from "../../value.js";
 
 function odds(percent: number): RandomOdds {
   return { numerator: percent, denominator: 100, percent };
 }
+
+function stageRiskPremium(stage: JourneyStage): number {
+  switch (stage) {
+    case "early":
+      return 35;
+    case "mid":
+      return 55;
+    case "late":
+      return 70;
+  }
+}
+
+function oddsRiskPremium(percent: number): number {
+  if (percent >= 75) {
+    return 45;
+  }
+
+  if (percent >= 65) {
+    return 35;
+  }
+
+  if (percent >= 50) {
+    return 25;
+  }
+
+  if (percent >= 35) {
+    return 15;
+  }
+
+  return 10;
+}
+
+function riskAdjustedUncertainty(args: {
+  expected: number;
+  chancePercent: number;
+  stage: JourneyStage;
+}): number {
+  return args.expected -
+    stageRiskPremium(args.stage) -
+    oddsRiskPremium(args.chancePercent);
+}
+
+const ESSENCE_DOWNSIDE_RANGES = {
+  early: { minimum: 70, maximum: 150 },
+  mid: { minimum: 110, maximum: 240 },
+  late: { minimum: 160, maximum: 320 },
+} as const satisfies Record<
+  JourneyStage,
+  { minimum: number; maximum: number }
+>;
 
 function randomPurgePayload(args: {
   kind: "dreamsign" | "card";
@@ -69,6 +123,7 @@ export function randomRiskCostEnvelope(args: {
   label: string;
   optionNumber: number;
   chancePercent: number;
+  stage: JourneyStage;
 }) {
   const kind = pickSequentialVariant(
     args.drawContext,
@@ -76,11 +131,16 @@ export function randomRiskCostEnvelope(args: {
     ["random_essence_cost", "random_dreamsign_purge", "random_card_purge"] as const,
   );
   const roll = drawInt(args.drawContext, `${args.label}:random-risk-cost-roll`, 1, 100);
+  const essenceRange = ESSENCE_DOWNSIDE_RANGES[args.stage];
+  const maximumEssenceCost = Math.max(
+    essenceRange.minimum,
+    Math.min(essenceRange.maximum, args.context.state.quest.resources.essence),
+  );
   const randomEssenceAmount = drawInt(
     args.drawContext,
     `${args.label}:random-risk-cost-amount`,
-    25,
-    Math.max(25, Math.min(90, args.context.state.quest.resources.essence)),
+    Math.min(essenceRange.minimum, maximumEssenceCost),
+    maximumEssenceCost,
   );
   const costPayload = kind === "random_essence_cost"
     ? cost("essence", randomEssenceAmount)
@@ -95,6 +155,11 @@ export function randomRiskCostEnvelope(args: {
     : kind === "random_dreamsign_purge"
       ? -Math.round(120 * (args.chancePercent / 100))
       : -Math.round(80 * (args.chancePercent / 100));
+  const riskAdjustedCost = riskAdjustedUncertainty({
+    expected: expectedCost,
+    chancePercent: args.chancePercent,
+    stage: args.stage,
+  });
 
   return {
     envelope: {
@@ -109,7 +174,7 @@ export function randomRiskCostEnvelope(args: {
         true,
       ),
       expectedConvertedEssence: expectedCost,
-      riskPremiumConvertedEssence: Math.min(-10, expectedCost),
+      riskPremiumConvertedEssence: riskAdjustedCost,
       worstCaseBurdenConvertedEssence: kind === "random_essence_cost"
         ? -randomEssenceAmount
         : kind === "random_dreamsign_purge"
@@ -118,11 +183,11 @@ export function randomRiskCostEnvelope(args: {
       presentation: kind,
     } satisfies RandomPrecommittedOutcome,
     text: kind === "random_essence_cost"
-      ? `pay ${randomEssenceAmount} random essence`
+      ? `pay ${randomEssenceAmount} essence`
       : kind === "random_dreamsign_purge"
         ? "purge a random Dreamsign"
         : "purge a random card",
-    value: expectedCost,
+    value: riskAdjustedCost,
   };
 }
 
@@ -131,6 +196,7 @@ export function randomBaneChanceEnvelope(args: {
   label: string;
   optionNumber: number;
   chancePercent: number;
+  stage: JourneyStage;
 }) {
   const baneName = pickSequentialVariant(
     args.drawContext,
@@ -139,6 +205,12 @@ export function randomBaneChanceEnvelope(args: {
   );
   const roll = drawInt(args.drawContext, `${args.label}:chance-bane-roll`, 1, 100);
   const baneValue = valueBaneGain(baneName, 1);
+  const expectedBaneValue = Math.round(baneValue * (args.chancePercent / 100));
+  const riskAdjustedBaneValue = riskAdjustedUncertainty({
+    expected: expectedBaneValue,
+    chancePercent: args.chancePercent,
+    stage: args.stage,
+  });
 
   return {
     envelope: {
@@ -153,12 +225,12 @@ export function randomBaneChanceEnvelope(args: {
         "The downside odds are visible and the safe/downside result is precommitted.",
         true,
       ),
-      expectedConvertedEssence: Math.round(baneValue * (args.chancePercent / 100)),
-      riskPremiumConvertedEssence: Math.round(baneValue * (args.chancePercent / 100)),
+      expectedConvertedEssence: expectedBaneValue,
+      riskPremiumConvertedEssence: riskAdjustedBaneValue,
       worstCaseBurdenConvertedEssence: baneValue,
       presentation: "random_bane_burden",
     } satisfies RandomPrecommittedOutcome,
     text: `gain 1 ${baneName}`,
-    value: Math.round(baneValue * (args.chancePercent / 100)),
+    value: riskAdjustedBaneValue,
   };
 }

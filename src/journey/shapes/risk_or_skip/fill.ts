@@ -19,7 +19,11 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
   const downsideChancePercent = pickSequentialVariant(
     drawContext,
     `${SHAPE_ID}:downside-chance`,
-    [25, 35, 45, 50, 65, 75],
+    stage === "early"
+      ? [35, 45, 50, 65, 75]
+      : stage === "mid"
+        ? [45, 50, 65, 75, 85]
+        : [50, 65, 75, 85, 90],
   );
   const downsideKind = pickSequentialVariant(
     drawContext,
@@ -39,6 +43,7 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
         label: `${SHAPE_ID}:risk-bane`,
         optionNumber: 1,
         chancePercent: downsideChancePercent,
+        stage,
       })
     : randomRiskCostEnvelope({
         context,
@@ -46,11 +51,13 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
         label: `${SHAPE_ID}:risk-cost`,
         optionNumber: 1,
         chancePercent: downsideChancePercent,
+        stage,
       });
   const riskEnvelope = {
     ...downside.envelope,
     constraints: [riskConstraint],
   };
+  const downsideUncertainty = Math.max(downside.value, -reward.value + 5);
 
   return {
     options: [
@@ -60,7 +67,7 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
         effects: reward.payloads,
         targets: reward.targets ?? [],
         effect: reward.value,
-        uncertainty: downside.value,
+        uncertainty: downsideUncertainty,
       }),
       option({
         number: 2,

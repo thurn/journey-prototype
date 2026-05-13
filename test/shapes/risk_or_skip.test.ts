@@ -103,6 +103,7 @@ function assertRiskOrSkipManifest(manifest: JourneyManifest) {
   expect(accept.text).toMatch(
     /\b\d+% chance to .+; otherwise no downside\.$/u,
   );
+  expect(accept.text).not.toMatch(/\brandom essence\b/iu);
 
   expect(skip.text).toBe("Leave with no effect.");
   expect(skip.effects).toEqual([]);
@@ -199,6 +200,30 @@ describe("risk_or_skip fill", () => {
     expect(first.precommitted).toEqual(second.precommitted);
     expect(first.references).toEqual(second.references);
     expect(first.distinctness).toEqual(second.distinctness);
+  });
+
+  it("samples both tempting and skippable accept values across audited seeds", async () => {
+    const acceptNets: number[] = [];
+    const rewardFrames = new Set<string>();
+
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:risk_or_skip:${stage}:${seedNumber}`;
+        const manifest = await forcedRiskOrSkipManifest(seed, stage);
+        const accept = acceptOption(manifest);
+
+        acceptNets.push(accept.netConvertedEssence);
+        rewardFrames.add(accept.effects.map((effect) =>
+          isRecord(effect) && typeof effect.kind === "string"
+            ? effect.kind
+            : "unknown"
+        ).join("+"));
+      }
+    }
+
+    expect(Math.max(...acceptNets)).toBeGreaterThan(0);
+    expect(Math.min(...acceptNets)).toBeLessThanOrEqual(15);
+    expect(rewardFrames.size).toBeGreaterThanOrEqual(3);
   });
 
   it("rejects guaranteed downside and missing envelope mutations", async () => {

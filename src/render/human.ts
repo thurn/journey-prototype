@@ -184,6 +184,14 @@ function bracedName(name: unknown, fallback: string): string {
   return typeof name === "string" && name.length > 0 ? `{${name}}` : fallback;
 }
 
+function lowerSentenceFragment(text: string): string {
+  const trimmed = text.trim().replace(/\.$/u, "");
+
+  return trimmed.length === 0
+    ? trimmed
+    : `${trimmed[0]!.toLowerCase()}${trimmed.slice(1)}`;
+}
+
 function durationText(value: unknown): string | undefined {
   if (typeof value === "string" && value.length > 0) {
     return humanizeToken(value);
@@ -406,8 +414,11 @@ function committedOutcomeText(value: unknown): string {
       const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
         ? `${value.odds.percent}%`
         : "precommitted";
+      const cost = value.cost === undefined
+        ? "pay cost"
+        : lowerSentenceFragment(committedOutcomeText(value.cost));
 
-      return `${odds} chance to pay cost; committed result: ${String(value.committedResult ?? "committed")}.`;
+      return `${odds} chance to ${cost}; committed result: ${String(value.committedResult ?? "committed")}.`;
     }
     case "chance_to_gain_bane": {
       const odds = isRecord(value.odds) && typeof value.odds.percent === "number"
