@@ -33,7 +33,7 @@ Each queued shape follows this sequence:
 | 19 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 20 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 21 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 22 | `probability_ladder` | 2 | In progress | Pending | Pending | Pending | Current |
+| 22 | `probability_ladder` | 2 | Complete | In progress | Pending | Complete | Current |
 | 23 | `escalating_reward_chain` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 24 | `shared_prefix_menu` | 1 | Pending | Pending | Pending | Pending | Queued |
 | 25 | `reward_after_trigger` | 1 | Pending | Pending | Pending | Pending | Queued |
@@ -76,6 +76,7 @@ These shapes are reference implementations for the migration target:
 - `risk_or_skip` completed migration commit `9ddb42d`, audit commit `7c2dd50`, and fix commit `4ca9d0b`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `reveal_choice_menu` completed migration commit `b872093`, audit commit `0843b8e`, and fix commit `6ebc12e`.
+- `probability_ladder` completed migration commit `69cdfb7`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/probability_ladder/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
