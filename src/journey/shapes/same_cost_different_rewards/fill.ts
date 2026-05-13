@@ -1,6 +1,6 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
-import type { JourneyOption } from "../../manifest.js";
+import type { JourneyOption, JourneyStage } from "../../manifest.js";
 import { COSTS, getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Cost, Reward } from "../../shared/types.js";
@@ -10,15 +10,36 @@ const SHAPE_LABEL = "same_cost_different_rewards";
 const TOLERANCE_LO_INITIAL = 0.6;
 const TOLERANCE_HI_INITIAL = 1.4;
 const TOLERANCE_WIDEN_STEP = 0.2;
+const OFFER_ATTEMPTS = 32;
+const DEFAULT_MAX_REWARD_SPREAD_RATIO = 1.35;
+const STRICT_MAX_REWARD_SPREAD_RATIO = 1.2;
 const FALLBACK_ESSENCE_COST_MIN = 5;
 const FALLBACK_ESSENCE_COST_STEP = 5;
 const EXCLUDED_SHARED_COST_IDS = new Set([
   "gain_random_cards_from_pool",
   "gain_additional_starters",
 ]);
+const STRICT_SHARED_COST_IDS = new Set([
+  "pay_omens",
+  "pay_max_essence",
+  "pay_all_remaining_essence",
+  "gain_random_banes",
+  "gain_named_banes",
+  "gain_named_banes_for_X_battles",
+  "purge_named_dreamsign",
+  "purge_random_dreamsign",
+  "purge_chosen_dreamsign",
+  "transform_dreamsign_to_random",
+]);
+const RANDOM_ACTIVE_DREAMSIGN_COPY_ID = "gain_copy_of_random_dreamsign";
+const CHOSEN_ACTIVE_DREAMSIGN_COPY_ID = "gain_copy_of_chosen_dreamsign";
 
 type RolledReward = { template: Reward; params: unknown; cec: number };
 type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type RolledOffer = {
+  rewards: readonly [RolledReward, RolledReward, RolledReward];
+  sharedCost: RolledCost;
+};
 
 function emptyOption(
   number: number,
@@ -28,7 +49,7 @@ function emptyOption(
 ): JourneyOption {
   return {
     number,
-    symbols: ["cost", "reward"],
+    symbols: [],
     text,
     operations: [],
     costs: [],
@@ -62,9 +83,27 @@ function meetsRewardDistinctness(
   rolled: RolledReward,
   used: ReadonlySet<string>,
 ): boolean {
-  for (const id of consumedRewardIds(rolled)) {
+  const ids = consumedRewardIds(rolled);
+  for (const id of ids) {
     if (used.has(id)) return false;
   }
+
+  if (
+    ids.includes(RANDOM_ACTIVE_DREAMSIGN_COPY_ID) &&
+    (ids.includes(CHOSEN_ACTIVE_DREAMSIGN_COPY_ID) ||
+      used.has(CHOSEN_ACTIVE_DREAMSIGN_COPY_ID))
+  ) {
+    return false;
+  }
+
+  if (
+    ids.includes(CHOSEN_ACTIVE_DREAMSIGN_COPY_ID) &&
+    (ids.includes(RANDOM_ACTIVE_DREAMSIGN_COPY_ID) ||
+      used.has(RANDOM_ACTIVE_DREAMSIGN_COPY_ID))
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -161,9 +200,59 @@ function matchesFamilyRestriction(
   );
 }
 
+function shopEssenceDiscountCec(
+  params: unknown,
+  stage: JourneyStage,
+): number | undefined {
+  if (typeof params !== "object" || params === null || !("percent" in params)) {
+    return undefined;
+  }
+
+  const percent = (params as { percent?: unknown }).percent;
+  if (typeof percent !== "number") return undefined;
+
+  const multiplier = stage === "early" ? 3 : stage === "mid" ? 2.5 : 2;
+  return percent * multiplier;
+}
+
+function rewardCec(
+  template: Reward,
+  params: unknown,
+  ctx: JourneyContext,
+  stage: JourneyStage,
+): number {
+  if (template.id === "shop_essence_discount") {
+    return shopEssenceDiscountCec(params, stage) ?? template.cec(params as never, ctx);
+  }
+
+  return template.cec(params as never, ctx);
+}
+
+function rewardSpreadRatio(rewards: readonly RolledReward[]): number {
+  const values = rewards.map((reward) => reward.cec).filter((cec) => cec > 0);
+  if (values.length === 0) return Number.POSITIVE_INFINITY;
+
+  return Math.max(...values) / Math.max(1, Math.min(...values));
+}
+
+function maxRewardSpreadRatioForCost(cost: RolledCost): number {
+  return STRICT_SHARED_COST_IDS.has(cost.template.id)
+    ? STRICT_MAX_REWARD_SPREAD_RATIO
+    : DEFAULT_MAX_REWARD_SPREAD_RATIO;
+}
+
+function offerIsBalanced(offer: RolledOffer): boolean {
+  return rewardSpreadRatio(offer.rewards) <= maxRewardSpreadRatioForCost(offer.sharedCost);
+}
+
+function offerBalanceScore(offer: RolledOffer): number {
+  return rewardSpreadRatio(offer.rewards) / maxRewardSpreadRatioForCost(offer.sharedCost);
+}
+
 function rollReward(
   ctx: JourneyContext,
   draw: DrawContext,
+  stage: JourneyStage,
   label: string,
   pool: readonly Reward[],
   used: ReadonlySet<string>,
@@ -179,7 +268,7 @@ function rollReward(
         ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
     if (!template.viable(params as never, ctx)) continue;
-    const cec = template.cec(params as never, ctx);
+    const cec = rewardCec(template, params, ctx, stage);
     if (cec <= 0) continue;
     const rolled = { template, params, cec };
     if (!meetsRewardDistinctness(rolled, used)) continue;
@@ -201,6 +290,7 @@ function rollReward(
 function rollFurtherReward(
   ctx: JourneyContext,
   draw: DrawContext,
+  stage: JourneyStage,
   rowIndex: number,
   anchor: number,
   used: ReadonlySet<string>,
@@ -220,7 +310,8 @@ function rollFurtherReward(
           ((draw.selectionAttempt ?? 0) * 100) + attempt + template.id.length,
       });
       if (!template.viable(params as never, ctx)) continue;
-      const cec = template.cec(params as never, ctx);
+      const cec = rewardCec(template, params, ctx, stage);
+      if (cec <= 0) continue;
       if (cec < lo * anchor || cec > hi * anchor) continue;
       const rolled = { template, params, cec };
       if (!meetsRewardDistinctness(rolled, used)) continue;
@@ -328,27 +419,46 @@ function rollSharedCost(
   );
 }
 
-function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
-  const text = `${cost.rendered}. ${reward.template.render(reward.params as never, ctx)}`;
-  return text.includes("[LOCKED]") && !text.startsWith("[LOCKED] ")
-    ? `[LOCKED] ${text.replace(/\[LOCKED\] /g, "")}`
-    : text;
+function normalizeDreamsignTerm(text: string): string {
+  return text.replace(/\bdreamsigns?\b/giu, (match) =>
+    match.toLowerCase().endsWith("s") ? "Dreamsigns" : "Dreamsign"
+  );
 }
 
-export function sameCostDifferentRewardsFill(
+function withoutLockedPrefix(text: string): string {
+  return text.replace(/\[LOCKED\]\s*/gu, "");
+}
+
+function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
+  const costText = normalizeDreamsignTerm(withoutLockedPrefix(cost.rendered));
+  const rewardText = normalizeDreamsignTerm(
+    withoutLockedPrefix(reward.template.render(reward.params as never, ctx)),
+  );
+  const text = `Cost: ${costText}. Reward: ${rewardText}`;
+  return cost.rendered.includes("[LOCKED]") ? `[LOCKED] ${text}` : text;
+}
+
+function drawForOfferAttempt(draw: DrawContext, attempt: number): DrawContext {
+  return {
+    ...draw,
+    selectionAttempt: ((draw.selectionAttempt ?? 0) * 1000) + attempt,
+  };
+}
+
+function rollOffer(
   args: ShapeFillArgs,
-): FilledJourney {
-  const { context, drawContext, shapeArgs } = args;
-  const familyRestriction =
-    typeof shapeArgs?.familyRestriction === "string"
-      ? shapeArgs.familyRestriction
-      : undefined;
+  familyRestriction: string | undefined,
+  attempt: number,
+): RolledOffer {
+  const { context, drawContext, stage } = args;
+  const attemptDraw = drawForOfferAttempt(drawContext, attempt);
   const used = new Set<string>();
 
   const row1 = rollReward(
     context,
-    drawContext,
-    `${SHAPE_LABEL}:row1`,
+    attemptDraw,
+    stage,
+    `${SHAPE_LABEL}:attempt${attempt}:row1`,
     REWARDS,
     used,
     familyRestriction,
@@ -360,7 +470,8 @@ export function sameCostDifferentRewardsFill(
 
   const row2 = rollFurtherReward(
     context,
-    drawContext,
+    attemptDraw,
+    stage,
     2,
     row1.cec,
     used,
@@ -370,22 +481,51 @@ export function sameCostDifferentRewardsFill(
 
   const row3 = rollFurtherReward(
     context,
-    drawContext,
+    attemptDraw,
+    stage,
     3,
     row1.cec,
     used,
     familyRestriction,
   );
-  const rewards = [row1, row2, row3];
-  const sharedCost = rollSharedCost(context, drawContext, rewards);
+  const rewards = [row1, row2, row3] as const;
+  const sharedCost = rollSharedCost(context, attemptDraw, rewards);
+
+  return { rewards, sharedCost };
+}
+
+export function sameCostDifferentRewardsFill(
+  args: ShapeFillArgs,
+): FilledJourney {
+  const { context, shapeArgs } = args;
+  const familyRestriction =
+    typeof shapeArgs?.familyRestriction === "string"
+      ? shapeArgs.familyRestriction
+      : undefined;
+  let bestOffer: RolledOffer | undefined;
+
+  for (let attempt = 0; attempt < OFFER_ATTEMPTS; attempt += 1) {
+    const offer = rollOffer(args, familyRestriction, attempt);
+    if (!bestOffer || offerBalanceScore(offer) < offerBalanceScore(bestOffer)) {
+      bestOffer = offer;
+    }
+    if (offerIsBalanced(offer)) {
+      bestOffer = offer;
+      break;
+    }
+  }
+
+  if (!bestOffer) {
+    throw new Error(`${SHAPE_LABEL} fill could not roll a viable offer`);
+  }
 
   return {
-    options: rewards.map((reward, index) =>
+    options: bestOffer.rewards.map((reward, index) =>
       emptyOption(
         index + 1,
-        renderOption(sharedCost, reward, context),
+        renderOption(bestOffer.sharedCost, reward, context),
         reward.cec,
-        sharedCost.cec,
+        bestOffer.sharedCost.cec,
       ),
     ),
     precommitted: {},

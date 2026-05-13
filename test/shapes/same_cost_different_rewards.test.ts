@@ -66,6 +66,8 @@ describe("same_cost_different_rewards fill", () => {
       expect(new Set(fill.options.map((option) => option.costConvertedEssence)).size).toBe(1);
 
       for (const option of fill.options) {
+        expect(option.symbols).toEqual([]);
+        expect(option.text).toMatch(/^Cost: .+\. Reward: .+/u);
         expect(option.operations).toEqual([]);
         expect(option.costs).toEqual([]);
         expect(option.effects).toEqual([]);
