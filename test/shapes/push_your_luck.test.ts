@@ -17,6 +17,10 @@ import type { TestContextBundle } from "../helpers/journey-context.js";
 import { makeTestContext } from "../helpers/journey-context.js";
 
 const pushYourLuckPlugin = getShapePlugin("push_your_luck");
+const auditStages: readonly JourneyStage[] = ["early", "mid", "late"];
+const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
+  String(index + 1).padStart(2, "0"),
+);
 
 async function forcedPushYourLuckManifest(seed: string, stage: JourneyStage) {
   const { content, contentVersion } = await loadContentContext(process.cwd());
@@ -68,6 +72,16 @@ function runTreeValidator(tree: JourneyTree, bundle: TestContextBundle) {
     bundle.context,
     [],
   );
+}
+
+function pushBranches(tree: JourneyTree): JourneyTreeBranch[] {
+  return tree.nodes.map((node) =>
+    node.branches.find((branch) => branch.label === "Push"),
+  ).filter((branch): branch is JourneyTreeBranch => Boolean(branch));
+}
+
+function expectedRewardValue(branch: JourneyTreeBranch): number {
+  return branch.effectConvertedEssence * (branch.odds?.percent ?? 100) / 100;
 }
 
 describe("push_your_luck fill", () => {
@@ -165,6 +179,47 @@ describe("push_your_luck fill", () => {
         playerVisible: true,
       }),
     });
+  });
+
+  it("generates valid progressive trees for every audited stage seed", async () => {
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const manifest = await forcedPushYourLuckManifest(
+          `audit:push_your_luck:${stage}:${seedNumber}`,
+          stage,
+        );
+        const tree = manifest.tree!;
+        const rewardKinds = new Set(pushBranches(tree).map(primaryEffectKind));
+        const expectedValues = pushBranches(tree).map(expectedRewardValue);
+
+        expect(manifest.shapeId).toBe("push_your_luck");
+        expect(tree.nodes).toHaveLength(3);
+        expect(rewardKinds.size).toBe(1);
+
+        for (let index = 1; index < expectedValues.length; index += 1) {
+          expect(expectedValues[index]).toBeGreaterThan(expectedValues[index - 1]!);
+        }
+
+        for (const node of tree.nodes) {
+          const [stop, push, failure] = node.branches;
+
+          expect(stop?.text).toMatch(/banked rewards|banked Level/u);
+          expect(push?.text).not.toMatch(/\ba \d+% chance/u);
+          expect(push?.text).not.toMatch(/\s,|,\s*,/u);
+          expect(push?.text).toMatch(/Risk immediate failure: \d+% chance/u);
+          expect(push?.text).toMatch(/Success banks/u);
+          expect(failure?.text).toMatch(/banked|No rewards are banked/u);
+
+          if (push?.text.includes("draft 1 of 4")) {
+            expect(push.text).toContain("draft pool");
+          }
+
+          if (push?.text.includes("Dreamsigns")) {
+            expect(push.text).toContain("including");
+          }
+        }
+      }
+    }
   });
 
   it("is deterministic for a fixed seed and stage", async () => {
