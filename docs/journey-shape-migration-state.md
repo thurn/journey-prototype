@@ -14,8 +14,8 @@ Each queued shape follows this sequence:
 | --- | --- | ---: | --- | --- | --- | --- | --- |
 | 1 | `take_any_number` | 7 | Complete | Complete | Complete | Complete | Complete |
 | 2 | `service_menu` | 7 | Complete | Complete | Complete | Complete | Complete |
-| 3 | `heterogeneous_pair` | 7 | Complete | Complete | In progress | Pending | Current |
-| 4 | `shop_row` | 7.0 | Pending | Pending | Pending | Pending | Queued |
+| 3 | `heterogeneous_pair` | 7 | Complete | Complete | Complete | Complete | Complete |
+| 4 | `shop_row` | 7.0 | In progress | Pending | Pending | Pending | Current |
 | 5 | `alter_dreamscapes` | 6 | Pending | Pending | Pending | Pending | Queued |
 | 6 | `single_wager` | 6 | Pending | Pending | Pending | Pending | Queued |
 | 7 | `single_random_outcome` | 6 | Pending | Pending | Pending | Pending | Queued |
@@ -54,10 +54,10 @@ These shapes are reference implementations for the migration target:
 
 ## Current Notes
 
-- `heterogeneous_pair` is the active shape.
+- `shop_row` is the active shape.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
 - `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
-- `heterogeneous_pair` completed migration commit `ea18545` and audit commit `c2cf5b7`.
-- The active migration target keeps shape-specific code in `src/journey/shapes/heterogeneous_pair/`.
+- `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
+- The active migration target keeps shape-specific code in `src/journey/shapes/shop_row/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
