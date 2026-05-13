@@ -1,4 +1,4 @@
-# Fillers Deletion Plan
+# Fillers and Validation Deletion Plan
 
 ## Summary
 
@@ -6,13 +6,14 @@ This plan deletes `src/journey/fillers` as a production dependency and keeps
 only the behavior required for single-shape, non-debug Journey generation.
 The target system generates a Journey by selecting one canonical shape plugin,
 calling that shape's local fill implementation, assembling a manifest from the
-shape result, validating the manifest, and rendering the result.
+shape result, checking essential manifest invariants, and rendering the result.
 
 The cleanup should be biased toward deletion. Code survives only when it is
-used by production generation, validation, rendering, or shape-local generation
-for a registered canonical shape. Hidden debug fixture controls, batch
-duplicate-avoidance fingerprints, centralized shape fill paths, and tests
-whose only purpose is to protect `fillers` internals are deletion candidates.
+used by production generation, essential runtime correctness checks, rendering,
+or shape-local generation for a registered canonical shape. Hidden debug
+fixture controls, batch duplicate-avoidance fingerprints, centralized shape
+fill paths, broad validation framework code, and tests whose only purpose is
+to protect `fillers` or `validate` internals are deletion candidates.
 
 ## Related Information
 
@@ -33,6 +34,8 @@ whose only purpose is to protect `fillers` internals are deletion candidates.
   fallback path.
 - [`src/commands/journey.ts`](../src/commands/journey.ts): Stateless CLI
   command path, including batch generation behavior.
+- [`src/journey/validate`](../src/journey/validate): Current broad validation
+  framework targeted for deletion except for essential correctness checks.
 
 ## Problem and Context
 
@@ -50,9 +53,10 @@ large enough that tests can pass while still preserving substantial centralized
 surface area.
 
 The cleanup target is intentionally narrow: keep production generation for one
-shape at a time, with normal validation and rendering. Features whose primary
-purpose is hidden debug payload coverage, filler-internal unit tests, or batch
-duplicate avoidance do not belong in the target system.
+shape at a time, with essential correctness checks and rendering. Features
+whose primary purpose is hidden debug payload coverage, filler-internal unit
+tests, validation-framework reporting, or batch duplicate avoidance do not
+belong in the target system.
 
 ## Current Reachability Inventory
 
@@ -74,6 +78,25 @@ These edges should be treated as blockers to directory deletion. The desired
 result is not a renamed `fillers` directory; the desired result is a smaller
 production graph where each surviving behavior has a clear production owner.
 
+The current module graph also keeps `src/journey/validate` reachable through
+generation, repair, shape validators, debug reporting, and tests:
+
+- production generation calls `validateJourneyManifest` before and after
+  repair or fallback;
+- repair maps validation failure rule IDs to repair actions;
+- sequence advancement validates follow-up menus;
+- shape-specific validators import `fail`, `ValidationResult`, tree helpers,
+  random helpers, and precommit helpers;
+- human debug rendering prints validation reports;
+- manifest version metadata includes a validation contract version;
+- tests import validation entry points and specific validation modules.
+
+Most migrated shapes already use `bypassStandardValidation: true`, which
+limits runtime checks to the cheap manifest gates. The target system should
+make this ownership model universal: shape fills own coherence, shape-local
+tests prove shape behavior, and runtime validation is a small set of essential
+assertions rather than a broad rule framework.
+
 ## Goals
 
 - Delete `src/journey/fillers` from the TypeScript module graph.
@@ -85,10 +108,12 @@ production graph where each surviving behavior has a clear production owner.
 - Delete hidden debug fixture generation and the filler helpers reachable only
   through that path.
 - Delete semantic fingerprint generation and batch duplicate avoidance.
+- Delete as much of `src/journey/validate` as possible.
+- Keep only runtime checks that are essential to production correctness.
 - Delete tests whose subject is `src/journey/fillers` rather than production
   behavior.
-- Preserve single-shape non-debug CLI generation, validation, JSON rendering,
-  human rendering, and deterministic replay for a fixed seed.
+- Preserve single-shape non-debug CLI generation, JSON rendering, human
+  rendering, and deterministic replay for a fixed seed.
 
 ## Constraints and Requirements
 
@@ -100,8 +125,9 @@ production graph where each surviving behavior has a clear production owner.
 - The CLI stays non-interactive.
 - A fixed seed must produce deterministic output for the same command,
   content version, shape, and stage.
-- Validation must continue to run against the manifest produced by the selected
-  shape.
+- Essential runtime checks must guard only correctness properties that cannot
+  be trusted to TypeScript, content loading, shape-local fills, and shape-local
+  tests.
 - Target resolution metadata must continue to be attached for production
   operations.
 - JSON and human renderers must continue to derive from the same manifest.
@@ -118,21 +144,23 @@ The production path should be small and direct:
 - A production manifest assembler converts the shape result into a
   `JourneyManifest`.
 - The manifest receives target-resolution metadata, operation adapter output,
-  validation metadata, value information, reachability metadata when useful,
-  and content references derived from actual manifest data.
+  value information, reachability metadata when useful, and content references
+  derived from actual manifest data.
+- Essential runtime checks assert the manifest properties required for safe
+  rendering and follow-up command behavior.
 - Repair and fallback generation call the same production manifest assembler.
 - Rendering consumes the manifest without requiring filler helper modules.
 
 The manifest assembler should not know about debug payload variants, semantic
 fingerprints, centralized shape fill switches, natural generated-object gates,
-or filler-specific test fixtures.
+validation report construction, or filler-specific test fixtures.
 
 ## Deletion Criteria
 
 A function, module, test, or type should be deleted when all of these are true:
 
-- It is not called by non-debug production generation, validation, repair, or
-  rendering.
+- It is not called by non-debug production generation, essential runtime
+  correctness checks, repair, or rendering.
 - It is not imported by a registered shape's production fill.
 - Its tests assert filler-internal catalog structure rather than user-visible
   generation behavior.
@@ -147,6 +175,16 @@ A function may survive only when all of these are true:
 - Moving it to a neutral production module reduces duplication across current
   shape fills.
 - It can be tested through production generation, validation, or rendering.
+
+A validation function may survive only when all of these are true:
+
+- It protects a manifest property required for safe production rendering,
+  target resolution, sequence advancement, or state updates.
+- The same property cannot be enforced by TypeScript, content loading,
+  shape-local construction, or shape-local tests.
+- The check can run without debug fixture metadata, filler catalogs, semantic
+  fingerprints, validation reports, or validation contract metadata.
+- The failure mode is actionable for production generation.
 
 ## Required Code Changes
 
@@ -174,13 +212,87 @@ production responsibilities needed after a shape fill returns:
 - adapt precommitted operations and option operations;
 - evaluate option values;
 - attach target-resolution metadata;
-- attach validation report metadata;
 - attach reachability metadata when the current product uses it;
 - compute manifest references from actual manifest content.
 
 The assembler should not create generated objects on behalf of arbitrary
 shapes. If a shape needs a generated object for production behavior, the shape
 should produce it directly in its fill result.
+
+### Validation Deletion
+
+`src/journey/validate` should be treated as disposable infrastructure. The
+target runtime should keep a small production assertion layer and delete the
+broad validation framework, validation reports, validation contract versioning,
+and rule-specific repair planning.
+
+The production assertion layer should check only these essential properties:
+
+- manifest schema and required top-level fields are present for renderer and
+  command safety;
+- manifest content version and shape catalog version match the current
+  generation context;
+- Journey IDs use the stable root Journey format expected by state and
+  renderer code;
+- root option count matches the selected shape definition;
+- every option has a stable option number, user-facing text, arrays for
+  structured payload collections, converted value fields, and a supported pick
+  behavior;
+- target selectors that a production shape emits resolve when they are marked
+  required;
+- immediate costs that generation asks the player to pay are payable from the
+  current quest state;
+- decision-tree shapes emit complete trees with a valid root, valid branch
+  transitions, visible odds for probabilistic branches, and terminal outcomes;
+- sequence menus contain valid follow-up options and a legal completion or
+  leave path;
+- production generated objects are structurally complete when a current shape
+  emits them.
+
+Checks outside that list should be deleted unless a concrete production caller
+proves they are required for safe rendering or state updates.
+
+The following validation surfaces should be deleted:
+
+- validation report construction and `manifest.debug.validation`;
+- human debug rendering for validation reports;
+- `VALIDATION_CONTRACT_VERSION` and manifest version metadata tied only to
+  validation reports;
+- semantic-operation parity checks between typed operations and payload arrays;
+- broad typed payload contract validation for catalog families owned by
+  `fillers`;
+- route, status, hook, Bane, Dreamwell, shop, generated-object, and random
+  catalog validators that are reachable only through deleted fillers, debug
+  fixtures, or filler-focused tests;
+- validation checked-payload bookkeeping used only for debug reports;
+- tests whose primary subject is validation framework behavior.
+
+Shape-specific checks should live with their owning shape or be deleted. The
+current non-bypassed shapes should be handled as follows:
+
+- decision-tree shapes keep shape-local tree assertions only when the shape
+  emits a tree in production;
+- `risk_or_skip` keeps a shape-local assertion for one accept option, one leave
+  option, visible bounded downside odds, and precommitted downside metadata;
+- `single_offer` keeps a shape-local assertion for one take option and one
+  no-effect leave option;
+- `single_rule_trial` keeps a shape-local assertion only if its production fill
+  can emit more than one option or a meaningful cost;
+- `paired_return` keeps a shape-local assertion only for required paired-return
+  precommit metadata;
+- direct-menu reward and trade shapes should set `bypassStandardValidation:
+  true` when their fills own coherence.
+
+Repair should not depend on validation rule taxonomies. Production repair can
+use one of two smaller policies:
+
+- fail forced-shape generation with the essential assertion failure;
+- regenerate or use the fallback shape when unforced generation violates an
+  essential assertion.
+
+Rule-specific repair actions such as payload-family repair, route-family
+repair, cost-family repair, or semantic-operation repair should be deleted
+with the validation framework and fillers.
 
 ### Semantic Fingerprints and Batch Duplicate Avoidance
 
@@ -207,9 +319,9 @@ The hidden CLI flags for debug payload selection and listing should be deleted
 from command parsing and command handlers. JSON command metadata should not
 include debug payload selection fields after those flags are deleted.
 
-Production `--debug` output may still exist for normal manifests, validation,
-target resolution, and reachability if those surfaces remain useful. It should
-not require `src/journey/fixtures`.
+Production `--debug` output may still exist for normal manifests, essential
+assertions, target resolution, and reachability if those surfaces remain
+useful. It should not require `src/journey/fixtures`.
 
 ### Generated Objects
 
@@ -239,8 +351,8 @@ Likely production candidates are:
 - operation adapter calls;
 - option value evaluation;
 - target-resolution metadata attachment;
-- validation report construction;
 - manifest reference collection from actual manifest content;
+- essential runtime assertion helpers;
 - small rendering helpers used by renderers for production manifest fields.
 
 Likely deletion candidates are:
@@ -263,8 +375,9 @@ visible in at least two shape-local fills.
 ### Tests
 
 Tests should verify production behavior through shape fills, generation,
-validation, rendering, and CLI commands. Tests importing `src/journey/fillers`
-directly should be treated as deletion candidates.
+essential runtime assertions, rendering, and CLI commands. Tests importing
+`src/journey/fillers` or broad `src/journey/validate` internals directly should
+be treated as deletion candidates.
 
 Coverage should remain for:
 
@@ -274,6 +387,8 @@ Coverage should remain for:
 - normal JSON and human rendering work without filler imports;
 - repair and fallback paths can build replacement manifests through the
   production manifest assembler;
+- essential runtime assertions reject malformed manifests that would break
+  rendering, state updates, target resolution, or sequence advancement;
 - CLI `--count` returns the requested number of manifests deterministically.
 
 Coverage can be deleted when the test only asserts:
@@ -282,13 +397,17 @@ Coverage can be deleted when the test only asserts:
 - hidden debug payload fixture output;
 - semantic fingerprint fields;
 - generated-object natural gating from the current builder;
-- direct helper behavior for centralized fills.
+- direct helper behavior for centralized fills;
+- validation reports and checked-payload bookkeeping;
+- broad payload contract validation for deleted filler catalog families;
+- rule-specific repair behavior tied to deleted validation rule IDs.
 
 ## Compatibility Requirements
 
-The manifest schema should be updated deliberately if `distinctness` or debug
-fingerprint fields are deleted from required manifest fields. Renderers and
-tests should treat the revised schema as the production contract.
+The manifest schema should be updated deliberately if `distinctness`, debug
+fingerprint fields, validation report fields, or validation contract fields are
+deleted from required manifest fields. Renderers and tests should treat the
+revised schema as the production contract.
 
 Persisted state compatibility matters only for registered command paths. The
 current stateless generation path should be the primary compatibility target.
@@ -297,8 +416,8 @@ Stateful command code should compile, but compatibility work should not keep
 
 Existing user-facing normal CLI flags should continue to work unless they are
 hidden debug fixture flags. Normal `--debug` should remain useful for
-production manifests if it already supports validation, repair, target
-resolution, or reachability information.
+production manifests if it supports repair, target resolution, or reachability
+information.
 
 ## Acceptance Criteria
 
@@ -308,12 +427,19 @@ resolution, or reachability information.
 - `src/journey/fillers` can be deleted from the worktree.
 - `src/journey/fixtures` can be deleted when its only purpose is hidden debug
   fixture generation.
+- Most of `src/journey/validate` can be deleted, with only essential runtime
+  assertions and shape-local validators surviving.
 - Every registered shape plugin has an explicit production fill.
+- Every direct-menu shape whose fill owns coherence uses the bypassed
+  ownership model or an equivalent small assertion path.
 - Production generation for a forced shape does not call any hidden debug
   fixture path.
 - Production generation does not calculate or render semantic fingerprints.
+- Production generation does not build validation reports or rely on broad
+  validation rule IDs for repair planning.
 - CLI batch generation does not retry based on duplicate fingerprints.
-- Tests assert shape and CLI behavior rather than filler internals.
+- Tests assert shape and CLI behavior rather than filler or validation
+  framework internals.
 - `npm run typecheck` passes.
 - The relevant Vitest suites pass.
 - Manual CLI QA produces valid non-debug production Journeys.
@@ -332,6 +458,7 @@ Run these commands from the repository root after the cleanup:
 - `npm run journey -- --seed qa --count 5 --json`
 
 The expected result is that each command exits successfully, generated
-manifests validate, normal and JSON rendering include production manifest data,
-debug output describes production generation state, and batch generation returns
-exactly the requested number of manifests without fingerprint fields.
+manifests pass the essential runtime assertions, normal and JSON rendering
+include production manifest data, debug output describes production generation
+state, and batch generation returns exactly the requested number of manifests
+without fingerprint or validation-report fields.
