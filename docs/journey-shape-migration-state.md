@@ -21,7 +21,7 @@ Each queued shape follows this sequence:
 | 7 | `single_random_outcome` | 6 | Complete | Complete | Complete | Complete | Complete |
 | 8 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 9 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 10 | `commit_now_future_payoff` | 5 | In progress | Pending | Pending | Pending | Current |
+| 10 | `commit_now_future_payoff` | 5 | Complete | In progress | Pending | Pending | Current |
 | 11 | `timed_window_menu` | 5 | Pending | Pending | Pending | Pending | Queued |
 | 12 | `random_pool_draws` | 4 | Pending | Pending | Pending | Pending | Queued |
 | 13 | `resolved_random_series` | 4 | Pending | Pending | Pending | Pending | Queued |
@@ -64,6 +64,7 @@ These shapes are reference implementations for the migration target:
 - `single_random_outcome` completed migration commit `8305b41`, audit commit `7e3bb8d`, and fix commit `2135ba3`.
 - `now_vs_later` completed migration commit `6003bee`, audit commit `04917a9`, and fix commit `3c0c79e`.
 - `choose_your_loss` completed migration commit `21bfec1`, audit commit `ae9c2a8`, and fix commit `793b996`.
+- `commit_now_future_payoff` completed migration commit `8a0dcb5`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/commit_now_future_payoff/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
