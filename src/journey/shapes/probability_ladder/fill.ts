@@ -1,6 +1,5 @@
-import { odds } from "../../fillers/treeBuilders.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
-import { buildProbabilityLadderTree } from "./tree.js";
+import { buildProbabilityLadderTree, odds } from "./tree.js";
 
 export function probabilityLadderFill(args: ShapeFillArgs): FilledJourney {
   const ladderTree = buildProbabilityLadderTree(

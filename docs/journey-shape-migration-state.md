@@ -106,7 +106,7 @@ the target end state.
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
 | `paired_return` | Needed | Needed |
 | `prize_ladder` | Complete | Complete |
-| `probability_ladder` | Needed | Needed |
+| `probability_ladder` | Complete | Complete |
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reveal_choice_menu` | Needed | Needed |

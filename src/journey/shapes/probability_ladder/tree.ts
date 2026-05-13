@@ -1,42 +1,174 @@
 import type { JourneyContext } from "../../../quest/context.js";
-import type { DrawContext } from "../../../util/rng.js";
-import { treeBuilderTools } from "../../fillers/shared.js";
+import { drawInt, type DrawContext } from "../../../util/rng.js";
+import type { JourneyStage, JourneyTree, JourneyTreeBranch } from "../../manifest.js";
 import {
-  createTreePrimitives,
-  odds,
-  tree,
-  treeBranch,
-} from "../../fillers/treeBuilders.js";
-import type { JourneyStage, JourneyTree } from "../../manifest.js";
-import { valueOmenGain } from "../../value.js";
+  adaptTreeBranchOperations,
+  adaptTreeTerminalOperations,
+} from "../../operationAdapters.js";
+import { getReward } from "../../shared/rewards.js";
+import type { TemplateParams } from "../../shared/types.js";
 
 type ProbabilityLadderReward = {
   readonly text: string;
-  readonly effects: unknown[];
-  readonly targets?: unknown[];
+  readonly effects: readonly unknown[];
   readonly effect: number;
 };
 
-const REWARD_FAMILIES = [
-  "essence",
-  "omens",
-  "dreamsign_draft",
-  "starter_cleanup",
-  "transfiguration",
-] as const;
+type RewardFamily = "essence" | "omens";
 
-const STAGE_OMEN_BONUS: Record<JourneyStage, readonly number[]> = {
-  early: [1, 2, 3, 4],
-  mid: [2, 3, 4, 5],
-  late: [3, 4, 5, 6],
+type TreeBranchArgs = {
+  id: string;
+  label: string;
+  kind?: JourneyTreeBranch["kind"];
+  text: string;
+  odds?: JourneyTreeBranch["odds"];
+  costs?: readonly unknown[];
+  effects?: readonly unknown[];
+  cost?: number;
+  effect?: number;
+  nextNodeId?: string;
+  terminal?: {
+    readonly text: string;
+    readonly outcome: NonNullable<JourneyTreeBranch["terminal"]>["outcome"];
+    readonly costs?: readonly unknown[];
+    readonly effects?: readonly unknown[];
+    readonly burdens?: readonly unknown[];
+    readonly targets?: readonly unknown[];
+    readonly routeEffects?: readonly unknown[];
+  };
 };
+
+const LEVELS = [3, 4] as const;
+const ESSENCE_AMOUNTS: Record<JourneyStage, readonly [number, number, number, number]> = {
+  early: [70, 120, 180, 260],
+  mid: [100, 175, 265, 380],
+  late: [140, 240, 360, 520],
+};
+const OMEN_COUNTS: Record<JourneyStage, readonly [number, number, number, number]> = {
+  early: [1, 2, 4, 6],
+  mid: [2, 4, 6, 9],
+  late: [3, 5, 8, 12],
+};
+const COSTS: Record<JourneyStage, readonly [number, number, number, number]> = {
+  early: [5, 15, 30, 50],
+  mid: [15, 30, 50, 80],
+  late: [25, 45, 75, 115],
+};
+
+function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+  const costs = [...(args.costs ?? [])];
+  const effects = [...(args.effects ?? [])];
+  const terminal = args.terminal
+    ? {
+        text: args.terminal.text,
+        outcome: args.terminal.outcome,
+        operations: [],
+        costs,
+        effects,
+        burdens: [],
+        targets: [],
+        routeEffects: [],
+      }
+    : undefined;
+  const branch = {
+    id: args.id,
+    label: args.label,
+    kind: args.kind ?? "player_choice",
+    text: args.text,
+    operations: [],
+    ...(args.odds ? { odds: args.odds } : {}),
+    costs,
+    effects,
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: args.cost ?? 0,
+    effectConvertedEssence: args.effect ?? 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: (args.effect ?? 0) - (args.cost ?? 0),
+    ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
+    ...(terminal ? { terminal } : {}),
+  };
+
+  return {
+    ...branch,
+    operations: adaptTreeBranchOperations(branch),
+    ...(branch.terminal
+      ? {
+          terminal: {
+            ...branch.terminal,
+            operations: adaptTreeTerminalOperations(
+              branch.terminal,
+              `tree:${branch.id}:terminal`,
+            ),
+          },
+        }
+      : {}),
+  };
+}
+
+export function odds(percent: number): JourneyTreeBranch["odds"] {
+  return { numerator: percent, denominator: 100, percent };
+}
+
+function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+  return {
+    rootNodeId: nodes[0]?.id ?? "level-1",
+    nodes,
+  };
+}
+
+function pickSequentialVariant<T>(
+  drawContext: DrawContext,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
+}
+
+function cost(amount: number): Record<string, unknown> {
+  return {
+    kind: "essence",
+    amount,
+    timing: "immediate",
+  };
+}
+
+function sentenceCase(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+function sharedRewardPayload(
+  context: JourneyContext,
+  templateId: "gain_essence" | "gain_omens",
+  params: TemplateParams,
+): ProbabilityLadderReward {
+  const template = getReward(templateId);
+  const text = template.render(params as never, context);
+  const convertedEssence = template.cec(params as never, context);
+
+  return {
+    text: `${text.charAt(0).toLowerCase()}${text.slice(1)}.`,
+    effects: [
+      {
+        kind: "shared_reward_template",
+        templateId,
+        params,
+        text,
+        convertedEssence,
+      },
+    ],
+    effect: convertedEssence,
+  };
+}
 
 function chanceProgression(
   drawContext: DrawContext,
   label: string,
   levels: number,
 ): number[] {
-  const { pickSequentialVariant } = treeBuilderTools;
   const start = pickSequentialVariant(
     drawContext,
     `${label}:start`,
@@ -50,106 +182,27 @@ function chanceProgression(
   );
 }
 
-function withoutFinalPeriod(text: string): string {
-  return text.replace(/\.$/u, "");
-}
-
-function omenText(amount: number): string {
-  return `${amount} ${amount === 1 ? "omen" : "omens"}`;
-}
-
-function isGainOmenPayload(effect: unknown): effect is { amount: number } {
-  return (
-    typeof effect === "object" &&
-    effect !== null &&
-    "kind" in effect &&
-    effect.kind === "gain_omens" &&
-    "amount" in effect &&
-    typeof effect.amount === "number"
-  );
-}
-
-function roundDownToFive(amount: number): number {
-  return Math.floor(amount / 5) * 5;
-}
-
-function enhanceRewardForLevel(
-  reward: ProbabilityLadderReward,
-  stage: JourneyStage,
-  levelIndex: number,
-): ProbabilityLadderReward {
-  const omenBonus = STAGE_OMEN_BONUS[stage][levelIndex]!;
-
-  return addOmenBonus(reward, omenBonus);
-}
-
-function addOmenBonus(
-  reward: ProbabilityLadderReward,
-  omenBonus: number,
-): ProbabilityLadderReward {
-  const { gainOmen } = treeBuilderTools;
-  const primaryEffect = reward.effects[0];
-
-  if (isGainOmenPayload(primaryEffect)) {
-    const amount = primaryEffect.amount + omenBonus;
-
-    return {
-      ...reward,
-      text: `gain ${omenText(amount)}.`,
-      effects: [gainOmen(amount), ...reward.effects.slice(1)],
-      effect: reward.effect + valueOmenGain(omenBonus),
-    };
-  }
-
-  return {
-    ...reward,
-    text: `${withoutFinalPeriod(reward.text)}. Gain ${omenText(omenBonus)}.`,
-    effects: [...reward.effects, gainOmen(omenBonus)],
-    effect: reward.effect + valueOmenGain(omenBonus),
-  };
-}
-
-function enforceRewardProgression(
-  rewards: readonly ProbabilityLadderReward[],
-): ProbabilityLadderReward[] {
-  const minimumStep = 25;
-
-  return rewards.reduce<ProbabilityLadderReward[]>((progression, reward) => {
-    const previous = progression[progression.length - 1];
-    const minimumValue = previous
-      ? previous.effect + minimumStep
-      : reward.effect;
-    let adjusted = reward;
-
-    if (adjusted.effect < minimumValue) {
-      const omenUnit = valueOmenGain(1);
-      const extraOmens = Math.ceil((minimumValue - adjusted.effect) / omenUnit);
-      adjusted = addOmenBonus(adjusted, extraOmens);
-    }
-
-    progression.push(adjusted);
-
-    return progression;
-  }, []);
-}
-
-function attemptCost(
+function rewardsFor(
   context: JourneyContext,
-  rewardValue: number,
-  chance: number,
-  previousCost: number,
-): number {
-  const { payableSequentialCost } = treeBuilderTools;
-  const expectedValue = (rewardValue * chance) / 100;
-  const preferred = roundDownToFive(expectedValue * 0.6);
-  const positiveCeiling = roundDownToFive(expectedValue - 10);
-  const progressiveFloor = previousCost + 5;
-  const desired = Math.min(
-    Math.max(progressiveFloor, preferred, 5),
-    Math.max(5, positiveCeiling),
+  drawContext: DrawContext,
+  stage: JourneyStage,
+  levels: number,
+): ProbabilityLadderReward[] {
+  const family = pickSequentialVariant(
+    drawContext,
+    "probability-ladder:reward-family",
+    ["essence", "omens"] as const satisfies readonly RewardFamily[],
   );
 
-  return payableSequentialCost(context, desired);
+  return Array.from({ length: levels }, (_entry, index) =>
+    family === "essence"
+      ? sharedRewardPayload(context, "gain_essence", {
+          x: ESSENCE_AMOUNTS[stage][index]!,
+        })
+      : sharedRewardPayload(context, "gain_omens", {
+          x: OMEN_COUNTS[stage][index]!,
+        }),
+  );
 }
 
 export function buildProbabilityLadderTree(
@@ -157,42 +210,18 @@ export function buildProbabilityLadderTree(
   drawContext: DrawContext,
   stage: JourneyStage,
 ): JourneyTree {
-  const { cost, pickSequentialVariant, sentenceCase } = treeBuilderTools;
-  const { treeRewardFamily } = createTreePrimitives(treeBuilderTools);
   const levels = pickSequentialVariant(
     drawContext,
     "probability-ladder:levels",
-    [3, 4],
+    LEVELS,
   );
-  const rewardFamily = treeRewardFamily(
-    context,
-    drawContext,
-    "probability-ladder:reward",
-    levels,
-    REWARD_FAMILIES,
-  );
-  const rewards = enforceRewardProgression(
-    rewardFamily.rewards.map((reward, index) =>
-      enhanceRewardForLevel(reward, stage, index),
-    ),
-  );
+  const rewards = rewardsFor(context, drawContext, stage, levels);
   const chances = chanceProgression(
     drawContext,
     "probability-ladder:chances",
     levels,
   );
-  const costs = rewards.reduce<number[]>((progression, reward, index) => {
-    progression.push(
-      attemptCost(
-        context,
-        reward.effect,
-        chances[index]!,
-        progression[index - 1] ?? 0,
-      ),
-    );
-
-    return progression;
-  }, []);
+  const costs = COSTS[stage].slice(0, levels);
 
   return tree(
     costs.map((price, index) => {
@@ -223,7 +252,7 @@ export function buildProbabilityLadderTree(
             id: `level-${level}-attempt`,
             label: "Attempt",
             text: `Pay ${price} essence for a ${chance}% chance to ${reward.text}`,
-            costs: [cost("essence", price)],
+            costs: [cost(price)],
             cost: price,
             odds: odds(chance),
           }),
@@ -233,7 +262,6 @@ export function buildProbabilityLadderTree(
             kind: "random_chance",
             text: `${sentenceCase(reward.text)} End the Journey.`,
             effects: reward.effects,
-            targets: reward.targets ?? [],
             effect: reward.effect,
             odds: odds(chance),
             terminal: {
@@ -242,7 +270,7 @@ export function buildProbabilityLadderTree(
               costs: [],
               effects: reward.effects,
               burdens: [],
-              targets: reward.targets ?? [],
+              targets: [],
               routeEffects: [],
             },
           }),
