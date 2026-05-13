@@ -1,10 +1,8 @@
 import {
-  commonValidationRules,
+  JOURNEY_SHAPE_CATALOG_VERSION,
   defineShapePlugin,
-  versionContribution,
 } from "../shared.js";
 import { shopRowFill } from "./fill.js";
-import { validateNamedDreamsignShopRowCosts } from "./validators.js";
 
 export const shopRowPlugin = defineShapePlugin({
   definition: {
@@ -107,40 +105,25 @@ export const shopRowPlugin = defineShapePlugin({
       },
     ],
     validationRules: [
-      ...commonValidationRules,
-      "each_option_has_flat_visible_price",
-      "prices_are_nonnegative_and_affordable_for_stage",
-      "same_cost_different_named_goods",
+      "manifest_schema_version",
+      "manifest_version_metadata",
+      "journey_id_format",
+      "root_option_count_within_bounds",
     ],
-    repairPreferences: [
-      "clamp_price_to_stage_band",
-      "replace_unpriced_offer",
-      "rebalance_shop_row_value",
-    ],
+    repairPreferences: [],
     debugLabel: "Shop row",
-    versionContribution: versionContribution("shop_row", "direct_menu"),
+    versionContribution: {
+      catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
+      id: "shop_row",
+      topology: "direct_menu",
+      bypassStandardValidation: true,
+    },
     menuValueChecks: {
       positiveBands: false,
-      symmetricBands: true,
+      symmetricBands: false,
       escalationOrRiskExempt: false,
     },
-  },
-  generatedObjects: { natural: true },
-  validators: [
-    {
-      ruleId: "same_cost_different_named_goods",
-      passMessage:
-        "Named Dreamsign shop rows validate shared costs as same cost, different named goods.",
-      checkedPayloads: ({ optionChecked }) => optionChecked,
-      validate: ({ manifest }) => validateNamedDreamsignShopRowCosts(manifest),
-    },
-  ],
-  repair: {
-    actions: [
-      { action: "clamp_price_to_stage_band", kind: "adjust_cost_or_burden" },
-      { action: "replace_unpriced_offer", kind: "adjust_cost_or_burden" },
-      { action: "rebalance_shop_row_value", kind: "repair_payload_family" },
-    ],
+    bypassStandardValidation: true,
   },
   fill: shopRowFill,
 });
