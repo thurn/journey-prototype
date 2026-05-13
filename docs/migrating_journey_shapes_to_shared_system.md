@@ -9,6 +9,11 @@ Use this guide when moving an existing shape into the current structure or when
 writing a shape that should own its fill algorithm directly instead of routing
 through broad generator infrastructure.
 
+The long-term destination for this project is to delete
+`src/journey/fillers`, `src/journey/fixtures`, and `src/journey/validate`.
+Migration work should avoid adding imports, test fixtures, helper paths, or
+behavioral dependencies that make those directories harder to retire.
+
 ## Target Structure
 
 A migrated shape lives in its own directory:
