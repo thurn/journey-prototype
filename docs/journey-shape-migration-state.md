@@ -107,7 +107,7 @@ the target end state.
 | `risk_or_skip` | Needed | Needed |
 | `shared_prefix_menu` | Needed | Needed |
 | `single_offer` | Complete | Complete |
-| `single_reward` | Needed | Needed |
+| `single_reward` | Complete | Complete |
 | `single_rule_trial` | Complete | Complete |
 | `timed_window_menu` | Needed | Complete |
 
