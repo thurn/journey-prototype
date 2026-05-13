@@ -8,6 +8,7 @@ import type {
   HookVisibilityPolicy,
   JourneyOption,
 } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -355,6 +356,9 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
     timing,
     expectedConvertedEssence: delayedCec,
   });
+  const precommitted = {
+    delayed: [precommit],
+  };
 
   return {
     options: [
@@ -373,7 +377,8 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
       ),
     ],
     precommitted: {
-      delayed: [precommit],
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

@@ -22,16 +22,10 @@ import {
   type JourneyShapeDefinition,
 } from "./shapes.js";
 import {
-  markJourneyAcceptedImmediately,
-  markJourneyForcedShapeFailure,
-  repairOrFallbackJourney,
-} from "./repair.js";
-import {
   validateJourneyManifest,
   type ValidationResult,
 } from "./validate/index.js";
 import { evaluateOptionValue } from "./value.js";
-import { withReachabilityMetadata } from "./reachability.js";
 
 export type GenerationInput = {
   context: JourneyContext;
@@ -316,6 +310,20 @@ function forcedFailureMessage(
   ].join(" ");
 }
 
+function generationFailureMessage(
+  manifest: JourneyManifest,
+  validation: ValidationResult,
+): string {
+  if (validation.ok) {
+    return `Journey shape ${manifest.shapeId} could not be generated legally`;
+  }
+
+  return [
+    `Journey shape ${manifest.shapeId} failed validation: ${validation.message}`,
+    `(journey: ${manifest.journeyId}; rule: ${validation.rule})`,
+  ].join(" ");
+}
+
 export function generateNextJourney(input: GenerationInput): JourneyManifest {
   const { context, previousPick } = input;
   const drawContext: DrawContext = {
@@ -360,52 +368,21 @@ export function generateNextJourney(input: GenerationInput): JourneyManifest {
     context.state.quest,
   );
   const validation = validateJourneyManifest(resolvedManifest, context);
-  const finalManifest = validation.ok
-    ? markJourneyAcceptedImmediately(
-        resolvedManifest,
-        input.forcedShapeId !== undefined,
-      )
-    : repairOrFallbackJourney(resolvedManifest, context, validation, {
-        forcedShape: input.forcedShapeId !== undefined,
-      });
-  const resolvedFinalManifest = withReachabilityMetadata(
-    attachTargetResolutionMetadata(
-      finalManifest,
-      context.content,
-      context.state.quest,
-    ),
-  );
-
-  if (
-    input.forcedShapeId &&
-    resolvedFinalManifest.shapeId !== input.forcedShapeId
-  ) {
-    throw new Error(
-      `Forced shape ${input.forcedShapeId} could not be generated legally (final shape: ${resolvedFinalManifest.shapeId})`,
-    );
-  }
-
-  const finalValidation = validateJourneyManifest(
-    resolvedFinalManifest,
-    context,
-  );
-
-  if (!finalValidation.ok && input.forcedShapeId) {
-    const failedManifest = markJourneyForcedShapeFailure(
-      resolvedFinalManifest,
-      finalValidation,
-    );
-
+  if (!validation.ok && input.forcedShapeId) {
     throw new Error(
       forcedFailureMessage(
         input.forcedShapeId,
-        failedManifest,
-        finalValidation,
+        resolvedManifest,
+        validation,
       ),
     );
   }
 
-  return freezeSerializable(resolvedFinalManifest);
+  if (!validation.ok) {
+    throw new Error(generationFailureMessage(resolvedManifest, validation));
+  }
+
+  return freezeSerializable(resolvedManifest);
 }
 
 function cloneOptions(options: readonly JourneyOption[]): JourneyOption[] {
@@ -513,6 +490,6 @@ export function advanceSequenceJourney(
 
   return {
     kind: "advanced",
-    manifest: freezeSerializable(withReachabilityMetadata(advanced)),
+    manifest: freezeSerializable(advanced),
   };
 }

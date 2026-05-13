@@ -890,44 +890,6 @@ function operationDebugLines(manifest: JourneyManifest, verbose: boolean): strin
   return lines;
 }
 
-function reachabilityDebugLines(manifest: JourneyManifest, verbose: boolean): string[] {
-  const reachability = manifest.debug.reachability;
-
-  if (!reachability) {
-    return [];
-  }
-
-  const lines: string[] = [
-    "",
-    "Reachability:",
-    `Mode: ${reachability.generatorMode}; evidence=${reachability.evidenceSource}.`,
-    `Shape topology: ${reachability.shapeTopology}.`,
-    `Payload families: ${reachability.payloadFamilies.join(", ") || "none"}.`,
-    `Selector families: ${reachability.selectorFamilies.join(", ") || "none"}.`,
-    `Timing families: ${reachability.timingFamilies.join(", ") || "none"}.`,
-  ];
-
-  const decisions = verbose
-    ? reachability.featureDecisions
-    : reachability.featureDecisions.filter((decision) => decision.status !== "skipped");
-
-  if (decisions.length > 0) {
-    lines.push("Feature decisions:");
-    for (const decision of decisions) {
-      const families = decision.evidenceFamilies.length > 0
-        ? ` families=${decision.evidenceFamilies.join(",")}`
-        : "";
-      const paths = decision.evidencePaths.length > 0
-        ? ` paths=${decision.evidencePaths.join(",")}`
-        : "";
-
-      lines.push(`  ${decision.family}: ${decision.status}; ${decision.reason}${families}${paths}`);
-    }
-  }
-
-  return lines;
-}
-
 function generatedObjectDebugLines(manifest: JourneyManifest): string[] {
   const generatedObjects = Array.isArray(manifest.generatedObjects)
     ? manifest.generatedObjects
@@ -1018,29 +980,14 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
 
   const topScore = manifest.debug.shapeScores[0];
   if (topScore) {
-    const selectedScore = manifest.debug.shapeScores.find((entry) =>
-      entry.shapeId === manifest.debug.selectedShapeId
+    out.push(
+      `${paint("Shape scoring: ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`,
     );
-    const scoringLine = manifest.debug.repair.forcedShape && selectedScore
-      ? `${paint("Shape scoring: forced ")}${highlight(selectedScore.shapeId)}${paint(" ")}${highlight(String(selectedScore.score))}${paint("; pre-force top ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`
-      : `${paint("Shape scoring: ")}${highlight(topScore.shapeId)}${paint(" ")}${highlight(String(topScore.score))}`;
-
-    out.push(scoringLine);
   }
 
   const outcomes = committedOutcomeLines(manifest);
   if (outcomes.length > 0) {
     out.push("", paint("Precommitted outcomes:"), ...outcomes.map(paint));
-  }
-
-  const reachability = manifest.debug.reachability;
-  const reachabilityRaw = reachabilityDebugLines(manifest, verbose);
-  for (const line of reachabilityRaw) {
-    if (reachability && line === `Shape topology: ${reachability.shapeTopology}.`) {
-      out.push(`${paint("Shape topology: ")}${highlight(reachability.shapeTopology)}${paint(".")}`);
-    } else {
-      out.push(paint(line));
-    }
   }
 
   if (manifest.debug.symmetryContracts?.length) {
@@ -1064,26 +1011,6 @@ function debugLines(state: JourneyState, manifest: JourneyManifest, options: Ren
 
   for (const optionValue of manifest.debug.optionValues) {
     out.push("", ...optionValueDebugLines(optionValue, options));
-  }
-
-  if (manifest.debug.repairs.length > 0) {
-    out.push("", paint("Repairs:"));
-    for (const repair of manifest.debug.repairs) {
-      out.push(paint(
-        `Attempt ${repair.attempt}: ${repair.failedRule}; ${repair.actionCategory}; ${repair.action}; ${repair.result}.`,
-      ));
-
-      if (repair.validation) {
-        out.push(paint(`  Validation ${repair.validation.ruleId}: ${repair.validation.message}.`));
-      }
-    }
-  }
-
-  if (manifest.debug.repair) {
-    out.push(
-      "",
-      paint(`Repair status: ${manifest.debug.repair.status}; forced shape: ${manifest.debug.repair.forcedShape ? "yes" : "no"}.`),
-    );
   }
 
   return out;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCommonOptions } from "../src/cli.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
-import { adaptPrecommittedOperations } from "../src/journey/operationAdapters.js";
+import { buildPrecommittedOperations } from "../src/journey/operationBuilders.js";
 import { createJourneyError, renderError } from "../src/render/errors.js";
 import { renderJourneyHuman, renderStateHuman } from "../src/render/human.js";
 import { ExitCode } from "../src/util/exitCodes.js";
@@ -129,7 +129,7 @@ describe("review feedback regressions", () => {
       ...fixtureManifest(),
       precommitted: {
         ...precommitted,
-        operations: adaptPrecommittedOperations(precommitted),
+        operations: buildPrecommittedOperations(precommitted),
       },
     };
 
@@ -253,7 +253,7 @@ describe("review feedback regressions", () => {
       ...fixtureManifest(),
       precommitted: {
         ...precommitted,
-        operations: adaptPrecommittedOperations(precommitted),
+        operations: buildPrecommittedOperations(precommitted),
       },
     };
 

@@ -710,71 +710,6 @@ export type JourneyOperation =
   | GeneratedObjectOperation
   | ValidationRequirementOperation;
 
-export type RepairOutcomeStatus =
-  | "accepted_immediately"
-  | "adjusted"
-  | "narrowed"
-  | "replaced"
-  | "fallback"
-  | "forced_shape_failed"
-  | "unrepaired";
-
-export type RepairOutcomeMetadata = {
-  status: RepairOutcomeStatus;
-  forcedShape: boolean;
-  finalShapeId: JourneyShapeId;
-  failedRule?: string;
-  message?: string;
-  payloadFamily?: string;
-  targetResolution?: TargetResolutionMetadata;
-  disposition?:
-    | "accepted"
-    | "payload_regenerated"
-    | "simplified"
-    | "adjusted"
-    | "narrowed"
-    | "replaced"
-    | "fallback"
-    | "forced_to_fail"
-    | "unrepaired";
-  action?: string;
-};
-
-export type ReachabilityEvidenceCategory =
-  | "payload"
-  | "selector"
-  | "timing";
-
-export type ReachabilityEvidence = {
-  category: ReachabilityEvidenceCategory;
-  family: string;
-  path: string;
-  operationId?: string;
-  operationKind?: JourneyOperation["operationKind"];
-  role?: JourneyOperation["role"];
-  detail?: string;
-};
-
-export type ReachabilityMetadata = {
-  evidenceSource: "structured_manifest_operations";
-  generatorMode: "normal_generation";
-  shapeTopology: string;
-  shapeId: JourneyShapeId;
-  payloadFamilies: string[];
-  selectorFamilies: string[];
-  timingFamilies: string[];
-  featureDecisions: FeatureReachabilityDecision[];
-  evidence: ReachabilityEvidence[];
-};
-
-export type FeatureReachabilityDecision = {
-  family: string;
-  status: "selected" | "skipped";
-  reason: string;
-  evidencePaths: string[];
-  evidenceFamilies: string[];
-};
-
 export type PrecommittedOutcomes = {
   random?: RandomPrecommittedOutcome[];
   delayed?: unknown[];
@@ -790,19 +725,6 @@ export type JourneyDebug = {
   selectedTags: string[];
   optionValues: ValueBreakdown[];
   symmetryContracts?: JourneySymmetryContractDebug[];
-  repairs: {
-    attempt: number;
-    failedRule: string;
-    actionCategory: Exclude<RepairOutcomeStatus, "accepted_immediately" | "forced_shape_failed" | "unrepaired">;
-    action: string;
-    result: "repaired" | "fallback" | "failed";
-    validation?: {
-      ruleId: string;
-      message: string;
-    };
-  }[];
-  repair: RepairOutcomeMetadata;
-  reachability?: ReachabilityMetadata;
   previousPick?: {
     journeyId: string;
     shapeId: JourneyShapeId;

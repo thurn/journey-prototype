@@ -7,6 +7,7 @@ import type {
   RandomPrecommittedOutcome,
   RandomVisibilityPolicy,
 } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward, TemplateParams } from "../../shared/types.js";
@@ -513,6 +514,26 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
         });
   const firstRoll = drawInt(drawContext, "single_wager:roll:1", 1, 100);
   const secondRoll = drawInt(drawContext, "single_wager:roll:2", 1, 100);
+  const precommitted = {
+    random: [
+      precommittedWager({
+        optionNumber: 1,
+        stake: firstStake,
+        reward: selectedPair.first.reward,
+        successPercent: firstSuccessPercent,
+        roll: firstRoll,
+        riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
+      }),
+      precommittedWager({
+        optionNumber: 2,
+        stake: secondStake,
+        reward: selectedPair.second.reward,
+        successPercent: secondSuccessPercent,
+        roll: secondRoll,
+        riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
+      }),
+    ],
+  };
 
   return {
     options: [
@@ -532,24 +553,8 @@ export function singleWagerFill(args: ShapeFillArgs): FilledJourney {
       }),
     ],
     precommitted: {
-      random: [
-        precommittedWager({
-          optionNumber: 1,
-          stake: firstStake,
-          reward: selectedPair.first.reward,
-          successPercent: firstSuccessPercent,
-          roll: firstRoll,
-          riskPremiumConvertedEssence: FIRST_RISK_PREMIUM,
-        }),
-        precommittedWager({
-          optionNumber: 2,
-          stake: secondStake,
-          reward: selectedPair.second.reward,
-          successPercent: secondSuccessPercent,
-          roll: secondRoll,
-          riskPremiumConvertedEssence: SECOND_RISK_PREMIUM,
-        }),
-      ],
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

@@ -181,16 +181,6 @@ describe("reveal_choice_menu fill", () => {
         "reveal_choice_rows_have_matching_envelopes",
         "random_reward_outcomes_are_precommitted",
       ],
-      repairPreferences: [
-        "restore_visible_reward_pool",
-        "split_combined_reveal_modes",
-        "bound_random_reward_outcomes",
-      ],
-      menuValueChecks: {
-        positiveBands: false,
-        symmetricBands: false,
-        escalationOrRiskExempt: true,
-      },
     });
   });
 

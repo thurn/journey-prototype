@@ -1,4 +1,5 @@
 import type { JourneyOption } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { JOURNEY_REWARDABLE_SITE_TYPES } from "../../shared/content.js";
 import { getReward } from "../../shared/rewards.js";
 import type { Reward, TemplateParams } from "../../shared/types.js";
@@ -405,11 +406,15 @@ export function alterDreamscapesFill(args: ShapeFillArgs): FilledJourney {
   ).slice(0, 3);
   const rewards = rollRouteRewards(args, selectedTemplateIds);
   const options = rewards.map((reward, index) => optionFor(index + 1, reward));
+  const precommitted = {
+    routeEdits: options.flatMap((option) => option.routeEffects),
+  };
 
   return {
     options,
     precommitted: {
-      routeEdits: options.flatMap((option) => option.routeEffects),
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

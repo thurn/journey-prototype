@@ -2045,7 +2045,7 @@ function adaptRecordArray(
   );
 }
 
-export function adaptJourneyOptionOperations(option: Omit<JourneyOption, "operations" | "symbols">): JourneyOperation[] {
+export function buildJourneyOptionOperations(option: Omit<JourneyOption, "operations" | "symbols">): JourneyOperation[] {
   const costValue = option.costs.length === 1 ? option.costConvertedEssence : undefined;
   const effectValue = option.effects.length === 1 ? option.effectConvertedEssence : undefined;
   const burdenValue = option.burdens.length === 1 ? option.burdenConvertedEssence : undefined;
@@ -2061,7 +2061,7 @@ export function adaptJourneyOptionOperations(option: Omit<JourneyOption, "operat
   ];
 }
 
-export function adaptTreeTerminalOperations(
+export function buildTreeTerminalOperations(
   terminal: Omit<JourneyTreeTerminal, "operations">,
   prefix: string,
 ): JourneyOperation[] {
@@ -2074,7 +2074,7 @@ export function adaptTreeTerminalOperations(
   ];
 }
 
-export function adaptTreeBranchOperations(branch: Omit<JourneyTreeBranch, "operations">): JourneyOperation[] {
+export function buildTreeBranchOperations(branch: Omit<JourneyTreeBranch, "operations">): JourneyOperation[] {
   return [
     ...adaptRecordArray(branch.costs, `tree:${branch.id}:cost`, adaptCost, branch.costConvertedEssence),
     ...adaptRecordArray(branch.effects, `tree:${branch.id}:effect`, adaptEffect, branch.effectConvertedEssence),
@@ -2085,7 +2085,7 @@ export function adaptTreeBranchOperations(branch: Omit<JourneyTreeBranch, "opera
   ];
 }
 
-export function adaptRewardPoolOperations(pool: Omit<JourneyRewardPool, "operations">): JourneyOperation[] {
+export function buildRewardPoolOperations(pool: Omit<JourneyRewardPool, "operations">): JourneyOperation[] {
   return adaptRecordArray(
     pool.rewards,
     "reward-pool:reward",
@@ -2093,7 +2093,7 @@ export function adaptRewardPoolOperations(pool: Omit<JourneyRewardPool, "operati
   );
 }
 
-export function adaptPrecommittedOperations(precommitted: Omit<PrecommittedOutcomes, "operations">): JourneyOperation[] {
+export function buildPrecommittedOperations(precommitted: Omit<PrecommittedOutcomes, "operations">): JourneyOperation[] {
   return [
     ...adaptRecordArray(
       precommitted.random ?? [],

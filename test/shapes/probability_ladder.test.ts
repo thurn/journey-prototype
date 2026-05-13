@@ -185,11 +185,6 @@ describe("probability_ladder fill", () => {
         "fixed_reward_can_be_won_once",
         "attempt_costs_share_family",
       ],
-      repairPreferences: [
-        "normalize_attempt_costs",
-        "make_success_terminal",
-        "simplify_ladder_level_count",
-      ],
     });
     expect(probabilityLadderPlugin.fill).toEqual(expect.any(Function));
     expect(probabilityLadderPlugin.treeValidator).toEqual(expect.any(Function));

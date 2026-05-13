@@ -52,19 +52,18 @@ const FILES_ALLOWED_BY_SHAPE_ID = new Map(
     ],
     paired_return: [
       "src/journey/manifest.ts",
-      "src/journey/operationAdapters.ts",
-      "src/journey/reachability.ts",
+      "src/journey/operationBuilders.ts",
       "src/render/human.ts",
     ],
     probability_ladder: [
       "src/journey/manifest.ts",
-      "src/journey/operationAdapters.ts",
+      "src/journey/operationBuilders.ts",
       "src/journey/validate/randomContracts.ts",
       "src/render/human.ts",
     ],
     resolved_random_series: [
       "src/journey/manifest.ts",
-      "src/journey/operationAdapters.ts",
+      "src/journey/operationBuilders.ts",
       "src/journey/validate/randomContracts.ts",
       "src/render/human.ts",
     ],

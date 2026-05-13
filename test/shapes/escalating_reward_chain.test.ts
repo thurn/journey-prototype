@@ -153,11 +153,6 @@ describe("escalating_reward_chain fill", () => {
         "chain_rewards_share_family",
         "take_costs_scale_coherently",
       ],
-      repairPreferences: [
-        "align_reward_family",
-        "normalize_cost_scaling",
-        "simplify_chain_level_count",
-      ],
     });
     expect(escalatingRewardChainPlugin.fill).toEqual(expect.any(Function));
   });

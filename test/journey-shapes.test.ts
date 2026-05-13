@@ -3,7 +3,6 @@ import type { ContentBundle } from "../src/content/model.js";
 import { computeContentVersion } from "../src/content/version.js";
 import {
   canonicalShapeDefinitions,
-  fallbackShapeIds,
   getShapeDefinition,
   getShapePlugin,
   isJourneyShapeId,
@@ -68,7 +67,7 @@ function minimalContent(): ContentBundle {
 }
 
 describe("JOURNEY_SHAPES", () => {
-  it("exposes plugins and compatibility definitions in the same deterministic order", () => {
+  it("exposes plugins and definitions in the same deterministic order", () => {
     const pluginIds = journeyShapePlugins().map((plugin) => plugin.id);
     const definitionIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
@@ -122,53 +121,18 @@ describe("JOURNEY_SHAPES", () => {
       expect(definition.rootOptionCount.max).toBeGreaterThanOrEqual(
         definition.rootOptionCount.min,
       );
-      if (!definition.bypassStandardValidation) {
-        expect(definition.supportedTags.length).toBeGreaterThan(0);
-        expect(definition.payloadCompatibility.length).toBeGreaterThan(0);
-        expect(definition.payloadCompatibility.map((entry) => entry.familyId)).toEqual(expect.arrayContaining([
-          "adapter",
-          "decision_tree",
-        ]));
-      }
       expect(definition.validationRules.length).toBeGreaterThan(0);
-      if (!definition.bypassStandardValidation) {
-        expect(definition.repairPreferences.length).toBeGreaterThan(0);
-      }
       expect(definition.debugLabel.length).toBeGreaterThan(0);
       expect(definition.versionContribution).toBeDefined();
     }
   });
 
-  it("uses registry lookup and fallback metadata without a closed ID union", () => {
+  it("uses registry lookup without a closed ID union", () => {
     expect(isJourneyShapeId("risk_or_skip")).toBe(true);
     expect(isJourneyShapeId("fixture_test_shape")).toBe(false);
     expect(getShapePlugin("risk_or_skip").validators?.map((entry) => entry.ruleId)).toContain(
       "risk_or_skip_envelope",
     );
-    expect(fallbackShapeIds()).toEqual([
-      "single_reward",
-      "service_menu",
-    ]);
-  });
-
-  it("maps decision-tree payload compatibility only to tree topology shapes", () => {
-    for (const definition of JOURNEY_SHAPES) {
-      if (definition.bypassStandardValidation) {
-        continue;
-      }
-
-      const decisionTreeCompatibility = definition.payloadCompatibility.find((entry) =>
-        entry.familyId === "decision_tree"
-      );
-
-      expect(decisionTreeCompatibility, definition.id).toBeDefined();
-      expect(decisionTreeCompatibility?.legality, definition.id).toBe(
-        definition.topology === "decision_tree" ? "legal" : "unsupported",
-      );
-      expect(decisionTreeCompatibility?.variants, definition.id).toEqual(
-        definition.topology === "decision_tree" ? ["complete-decision-tree"] : [],
-      );
-    }
   });
 
   it("requires non-tree shapes to expose a root choice", () => {
@@ -201,7 +165,6 @@ describe("JOURNEY_SHAPES", () => {
     expect(Object.isFrozen(definition.rootOptionCount)).toBe(true);
     expect(Object.isFrozen(definition.supportedTags)).toBe(true);
     expect(Object.isFrozen(definition.validationRules)).toBe(true);
-    expect(Object.isFrozen(definition.repairPreferences)).toBe(true);
     expect(Object.isFrozen(definition.versionContribution)).toBe(true);
 
     expect(() => {
@@ -238,7 +201,6 @@ describe("JOURNEY_SHAPES", () => {
         rootOptionCount: { min: 0, max: 0 },
         supportedTags: ["fixture"],
         validationRules: ["fixture_tree_is_complete"],
-        repairPreferences: ["fixture_rebuild"],
         debugLabel: "Fixture test shape",
         versionContribution: {
           catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
@@ -248,11 +210,6 @@ describe("JOURNEY_SHAPES", () => {
       },
       scoreWeight: 1.1,
       fill: () => ({ options: [], precommitted: {} }),
-      repair: {
-        actions: [
-          { action: "fixture_rebuild", kind: "simplify_fill" },
-        ],
-      },
     });
 
     expect(plugin.id).toBe("fixture_test_shape");
@@ -261,54 +218,6 @@ describe("JOURNEY_SHAPES", () => {
       options: [],
       precommitted: {},
     });
-    expect(plugin.repair?.actions?.[0]).toEqual({
-      action: "fixture_rebuild",
-      kind: "simplify_fill",
-    });
-  });
-
-  it("propagates bypassStandardValidation through defineShapePlugin", () => {
-    const plugin = defineShapePlugin({
-      definition: {
-        id: "bypass_fixture_shape",
-        topology: "direct_menu",
-        rootOptionCount: { min: 1, max: 1 },
-        supportedTags: [],
-        validationRules: [
-          "manifest_schema_version",
-          "manifest_version_metadata",
-          "journey_id_format",
-          "root_option_count_within_bounds",
-        ],
-        repairPreferences: [],
-        debugLabel: "Bypass fixture",
-        versionContribution: { catalogVersion: "test", id: "bypass_fixture_shape" },
-        bypassStandardValidation: true,
-      },
-      scoreWeight: 0,
-      fill: () => ({ options: [], precommitted: {} }),
-    });
-
-    expect(plugin.definition.bypassStandardValidation).toBe(true);
-  });
-
-  it("defaults bypassStandardValidation to false when not specified", () => {
-    const plugin = defineShapePlugin({
-      definition: {
-        id: "default_bypass_fixture",
-        topology: "direct_menu",
-        rootOptionCount: { min: 1, max: 1 },
-        supportedTags: [],
-        validationRules: ["root_option_count_within_bounds"],
-        repairPreferences: [],
-        debugLabel: "Default fixture",
-        versionContribution: { catalogVersion: "test", id: "default_bypass_fixture" },
-      },
-      scoreWeight: 0,
-      fill: () => ({ options: [], precommitted: {} }),
-    });
-
-    expect(plugin.definition.bypassStandardValidation).toBe(false);
   });
 
   it("returns deterministic canonical definitions for fingerprinting", () => {

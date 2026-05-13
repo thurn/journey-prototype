@@ -5,7 +5,10 @@ import type {
   RandomPrecommittedOutcome,
   RandomVisibilityPolicy,
 } from "../../manifest.js";
-import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import {
+  buildJourneyOptionOperations,
+  buildPrecommittedOperations,
+} from "../../operationBuilders.js";
 import { BANE_NAMES } from "../../shared/content.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
@@ -180,7 +183,7 @@ function option(args: {
 
   return {
     ...built,
-    operations: adaptJourneyOptionOperations(built),
+    operations: buildJourneyOptionOperations(built),
   };
 }
 
@@ -260,7 +263,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
         burdens: [randomRevealBurden.payload],
         burden: randomRevealBurden.value,
         effect: randomRevealed.value + optionTwoOmenValue,
-        uncertainty: -16,
+        uncertainty: -14,
       }),
       option({
         number: 3,
@@ -348,11 +351,15 @@ export function revealChoiceMenuFill(args: ShapeFillArgs): FilledJourney {
     ...args,
     label: `${SHAPE_LABEL}:reveal`,
   });
+  const precommitted = {
+    random: reveal.precommitted,
+  };
 
   return {
     options: reveal.options,
     precommitted: {
-      random: reveal.precommitted,
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

@@ -1,4 +1,5 @@
 import { drawInt } from "../../../util/rng.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { revealChoiceOptions } from "./reveal.js";
 import { wheelRootOptions } from "./wheel.js";
@@ -20,12 +21,16 @@ export function singleRandomOutcomeFill(args: ShapeFillArgs): FilledJourney {
       label: `${SHAPE_LABEL}:wheel`,
       stage,
     });
+    const precommitted = {
+      random: wheel.precommitted,
+    };
 
     return {
       options: wheel.options,
       rewardPool: wheel.rewardPool,
       precommitted: {
-        random: wheel.precommitted,
+        ...precommitted,
+        operations: buildPrecommittedOperations(precommitted),
       },
     };
   }
@@ -36,11 +41,15 @@ export function singleRandomOutcomeFill(args: ShapeFillArgs): FilledJourney {
     label: `${SHAPE_LABEL}:reveal`,
     stage,
   });
+  const precommitted = {
+    random: reveal.precommitted,
+  };
 
   return {
     options: reveal.options,
     precommitted: {
-      random: reveal.precommitted,
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

@@ -137,21 +137,12 @@ describe("random_pool_draws fill", () => {
       topology: "decision_tree",
       rootOptionCount: { min: 0, max: 0 },
       supportedTags: [],
-      payloadCompatibility: [
-        {
-          familyId: "decision_tree",
-          variants: ["complete-decision-tree"],
-          legality: "legal",
-        },
-      ],
       validationRules: [
         "manifest_schema_version",
         "manifest_version_metadata",
         "journey_id_format",
         "root_option_count_within_bounds",
       ],
-      repairPreferences: [],
-      bypassStandardValidation: true,
     });
   });
 

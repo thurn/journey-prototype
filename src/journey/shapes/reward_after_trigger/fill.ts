@@ -1,6 +1,9 @@
 import { drawInt, shuffleDeterministic } from "../../../util/rng.js";
 import type { JourneyOption } from "../../manifest.js";
-import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import {
+  buildJourneyOptionOperations,
+  buildPrecommittedOperations,
+} from "../../operationBuilders.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -180,7 +183,7 @@ function optionFor(args: {
   return {
     option: {
       ...built,
-      operations: adaptJourneyOptionOperations(built),
+      operations: buildJourneyOptionOperations(built),
     },
     precommit,
   };
@@ -205,10 +208,15 @@ export function rewardAfterTriggerFill(args: ShapeFillArgs): FilledJourney {
     })
   );
 
+  const precommitted = {
+    delayed: rows.map((row) => row.precommit),
+  };
+
   return {
     options: rows.map((row) => row.option),
     precommitted: {
-      delayed: rows.map((row) => row.precommit),
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

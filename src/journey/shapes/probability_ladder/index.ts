@@ -50,28 +50,11 @@ export const probabilityLadderPlugin = defineShapePlugin({
       "fixed_reward_can_be_won_once",
       "attempt_costs_share_family",
     ],
-    repairPreferences: [
-      "normalize_attempt_costs",
-      "make_success_terminal",
-      "simplify_ladder_level_count",
-    ],
     debugLabel: "Probability ladder",
     versionContribution: versionContribution(
       "probability_ladder",
       "decision_tree",
     ),
-    menuValueChecks: {
-      positiveBands: false,
-      symmetricBands: false,
-      escalationOrRiskExempt: true,
-    },
-  },
-  repair: {
-    actions: [
-      { action: "normalize_attempt_costs", kind: "adjust_cost_or_burden" },
-      { action: "make_success_terminal", kind: "repair_payload_family" },
-      { action: "simplify_ladder_level_count", kind: "simplify_fill" },
-    ],
   },
   validators: [decisionTreeValidator],
   treeValidator: (manifest) => validateProbabilityLadder(manifest),

@@ -3,7 +3,7 @@ import {
   MANIFEST_SCHEMA_VERSION,
   type JourneyManifest,
 } from "../../src/journey/manifest.js";
-import { adaptJourneyOptionOperations } from "../../src/journey/operationAdapters.js";
+import { buildJourneyOptionOperations } from "../../src/journey/operationBuilders.js";
 import type { JourneyState } from "../../src/state/schema.js";
 
 export function fixtureState(): JourneyState {
@@ -104,7 +104,7 @@ export function fixtureManifest(): JourneyManifest {
     options: [
       {
         ...option,
-        operations: adaptJourneyOptionOperations(option),
+        operations: buildJourneyOptionOperations(option),
       },
     ],
     precommitted: {},
@@ -129,12 +129,6 @@ export function fixtureManifest(): JourneyManifest {
           ],
         },
       ],
-      repairs: [],
-      repair: {
-        status: "accepted_immediately",
-        forcedShape: false,
-        finalShapeId: "single_offer",
-      },
     },
     references: {
       cardIds: [],

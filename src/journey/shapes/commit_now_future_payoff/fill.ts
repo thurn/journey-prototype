@@ -9,6 +9,7 @@ import type {
   JourneyOption,
   JourneyStage,
 } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { COSTS } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
@@ -696,17 +697,21 @@ export function commitNowFuturePayoffFill(args: ShapeFillArgs): FilledJourney {
     `${SHAPE_ID}:timing`,
     TIMING_PROFILES.map((profile) => ({ item: profile, weight: 1 })),
   );
+  const precommitted = {
+    delayed: rows.map((row, index) =>
+      delayedHookContract({
+        optionNumber: index + 1,
+        row,
+        timing,
+      })
+    ),
+  };
 
   return {
     options: rows.map((row, index) => commitmentOption(index + 1, row, timing)),
     precommitted: {
-      delayed: rows.map((row, index) =>
-        delayedHookContract({
-          optionNumber: index + 1,
-          row,
-          timing,
-        })
-      ),
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

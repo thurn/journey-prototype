@@ -3,9 +3,9 @@ import { drawInt, type DrawContext } from "../../../util/rng.js";
 import { BANE_NAMES } from "../../effects.js";
 import type { JourneyTree, JourneyTreeBranch } from "../../manifest.js";
 import {
-  adaptTreeBranchOperations,
-  adaptTreeTerminalOperations,
-} from "../../operationAdapters.js";
+  buildTreeBranchOperations,
+  buildTreeTerminalOperations,
+} from "../../operationBuilders.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
 import { valueBaneGain, valueEssenceGain, valueOmenGain } from "../../value.js";
@@ -94,12 +94,12 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
 
   return {
     ...branch,
-    operations: adaptTreeBranchOperations(branch),
+    operations: buildTreeBranchOperations(branch),
     ...(branch.terminal
       ? {
           terminal: {
             ...branch.terminal,
-            operations: adaptTreeTerminalOperations(
+            operations: buildTreeTerminalOperations(
               branch.terminal,
               `tree:${branch.id}:terminal`,
             ),

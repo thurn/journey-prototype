@@ -235,12 +235,6 @@ export function synthesizeDistinctEverythingTrioWithDuplicates(): JourneyManifes
           variedPayloadKeys: [duplicateKey, duplicateKey],
         },
       ],
-      repairs: [],
-      repair: {
-        status: "accepted_immediately",
-        forcedShape: false,
-        finalShapeId: "random_trades",
-      },
     },
     references: {
       cardIds: [],
@@ -311,12 +305,6 @@ export function synthesizeIdenticalRowsManifest(): JourneyManifest {
       selectedShapeId: "random_trades",
       selectedTags: [],
       optionValues: [],
-      repairs: [],
-      repair: {
-        status: "accepted_immediately",
-        forcedShape: false,
-        finalShapeId: "random_trades",
-      },
     },
     references: {
       cardIds: [],

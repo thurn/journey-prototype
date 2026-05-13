@@ -156,28 +156,6 @@ describe("single_offer fill", () => {
         "one_take_option_and_one_refusal_option",
         "take_option_has_visible_meaningful_trade",
       ],
-      repairPreferences: [
-        "add_refusal_option",
-        "make_trade_cost_visible",
-        "rebalance_offer_value",
-      ],
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "resource",
-          variants: ["adapter-compatible-resource-operations"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "random",
-          variants: [],
-          legality: "unsupported",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: [],
-          legality: "unsupported",
-        }),
-      ]),
     });
     expect(
       singleOfferPlugin.validators?.map((validator) => validator.ruleId),

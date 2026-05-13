@@ -130,33 +130,6 @@ describe("single_reward fill", () => {
         "single_option_is_deterministic_reward",
         "option_has_no_meaningful_cost_or_refusal_tension",
       ],
-      repairPreferences: [
-        "remove_cost_or_burden",
-        "collapse_extra_options",
-        "replace_with_simple_reward",
-      ],
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "resource",
-          variants: ["adapter-compatible-resource-operations"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "random",
-          variants: [],
-          legality: "unsupported",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: [],
-          legality: "unsupported",
-        }),
-      ]),
-      menuValueChecks: {
-        positiveBands: true,
-        symmetricBands: false,
-        escalationOrRiskExempt: false,
-      },
     });
   });
 

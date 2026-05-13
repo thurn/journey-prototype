@@ -29,7 +29,6 @@ describe("alter_dreamscapes", () => {
 
     expect(getShapeDefinition("alter_dreamscapes")).toMatchObject({
       topology: "direct_menu",
-      bypassStandardValidation: true,
       validationRules: [
         "manifest_schema_version",
         "manifest_version_metadata",

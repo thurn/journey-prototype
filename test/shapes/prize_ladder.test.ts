@@ -212,23 +212,6 @@ describe("prize_ladder fill", () => {
         "stop_rewards_scale_coherently",
         "continue_costs_share_family",
       ],
-      repairPreferences: [
-        "normalize_cost_family",
-        "align_stop_reward_family",
-        "simplify_ladder_level_count",
-      ],
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "random",
-          variants: [],
-          legality: "unsupported",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: ["complete-decision-tree"],
-          legality: "legal",
-        }),
-      ]),
     });
     expect(prizeLadderPlugin.treeValidator).toEqual(expect.any(Function));
   });

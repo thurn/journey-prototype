@@ -114,15 +114,12 @@ describe("take_any_number fill", () => {
       topology: "repeatable_menu",
       rootOptionCount: { min: 4, max: 4 },
       supportedTags: [],
-      payloadCompatibility: [],
       validationRules: [
         "manifest_schema_version",
         "manifest_version_metadata",
         "journey_id_format",
         "root_option_count_within_bounds",
       ],
-      repairPreferences: [],
-      bypassStandardValidation: true,
     });
   });
 
@@ -163,7 +160,7 @@ describe("take_any_number fill", () => {
     }
   });
 
-  it("labels forced-shape debug scoring separately from the pre-force scorer", async () => {
+  it("prints selected forced shape and scorer top entry in debug output", async () => {
     const seed = "audit:take_any_number:early:01";
     const { content, contentVersion } = await loadContentContext(process.cwd());
     const state = createInitialJourneyState({ seed, content, contentVersion });
@@ -192,8 +189,6 @@ describe("take_any_number fill", () => {
     });
 
     expect(rendered).toContain("Selected shape: take_any_number");
-    expect(rendered).toMatch(
-      /Shape scoring: forced take_any_number [0-9.]+; pre-force top [a-z_]+ [0-9.]+/u,
-    );
+    expect(rendered).toMatch(/Shape scoring: [a-z_]+ [0-9.]+/u);
   });
 });

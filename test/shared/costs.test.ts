@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COSTS, RANDOM_TRADE_COSTS, getCost } from "../../src/journey/shared/costs.js";
+import { COSTS, getCost } from "../../src/journey/shared/costs.js";
 import { REWARDS } from "../../src/journey/shared/rewards.js";
 import type { JourneyContext } from "../../src/quest/context.js";
 import type { DrawContext } from "../../src/util/rng.js";
@@ -144,14 +144,6 @@ describe("costs table (resource family)", () => {
     expect(ids.length).toBe(new Set(ids).size);
   });
 
-  it("random trade costs keep random card purge costs and exclude chosen card purge costs", () => {
-    const ids = new Set(RANDOM_TRADE_COSTS.map((c) => c.id));
-
-    expect(ids.has("purge_random_predicate_card")).toBe(true);
-    expect(ids.has("purge_chosen_predicate_card")).toBe(false);
-    expect(ids.has("draw_X_purge_chosen")).toBe(false);
-  });
-
   it("keeps chosen-card purge rewards available as benefits", () => {
     const rewardIds = new Set(REWARDS.map((r) => r.id));
 
@@ -224,11 +216,9 @@ describe("costs table (dreamsign family)", () => {
     expect(t.render(p, ctx)).toBe("Purge 'Unknown Dreamsign'");
   });
 
-  it("prices random Dreamsign purge as a severe random trade cost", () => {
-    const randomTradeCostIds = new Set(RANDOM_TRADE_COSTS.map((c) => c.id));
+  it("prices random Dreamsign purge as a severe cost", () => {
     const randomPurge = getCost("purge_random_dreamsign");
 
-    expect(randomTradeCostIds.has("purge_random_dreamsign")).toBe(true);
     expect(randomPurge.cec({}, fakeCtx())).toBe(200);
   });
 });

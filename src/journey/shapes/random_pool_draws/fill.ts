@@ -8,6 +8,7 @@ import type {
   RandomPrecommittedOutcome,
   RandomPoolReplacementPolicy,
 } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { getCost } from "../../shared/costs.js";
 import { cardMatches } from "../../shared/content.js";
 import { getPredicate } from "../../shared/predicates.js";
@@ -696,6 +697,9 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     worstCaseBurdenConvertedEssence: 0,
     presentation: "random_pool_draws_repeated_draws",
   };
+  const precommitted = {
+    random: [visiblePool, repeatedDraws],
+  };
 
   return {
     options: [],
@@ -708,7 +712,8 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     }),
     rewardPool,
     precommitted: {
-      random: [visiblePool, repeatedDraws],
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

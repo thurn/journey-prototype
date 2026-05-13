@@ -1,7 +1,7 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { shuffleDeterministic, type DrawContext } from "../../../util/rng.js";
 import type { JourneyOption } from "../../manifest.js";
-import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import { buildJourneyOptionOperations } from "../../operationBuilders.js";
 import type { JourneyShapeId } from "../../shapes.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
@@ -217,7 +217,7 @@ function optionFor(args: {
 
   return {
     ...built,
-    operations: adaptJourneyOptionOperations(built),
+    operations: buildJourneyOptionOperations(built),
   };
 }
 

@@ -163,16 +163,6 @@ describe("flat_escalating_trade fill", () => {
         "root_rewards_strictly_increase",
         "menu_remains_flat_not_tree",
       ],
-      repairPreferences: [
-        "normalize_escalating_costs",
-        "align_reward_family",
-        "rebalance_escalating_values",
-      ],
-      menuValueChecks: {
-        positiveBands: false,
-        symmetricBands: false,
-        escalationOrRiskExempt: true,
-      },
     });
   });
 

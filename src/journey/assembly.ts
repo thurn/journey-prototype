@@ -25,8 +25,6 @@ import {
   MANIFEST_CONTRACT_VERSION,
   MANIFEST_SCHEMA_VERSION,
 } from "./manifest.js";
-import { adaptPrecommittedOperations } from "./operationAdapters.js";
-import { withReachabilityMetadata } from "./reachability.js";
 import {
   JOURNEY_SHAPE_CATALOG_VERSION,
   getShapePlugin,
@@ -269,7 +267,7 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
   };
   const precommitted = {
     ...legacyPrecommitted,
-    operations: adaptPrecommittedOperations(legacyPrecommitted),
+    operations: filled.precommitted.operations ?? [],
   };
   const optionValues: ValueBreakdown[] = options.map((journeyOption) =>
     evaluateOptionValue(journeyOption, args.context),
@@ -308,13 +306,6 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
       ...(symmetryContracts && symmetryContracts.length > 0
         ? { symmetryContracts: [...symmetryContracts] }
         : {}),
-      repairs: [],
-      repair: {
-        status: "accepted_immediately",
-        forcedShape: false,
-        finalShapeId: args.shapeId,
-        payloadFamily: "adapter",
-      },
       ...previousPickDebug(args),
     },
     references: referencesFor(
@@ -331,12 +322,10 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
     ),
   };
 
-  return withReachabilityMetadata(
-    attachTargetResolutionMetadata(
-      manifest,
-      args.context.content,
-      args.context.state.quest,
-    ),
+  return attachTargetResolutionMetadata(
+    manifest,
+    args.context.content,
+    args.context.state.quest,
   );
 }
 

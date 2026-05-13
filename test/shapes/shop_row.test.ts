@@ -188,19 +188,4 @@ describe("shop_row fill", () => {
     expect(text).not.toContain("1 random cards");
   });
 
-  it("exposes commercial shop payload families through reachability metadata", async () => {
-    const { manifest } = await shopRowManifest("audit:shop_row:early:01", "early");
-    const payloadFamilies = manifest.debug.reachability?.payloadFamilies ?? [];
-
-    expect(payloadFamilies).toEqual(expect.arrayContaining([
-      "resource_cost",
-      "resource_cost:essence",
-    ]));
-    expect(payloadFamilies.some((family) =>
-      !family.startsWith("resource_cost") && !family.startsWith("resource_amount")
-    )).toBe(true);
-    expect(manifest.debug.reachability?.evidence.some((entry) =>
-      entry.path.startsWith("options.") && entry.category === "payload"
-    )).toBe(true);
-  });
 });

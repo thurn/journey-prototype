@@ -6,7 +6,10 @@ import type {
   RandomPrecommittedOutcome,
   RandomVisibilityPolicy,
 } from "../../manifest.js";
-import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import {
+  buildJourneyOptionOperations,
+  buildPrecommittedOperations,
+} from "../../operationBuilders.js";
 import { BANE_NAMES } from "../../shared/content.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
@@ -216,7 +219,7 @@ function option(args: {
 
   return {
     ...built,
-    operations: adaptJourneyOptionOperations(built),
+    operations: buildJourneyOptionOperations(built),
   };
 }
 
@@ -263,6 +266,9 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
     constraints: [riskConstraint],
   };
   const downsideUncertainty = -reward.value + 5;
+  const precommitted = {
+    random: [riskEnvelope],
+  };
 
   return {
     options: [
@@ -280,7 +286,8 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
       }),
     ],
     precommitted: {
-      random: [riskEnvelope],
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

@@ -4,7 +4,7 @@ import type {
   JourneyStage,
   JourneySymmetryContractDebug,
 } from "../../manifest.js";
-import { adaptJourneyOptionOperations } from "../../operationAdapters.js";
+import { buildJourneyOptionOperations } from "../../operationBuilders.js";
 import { BANE_NAMES } from "../../shared/content.js";
 import { getReward } from "../../shared/rewards.js";
 import type { TemplateParams } from "../../shared/types.js";
@@ -124,7 +124,7 @@ function optionFor(args: {
 
   return {
     ...built,
-    operations: adaptJourneyOptionOperations(built),
+    operations: buildJourneyOptionOperations(built),
   };
 }
 

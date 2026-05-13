@@ -95,23 +95,6 @@ describe("push_your_luck fill", () => {
         "push_failure_ends_journey",
         "push_rewards_are_mechanically_connected",
       ],
-      repairPreferences: [
-        "make_failure_terminal",
-        "align_reward_family",
-        "cap_push_levels",
-      ],
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "random",
-          variants: ["adapter-compatible-random-envelope"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: ["complete-decision-tree"],
-          legality: "legal",
-        }),
-      ]),
     });
   });
 

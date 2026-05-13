@@ -5,6 +5,7 @@ import type {
   JourneyStage,
   RandomPrecommittedOutcome,
 } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
@@ -384,13 +385,17 @@ function selectSeriesRows(args: ShapeFillArgs): readonly (readonly SeriesReward[
 
 export function resolvedRandomSeriesFill(args: ShapeFillArgs): FilledJourney {
   const seriesRows = selectSeriesRows(args);
+  const precommitted = {
+    random: seriesRows.map((series, index) =>
+      precommittedSeries(index + 1, series)
+    ),
+  };
 
   return {
     options: seriesRows.map((series, index) => optionFor(index + 1, series)),
     precommitted: {
-      random: seriesRows.map((series, index) =>
-        precommittedSeries(index + 1, series)
-      ),
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

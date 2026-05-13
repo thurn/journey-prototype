@@ -1,7 +1,7 @@
 // src/journey/shapes/random_trades/fill.ts
 import type { JourneyContext } from "../../../quest/context.js";
 import type { JourneyOption } from "../../manifest.js";
-import { RANDOM_TRADE_COSTS, getCost } from "../../shared/costs.js";
+import { COSTS, getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
 import { BANE_NAMES, essenceAmount } from "../../shared/content.js";
@@ -19,7 +19,7 @@ type RolledCost = { template: Cost; params: unknown; cec: number; rendered: stri
 type NetRange = { lo: number; hi: number };
 type CostRange = { floor: number; ceiling: number };
 type ResourceFamily = "essence" | "omens";
-type ResourceCostPreference = "prefer" | "avoid";
+type ResourceCostPreference = "prefer_essence" | "prefer_resource" | "avoid";
 
 const ESSENCE_GAIN_REWARD_IDS = new Set([
   "gain_essence",
@@ -40,6 +40,15 @@ const ESSENCE_PAYMENT_COST_IDS = new Set([
   "lose_max_essence",
 ]);
 const OMEN_PAYMENT_COST_IDS = new Set(["pay_omens"]);
+const RANDOM_TRADE_EXCLUDED_COST_IDS = new Set([
+  "purge_chosen_predicate_card",
+  "draw_X_purge_chosen",
+]);
+const RANDOM_TRADE_COSTS: readonly Cost[] = Object.freeze(
+  COSTS.filter((cost) =>
+    !cost.id.startsWith("meta_") && !RANDOM_TRADE_EXCLUDED_COST_IDS.has(cost.id)
+  ),
+);
 
 function emptyOption(
   number: number,
@@ -127,6 +136,10 @@ function hasResourceCost(template: Cost, params: unknown): boolean {
   return costResourceFamilies(template, params).size > 0;
 }
 
+function isFlatEssencePayment(template: Cost): boolean {
+  return template.id === "pay_essence";
+}
+
 function meetsRewardDistinctness(rolled: RolledReward, used: ReadonlySet<string>): boolean {
   for (const id of consumedRewardIds(rolled)) {
     if (used.has(id)) return false;
@@ -140,6 +153,7 @@ function rollReward(
   label: string,
   pool: readonly Reward[],
   used: ReadonlySet<string>,
+  minimumCec = 0,
 ): RolledReward | undefined {
   const candidates: Array<{ rolled: RolledReward; weight: number }> = [];
   for (const template of pool) {
@@ -150,6 +164,7 @@ function rollReward(
     });
     if (!template.viable(params as never, ctx)) continue;
     const rolled: RolledReward = { template, params, cec: template.cec(params as never, ctx) };
+    if (rolled.cec < minimumCec) continue;
     if (!meetsRewardDistinctness(rolled, used)) continue;
     candidates.push({ rolled, weight: template.weight });
   }
@@ -294,14 +309,16 @@ function pickCostForReward(
   }
   if (candidates.length > 0) {
     const preferred = candidates.filter((c) =>
-      resourcePreference === "prefer"
-        ? hasResourceCost(c.rolled.template, c.rolled.params)
-        : !hasResourceCost(c.rolled.template, c.rolled.params),
+      resourcePreference === "prefer_essence"
+        ? isFlatEssencePayment(c.rolled.template)
+        : resourcePreference === "prefer_resource"
+          ? hasResourceCost(c.rolled.template, c.rolled.params)
+          : !hasResourceCost(c.rolled.template, c.rolled.params),
     );
     const pool = preferred.length > 0 ? preferred : candidates;
     return weightedChoice(draw, label, pool.map((c) => ({ item: c.rolled, weight: c.weight })));
   }
-  if (resourcePreference === "prefer" && cap >= PAY_FLOOR && !blockedResourceFamilies.has("essence")) {
+  if (resourcePreference !== "avoid" && cap >= PAY_FLOOR && !blockedResourceFamilies.has("essence")) {
     const x = rollPayEssenceAmount(draw, `${label}:fallback`, PAY_FLOOR, Math.floor(cap));
     if (x === undefined) return undefined;
     const params = { x };
@@ -324,11 +341,13 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
 
   function resourceCostPreference(rowIndex: number): ResourceCostPreference {
     return drawInt(drawContext, `rt:row${rowIndex}:resource-cost`, 0, 3) > 0
-      ? "prefer"
+      ? "prefer_essence"
       : "avoid";
   }
 
-  const row1Reward = rollReward(context, drawContext, "rt:row1:reward", REWARDS, used);
+  const row1Reward =
+    rollReward(context, drawContext, "rt:row1:reward", REWARDS, used, 50) ??
+    rollReward(context, drawContext, "rt:row1:reward:fallback", REWARDS, used);
   if (!row1Reward) {
     throw new Error("random_trades fill could not roll a viable first reward");
   }

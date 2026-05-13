@@ -113,21 +113,12 @@ describe("resolved_random_series fill", () => {
       topology: "random_commit",
       rootOptionCount: { min: 2, max: 2 },
       supportedTags: [],
-      payloadCompatibility: [
-        {
-          familyId: "random",
-          variants: ["reveal-roll-wager"],
-          legality: "legal",
-        },
-      ],
       validationRules: [
         "manifest_schema_version",
         "manifest_version_metadata",
         "journey_id_format",
         "root_option_count_within_bounds",
       ],
-      repairPreferences: [],
-      bypassStandardValidation: true,
     });
   });
 

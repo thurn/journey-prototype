@@ -145,24 +145,6 @@ export function isJourneyShapeId(id: string): id is JourneyShapeId {
   return PLUGINS_BY_ID.has(id);
 }
 
-export function fallbackShapeIds(): readonly JourneyShapeId[] {
-  return PLUGINS.filter((plugin) => plugin.repair?.fallbackRank !== undefined)
-    .map((plugin) => ({
-      id: plugin.id,
-      fallbackRank: plugin.repair?.fallbackRank ?? Number.MAX_SAFE_INTEGER,
-    }))
-    .sort((left, right) => {
-      const rankComparison = left.fallbackRank - right.fallbackRank;
-
-      if (rankComparison !== 0) {
-        return rankComparison;
-      }
-
-      return left.id.localeCompare(right.id, "en-US");
-    })
-    .map((entry) => entry.id);
-}
-
 export function canonicalShapeDefinitions(): unknown {
   return {
     catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
@@ -174,14 +156,9 @@ export function canonicalShapeDefinitions(): unknown {
         topology: definition.topology,
         rootOptionCount: { ...definition.rootOptionCount },
         supportedTags: [...definition.supportedTags],
-        payloadCompatibility: cloneSerializable(
-          definition.payloadCompatibility,
-        ),
         validationRules: [...definition.validationRules],
-        repairPreferences: [...definition.repairPreferences],
         debugLabel: definition.debugLabel,
         scoreWeight: plugin.scoreWeight,
-        repair: cloneSerializable(plugin.repair ?? null),
         generatedObjects: cloneSerializable(plugin.generatedObjects ?? null),
         versionContribution: cloneSerializable(
           plugin.versionContribution ?? definition.versionContribution,

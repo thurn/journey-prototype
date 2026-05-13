@@ -26,50 +26,14 @@ export type JourneyTopology =
   | "repeatable_menu"
   | "decision_tree";
 
-export type JourneyPayloadCompatibility = {
-  readonly familyId:
-    | "adapter"
-    | "card"
-    | "dreamsign"
-    | "bane"
-    | "resource"
-    | "route"
-    | "shop"
-    | "dreamwell"
-    | "status"
-    | "hook"
-    | "return"
-    | "random"
-    | "generated_object"
-    | "decision_tree";
-  readonly variants: readonly string[];
-  readonly legality: "legal" | "unsupported";
-  readonly reason: string;
-};
-
-export type MenuValueChecks = {
-  readonly positiveBands: boolean;
-  readonly symmetricBands: boolean;
-  readonly escalationOrRiskExempt: boolean;
-};
-
 export type JourneyShapeDefinition = {
   readonly id: JourneyShapeId;
   readonly topology: JourneyTopology;
   readonly rootOptionCount: Readonly<{ min: number; max: number }>;
   readonly supportedTags: readonly string[];
-  readonly payloadCompatibility: readonly JourneyPayloadCompatibility[];
   readonly validationRules: readonly string[];
-  readonly repairPreferences: readonly string[];
   readonly debugLabel: string;
   readonly versionContribution: unknown;
-  readonly menuValueChecks: MenuValueChecks;
-  readonly allowsRouteReward: boolean;
-  readonly allowsRouteSideEffects: boolean;
-  readonly compoundCoherence: "default" | "skip";
-  readonly requiresPrecommittedRandom: boolean;
-  readonly compoundAllowsRouteOnlyReward: boolean;
-  readonly bypassStandardValidation: boolean;
 };
 
 export type ShapeFillArgs = {
@@ -94,22 +58,6 @@ export type FilledJourney = {
   readonly symmetryContracts?: readonly JourneySymmetryContractDebug[];
 };
 
-export type ShapeRepairActionKind =
-  | "adjust_cost_or_burden"
-  | "adjust_quantity"
-  | "reveal_hidden_target_or_outcome"
-  | "repair_payload_family"
-  | "simplify_fill"
-  | "switch_to_shape"
-  | "switch_shape"
-  | "fallback";
-
-export type ShapeRepairAction = {
-  readonly action: string;
-  readonly kind: ShapeRepairActionKind;
-  readonly targetShapeId?: JourneyShapeId;
-};
-
 export type ShapeValidatorArgs = {
   readonly manifest: JourneyManifest;
   readonly context: JourneyContext;
@@ -122,16 +70,6 @@ export type ShapeValidator = {
   readonly passMessage: string;
   readonly validate: (args: ShapeValidatorArgs) => ValidationResult;
 };
-
-export type ShapeDebugPayloadCompatibility = {
-  readonly familyId: JourneyPayloadCompatibility["familyId"];
-  readonly variantIds: readonly string[];
-};
-
-export type ShapeOptionValueValidator = (
-  nets: readonly number[],
-  manifest: JourneyManifest,
-) => ValidationResult;
 
 export type ShapeTreeValidator = (
   manifest: JourneyManifest,
@@ -149,13 +87,8 @@ export type JourneyShapePlugin = {
   readonly scoreWeight: number;
   readonly fill: (args: ShapeFillArgs) => FilledJourney;
   readonly validators?: readonly ShapeValidator[];
-  readonly optionValueValidator?: ShapeOptionValueValidator;
   readonly treeValidator?: ShapeTreeValidator;
   readonly precommitValidator?: ShapePrecommitValidator;
-  readonly repair?: {
-    readonly fallbackRank?: number;
-    readonly actions?: readonly ShapeRepairAction[];
-  };
   readonly generatedObjects?: {
     readonly natural: boolean;
     readonly highWeirdness?: boolean;

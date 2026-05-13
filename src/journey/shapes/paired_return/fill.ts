@@ -1,6 +1,7 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, type DrawContext } from "../../../util/rng.js";
 import type { JourneyStage } from "../../manifest.js";
+import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { pairedReturnHookFill } from "./hookFill.js";
 import { tradeTicketBody } from "./tradeTicket.js";
@@ -48,19 +49,24 @@ export function pairedReturnJourneyFill(args: ShapeFillArgs): FilledJourney {
     stage,
   });
 
+  const precommitted = {
+    delayed: [
+      firstReturn.precommit,
+      secondReturn.precommit,
+      thirdReturn.precommit,
+    ],
+    pairedReturn: [
+      firstReturn.precommit,
+      secondReturn.precommit,
+      thirdReturn.precommit,
+    ],
+  };
+
   return {
     options: [firstReturn.option, secondReturn.option, thirdReturn.option],
     precommitted: {
-      delayed: [
-        firstReturn.precommit,
-        secondReturn.precommit,
-        thirdReturn.precommit,
-      ],
-      pairedReturn: [
-        firstReturn.precommit,
-        secondReturn.precommit,
-        thirdReturn.precommit,
-      ],
+      ...precommitted,
+      operations: buildPrecommittedOperations(precommitted),
     },
   };
 }

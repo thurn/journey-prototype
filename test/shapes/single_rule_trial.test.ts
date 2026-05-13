@@ -153,33 +153,6 @@ describe("singleRuleTrialFill", () => {
         "single_option_applies_a_rule_status",
         "single_option_has_no_meaningful_cost_or_choice",
       ],
-      repairPreferences: [
-        "remove_extra_options",
-        "remove_cost_or_burden",
-        "promote_status_to_visible_effect",
-      ],
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "status",
-          variants: ["adapter-compatible-status-rule-mutation"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "resource",
-          variants: [],
-          legality: "unsupported",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: [],
-          legality: "unsupported",
-        }),
-      ]),
-      menuValueChecks: {
-        positiveBands: false,
-        symmetricBands: false,
-        escalationOrRiskExempt: true,
-      },
     });
   });
 
@@ -334,12 +307,6 @@ function synthesizeSingleRuleTrialManifestWithCost(): JourneyManifest {
       selectedShapeId: "single_rule_trial",
       selectedTags: [],
       optionValues: [],
-      repairs: [],
-      repair: {
-        status: "accepted_immediately",
-        forcedShape: false,
-        finalShapeId: "single_rule_trial",
-      },
     },
     references: {
       cardIds: [],

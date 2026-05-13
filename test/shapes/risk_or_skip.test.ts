@@ -148,29 +148,6 @@ describe("risk_or_skip fill", () => {
         "downside_is_random_inside_visible_envelope",
         "skip_option_has_leave_behavior",
       ],
-      repairPreferences: [
-        "add_skip_option",
-        "move_guaranteed_cost_to_single_offer",
-        "bound_random_downside",
-      ],
-      requiresPrecommittedRandom: true,
-      payloadCompatibility: expect.arrayContaining([
-        expect.objectContaining({
-          familyId: "random",
-          variants: ["adapter-compatible-random-envelope"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "resource",
-          variants: ["adapter-compatible-resource-operations"],
-          legality: "legal",
-        }),
-        expect.objectContaining({
-          familyId: "decision_tree",
-          variants: [],
-          legality: "unsupported",
-        }),
-      ]),
     });
     expect(
       riskOrSkipPlugin.validators?.map((validator) => validator.ruleId),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { JourneyOption } from "../src/journey/manifest.js";
-import { adaptJourneyOptionOperations } from "../src/journey/operationAdapters.js";
+import { buildJourneyOptionOperations } from "../src/journey/operationBuilders.js";
 import { symbolsForOption } from "../src/journey/symbols.js";
 import {
   evaluateOptionValue,
@@ -42,7 +42,7 @@ function option(overrides: Partial<JourneyOption> = {}): JourneyOption {
 
   return {
     ...built,
-    operations: overrides.operations ?? adaptJourneyOptionOperations(built),
+    operations: overrides.operations ?? buildJourneyOptionOperations(built),
   };
 }
 
