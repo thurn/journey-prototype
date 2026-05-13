@@ -27,6 +27,12 @@ const POOL_SIZE_BANDS = {
 
 const MIN_DRAW_COST = 25;
 const DRAW_COST_STEP = 5;
+const MIN_POOL_REWARD_CEC = 35;
+const MAX_POOL_REWARD_CEC_BY_STAGE = {
+  early: 220,
+  mid: 320,
+  late: 460,
+} as const satisfies Record<JourneyStage, number>;
 const POOL_ID = "random-pool-draws";
 const PAY_ESSENCE = getCost("pay_essence");
 
@@ -82,6 +88,7 @@ function consumedTemplateIds(candidate: PoolCandidate): readonly string[] {
 function materializeReward(
   context: JourneyContext,
   draw: DrawContext,
+  stage: JourneyStage,
   template: Reward,
   attempt: number,
 ): PoolCandidate | undefined {
@@ -96,7 +103,10 @@ function materializeReward(
   }
 
   const convertedEssence = template.cec(params as never, context);
-  if (convertedEssence <= 0) {
+  if (
+    convertedEssence < MIN_POOL_REWARD_CEC ||
+    convertedEssence > MAX_POOL_REWARD_CEC_BY_STAGE[stage]
+  ) {
     return undefined;
   }
 
@@ -123,13 +133,14 @@ function materializeReward(
 function rewardCandidates(
   context: JourneyContext,
   draw: DrawContext,
+  stage: JourneyStage,
 ): PoolCandidate[] {
   const candidates: PoolCandidate[] = [];
   const usedKeys = new Set<string>();
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     for (const template of REWARDS) {
-      const candidate = materializeReward(context, draw, template, attempt);
+      const candidate = materializeReward(context, draw, stage, template, attempt);
       if (!candidate || usedKeys.has(candidate.key)) {
         continue;
       }
@@ -145,9 +156,10 @@ function rewardCandidates(
 function selectRewardPool(args: {
   readonly context: JourneyContext;
   readonly drawContext: DrawContext;
+  readonly stage: JourneyStage;
   readonly size: number;
 }): PoolCandidate[] {
-  const available = rewardCandidates(args.context, args.drawContext);
+  const available = rewardCandidates(args.context, args.drawContext, args.stage);
   const selected: PoolCandidate[] = [];
   const usedIds = new Set<string>();
 
@@ -202,17 +214,16 @@ function costAmountForAverageReward(
   );
 }
 
-function poolSummary(
-  candidates: readonly PoolCandidate[],
-  replacement: RandomPoolReplacementPolicy,
-): string {
-  const replacementText = replacement === "with_replacement"
+function replacementSentence(replacement: RandomPoolReplacementPolicy): string {
+  return replacement === "with_replacement"
     ? "Outcomes draw with replacement."
     : "Outcomes draw without replacement.";
+}
 
+function poolSummary(candidates: readonly PoolCandidate[]): string {
   return `Randomly gain one: ${candidates
     .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
-    .join(", ")}. ${replacementText}`;
+    .join(", ")}.`;
 }
 
 function pickCommittedDraws(args: {
@@ -381,6 +392,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
   const candidates = selectRewardPool({
     context: args.context,
     drawContext: args.drawContext,
+    stage: args.stage,
     size: poolSize,
   });
   const averageReward = averageConvertedEssence(candidates);
@@ -390,7 +402,9 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     "random_pool_draws:replacement",
     ["with_replacement", "without_replacement"] as const,
   );
-  const summary = poolSummary(candidates, replacement);
+  const baseSummary = poolSummary(candidates);
+  const visiblePoolSummary = `${baseSummary} Replacement policy:`;
+  const summary = `${baseSummary} ${replacementSentence(replacement)}`;
   const rewards = candidates.map((candidate) => candidate.payload);
   const committedDraws = pickCommittedDraws({
     drawContext: args.drawContext,
@@ -407,7 +421,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
   const visiblePool: RandomPrecommittedOutcome = {
     kind: "visible_pool",
     poolId: POOL_ID,
-    summary,
+    summary: visiblePoolSummary,
     rewards,
     replacement,
     visibilityPolicy: {
