@@ -115,6 +115,7 @@ the target end state.
 | `single_offer` | Complete | Complete |
 | `single_reward` | Complete | Complete |
 | `single_rule_trial` | Complete | Complete |
+| `single_wager` | Complete | Complete |
 | `take_any_number` | Complete | Complete |
 | `timed_window_menu` | Needed | Complete |
 
