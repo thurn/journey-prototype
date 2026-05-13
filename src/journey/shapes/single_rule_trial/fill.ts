@@ -1,21 +1,16 @@
-import { statusPayload } from "../../fillers/environmentPayloads.js";
-import {
-  DREAMSIGN_POOL_TARGET_DESCRIPTION,
-  dreamsignDraft,
-  gainEssence,
-  option,
-  pickSequentialVariant,
-  target,
-} from "../../fillers/shared.js";
+import { drawInt } from "../../../util/rng.js";
+import type { JourneyOption, JourneyStage } from "../../manifest.js";
+import { getReward } from "../../shared/rewards.js";
 import {
   DREAMWELL_VALUE_CONSTANTS,
   valueEssenceGain,
   valueStatusRuleMutation,
 } from "../../value.js";
-import type { JourneyStage } from "../../manifest.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_LABEL = "single_rule_trial";
+const DREAMSIGN_POOL_TARGET_DESCRIPTION = "eligible Dreamsigns";
+const GAIN_ESSENCE_REWARD = getReward("gain_essence");
 
 type RuleTrial = {
   text: string;
@@ -26,6 +21,35 @@ type RuleTrial = {
 };
 
 type RuleTrialBuilder = (args: ShapeFillArgs) => RuleTrial;
+
+type StatusPayloadArgs = {
+  kind: string;
+  statusName: string;
+  statusScope: "quest" | "battle" | "shop" | "dreamwell" | "reward";
+  duration:
+    | "one_time"
+    | "next_battle"
+    | "next_2_battles"
+    | "next_3_battles"
+    | "next_4_battles"
+    | "next_2_dreamscapes"
+    | "next_3_dreamscapes"
+    | "next_4_dreamscapes"
+    | "persistent";
+  ruleMutationKind: string;
+  polarity?: "positive" | "negative" | "neutral";
+  amount?: number;
+  replacement?: string;
+  replacementKind?: "dreamsign_draft" | "resource" | "route_reward";
+  replacementPayload?: unknown;
+  replacedRewardKind?: "card_rewards" | "battle_rewards" | "essence_site_rewards";
+  rewardTrigger?: "next_victory" | "battle" | "essence_site";
+  resource?: "essence" | "omens";
+  rerollOmenCap?: number;
+  cappedAction?: "reroll";
+  dreamwellRuleKind?: "first_draw_energy";
+  affectedPlayer?: "you" | "opponent" | "both_players";
+};
 
 const STAGE_DREAMSIGN_DRAFT_COUNTS = {
   early: [2] as const,
@@ -38,6 +62,103 @@ const STAGE_ESSENCE_AMOUNTS = {
   mid: [220, 240] as const,
   late: [260, 300] as const,
 } satisfies Record<JourneyStage, readonly number[]>;
+
+function statusPayload(args: StatusPayloadArgs): Record<string, unknown> {
+  return {
+    kind: args.kind,
+    statusName: args.statusName,
+    statusScope: args.statusScope,
+    duration: args.duration,
+    ruleMutationKind: args.ruleMutationKind,
+    polarity: args.polarity ?? "positive",
+    timing:
+      args.duration === "one_time" || args.duration === "persistent"
+        ? "immediate"
+        : args.duration,
+    ...(args.amount !== undefined ? { amount: args.amount } : {}),
+    ...(args.replacement ? { replacement: args.replacement } : {}),
+    ...(args.replacementKind ? { replacementKind: args.replacementKind } : {}),
+    ...(args.replacementPayload !== undefined
+      ? { replacementPayload: args.replacementPayload }
+      : {}),
+    ...(args.replacedRewardKind
+      ? { replacedRewardKind: args.replacedRewardKind }
+      : {}),
+    ...(args.rewardTrigger ? { rewardTrigger: args.rewardTrigger } : {}),
+    ...(args.resource ? { resource: args.resource } : {}),
+    ...(args.rerollOmenCap !== undefined
+      ? { rerollOmenCap: args.rerollOmenCap }
+      : {}),
+    ...(args.cappedAction ? { cappedAction: args.cappedAction } : {}),
+    ...(args.dreamwellRuleKind
+      ? { dreamwellRuleKind: args.dreamwellRuleKind }
+      : {}),
+    ...(args.affectedPlayer ? { affectedPlayer: args.affectedPlayer } : {}),
+  };
+}
+
+function dreamsignDraft(choiceCount: number) {
+  return {
+    kind: "dreamsign_draft",
+    choiceCount,
+    predicate: { source: "pool", tideOverlap: "selected" },
+  };
+}
+
+function gainEssence(amount: number, args: ShapeFillArgs) {
+  return {
+    kind: "shared_reward_template",
+    templateId: GAIN_ESSENCE_REWARD.id,
+    params: { x: amount },
+    text: GAIN_ESSENCE_REWARD.render({ x: amount }, args.context),
+    convertedEssence: valueEssenceGain(amount, args.context),
+  };
+}
+
+function dreamsignTarget(predicate: unknown) {
+  return {
+    kind: "dreamsign",
+    description: DREAMSIGN_POOL_TARGET_DESCRIPTION,
+    predicate,
+    required: true,
+  };
+}
+
+function pickSequentialVariant<T>(
+  args: ShapeFillArgs,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(args.drawContext, label, 0, variants.length - 1)]!;
+}
+
+function option(args: {
+  number: number;
+  text: string;
+  effects: readonly unknown[];
+  targets?: readonly unknown[];
+  effect: number;
+  uncertainty?: number;
+}): JourneyOption {
+  return {
+    number: args.number,
+    symbols: ["status", "rule"],
+    text: args.text,
+    operations: [],
+    costs: [],
+    effects: [...args.effects],
+    burdens: [],
+    targets: [...(args.targets ?? [])],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 0,
+    effectConvertedEssence: args.effect,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: args.uncertainty ?? 0,
+    netConvertedEssence: args.effect + (args.uncertainty ?? 0),
+    pickBehavior: "record_and_generate_next",
+  };
+}
 
 function stageMultiplier(stage: JourneyStage): number {
   switch (stage) {
@@ -57,9 +178,9 @@ function stagedValue(base: number, stage: JourneyStage): number {
 }
 
 function dreamsignRewardReplacement(args: ShapeFillArgs): RuleTrial {
-  const { drawContext, stage } = args;
+  const { stage } = args;
   const dreamsignChoiceCount = pickSequentialVariant(
-    drawContext,
+    args,
     `${SHAPE_LABEL}:replacement-dreamsign-choice`,
     STAGE_DREAMSIGN_DRAFT_COUNTS[stage],
   );
@@ -81,13 +202,7 @@ function dreamsignRewardReplacement(args: ShapeFillArgs): RuleTrial {
         replacementPayload: dreamsignReplacement,
       }),
     ],
-    targets: [
-      target(
-        "dreamsign",
-        DREAMSIGN_POOL_TARGET_DESCRIPTION,
-        dreamsignReplacement.predicate,
-      ),
-    ],
+    targets: [dreamsignTarget(dreamsignReplacement.predicate)],
     effect: stagedValue(
       valueStatusRuleMutation("next_victory_reward_replacement"),
       stage,
@@ -97,9 +212,9 @@ function dreamsignRewardReplacement(args: ShapeFillArgs): RuleTrial {
 }
 
 function essenceRewardReplacement(args: ShapeFillArgs): RuleTrial {
-  const { context, drawContext, stage } = args;
+  const { context, stage } = args;
   const essenceAmount = pickSequentialVariant(
-    drawContext,
+    args,
     `${SHAPE_LABEL}:replacement-essence`,
     STAGE_ESSENCE_AMOUNTS[stage],
   );
@@ -117,7 +232,7 @@ function essenceRewardReplacement(args: ShapeFillArgs): RuleTrial {
         replacedRewardKind: "card_rewards",
         replacement: `${essenceAmount} essence`,
         replacementKind: "resource",
-        replacementPayload: gainEssence(essenceAmount),
+        replacementPayload: gainEssence(essenceAmount, args),
         resource: "essence",
         amount: essenceAmount,
       }),
@@ -227,11 +342,10 @@ const RULE_TRIALS_BY_STAGE = {
 } satisfies Record<JourneyStage, readonly RuleTrialBuilder[]>;
 
 export function singleRuleTrialFill(args: ShapeFillArgs): FilledJourney {
-  const { drawContext, stage } = args;
   const trialBuilder = pickSequentialVariant(
-    drawContext,
+    args,
     `${SHAPE_LABEL}:trial`,
-    RULE_TRIALS_BY_STAGE[stage],
+    RULE_TRIALS_BY_STAGE[args.stage],
   );
   const trial = trialBuilder(args);
 
