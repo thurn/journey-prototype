@@ -15,6 +15,23 @@ import type { FilledJourney, ShapeFillArgs } from "../types.js";
 const SHAPE_ID = "now_vs_later";
 const DELAYED_REWARD_MULTIPLIER = 1.45;
 const DELAYED_REWARD_MINIMUM_GAP = 40;
+const DELAYED_REWARD_MAX_RATIO = 5;
+const DELAYED_REWARD_MAXIMUM_GAP = 500;
+
+const BROAD_DELAYED_REWARD_IDS = new Set([
+  "apply_named_transfiguration_to_all_predicate_cards",
+]);
+
+const DEFERRED_IMMEDIATE_REWARD_IDS = new Set([
+  "add_site_to_next_dreamscape",
+  "boost_site_appearance_chance",
+  "card_cost_reduction_for_X_battles",
+  "next_X_shop_rerolls_free",
+  "opening_hand_grant_for_X_battles",
+  "shop_omen_discount",
+  "temporary_card_copy_for_X_battles",
+  "temporary_dreamsign_for_X_battles",
+]);
 
 type RolledReward = {
   readonly template: Reward;
@@ -119,6 +136,18 @@ function sharesRewardTemplate(left: RolledReward, right: RolledReward): boolean 
   return consumedRewardIds(right).some((id) => leftIds.has(id));
 }
 
+function hasConsumedRewardId(rolled: RolledReward, excludedIds: ReadonlySet<string>): boolean {
+  return consumedRewardIds(rolled).some((id) => excludedIds.has(id));
+}
+
+function isImmediateRewardEligible(rolled: RolledReward): boolean {
+  return !hasConsumedRewardId(rolled, DEFERRED_IMMEDIATE_REWARD_IDS);
+}
+
+function isDelayedRewardEligible(rolled: RolledReward): boolean {
+  return !hasConsumedRewardId(rolled, BROAD_DELAYED_REWARD_IDS);
+}
+
 function rollRewards(args: ShapeFillArgs): readonly RolledReward[] {
   const { context, drawContext } = args;
   const rewards: RolledReward[] = [];
@@ -159,9 +188,11 @@ function pickImmediateReward(
   rewards: readonly RolledReward[],
   drawContext: DrawContext,
 ): RolledReward {
-  const highestCec = Math.max(...rewards.map((reward) => reward.cec));
-  const pool = rewards.filter((reward) => reward.cec <= highestCec / DELAYED_REWARD_MULTIPLIER);
-  const candidates = pool.length > 0 ? pool : rewards;
+  const eligibleRewards = rewards.filter(isImmediateRewardEligible);
+  const basePool = eligibleRewards.length > 0 ? eligibleRewards : rewards;
+  const highestCec = Math.max(...basePool.map((reward) => reward.cec));
+  const pool = basePool.filter((reward) => reward.cec <= highestCec / DELAYED_REWARD_MULTIPLIER);
+  const candidates = pool.length > 0 ? pool : basePool;
 
   return weightedChoice(
     drawContext,
@@ -182,9 +213,18 @@ function pickDelayedReward(
     immediate.cec * DELAYED_REWARD_MULTIPLIER,
     immediate.cec + DELAYED_REWARD_MINIMUM_GAP,
   );
-  const distinct = rewards.filter((reward) => !sharesRewardTemplate(immediate, reward));
-  const eligible = distinct.filter((reward) => reward.cec >= threshold);
-  const fallback = distinct.length > 0 ? distinct : rewards;
+  const upperBound = Math.max(
+    threshold,
+    immediate.cec * DELAYED_REWARD_MAX_RATIO,
+    immediate.cec + DELAYED_REWARD_MAXIMUM_GAP,
+  );
+  const distinct = rewards.filter((reward) =>
+    isDelayedRewardEligible(reward) && !sharesRewardTemplate(immediate, reward),
+  );
+  const eligible = distinct.filter((reward) => reward.cec >= threshold && reward.cec <= upperBound);
+  const fallback = distinct.length > 0
+    ? distinct
+    : rewards.filter((reward) => isDelayedRewardEligible(reward));
   const candidates = eligible.length > 0
     ? eligible
     : fallback.filter((reward) => reward.cec > immediate.cec);
@@ -239,14 +279,20 @@ function emptyOption(
 }
 
 function rewardPayload(reward: RolledReward, timing: "immediate" | "delayed"): Record<string, unknown> {
+  const text = timing === "delayed" ? delayedRewardText(reward) : reward.text;
+
   return {
     kind: "shared_reward_template",
     templateId: reward.template.id,
     params: reward.params,
-    text: reward.text,
+    text,
     timing,
     expectedConvertedEssence: reward.cec,
   };
+}
+
+function delayedRewardText(reward: RolledReward): string {
+  return reward.text.replace(/\bthis dreamscape\b/giu, "the resolving dreamscape");
 }
 
 function delayedHookContract(args: {
@@ -254,7 +300,7 @@ function delayedHookContract(args: {
   readonly timing: TimingProfile;
   readonly expectedConvertedEssence: number;
 }): DelayedHookContract & Record<string, unknown> {
-  const rewardText = lowerFirst(args.reward.text).replace(/\.$/u, "");
+  const rewardText = lowerFirst(delayedRewardText(args.reward)).replace(/\.$/u, "");
   const controlledScene: HookControlledScene = {
     sceneKind: "reward",
     label: rewardText,
@@ -320,7 +366,7 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
       ),
       emptyOption(
         2,
-        sentence(`${timing.optionPrefix} for a richer reward: ${lowerFirst(delayed.text)}`),
+        sentence(`${timing.optionPrefix} for a richer reward: ${lowerFirst(delayedRewardText(delayed))}`),
         ["reward", "delayed"],
         delayed.cec,
         delayedUncertainty,
