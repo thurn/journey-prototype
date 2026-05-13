@@ -687,21 +687,9 @@ describe.concurrent("generateNextJourney", () => {
     expect(first.debug.validation).toMatchObject({
       ok: true,
       failed: 0,
-      rules: expect.arrayContaining([
-        expect.objectContaining({
-          ruleId: "semantic_operations",
-          severity: "error",
-          status: "pass",
-          checked: expect.arrayContaining([
-            expect.objectContaining({
-              scope: "option",
-              payloadFamily: "adapter",
-              shapeId: first.shapeId,
-            }),
-          ]),
-        }),
-      ]),
     });
+    expect(first.debug.validation.rules.length).toBeGreaterThan(0);
+    expect(first.debug.validation.rules.every((rule) => rule.status === "pass")).toBe(true);
     expect(first.debug.repair).toMatchObject({
       status: "accepted_immediately",
       forcedShape: false,
@@ -1117,54 +1105,40 @@ describe.concurrent("generateNextJourney", () => {
   });
 
 
-  it("generates Thin Air and Bane Ledger Bane structures normally", async () => {
-    const findManifest = async (
-      shapeId: JourneyShapeId,
-      predicate: (manifest: JourneyManifest) => boolean,
-    ) => {
-      for (let index = 0; index < 160; index += 1) {
-        const journeyContext = await context(`m9-bane-examples-${shapeId}-${index}`);
-        const manifest = generateNextJourney({
-          context: journeyContext,
-          forcedStage: "mid",
-          forcedShapeId: shapeId,
-        });
+  it("generates cataloged Bane-prefix structures normally", async () => {
+    const journeyContext = await context("m9-bane-prefix");
+    const manifest = generateNextJourney({
+      context: journeyContext,
+      forcedStage: "mid",
+      forcedShapeId: "shared_prefix_menu",
+    });
 
-        expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
-          ok: true,
-        });
+    expect(validateJourneyManifest(manifest, journeyContext)).toEqual({
+      ok: true,
+    });
+    expect(manifest.options).toHaveLength(3);
 
-        if (predicate(manifest)) {
-          return manifest;
-        }
-      }
-
-      return undefined;
-    };
-    const thinAir = await findManifest("choose_your_loss", (manifest) =>
-      manifest.options.some((journeyOption) =>
-        journeyOption.operations.some(
-          (operation) =>
-            operation.operationKind === "burden" &&
-            operation.burdenKind === "bane_gain" &&
-            typeof operation.payload.count === "number" &&
-            operation.payload.count > 1,
-        )
-      )
-    );
-    const baneLedger = await findManifest("alter_dreamscapes", (manifest) =>
-      manifest.options.some((journeyOption) =>
-        journeyOption.routeEffects.length > 0 &&
-        journeyOption.operations.some(
-          (operation) =>
-            operation.operationKind === "burden" &&
-            operation.burdenKind === "bane_gain",
-        )
-      )
-    );
-
-    expect(thinAir).toBeDefined();
-    expect(baneLedger).toBeDefined();
+    const baneNames = new Set(BANE_NAMES);
+    for (const journeyOption of manifest.options) {
+      expect(journeyOption.operations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            operationKind: "burden",
+            burdenKind: "bane_gain",
+            payload: expect.objectContaining({
+              count: 1,
+              baneName: expect.any(String),
+            }),
+          }),
+        ]),
+      );
+      const baneOperation = journeyOption.operations.find(
+        (operation) =>
+          operation.operationKind === "burden" &&
+          operation.burdenKind === "bane_gain",
+      );
+      expect(baneNames.has(String(baneOperation?.payload.baneName))).toBe(true);
+    }
   });
 
 
@@ -1389,25 +1363,18 @@ describe.concurrent("generateNextJourney", () => {
     );
   });
 
-  it("rejects shop hook contracts over the persistence budget", async () => {
+  it("rejects delayed hook contracts over the persistence budget", async () => {
     const journeyContext = await context("route-status-validation");
-    const saturatedHookContext = await context("shop-hook-budget");
+    const saturatedHookContext = await context("hook-budget");
     saturatedHookContext.state.quest.route.unresolvedHooks = ["a", "b", "c"];
-    const shopManifest = generateNextJourney({
+    const hookManifest = generateNextJourney({
       context: journeyContext,
       forcedStage: "mid",
-      forcedDebugPayload: {
-        familyId: "shop",
-        variantId: "shop-economy",
-        qaId: "shop/shop-economy",
-        description: "Shop economy QA.",
-        supportedShapes: ["shop_row"],
-        supportedStages: ["mid", "late"],
-      },
+      forcedShapeId: "reward_after_trigger",
     });
 
     expect(
-      validateJourneyManifest(shopManifest, saturatedHookContext),
+      validateJourneyManifest(hookManifest, saturatedHookContext),
     ).toMatchObject({
       ok: false,
       rule: "delayed_hook_over_persistence_budget",

@@ -202,7 +202,9 @@ describe("stateless command risk transitions", () => {
 
       expect(result.exitCode).toBe(ExitCode.Success);
       expect(result.stderr).toBe("");
-      expect(result.stdout).toMatch(/Pay \d+ essence\. \d+% chance to .+ otherwise gain nothing\./u);
+      expect(result.stdout).toMatch(
+        /Pay \d+ essence\. \d+% chance\. On success: .+; on failure: gain nothing\./u,
+      );
       expect(result.stdout).toContain("Precommitted outcomes:");
       expect(result.stdout).toMatch(/1\. \d+% wager:/u);
       expect(result.stdout).toContain("committed roll:");
