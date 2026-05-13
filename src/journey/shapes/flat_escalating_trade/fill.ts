@@ -17,38 +17,53 @@ type FlatEscalatingTradeRow = {
 const FLAT_ESCALATING_TRADE_PROFILES = {
   early: [
     [
-      { price: 15, omens: 1 },
-      { price: 35, omens: 2 },
-      { price: 60, omens: 3 },
+      { price: 5, omens: 1 },
+      { price: 60, omens: 2 },
+      { price: 120, omens: 3 },
+    ],
+    [
+      { price: 10, omens: 1 },
+      { price: 65, omens: 2 },
+      { price: 120, omens: 3 },
     ],
     [
       { price: 20, omens: 1 },
-      { price: 40, omens: 2 },
-      { price: 70, omens: 3 },
+      { price: 80, omens: 2 },
+      { price: 120, omens: 3 },
     ],
   ],
   mid: [
     [
-      { price: 20, omens: 1 },
-      { price: 45, omens: 2 },
-      { price: 80, omens: 3 },
+      { price: 30, omens: 1 },
+      { price: 95, omens: 2 },
+      { price: 170, omens: 3 },
     ],
     [
-      { price: 25, omens: 1 },
-      { price: 55, omens: 2 },
-      { price: 90, omens: 3 },
+      { price: 35, omens: 1 },
+      { price: 170, omens: 3 },
+      { price: 310, omens: 5 },
+    ],
+    [
+      { price: 90, omens: 2 },
+      { price: 220, omens: 4 },
+      { price: 300, omens: 5 },
     ],
   ],
   late: [
     [
-      { price: 30, omens: 1 },
-      { price: 60, omens: 2 },
-      { price: 95, omens: 3 },
+      { price: 90, omens: 2 },
+      { price: 210, omens: 4 },
+      { price: 350, omens: 6 },
     ],
     [
-      { price: 35, omens: 1 },
-      { price: 70, omens: 2 },
-      { price: 110, omens: 3 },
+      { price: 120, omens: 2 },
+      { price: 235, omens: 4 },
+      { price: 370, omens: 6 },
+    ],
+    [
+      { price: 160, omens: 3 },
+      { price: 295, omens: 5 },
+      { price: 370, omens: 6 },
     ],
   ],
 } as const satisfies Record<

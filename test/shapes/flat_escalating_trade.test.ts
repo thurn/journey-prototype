@@ -87,6 +87,17 @@ function assertStrictlyIncreasing(values: readonly number[]) {
   }
 }
 
+function netValues(manifest: JourneyManifest): number[] {
+  return manifest.options.map((option) => option.netConvertedEssence);
+}
+
+function assertComparableNetValues(manifest: JourneyManifest) {
+  const nets = netValues(manifest);
+  const spread = Math.max(...nets) - Math.min(...nets);
+
+  expect(spread, nets.join(",")).toBeLessThanOrEqual(35);
+}
+
 function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("flat_escalating_trade");
   expect(manifest.options).toHaveLength(3);
@@ -103,6 +114,7 @@ function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.options.map((option) => option.number)).toEqual([1, 2, 3]);
   assertStrictlyIncreasing(costs);
   assertStrictlyIncreasing(rewards);
+  assertComparableNetValues(manifest);
 
   for (const option of manifest.options) {
     const price = essenceCost(option);
@@ -189,5 +201,16 @@ describe("flat_escalating_trade fill", () => {
       second.debug.symmetryContracts,
     );
     expect(first.distinctness).toEqual(second.distinctness);
+  });
+
+  it("makes late high tiers a larger essence commitment", async () => {
+    for (const seedNumber of auditSeedNumbers) {
+      const seed = `audit:flat_escalating_trade:late:${seedNumber}`;
+      const manifest = await forcedFlatEscalatingTradeManifest(seed, "late");
+      const costs = manifest.options.map(essenceCost);
+
+      expect(costs.at(-1), seed).toBeGreaterThanOrEqual(350);
+      assertComparableNetValues(manifest);
+    }
   });
 });
