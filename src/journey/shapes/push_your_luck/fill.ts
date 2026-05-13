@@ -1,7 +1,7 @@
-import { odds } from "../../fillers/treeBuilders.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import {
   buildPushYourLuckTree,
+  odds,
   pushYourLuckFailureBranches,
 } from "./tree.js";
 

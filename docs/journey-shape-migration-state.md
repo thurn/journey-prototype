@@ -107,7 +107,7 @@ the target end state.
 | `paired_return` | Needed | Needed |
 | `prize_ladder` | Needed | Needed |
 | `probability_ladder` | Needed | Needed |
-| `push_your_luck` | Needed | Needed |
+| `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reveal_choice_menu` | Needed | Needed |
 | `resolved_random_series` | Complete | Complete |

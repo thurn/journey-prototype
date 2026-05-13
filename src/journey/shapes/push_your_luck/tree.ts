@@ -1,14 +1,13 @@
 import type { JourneyContext } from "../../../quest/context.js";
-import type { DrawContext } from "../../../util/rng.js";
+import { drawInt, type DrawContext } from "../../../util/rng.js";
 import { BANE_NAMES } from "../../effects.js";
-import { treeBuilderTools } from "../../fillers/shared.js";
-import {
-  createTreePrimitives,
-  odds,
-  tree,
-  treeBranch,
-} from "../../fillers/treeBuilders.js";
 import type { JourneyTree, JourneyTreeBranch } from "../../manifest.js";
+import {
+  adaptTreeBranchOperations,
+  adaptTreeTerminalOperations,
+} from "../../operationAdapters.js";
+import { getReward } from "../../shared/rewards.js";
+import type { TemplateParams } from "../../shared/types.js";
 import { valueBaneGain, valueEssenceGain, valueOmenGain } from "../../value.js";
 
 type PushReward = {
@@ -27,6 +26,132 @@ const PUSH_REWARD_FAMILIES = [
 ] as const;
 
 type PushRewardFamilyId = (typeof PUSH_REWARD_FAMILIES)[number];
+
+type TreeBranchArgs = {
+  id: string;
+  label: string;
+  kind?: JourneyTreeBranch["kind"];
+  text: string;
+  odds?: JourneyTreeBranch["odds"];
+  costs?: unknown[];
+  effects?: unknown[];
+  burdens?: unknown[];
+  targets?: unknown[];
+  triggers?: unknown[];
+  routeEffects?: unknown[];
+  cost?: number;
+  effect?: number;
+  burden?: number;
+  uncertainty?: number;
+  nextNodeId?: string;
+  terminal?: Omit<NonNullable<JourneyTreeBranch["terminal"]>, "operations">;
+};
+
+function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
+  const costs = args.costs ?? [];
+  const effects = args.effects ?? [];
+  const burdens = args.burdens ?? [];
+  const targets = args.targets ?? [];
+  const routeEffects = args.routeEffects ?? [];
+  const terminal = args.terminal
+    ? {
+        text: args.terminal.text,
+        outcome: args.terminal.outcome,
+        operations: [],
+        costs,
+        effects,
+        burdens,
+        targets,
+        routeEffects,
+      }
+    : undefined;
+
+  const branch = {
+    id: args.id,
+    label: args.label,
+    kind: args.kind ?? "player_choice",
+    text: args.text,
+    operations: [],
+    ...(args.odds ? { odds: args.odds } : {}),
+    costs,
+    effects,
+    burdens,
+    targets,
+    triggers: args.triggers ?? [],
+    routeEffects,
+    costConvertedEssence: args.cost ?? 0,
+    effectConvertedEssence: args.effect ?? 0,
+    burdenConvertedEssence: args.burden ?? 0,
+    uncertaintyConvertedEssence: args.uncertainty ?? 0,
+    netConvertedEssence:
+      (args.effect ?? 0) -
+      (args.cost ?? 0) +
+      (args.burden ?? 0) +
+      (args.uncertainty ?? 0),
+    ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
+    ...(terminal ? { terminal } : {}),
+  };
+
+  return {
+    ...branch,
+    operations: adaptTreeBranchOperations(branch),
+    ...(branch.terminal
+      ? {
+          terminal: {
+            ...branch.terminal,
+            operations: adaptTreeTerminalOperations(
+              branch.terminal,
+              `tree:${branch.id}:terminal`,
+            ),
+          },
+        }
+      : {}),
+  };
+}
+
+export function odds(percent: number): JourneyTreeBranch["odds"] {
+  return { numerator: percent, denominator: 100, percent };
+}
+
+function tree(nodes: JourneyTree["nodes"]): JourneyTree {
+  return {
+    rootNodeId: nodes[0]?.id ?? "level-1",
+    nodes,
+  };
+}
+
+function pickSequentialVariant<T>(
+  drawContext: DrawContext,
+  label: string,
+  variants: readonly T[],
+): T {
+  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
+}
+
+function target(
+  kind: "card" | "dreamsign",
+  description: string,
+  predicate: unknown,
+  options: {
+    selection?: "exact" | "predicate" | "chosen_after_commitment" | "visible_random" | "hidden_random";
+    cardOperationTargetMode?: string;
+    dreamsignOperationTargetMode?: string;
+  } = {},
+) {
+  return {
+    kind,
+    description,
+    predicate,
+    ...(options.selection ? { selection: options.selection } : {}),
+    ...(options.cardOperationTargetMode
+      ? { cardOperationTargetMode: options.cardOperationTargetMode }
+      : {}),
+    ...(options.dreamsignOperationTargetMode
+      ? { dreamsignOperationTargetMode: options.dreamsignOperationTargetMode }
+      : {}),
+    required: true,
+  };
+}
 
 const TRANSFIGURATION_LADDERS: readonly (readonly [string, string, string])[] = [
   ["Bronze", "Azure", "Prismatic"],
@@ -49,7 +174,6 @@ function pushChanceProgression(
   label: string,
   levels: number,
 ): number[] {
-  const { pickSequentialVariant } = treeBuilderTools;
   const start = pickSequentialVariant(drawContext, `${label}:start`, [75, 80, 85]);
   const step = pickSequentialVariant(drawContext, `${label}:step`, [15, 20]);
   const floor = 30;
@@ -63,6 +187,10 @@ function withoutFinalPeriod(text: string): string {
   return text.replace(/\.$/u, "");
 }
 
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
 function countText(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
@@ -72,11 +200,17 @@ function baneCountText(count: number, baneName: string): string {
 }
 
 function gainOmenEffect(amount: number) {
-  return treeBuilderTools.gainOmen(amount);
+  return {
+    kind: "gain_omens",
+    amount,
+  };
 }
 
 function gainEssenceEffect(amount: number) {
-  return treeBuilderTools.gainEssence(amount);
+  return {
+    kind: "gain_essence",
+    amount,
+  };
 }
 
 function omenPayloadAmount(effect: unknown): number {
@@ -328,18 +462,11 @@ function connectedPushRewards(
   drawContext: DrawContext,
   chances: readonly number[],
 ): PushReward[] {
-  const { treeRewardFamily } = createTreePrimitives(treeBuilderTools);
   const stage = stageForContext(context);
-  const legalFamilies = PUSH_REWARD_FAMILIES.filter((family) =>
-    family !== "dreamsign_draft" ||
-    context.state.quest.dreamsignPoolIds.length > 0,
-  );
-  const familyCandidates: readonly PushRewardFamilyId[] =
-    legalFamilies.length > 0 ? legalFamilies : ["essence"];
-  const selectedFamily = treeBuilderTools.pickSequentialVariant(
+  const selectedFamily = pickSequentialVariant(
     drawContext,
     "push-your-luck:reward-family:family",
-    familyCandidates,
+    PUSH_REWARD_FAMILIES,
   );
   const rewardFamily =
     selectedFamily === "transfiguration"
@@ -347,12 +474,10 @@ function connectedPushRewards(
           id: selectedFamily,
           rewards: transfigurationRewards(context, drawContext),
         }
-      : treeRewardFamily(
+      : sharedRewardFamily(
           context,
-          drawContext,
-          "push-your-luck:reward-family",
-          3,
-          [selectedFamily],
+          selectedFamily,
+          stage,
         );
   const orderedRewards =
     rewardFamily.id === "transfiguration"
@@ -376,13 +501,13 @@ function transfigurationRewards(
   context: JourneyContext,
   drawContext: DrawContext,
 ): PushReward[] {
-  const ladder = treeBuilderTools.pickSequentialVariant(
+  const ladder = pickSequentialVariant(
     drawContext,
     "push-your-luck:reward-family:transfiguration-ladder",
     TRANSFIGURATION_LADDERS,
   );
   const targets = [
-    treeBuilderTools.target(
+    target(
       "card",
       "cards in deck",
       { source: "deck" },
@@ -401,6 +526,54 @@ function transfigurationRewards(
     targets,
     effect: baseValue + index * 35,
   }));
+}
+
+function sharedRewardPayload(
+  context: JourneyContext,
+  templateId: "gain_essence" | "gain_omens",
+  params: TemplateParams,
+): PushReward {
+  const template = getReward(templateId);
+  const text = template.render(params as never, context);
+  const convertedEssence = template.cec(params as never, context);
+
+  return {
+    text: `${lowerFirst(text)}.`,
+    effects: [
+      {
+        kind: "shared_reward_template",
+        templateId,
+        params,
+        text,
+        convertedEssence,
+      },
+    ],
+    effect: convertedEssence,
+  };
+}
+
+function sharedRewardFamily(
+  context: JourneyContext,
+  family: Exclude<PushRewardFamilyId, "card_draft" | "dreamsign_draft" | "transfiguration"> |
+    "card_draft" |
+    "dreamsign_draft",
+  stage: "early" | "mid" | "late",
+): { readonly id: PushRewardFamilyId; readonly rewards: readonly PushReward[] } {
+  if (family === "omens" || family === "card_draft" || family === "dreamsign_draft") {
+    const counts = stage === "late" ? [2, 4, 7] : stage === "mid" ? [2, 3, 5] : [1, 2, 4];
+
+    return {
+      id: "omens",
+      rewards: counts.map((x) => sharedRewardPayload(context, "gain_omens", { x })),
+    };
+  }
+
+  const amounts = stage === "late" ? [120, 220, 360] : stage === "mid" ? [90, 170, 280] : [70, 135, 225];
+
+  return {
+    id: "essence",
+    rewards: amounts.map((x) => sharedRewardPayload(context, "gain_essence", { x })),
+  };
 }
 
 function bankedRewardText(completedLevels: number): string {
@@ -423,7 +596,6 @@ export function buildPushYourLuckTree(
   context: JourneyContext,
   drawContext: DrawContext,
 ): JourneyTree {
-  const { pickSequentialVariant } = treeBuilderTools;
   const chances = pushChanceProgression(drawContext, "push-your-luck:chances", 3);
   const profile = {
     chances,
