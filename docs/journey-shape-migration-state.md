@@ -37,7 +37,7 @@ Each queued shape follows this sequence:
 | 23 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 24 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 25 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 26 | `paired_return` | 1.0 | In progress | Pending | Pending | Pending | Current |
+| 26 | `paired_return` | 1.0 | Complete | In progress | Pending | Complete | Current |
 
 ## Reference Shapes
 
@@ -80,6 +80,7 @@ These shapes are reference implementations for the migration target:
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
 - `shared_prefix_menu` completed migration commit `6c00aa2`, audit commit `b8d1014`, and fix commit `d026c29`.
 - `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
+- `paired_return` completed migration commit `5265c18`.
 - The active migration target keeps shape-specific code in `src/journey/shapes/paired_return/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
