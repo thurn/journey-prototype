@@ -5,7 +5,7 @@ export const singleRewardPlugin = defineShapePlugin({
   definition: {
     id: "single_reward",
     topology: "single_reward",
-    rootOptionCount: { min: 2, max: 2 },
+    rootOptionCount: { min: 1, max: 1 },
     supportedTags: ["reward", "boon", "cleanse", "single"],
     payloadCompatibility: [
       {
@@ -37,7 +37,7 @@ export const singleRewardPlugin = defineShapePlugin({
         familyId: "resource",
         variants: ["adapter-compatible-resource-operations"],
         legality: "legal",
-        reason: "Shape can compare visible resource costs or rewards.",
+        reason: "Shape can grant one visible deterministic resource reward.",
       },
       {
         familyId: "route",

@@ -7,7 +7,6 @@ import type {
   JourneyStage,
 } from "../../src/journey/manifest.js";
 import { singleRewardPlugin } from "../../src/journey/shapes/single_reward/index.js";
-import { POSITIVE_MENU_VALUE_CONSTANTS } from "../../src/journey/value.js";
 import { buildJourneyContext } from "../../src/quest/context.js";
 import {
   createInitialJourneyState,
@@ -19,6 +18,24 @@ const auditStages: readonly JourneyStage[] = ["early", "mid", "late"];
 const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
+
+const stageResourceBands = {
+  early: {
+    essence: [180, 220, 260],
+    omens: [2, 3],
+  },
+  mid: {
+    essence: [320, 360, 400],
+    omens: [4, 5],
+  },
+  late: {
+    essence: [480, 540, 600],
+    omens: [6, 7],
+  },
+} as const satisfies Record<
+  JourneyStage,
+  { essence: readonly number[]; omens: readonly number[] }
+>;
 
 let contentContextPromise:
   | ReturnType<typeof loadContentContext>
@@ -52,33 +69,61 @@ async function forcedSingleRewardManifest(seed: string, stage: JourneyStage) {
   });
 }
 
-function assertComparablePositiveOptions(options: readonly JourneyOption[]) {
-  const positiveNets = options
-    .map((option) => option.netConvertedEssence)
-    .filter((net) => net > 0);
-  const lowest = Math.min(...positiveNets);
-  const highest = Math.max(...positiveNets);
-  const minimumComparableValue = Math.max(
-    highest - POSITIVE_MENU_VALUE_CONSTANTS.maximumComparableSpread,
-    highest * POSITIVE_MENU_VALUE_CONSTANTS.minimumComparableRatio,
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function payloadKinds(option: JourneyOption): string[] {
+  return [...option.effects, ...option.costs, ...option.burdens]
+    .flatMap((payload) =>
+      isRecord(payload) && typeof payload.kind === "string" ? [payload.kind] : []
+    );
+}
+
+function assertVisibleSingleBoon(option: JourneyOption, stage: JourneyStage) {
+  expect(option.text).not.toMatch(/\b(?:Draft|Choose)\b/iu);
+  expect(option.text).not.toMatch(/\b\d+ of \d+\b/u);
+  expect(option.text).toMatch(
+    /^Gain (?:\d+ essence|\d+ omens|\{[^}]+\})\.$/u,
+  );
+  expect(payloadKinds(option)).not.toEqual(
+    expect.arrayContaining(["card_draft", "dreamsign_draft"]),
   );
 
-  expect(lowest).toBeGreaterThanOrEqual(minimumComparableValue);
+  const essenceMatch = /^Gain (?<amount>\d+) essence\.$/u.exec(option.text);
+  if (essenceMatch?.groups?.amount) {
+    expect(stageResourceBands[stage].essence).toContain(
+      Number(essenceMatch.groups.amount),
+    );
+  }
+
+  const omenMatch = /^Gain (?<amount>\d+) omens\.$/u.exec(option.text);
+  if (omenMatch?.groups?.amount) {
+    expect(stageResourceBands[stage].omens).toContain(
+      Number(omenMatch.groups.amount),
+    );
+  }
+
+  for (const target of option.targets) {
+    if (isRecord(target) && "selection" in target) {
+      expect(target.selection).toBe("exact");
+    }
+  }
 }
 
 function assertSingleRewardManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("single_reward");
   expect(manifest.tree).toBeUndefined();
   expect(manifest.rewardPool).toBeUndefined();
-  expect(manifest.options).toHaveLength(2);
-  expect(manifest.options.map((option) => option.number)).toEqual([1, 2]);
+  expect(manifest.options).toHaveLength(1);
+  expect(manifest.options.map((option) => option.number)).toEqual([1]);
   expect(manifest.precommitted.random).toBeUndefined();
   expect(manifest.precommitted.delayed).toBeUndefined();
   expect(manifest.precommitted.routeEdits).toBeUndefined();
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
-  assertComparablePositiveOptions(manifest.options);
 
   for (const option of manifest.options) {
+    assertVisibleSingleBoon(option, manifest.stage);
     expect(option.pickBehavior).toBe("record_and_generate_next");
     expect(option.costs).toEqual([]);
     expect(option.burdens).toEqual([]);
@@ -100,7 +145,7 @@ describe("single_reward fill", () => {
   it("uses a shape-local deterministic reward contract", () => {
     expect(singleRewardPlugin.definition).toMatchObject({
       topology: "single_reward",
-      rootOptionCount: { min: 2, max: 2 },
+      rootOptionCount: { min: 1, max: 1 },
       supportedTags: ["reward", "boon", "cleanse", "single"],
       validationRules: [
         "root_option_count_within_bounds",
@@ -151,9 +196,10 @@ describe("single_reward fill", () => {
     const first = singleRewardPlugin.fill(args);
     const second = singleRewardPlugin.fill(args);
 
+    expect(first.options).toHaveLength(1);
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
-    assertComparablePositiveOptions(first.options);
+    assertVisibleSingleBoon(first.options[0]!, bundle.stage);
   });
 
   it("generates valid deterministic reward rows for every audited stage seed", async () => {

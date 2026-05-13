@@ -225,10 +225,12 @@ describe("JOURNEY_SHAPES", () => {
         continue;
       }
 
-      // single_rule_trial intentionally has no root choice; it applies a
-      // single rule deterministically. All other non-tree shapes still
-      // require a meaningful choice surface (>= 2 root options).
-      if (definition.topology === "single_rule_trial") {
+      // These topologies apply one deterministic result instead of presenting
+      // a comparative root choice surface.
+      if (
+        definition.topology === "single_rule_trial" ||
+        definition.topology === "single_reward"
+      ) {
         continue;
       }
 
