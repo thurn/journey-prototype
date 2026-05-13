@@ -2,17 +2,13 @@ import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, type DrawContext } from "../../../util/rng.js";
 import {
   averageValue,
-  randomVisibility,
-  visibleWheelPool,
-  worstCaseBurden,
-} from "../../fillers/randomPayloads.js";
-import {
-  cost,
-  gainEssence,
+  emptyOption,
+  essenceCost,
   lowerFirst,
-  option,
-  pickSequentialVariant,
-} from "../../fillers/shared.js";
+  randomVisibility,
+  stripTerminalPeriod,
+  visibleRewardPool,
+} from "./pool.js";
 import type {
   JourneyOption,
   JourneyRewardPool,
@@ -30,22 +26,18 @@ export function wheelRootOptions(args: {
   rewardPool: JourneyRewardPool;
   precommitted: RandomPrecommittedOutcome[];
 } {
-  const wheel = visibleWheelPool(args);
+  const wheel = visibleRewardPool(args);
   const candidates = wheel.candidates;
-  const poolId = `${args.label}:visible-wheel`;
+  const poolId = `${args.label}:visible-reward-pool`;
   const firstRoll = drawInt(args.drawContext, `${args.label}:roll-twice:first`, 1, 100);
   const secondRoll = drawInt(args.drawContext, `${args.label}:roll-twice:second`, 1, 100);
   const keptRoll = Math.max(firstRoll, secondRoll);
-  const randomRangeMinimum = pickSequentialVariant(
-    args.drawContext,
-    `${args.label}:range-min`,
-    [40, 60, 80],
-  );
-  const randomRangeMaximum = randomRangeMinimum + pickSequentialVariant(
-    args.drawContext,
-    `${args.label}:range-width`,
-    [40, 60, 80],
-  );
+  const randomRangeMinimum = [40, 60, 80][
+    drawInt(args.drawContext, `${args.label}:range-min`, 0, 2)
+  ]!;
+  const randomRangeMaximum = randomRangeMinimum + [40, 60, 80][
+    drawInt(args.drawContext, `${args.label}:range-width`, 0, 2)
+  ]!;
   const committedAmount = drawInt(
     args.drawContext,
     `${args.label}:range-amount`,
@@ -58,35 +50,27 @@ export function wheelRootOptions(args: {
   );
   const selected = candidates[drawIndexes[0] ?? 0] ?? candidates[0]!;
   const price = Math.min(60, args.context.state.quest.resources.essence);
+  const entryCost = essenceCost(args.context, price);
   const expectedConvertedEssence = averageValue(candidates);
+  const randomRangeExpected = Math.round((randomRangeMinimum + randomRangeMaximum) / 2);
 
   return {
     options: [
-      option({
+      emptyOption({
         number: 1,
-        text: `Pay ${price} essence. Spin the visible wheel; committed outcome: ${lowerFirst(selected.text).replace(/\.$/u, "")}.`,
-        costs: [cost("essence", price)],
-        effects: [{ kind: "random_reward", table: "visible_wheel", poolId }],
-        cost: price,
-        effect: price + 190,
-        uncertainty: -12,
+        text: `${entryCost.text}. Spin the visible wheel; committed outcome: ${stripTerminalPeriod(lowerFirst(selected.text))}.`,
+        symbols: ["cost", "random", "reward"],
+        costs: [entryCost],
+        costConvertedEssence: entryCost.convertedEssence,
+        effectConvertedEssence: expectedConvertedEssence,
+        uncertaintyConvertedEssence: -12,
       }),
-      option({
+      emptyOption({
         number: 2,
         text: `Roll twice and keep one (${firstRoll}, ${secondRoll}; kept ${keptRoll}). Gain ${randomRangeMinimum}-${randomRangeMaximum} random essence.`,
-        effects: [
-          { kind: "random_reward", table: "roll_twice_keep_one" },
-          {
-            kind: "resource_random_range",
-            resource: "essence",
-            amount: committedAmount,
-            minimum: randomRangeMinimum,
-            maximum: randomRangeMaximum,
-            extra: { resourceAmountKind: "random_range" },
-          },
-        ],
-        effect: price + 190,
-        uncertainty: -10,
+        symbols: ["random", "reward"],
+        effectConvertedEssence: randomRangeExpected,
+        uncertaintyConvertedEssence: -10,
       }),
     ],
     rewardPool: wheel.rewardPool,
@@ -105,7 +89,7 @@ export function wheelRootOptions(args: {
         ),
         expectedConvertedEssence,
         riskPremiumConvertedEssence: -12,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_visible_result",
       },
       {
@@ -113,13 +97,28 @@ export function wheelRootOptions(args: {
         optionNumber: 2,
         rolls: [firstRoll, secondRoll],
         keptRoll,
-        outcomes: [gainEssence(randomRangeMinimum), gainEssence(randomRangeMaximum)],
+        outcomes: [
+          {
+            kind: "shared_reward_template",
+            templateId: "gain_essence_random_range",
+            params: { min: randomRangeMinimum, max: randomRangeMinimum },
+            text: `Gain ${randomRangeMinimum} essence`,
+            convertedEssence: randomRangeMinimum,
+          },
+          {
+            kind: "shared_reward_template",
+            templateId: "gain_essence_random_range",
+            params: { min: randomRangeMaximum, max: randomRangeMaximum },
+            text: `Gain ${randomRangeMaximum} essence`,
+            convertedEssence: randomRangeMaximum,
+          },
+        ],
         visibilityPolicy: randomVisibility(
           "pre_rolled",
           "Both rolls are committed in metadata; the better roll is kept.",
           true,
         ),
-        expectedConvertedEssence: Math.round((randomRangeMinimum + randomRangeMaximum) / 2),
+        expectedConvertedEssence: randomRangeExpected,
         riskPremiumConvertedEssence: -6,
         worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_roll_twice_keep_one",
@@ -136,7 +135,7 @@ export function wheelRootOptions(args: {
           "The random resource range is visible before choosing.",
           true,
         ),
-        expectedConvertedEssence: Math.round((randomRangeMinimum + randomRangeMaximum) / 2),
+        expectedConvertedEssence: randomRangeExpected,
         riskPremiumConvertedEssence: -5,
         worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_random_range",
@@ -156,7 +155,7 @@ export function wheelRootOptions(args: {
         ),
         expectedConvertedEssence: expectedConvertedEssence * drawCount,
         riskPremiumConvertedEssence: -12,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates) * drawCount,
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "bounded_wheel_repeated_pool_draws",
       },
     ],

@@ -2,14 +2,15 @@ import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, type DrawContext } from "../../../util/rng.js";
 import {
   averageValue,
+  emptyOption,
   flattenPayloads,
+  lowerFirst,
   randomVisibility,
   revealCount,
   revealPoolSize,
-  visibleWheelPool,
-  worstCaseBurden,
-} from "../../fillers/randomPayloads.js";
-import { lowerFirst, option } from "../../fillers/shared.js";
+  stripTerminalPeriod,
+  visibleRewardPool,
+} from "./pool.js";
 import type {
   JourneyOption,
   JourneyStage,
@@ -26,12 +27,12 @@ export function revealChoiceOptions(args: {
   precommitted: RandomPrecommittedOutcome[];
 } {
   const poolSize = revealPoolSize(args.drawContext, args.label, args.stage);
-  const wheel = visibleWheelPool({
+  const wheel = visibleRewardPool({
     ...args,
     size: poolSize,
   });
   const candidates = wheel.candidates;
-  const poolId = `${args.label}:visible-wheel`;
+  const poolId = `${args.label}:visible-reward-pool`;
   const revealCountValue = revealCount({
     drawContext: args.drawContext,
     label: args.label,
@@ -55,7 +56,7 @@ export function revealChoiceOptions(args: {
   );
   const revealedText = candidates
     .slice(0, revealCountValue)
-    .map((candidate) => lowerFirst(candidate.text).replace(/\.$/u, ""))
+    .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
     .join("; ");
   const randomRevealed = candidates[randomIndex]!;
   const hiddenReward = candidates[hiddenIndex]!;
@@ -63,25 +64,21 @@ export function revealChoiceOptions(args: {
 
   return {
     options: [
-      option({
+      emptyOption({
         number: 1,
         text: `Reveal ${revealCountValue} rewards (${revealedText}). Choose one revealed reward.`,
-        effects: [
-          {
-            kind: "random_reward",
-            table: "reveal_choice",
-            revealCount: revealCountValue,
-          },
-        ],
-        effect: 220,
-        uncertainty: -10,
+        symbols: ["random", "reward"],
+        effectConvertedEssence: Math.max(
+          ...revealedCandidates.map((candidate) => candidate.value),
+        ),
+        uncertaintyConvertedEssence: -10,
       }),
-      option({
+      emptyOption({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) or gain one random reward from the visible pool.`,
-        effects: [{ kind: "random_reward", table: "visible_reveal_pool" }],
-        effect: 220,
-        uncertainty: -14,
+        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${stripTerminalPeriod(lowerFirst(randomRevealed.text))}) or gain one random reward from the visible pool.`,
+        symbols: ["random", "reward"],
+        effectConvertedEssence: averageValue(candidates),
+        uncertaintyConvertedEssence: -14,
       }),
     ],
     precommitted: [
@@ -98,7 +95,7 @@ export function revealChoiceOptions(args: {
         ),
         expectedConvertedEssence,
         riskPremiumConvertedEssence: -5,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "covered_cups_reveal",
       },
       {
@@ -115,7 +112,7 @@ export function revealChoiceOptions(args: {
           ...revealedCandidates.map((candidate) => candidate.value),
         ),
         riskPremiumConvertedEssence: 0,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(revealedCandidates),
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "covered_cups_choose_revealed",
       },
       {
@@ -131,7 +128,7 @@ export function revealChoiceOptions(args: {
         ),
         expectedConvertedEssence: averageValue(candidates),
         riskPremiumConvertedEssence: -10,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "covered_cups_choose_random_revealed",
       },
       {
@@ -148,7 +145,7 @@ export function revealChoiceOptions(args: {
         ),
         expectedConvertedEssence: averageValue(candidates),
         riskPremiumConvertedEssence: -14,
-        worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+        worstCaseBurdenConvertedEssence: 0,
         presentation: "covered_cups_gain_random_reward",
       },
     ],
