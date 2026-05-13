@@ -1,341 +1,319 @@
-import { shuffleDeterministic } from "../../../util/rng.js";
-import { compatibleCardOperations } from "../../fillers/cardOperationCatalog.js";
-import {
-  CARD_DRAFT_PROFILES,
-  DREAMSIGN_POOL_TARGET_DESCRIPTION,
-  GENERIC_CARD_DRAFT_PROFILE,
-  baneBurdenSlot,
-  cardDraftPredicate,
-  cardDraftText,
-  chosenCardText,
-  cost,
-  draftCards,
-  dreamsignDraft,
-  dreamsignDraftText,
-  gainOmen,
-  legalCardDraftProfile,
-  option,
-  pickLegalCardDraftProfile,
-  pickSequentialVariant,
-  target,
-} from "../../fillers/shared.js";
-import {
-  valueCardDraft,
-  valueDreamsignDraft,
-  valueOmenGain,
-  valueOmenLoss,
-} from "../../value.js";
+import type { JourneyContext } from "../../../quest/context.js";
+import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
+import type { JourneyOption } from "../../manifest.js";
+import { COSTS, getCost } from "../../shared/costs.js";
+import { REWARDS } from "../../shared/rewards.js";
+import type { Cost, Reward } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_LABEL = "same_reward_different_costs";
+const OPTION_COUNT = 3;
+const OFFER_ATTEMPTS = 32;
+const MIN_SHARED_REWARD_CEC = 120;
+const MAX_COST_RATIO = 0.75;
+const FALLBACK_ESSENCE_COST_MIN = 10;
+const FALLBACK_ESSENCE_COST_STEP = 5;
 
-type CostSlotEntry = {
-  prefix: string;
-  costs?: unknown[];
-  burdens?: unknown[];
-  cost?: number;
-  burden?: number;
+const EXCLUDED_SHARED_COST_IDS = new Set([
+  "gain_random_cards_from_pool",
+  "gain_additional_starters",
+]);
+
+type RolledReward = { template: Reward; params: unknown; cec: number };
+type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type RolledOffer = {
+  reward: RolledReward;
+  costs: readonly [RolledCost, RolledCost, RolledCost];
 };
+
+function emptyOption(
+  number: number,
+  text: string,
+  effectCec: number,
+  costCec: number,
+): JourneyOption {
+  return {
+    number,
+    symbols: [],
+    text,
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: costCec,
+    effectConvertedEssence: effectCec,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: effectCec - costCec,
+    pickBehavior: "record_and_generate_next",
+  };
+}
+
+function normalizeDreamsignTerm(text: string): string {
+  return text.replace(/\bdreamsigns?\b/giu, (match) =>
+    match.toLowerCase().endsWith("s") ? "Dreamsigns" : "Dreamsign"
+  );
+}
+
+function withoutLockedPrefix(text: string): string {
+  return text.replace(/\[LOCKED\]\s*/gu, "");
+}
+
+function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
+  const costText = normalizeDreamsignTerm(withoutLockedPrefix(cost.rendered));
+  const rewardText = normalizeDreamsignTerm(
+    withoutLockedPrefix(reward.template.render(reward.params as never, ctx)),
+  );
+  const text = `Cost: ${costText}. Reward: ${rewardText}`;
+  return cost.rendered.includes("[LOCKED]") ? `[LOCKED] ${text}` : text;
+}
+
+function costSubIds(template: Cost, params: unknown): readonly string[] {
+  if (template.id === "meta_pay_2_costs") {
+    const metaParams = params as { subIds?: readonly string[] };
+    return metaParams.subIds ?? [];
+  }
+  return [];
+}
+
+function consumedCostIds(cost: RolledCost): readonly string[] {
+  return [cost.template.id, ...costSubIds(cost.template, cost.params)];
+}
+
+function sharedCostTextIsCoherent(template: Cost, params: unknown): boolean {
+  if (EXCLUDED_SHARED_COST_IDS.has(template.id)) return false;
+  if (template.id === "meta_pay_2_costs") {
+    return costSubIds(template, params).every(
+      (subId) => !EXCLUDED_SHARED_COST_IDS.has(subId),
+    );
+  }
+
+  return true;
+}
+
+function rewardSubIds(rolled: RolledReward): readonly string[] {
+  if (rolled.template.id === "meta_gain_2_rewards") {
+    const params = rolled.params as { subIds: readonly [string, string] };
+    return params.subIds;
+  }
+  return [];
+}
+
+function consumedRewardIds(rolled: RolledReward): readonly string[] {
+  return [rolled.template.id, ...rewardSubIds(rolled)];
+}
+
+function rollReward(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  label: string,
+): RolledReward | undefined {
+  const candidates: Array<{ rolled: RolledReward; weight: number }> = [];
+
+  for (const template of REWARDS) {
+    const params = template.rollParams(ctx, {
+      ...draw,
+      selectionAttempt:
+        ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
+    });
+    if (!template.viable(params as never, ctx)) continue;
+    const cec = template.cec(params as never, ctx);
+    if (cec < MIN_SHARED_REWARD_CEC) continue;
+    const rolled = { template, params, cec };
+    if (new Set(consumedRewardIds(rolled)).size !== consumedRewardIds(rolled).length) {
+      continue;
+    }
+    candidates.push({ rolled, weight: template.weight });
+  }
+
+  if (candidates.length === 0) return undefined;
+  return weightedChoice(
+    draw,
+    label,
+    candidates.map((candidate) => ({
+      item: candidate.rolled,
+      weight: candidate.weight,
+    })),
+  );
+}
+
+function rolledCostCandidates(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  reward: RolledReward,
+): RolledCost[] {
+  const maxCostCec = reward.cec * MAX_COST_RATIO;
+  const candidates: RolledCost[] = [];
+
+  for (const template of COSTS) {
+    const params = template.rollParams(ctx, {
+      ...draw,
+      selectionAttempt:
+        ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
+    });
+    if (!template.viable(params as never, ctx)) continue;
+    if (!sharedCostTextIsCoherent(template, params)) continue;
+    const cec = template.cec(params as never, ctx);
+    if (cec <= 0 || cec > maxCostCec) continue;
+    candidates.push({
+      template,
+      params,
+      cec,
+      rendered: template.render(params as never, ctx),
+    });
+  }
+
+  return candidates;
+}
+
+function fallbackEssenceCost(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  reward: RolledReward,
+  index: number,
+): RolledCost {
+  const template = getCost("pay_essence");
+  const cap = Math.max(
+    FALLBACK_ESSENCE_COST_MIN,
+    Math.floor((reward.cec * MAX_COST_RATIO) / FALLBACK_ESSENCE_COST_STEP) *
+      FALLBACK_ESSENCE_COST_STEP,
+  );
+  const floor = Math.min(cap, FALLBACK_ESSENCE_COST_MIN + index * 15);
+  const stepCount = Math.max(
+    0,
+    Math.floor((cap - floor) / FALLBACK_ESSENCE_COST_STEP),
+  );
+  const x =
+    floor +
+    FALLBACK_ESSENCE_COST_STEP *
+      drawInt(draw, `${SHAPE_LABEL}:fallback-cost:${index}`, 0, stepCount);
+  const params = { x };
+
+  return {
+    template,
+    params,
+    cec: template.cec(params, ctx),
+    rendered: template.render(params, ctx),
+  };
+}
+
+function rollCosts(
+  ctx: JourneyContext,
+  draw: DrawContext,
+  reward: RolledReward,
+): readonly [RolledCost, RolledCost, RolledCost] {
+  const usedIds = new Set<string>();
+  const usedText = new Set<string>();
+  const usedCec = new Set<number>();
+  const selected: RolledCost[] = [];
+  let candidates = rolledCostCandidates(ctx, draw, reward);
+
+  for (let index = 0; index < OPTION_COUNT; index += 1) {
+    const viable = candidates.filter((candidate) => {
+      if (usedText.has(candidate.rendered) || usedCec.has(candidate.cec)) {
+        return false;
+      }
+      return consumedCostIds(candidate).every((id) => !usedIds.has(id));
+    });
+
+    if (viable.length === 0) break;
+
+    const picked = weightedChoice(
+      {
+        ...draw,
+        sequenceStep: (draw.sequenceStep ?? 0) * 100 + index,
+      },
+      `${SHAPE_LABEL}:cost:${index}`,
+      viable.map((candidate) => ({
+        item: candidate,
+        weight: candidate.template.weight,
+      })),
+    );
+    selected.push(picked);
+    usedText.add(picked.rendered);
+    usedCec.add(picked.cec);
+    for (const id of consumedCostIds(picked)) usedIds.add(id);
+    candidates = candidates.filter((candidate) => candidate !== picked);
+  }
+
+  for (let index = selected.length; index < OPTION_COUNT; index += 1) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const fallback = fallbackEssenceCost(
+        ctx,
+        {
+          ...draw,
+          selectionAttempt:
+            ((draw.selectionAttempt ?? 0) * 100) + index * 10 + attempt,
+        },
+        reward,
+        index + attempt,
+      );
+      if (usedText.has(fallback.rendered) || usedCec.has(fallback.cec)) {
+        continue;
+      }
+      selected.push(fallback);
+      usedText.add(fallback.rendered);
+      usedCec.add(fallback.cec);
+      break;
+    }
+  }
+
+  if (selected.length !== OPTION_COUNT) {
+    throw new Error(`${SHAPE_LABEL} fill could not roll three distinct costs`);
+  }
+
+  return selected as [RolledCost, RolledCost, RolledCost];
+}
+
+function drawForOfferAttempt(draw: DrawContext, attempt: number): DrawContext {
+  return {
+    ...draw,
+    selectionAttempt: ((draw.selectionAttempt ?? 0) * 1000) + attempt,
+  };
+}
+
+function rollOffer(args: ShapeFillArgs, attempt: number): RolledOffer | undefined {
+  const { context, drawContext } = args;
+  const attemptDraw = drawForOfferAttempt(drawContext, attempt);
+  const reward = rollReward(
+    context,
+    attemptDraw,
+    `${SHAPE_LABEL}:attempt${attempt}:reward`,
+  );
+  if (!reward) return undefined;
+
+  return {
+    reward,
+    costs: rollCosts(context, attemptDraw, reward),
+  };
+}
 
 export function sameRewardDifferentCostsFill(
   args: ShapeFillArgs,
 ): FilledJourney {
-  const { context, drawContext } = args;
-  const payablePrice = Math.min(30, context.state.quest.resources.essence);
-  const premiumPrice = Math.min(45, context.state.quest.resources.essence);
-  const family = pickSequentialVariant(drawContext, `${SHAPE_LABEL}:family`, [
-    "card-draft",
-    "dreamsign-draft",
-    "omen-cache",
-    "transfiguration",
-  ] as const);
+  let offer: RolledOffer | undefined;
 
-  if (family === "transfiguration") {
-    const transfigurationOperation = compatibleCardOperations(drawContext, {
-      slot: {
-        provides: [
-          "single_target",
-          "drafted_target",
-          "deck_mutation_consumer",
-        ],
-      },
-      targetClasses: ["draft_card"],
-      targetModes: ["drafted_card"],
-      valueBands: ["standard"],
-      timings: ["immediate"],
-      families: ["transfiguration"],
-      context,
-      stage: args.stage,
-      label: `${SHAPE_LABEL}:same-reward-transfiguration`,
-      count: 1,
-    })[0]!;
-    const targetProfile = pickLegalCardDraftProfile(
-      context,
-      drawContext,
-      `${SHAPE_LABEL}:same-reward-transfiguration-target`,
-      [
-        CARD_DRAFT_PROFILES.characters,
-        CARD_DRAFT_PROFILES.events,
-        CARD_DRAFT_PROFILES.fastCharacters,
-        CARD_DRAFT_PROFILES.lowCostCharacters,
-      ],
-    );
-    const targetRecord = target(
-      "card",
-      targetProfile.targetDescription,
-      cardDraftPredicate(targetProfile),
-      {
-        selection: "chosen_after_commitment",
-        cardOperationTargetMode: "drafted_card",
-      },
-    );
-    const sharedOmenBonus = pickSequentialVariant(
-      drawContext,
-      `${SHAPE_LABEL}:same-reward-transfiguration-omen-bonus`,
-      [3, 4, 5],
-    );
-    const sharedReward = {
-      text: `${transfigurationOperation.renderText(chosenCardText())} Gain ${sharedOmenBonus} omens.`,
-      effects: [
-        transfigurationOperation.effect,
-        gainOmen(sharedOmenBonus),
-      ],
-      effect: transfigurationOperation.value + valueOmenGain(sharedOmenBonus),
-    };
-    const costs: CostSlotEntry[] = [
-      {
-        prefix: `Pay ${Math.min(15, context.state.quest.resources.essence)} essence.`,
-        costs: [
-          cost(
-            "essence",
-            Math.min(15, context.state.quest.resources.essence),
-          ),
-        ],
-        cost: Math.min(15, context.state.quest.resources.essence),
-      },
-      context.state.quest.resources.omens >= 1
-        ? {
-            prefix: "Lose 1 omen.",
-            costs: [cost("omens", 1)],
-            cost: Math.abs(valueOmenLoss(1)),
-          }
-        : {
-            prefix: `Pay ${payablePrice} essence.`,
-            costs: [cost("essence", payablePrice)],
-            cost: payablePrice,
-          },
-      {
-        ...baneBurdenSlot(
-          drawContext,
-          `${SHAPE_LABEL}:same-reward-transfiguration-bane-cost`,
-        ),
-      },
-    ];
-
-    return {
-      options: costs.map((entry, index) =>
-        option({
-          number: index + 1,
-          text: `${entry.prefix} ${sharedReward.text}`,
-          costs: entry.costs ?? [],
-          burdens: entry.burdens ?? [],
-          effects: sharedReward.effects,
-          targets: [targetRecord],
-          cost: entry.cost,
-          burden: entry.burden,
-          effect: sharedReward.effect,
-        }),
-      ),
-      precommitted: {},
-    };
+  for (let attempt = 0; attempt < OFFER_ATTEMPTS; attempt += 1) {
+    offer = rollOffer(args, attempt);
+    if (offer) break;
   }
 
-  if (
-    family === "dreamsign-draft" &&
-    context.state.quest.dreamsignPoolIds.length > 0
-  ) {
-    const choiceCounts = shuffleDeterministic(
-      drawContext,
-      `${SHAPE_LABEL}:dreamsign-choice-order`,
-      [2, 3, 4],
-    );
-    const dreamsignCosts: CostSlotEntry[] = [
-      {
-        prefix: `Pay ${Math.min(pickSequentialVariant(drawContext, `${SHAPE_LABEL}:dreamsign-price`, [10, 15, 20]), context.state.quest.resources.essence)} essence.`,
-        costs: [
-          cost(
-            "essence",
-            Math.min(
-              pickSequentialVariant(
-                drawContext,
-                `${SHAPE_LABEL}:dreamsign-price`,
-                [10, 15, 20],
-              ),
-              context.state.quest.resources.essence,
-            ),
-          ),
-        ],
-        cost: Math.min(
-          pickSequentialVariant(
-            drawContext,
-            `${SHAPE_LABEL}:dreamsign-price`,
-            [10, 15, 20],
-          ),
-          context.state.quest.resources.essence,
-        ),
-      },
-      context.state.quest.resources.omens >= 1
-        ? {
-            prefix: "Lose 1 omen.",
-            costs: [cost("omens", 1)],
-            cost: Math.abs(valueOmenLoss(1)),
-          }
-        : {
-            prefix: `Pay ${payablePrice} essence.`,
-            costs: [cost("essence", payablePrice)],
-            cost: payablePrice,
-          },
-      {
-        ...baneBurdenSlot(
-          drawContext,
-          `${SHAPE_LABEL}:dreamsign-draft-bane-cost`,
-        ),
-      },
-    ];
-
-    return {
-      options: choiceCounts.map((choiceCount, index) => {
-        const reward = dreamsignDraft(choiceCount);
-        const dreamsignCost = dreamsignCosts[index]!;
-
-        return option({
-          number: index + 1,
-          text: `${dreamsignCost.prefix} ${dreamsignDraftText(choiceCount)}`,
-          costs: dreamsignCost.costs ?? [],
-          burdens: dreamsignCost.burdens ?? [],
-          effects: [reward],
-          targets: [
-            target(
-              "dreamsign",
-              DREAMSIGN_POOL_TARGET_DESCRIPTION,
-              reward.predicate,
-            ),
-          ],
-          cost: dreamsignCost.cost,
-          burden: dreamsignCost.burden,
-          effect: valueDreamsignDraft(reward, context) + index * 30,
-        });
-      }),
-      precommitted: {},
-    };
+  if (!offer) {
+    throw new Error(`${SHAPE_LABEL} fill could not roll a viable offer`);
   }
-
-  if (family === "omen-cache") {
-    const amounts = shuffleDeterministic(
-      drawContext,
-      `${SHAPE_LABEL}:omen-amount-order`,
-      [3, 4, 5],
-    );
-    const omenCost =
-      context.state.quest.resources.omens >= 1
-        ? cost("omens", 1)
-        : cost("essence", payablePrice);
-    const options: (CostSlotEntry & { amount: number })[] = [
-      {
-        prefix: `Pay ${Math.min(10, context.state.quest.resources.essence)} essence.`,
-        costs: [
-          cost(
-            "essence",
-            Math.min(10, context.state.quest.resources.essence),
-          ),
-        ],
-        cost: Math.min(10, context.state.quest.resources.essence),
-        amount: amounts[0]!,
-      },
-      {
-        prefix:
-          context.state.quest.resources.omens >= 1
-            ? "Lose 1 omen."
-            : `Pay ${payablePrice} essence.`,
-        costs: [omenCost],
-        cost:
-          context.state.quest.resources.omens >= 1
-            ? Math.abs(valueOmenLoss(1))
-            : payablePrice,
-        amount: amounts[1]!,
-      },
-      {
-        ...baneBurdenSlot(drawContext, `${SHAPE_LABEL}:omen-cache-bane-cost`),
-        amount: amounts[2]!,
-      },
-    ];
-
-    return {
-      options: options.map((entry, index) =>
-        option({
-          number: index + 1,
-          text: `${entry.prefix} Gain ${entry.amount} omens.`,
-          costs: entry.costs ?? [],
-          burdens: entry.burdens ?? [],
-          effects: [gainOmen(entry.amount)],
-          cost: entry.cost,
-          burden: entry.burden,
-          effect: valueOmenGain(entry.amount),
-        }),
-      ),
-      precommitted: {},
-    };
-  }
-
-  const profiles = shuffleDeterministic(
-    drawContext,
-    `${SHAPE_LABEL}:card-profiles`,
-    [
-      CARD_DRAFT_PROFILES.lowCostCharacters,
-      CARD_DRAFT_PROFILES.characters,
-      CARD_DRAFT_PROFILES.events,
-      CARD_DRAFT_PROFILES.reclaimEvents,
-      CARD_DRAFT_PROFILES.dissolveEvents,
-      CARD_DRAFT_PROFILES.fastCharacters,
-      CARD_DRAFT_PROFILES.discardTextCards,
-      CARD_DRAFT_PROFILES.abandonCards,
-      CARD_DRAFT_PROFILES.eventCopyingCards,
-      CARD_DRAFT_PROFILES.energyGenerationCards,
-      CARD_DRAFT_PROFILES.legendaryCards,
-      CARD_DRAFT_PROFILES.costOneCards,
-      CARD_DRAFT_PROFILES.cheapCards,
-      CARD_DRAFT_PROFILES.duplicateCards,
-      CARD_DRAFT_PROFILES.multiAbilityCards,
-      CARD_DRAFT_PROFILES.allEligibleCards,
-    ],
-  ).map((profile, index, shuffled) =>
-    legalCardDraftProfile(context, shuffled.slice(index, index + 1)),
-  );
-  const prices = [
-    Math.min(20, context.state.quest.resources.essence),
-    payablePrice,
-    premiumPrice,
-  ];
 
   return {
-    options: [0, 1, 2].map((index) => {
-      const profile = profiles[index] ?? GENERIC_CARD_DRAFT_PROFILE;
-      const cardDraft = draftCards(profile);
-
-      return option({
-        number: index + 1,
-        text: `Pay ${prices[index]!} essence. ${cardDraftText(profile)}${index === 0 ? "" : ` Gain ${index} ${index === 1 ? "omen" : "omens"}.`}`,
-        costs: [cost("essence", prices[index]!)],
-        effects: index === 0 ? [cardDraft] : [cardDraft, gainOmen(index)],
-        targets: [
-          target("card", profile.targetDescription, cardDraft.predicate),
-        ],
-        cost: prices[index]!,
-        effect:
-          valueCardDraft(cardDraft) +
-          (index === 0 ? 0 : valueOmenGain(index)),
-      });
-    }),
+    options: offer.costs.map((cost, index) =>
+      emptyOption(
+        index + 1,
+        renderOption(cost, offer.reward, args.context),
+        offer.reward.cec,
+        cost.cec,
+      ),
+    ),
     precommitted: {},
   };
 }
