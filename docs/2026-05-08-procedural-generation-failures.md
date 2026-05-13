@@ -60,8 +60,6 @@ one object for each generated object kind:
   [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L22);
 - `Mirror Moon` Dreamsign in
   [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L57);
-- `Afterimage Oath` status in
-  [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L93);
 - `Glass Transfiguration` in
   [`generatedObjects.ts`](../src/journey/fillers/generatedObjects.ts#L128).
 

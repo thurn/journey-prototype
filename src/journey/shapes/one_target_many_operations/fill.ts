@@ -58,7 +58,7 @@ type RolledOperation = {
 
 type TargetCandidate = {
   readonly target: SharedTarget;
-  readonly operations: readonly RolledOperation[];
+  readonly operationGroups: readonly (readonly RolledOperation[])[];
 };
 
 const RANDOM_GAIN_PREDICATE_KINDS: readonly PredicateKind[] = ["ability", "card-type"];
@@ -67,9 +67,20 @@ const CARD_TYPE_PREDICATE_IDS = ["warriors", "survivors", "spirit_animals"] as c
 const POSITIVE_TEMPORARY_BATTLES = 3;
 const FLAT_DRAFT_PREDICATE_IDS = new Set(["low_spark", "high_spark"]);
 const FLAT_DRAFT_CEC = 25;
+const ZERO_COST_VALUE_SPREAD_RATIO = 1.6;
+
+const MINIMUM_OPERATION_CEC_BY_STAGE = {
+  early: 20,
+  mid: 30,
+  late: 60,
+} as const;
 
 function articleFor(text: string): string {
   return /^[aeiou]/iu.test(text) ? "an" : "a";
+}
+
+function sentenceCase(text: string): string {
+  return text.length === 0 ? text : `${text[0]!.toUpperCase()}${text.slice(1)}`;
 }
 
 function optionFor(
@@ -491,7 +502,7 @@ const operations: readonly OperationTemplate[] = Object.freeze([
     cec: (params, _ctx, target) =>
       cardPoolCEC(CARD_CEC * 0.2 * Number(params.reduction), Number(params.battles), predicateOf(target)),
     render: (params, _ctx, target) =>
-      `${target.text} cost ${Number(params.reduction)} less for the next ${Number(params.battles)} battles`,
+      `${sentenceCase(target.text)} cost ${Number(params.reduction)} less for the next ${Number(params.battles)} battles`,
   },
   {
     id: "transform_starter_into_named_card",
@@ -503,7 +514,8 @@ const operations: readonly OperationTemplate[] = Object.freeze([
     }),
     viable: (_params, ctx) => starterCardCount(ctx) > 0 && ctx.content.cards.length > 0,
     cec: () => CARD_CEC * 0.8,
-    render: (params) => `Transform it into ${quoteName(String(params.cardName))}`,
+    render: (params) =>
+      `Transform a chosen Starter card into ${quoteName(String(params.cardName))}`,
   },
   {
     id: "transfigure_chosen_starters",
@@ -535,7 +547,7 @@ const operations: readonly OperationTemplate[] = Object.freeze([
     rollParams: () => ({}),
     viable: (_params, ctx) => starterCardCount(ctx) > 0 && ctx.content.cards.length >= 4,
     cec: () => CARD_CEC * 0.9,
-    render: () => "Replace it with 1 of 4 drafted cards",
+    render: () => "Replace a chosen Starter card with 1 of 4 drafted cards",
   },
   {
     id: "add_site_to_dreamscape",
@@ -722,10 +734,63 @@ function rolledOperationsFor(
 function targetCandidates(args: ShapeFillArgs): readonly TargetCandidate[] {
   return allTargets(args.context).flatMap((target): readonly TargetCandidate[] => {
     const targetOperations = rolledOperationsFor(args, target);
-    return targetOperations.length >= 3
-      ? [{ target, operations: targetOperations }]
+    const operationGroups = compatibleOperationGroups(args, target, targetOperations);
+    return operationGroups.length > 0
+      ? [{ target, operationGroups }]
       : [];
   });
+}
+
+function hasComparableZeroCostValue(
+  group: readonly RolledOperation[],
+  stage: ShapeFillArgs["stage"],
+): boolean {
+  const values = group.map((operation) => operation.cec);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+
+  return minimum >= MINIMUM_OPERATION_CEC_BY_STAGE[stage] &&
+    maximum <= minimum * ZERO_COST_VALUE_SPREAD_RATIO;
+}
+
+function operationCombinations(
+  operationsToCombine: readonly RolledOperation[],
+): readonly (readonly RolledOperation[])[] {
+  const combinations: RolledOperation[][] = [];
+
+  for (let first = 0; first < operationsToCombine.length - 2; first += 1) {
+    for (let second = first + 1; second < operationsToCombine.length - 1; second += 1) {
+      for (let third = second + 1; third < operationsToCombine.length; third += 1) {
+        combinations.push([
+          operationsToCombine[first]!,
+          operationsToCombine[second]!,
+          operationsToCombine[third]!,
+        ]);
+      }
+    }
+  }
+
+  return combinations;
+}
+
+function compatibleOperationGroups(
+  args: ShapeFillArgs,
+  target: SharedTarget,
+  targetOperations: readonly RolledOperation[],
+): readonly (readonly RolledOperation[])[] {
+  if (targetOperations.length < 3) {
+    return [];
+  }
+
+  const shuffled = shuffleDeterministic(
+    args.drawContext,
+    `otmo:compatible-operations:${target.key}`,
+    targetOperations,
+  );
+
+  return operationCombinations(shuffled).filter((group) =>
+    hasComparableZeroCostValue(group, args.stage)
+  );
 }
 
 export function oneTargetManyOperationsFill(args: ShapeFillArgs): FilledJourney {
@@ -740,14 +805,17 @@ export function oneTargetManyOperationsFill(args: ShapeFillArgs): FilledJourney 
     "otmo:target",
     candidates.map((candidate) => ({
       item: candidate,
-      weight: candidate.target.weight * Math.min(candidate.operations.length, 6),
+      weight: candidate.target.weight * Math.min(candidate.operationGroups.length, 6),
     })),
   );
-  const selectedOperations = shuffleDeterministic(
+  const selectedOperations = weightedChoice(
     args.drawContext,
-    `otmo:operations:${selected.target.key}`,
-    selected.operations,
-  ).slice(0, 3);
+    `otmo:operation-group:${selected.target.key}`,
+    selected.operationGroups.map((group) => ({
+      item: group,
+      weight: 1,
+    })),
+  );
 
   return {
     options: selectedOperations.map((operation, index) =>

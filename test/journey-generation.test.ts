@@ -861,11 +861,11 @@ describe.concurrent("generateNextJourney", () => {
       expect.objectContaining({
         contractKind: "shared_axis_rotated_attribute",
         sharedPayloadKeys: ["predicate:warriors"],
-        variedPayloadKeys: [
-          "draft_predicate_cards_from_4",
-          "gain_random_predicate_cards",
-          "apply_named_transfiguration_to_chosen_predicate_cards",
-        ],
+        variedPayloadKeys: expect.arrayContaining([
+          "duplicate_random_predicate",
+          "apply_named_transfiguration_to_random_predicate_cards",
+          "draft_2_predicate_cards_from_4",
+        ]),
       }),
     ]);
   });
@@ -881,9 +881,8 @@ describe.concurrent("generateNextJourney", () => {
 
     for (const kind of [
       "card",
-      "status",
       "transfiguration",
-    ] satisfies Exclude<GeneratedObjectDefinition["generatedObjectKind"], "dreamsign">[]) {
+    ] satisfies Exclude<GeneratedObjectDefinition["generatedObjectKind"], "dreamsign" | "status">[]) {
       const definitions = Array.from({ length: 48 }, (_, index) =>
         buildGeneratedObjectDefinition({
           kind,
@@ -924,42 +923,7 @@ describe.concurrent("generateNextJourney", () => {
     }
   });
 
-  it("profiles natural generated object battle windows by stage", async () => {
-    const journeyContext = await context("natural-generated-object-windows");
-    const cards = journeyContext.content.cards
-      .slice(0, 16)
-      .map((card) => ({ id: card.id, name: card.name }));
-    const dreamsigns = journeyContext.content.dreamsigns
-      .slice(0, 16)
-      .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name }));
-    const definitionsFor = (stage: "early" | "late") =>
-      Array.from({ length: 128 }, (_, index) =>
-        buildGeneratedObjectDefinition({
-          kind: "status",
-          drawContext: {
-            seed: `natural-generated-window-status-${stage}-${index}`,
-            contentVersion: journeyContext.contentVersion,
-            rootJourneyIndex: 0,
-          },
-          shapeId: "one_target_many_operations",
-          stage,
-          cards,
-          dreamsigns,
-        }),
-      );
-
-    const latePurgeCopyDurations = new Set(
-      definitionsFor("late")
-        .filter((definition) =>
-          definition.generatedObjectId.includes("purge-copy")
-        )
-        .map((definition) => definition.duration?.count),
-    );
-
-    expect([...latePurgeCopyDurations].sort()).toEqual([2, 3, 4]);
-  });
-
-  it("does not build generated Dreamsign definitions", async () => {
+  it("does not build generated Dreamsign or status definitions", async () => {
     const journeyContext = await context("generated-ds-disabled");
 
     expect(() =>
@@ -975,7 +939,22 @@ describe.concurrent("generateNextJourney", () => {
         cards: [],
         dreamsigns: [],
       }),
-    ).toThrow("Generated Dreamsign definitions are not supported");
+    ).toThrow("Generated Dreamsign and status definitions are not supported");
+
+    expect(() =>
+      buildGeneratedObjectDefinition({
+        kind: "status",
+        drawContext: {
+          seed: "generated-object-disabled",
+          contentVersion: journeyContext.contentVersion,
+          rootJourneyIndex: 0,
+        },
+        shapeId: "one_target_many_operations",
+        stage: "late",
+        cards: [],
+        dreamsigns: [],
+      }),
+    ).toThrow("Generated Dreamsign and status definitions are not supported");
   });
 
   it("exposes resource edge-case value-band semantics in operations and value debug", async () => {

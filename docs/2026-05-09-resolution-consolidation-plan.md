@@ -20,7 +20,7 @@ A reader new to the codebase needs to know about the following five pieces. All 
 4. **Delayed-hook payloads** — `src/journey/fillers/hookPayloads.ts`. Function `expandedDelayedHookCandidates` (line 750) returns ~12 hand-picked candidate hook fills for the `delayed_hook` topology. Triggers are an enum at `src/journey/manifest.ts:145-166` (`HookTriggerSelector.triggerKind`); resolutions are reward-kind strings used inline.
 5. **Symmetry contracts** — `JourneySymmetryContractDebug` at `src/journey/manifest.ts:898-916` is a discriminated record describing how a fill's options relate. Helper `symmetryContract()` at `src/journey/fillers/shared.ts:265-278`. Each shape's fill function constructs zero or more contracts and returns them on `FilledJourney.symmetryContracts`.
 
-Other touched subsystems: `naturalStatusBody` at `src/journey/fillers/generatedObjects.ts:411-533` (three archetypes for natural status objects); `draftCards` at `src/journey/fillers/shared.ts:645-661`; the test entry points `test/journey-generation.test.ts`, `test/journey-shapes.test.ts`, and `test/journey-shape-isolation.test.ts`.
+Other touched subsystems: status payload fixtures in `src/journey/fixtures/debug/environment.ts`; `draftCards` at `src/journey/fillers/shared.ts:645-661`; the test entry points `test/journey-generation.test.ts`, `test/journey-shapes.test.ts`, and `test/journey-shape-isolation.test.ts`.
 
 ---
 
@@ -2522,7 +2522,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement `tradeTicketBody`**
 
-In `src/journey/fillers/generatedObjects.ts`, add (next to `naturalStatusBody` at line 411):
+In `src/journey/fillers/generatedObjects.ts`, add:
 
 ```typescript
 type TradeTicketArgs = {
@@ -2693,133 +2693,23 @@ new kind."
 
 **Phase 15 acceptance criteria:**
 - `trigger_count` is a member of the lifetime union; renderers produce sensible text.
-- At least one generated-object archetype can use the new lifetime (wire one up via Phase 16's status archetype if convenient, or in a follow-up).
+- At least one generated-object archetype can use the new lifetime.
 
 ---
 
-# Phase 16 — Primitive: In-battle one-shot status archetype
+# Phase 16 — Primitive: In-battle one-shot status fixture
 
-**Motivation.** `naturalStatusBody` at `src/journey/fillers/generatedObjects.ts:411-533` has three archetypes (`shop-reclaim`, `bane-essence`, `purge-copy`) — none of which cover hand/energy/turn manipulations. Brainstorm scenarios with one-shot in-battle effects (e.g. "this turn, +2 energy") have no archetype to pick.
+**Motivation.** Brainstorm scenarios with one-shot in-battle effects need a content-backed status payload surface that can express hand, energy, and turn timing rules.
 
-**Scope.** Add a fourth archetype `oneshot-battle-rule` to the `pick(...)` array. Implement its body with three flavours: hand size, energy, and turn-end behaviour.
+**Scope.** Add the coverage through status payload fixtures and shape-specific status menus that reference canonical rule vocabulary.
 
 **Files:**
-- Modify: `src/journey/fillers/generatedObjects.ts`
-- Test: `test/oneshot-battle-status.test.ts`
-
-### Task 16.1: Add the archetype
-
-- [ ] **Step 1: Write the failing test**
-
-```typescript
-// test/oneshot-battle-status.test.ts
-import { describe, expect, it } from "vitest";
-import { naturalStatusBody } from "../src/journey/fillers/generatedObjects.js";
-
-describe("oneshot-battle-rule status archetype", () => {
-  it("is one of the archetypes pickable by naturalStatusBody", () => {
-    const seenFragments = new Set<string>();
-    for (let i = 0; i < 100; i += 1) {
-      const { drawContext } = makeTestContext({ seed: `oneshot:${i}` });
-      const body = naturalStatusBody({
-        drawContext, cards: [], label: "test",
-      });
-      seenFragments.add(body.idPart.split("-")[0]!);
-    }
-    expect(seenFragments.has("oneshot")).toBe(true);
-  });
-
-  it("produces a one-sentence rule about hand/energy/turn", () => {
-    const { drawContext } = makeTestContext({ seed: "oneshot-flavour" });
-    // Force selection of the new archetype by stubbing pick (or by seed-hunting).
-    const body = forceArchetype(naturalStatusBody, "oneshot-battle-rule", drawContext);
-    expect(body.rulesText.toLowerCase()).toMatch(/hand|energy|turn/);
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `npm test -- oneshot-battle-status`
-Expected: FAIL.
-
-- [ ] **Step 3: Add the archetype**
-
-In `src/journey/fillers/generatedObjects.ts:418-422`, change the `pick(...)` array to include `"oneshot-battle-rule"`:
-
-```typescript
-const fragment = pick(args.drawContext, "generated-object:status:rules", [
-  "purge-copy",
-  "shop-reclaim",
-  "bane-essence",
-  "oneshot-battle-rule",
-] as const);
-```
-
-After the existing `if (fragment === "bane-essence")` block (around line 463-505), add an `if (fragment === "oneshot-battle-rule")` block. Inside, pick a sub-flavour:
-
-```typescript
-if (fragment === "oneshot-battle-rule") {
-  const flavour = pick(args.drawContext, "generated-object:status:oneshot-flavour", [
-    "hand_size", "energy", "turn_end",
-  ] as const);
-  const rulesText = (
-    flavour === "hand_size" ? `In your next battle, your starting hand size is +2.` :
-    flavour === "energy"    ? `In your next battle, gain 1 extra energy on turn 1.` :
-                              `In your next battle, your turn does not end automatically.`
-  );
-  return {
-    idPart: `oneshot-battle-${flavour}`,
-    name,
-    objectType: "Quest Status",
-    rulesText,
-    tags: ["journey-only", "status", "battle", "oneshot"],
-    references: { rules: ["battle", flavour === "energy" ? "energy" : flavour === "hand_size" ? "hand size" : "turn"] },
-    duration: generatedObjectDuration("next battle", 1, "battle_count"),
-    lifetime: "temporary",
-    valueEstimate: {
-      convertedEssence: 95,
-      confidence: "medium",
-      basis: "One-shot battle rule with bounded scope.",
-    },
-    payload: {
-      statusScope: "battle",
-      affectedObject: "battle_rule",
-      flavour,
-      source: "manifest_generated",
-    },
-    ruleIds: [
-      "stable_id",
-      "status_scope",
-      "duration",
-      "value_estimate",
-      "manifest_local",
-    ],
-  };
-}
-```
-
-The existing `purge-copy` block at line 507 becomes the fall-through default; no change needed there.
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `npm test`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/journey/fillers/generatedObjects.ts test/oneshot-battle-status.test.ts
-git commit -m "Add oneshot-battle-rule archetype to naturalStatusBody
-
-A fourth status archetype with three sub-flavours (hand size, energy,
-turn-end) covering brainstorm scenarios that need an in-battle one-shot
-status. The three existing archetypes are unchanged."
-```
+- Modify: `src/journey/fixtures/debug/environment.ts`
+- Test: focused status payload fixture coverage
 
 **Phase 16 acceptance criteria:**
-- A 100-seed `naturalStatusBody` sweep produces at least one `oneshot-battle-rule` body.
-- All three sub-flavours appear across a 100-seed sweep.
+- Status payload QA covers hand, energy, and turn timing rules.
+- The fixture renders through the standard status operation adapter.
 
 ---
 

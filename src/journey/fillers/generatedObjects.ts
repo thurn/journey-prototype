@@ -5,7 +5,6 @@ import type {
   JourneyOption,
   JourneyStage,
 } from "../manifest.js";
-import { BANE_NAMES } from "../effects.js";
 import type { JourneyShapeId } from "../shapes.js";
 import { option } from "./shared.js";
 
@@ -201,8 +200,6 @@ function generatedObjectBattleWindow(
 
 const CARD_PREFIXES = ["Amber", "Hollow", "Rain", "Silver", "Thistle"] as const;
 const CARD_NOUNS = ["Bell", "Compass", "Key", "Lantern", "Ribbon"] as const;
-const STATUS_PREFIXES = ["Afterimage", "Borrowed", "Liminal", "Veiled"] as const;
-const STATUS_NOUNS = ["Oath", "Pattern", "Promise", "Wake"] as const;
 const TRANSFIGURATION_NAMES = ["Amber", "Glass", "Hollow", "Silver", "Thistle"] as const;
 
 function naturalCardBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody {
@@ -334,180 +331,6 @@ function naturalCardBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody 
     ruleIds: [
       "stable_id",
       "card_rules_text",
-      "value_estimate",
-      "manifest_local",
-    ],
-  };
-}
-
-export function naturalStatusBody(args: NaturalGeneratedObjectArgs): GeneratedObjectBody {
-  const anchorCard = referencedName(
-    args.drawContext,
-    "generated-object:status:anchor-card",
-    args.cards,
-  );
-  const name = `${pick(args.drawContext, "generated-object:status:prefix", STATUS_PREFIXES)} ${pick(args.drawContext, "generated-object:status:noun", STATUS_NOUNS)}`;
-  const fragment = pick(args.drawContext, "generated-object:status:rules", [
-    "purge-copy",
-    "shop-reclaim",
-    "bane-essence",
-    "oneshot-battle-rule",
-  ] as const);
-
-  if (fragment === "shop-reclaim") {
-    const cardText = anchorCard
-      ? ` If it is {${anchorCard}}, it also gains Fast.`
-      : "";
-
-    return {
-      idPart: `shop-reclaim-${anchorCard ? kebab(anchorCard) : "shop"}`,
-      name,
-      objectType: "Quest Status",
-      rulesText: `Until the next Shop, the first card you buy gains Reclaim 1.${cardText}`,
-      tags: ["journey-only", "status", "shop", "reclaim"],
-      references: optionalReferences({
-        ...(anchorCard ? { cards: [anchorCard] } : {}),
-        rules: ["Shop", "Reclaim", "Fast", "card"],
-      }),
-      duration: generatedObjectDuration("until the next Shop", 1, "shop_count"),
-      lifetime: "until_returned",
-      valueEstimate: {
-        convertedEssence: anchorCard ? 150 : 130,
-        confidence: "medium",
-        basis: "Temporary shop status that upgrades one future purchase.",
-      },
-      payload: {
-        statusScope: "shop",
-        affectedObject: "card",
-        ...(anchorCard ? { bonusCard: anchorCard } : {}),
-        source: "manifest_generated",
-      },
-      ruleIds: [
-        "stable_id",
-        "status_scope",
-        "duration",
-        "content_reference",
-        "value_estimate",
-        "manifest_local",
-      ],
-    };
-  }
-
-  if (fragment === "bane-essence") {
-    const baneName = pick(
-      args.drawContext,
-      "generated-object:status:bane-name",
-      BANE_NAMES,
-    );
-
-    return {
-      idPart: `bane-essence-${kebab(baneName)}`,
-      name,
-      objectType: "Quest Status",
-      rulesText: `During the next dreamscape, the first time you gain {${baneName}}, gain 100 essence.`,
-      tags: ["journey-only", "status", "quest", "bane"],
-      references: {
-        banes: [baneName],
-        rules: [baneName, "essence"],
-      },
-      duration: generatedObjectDuration(
-        "next dreamscape",
-        1,
-        "dreamscape_count",
-      ),
-      lifetime: "temporary",
-      valueEstimate: {
-        convertedEssence: 110,
-        confidence: "low",
-        basis: "Conditional Bane compensation within one dreamscape.",
-      },
-      payload: {
-        statusScope: "quest",
-        trigger: "Bane gain",
-        rewardEssence: 100,
-        source: "manifest_generated",
-      },
-      ruleIds: [
-        "stable_id",
-        "status_scope",
-        "duration",
-        "value_estimate",
-        "manifest_local",
-      ],
-    };
-  }
-
-  if (fragment === "oneshot-battle-rule") {
-    const flavour = pick(
-      args.drawContext,
-      "generated-object:status:oneshot-flavour",
-      ["hand_size", "energy", "turn_end"] as const,
-    );
-    const rulesText =
-      flavour === "hand_size"
-        ? `In your next battle, your starting hand size is +2.`
-        : flavour === "energy"
-          ? `In your next battle, gain 1 extra energy on turn 1.`
-          : `In your next battle, your turn does not end automatically.`;
-
-    return {
-      idPart: `oneshot-battle-${kebab(flavour)}`,
-      name,
-      objectType: "Quest Status",
-      rulesText,
-      tags: ["journey-only", "status", "battle", "oneshot"],
-      references: { rules: ["battle"] },
-      duration: generatedObjectDuration("next battle", 1, "battle_count"),
-      lifetime: "temporary",
-      valueEstimate: {
-        convertedEssence: 95,
-        confidence: "medium",
-        basis: "One-shot battle rule with bounded scope.",
-      },
-      payload: {
-        statusScope: "battle",
-        affectedObject: "battle_rule",
-        flavour,
-        source: "manifest_generated",
-      },
-      ruleIds: [
-        "stable_id",
-        "status_scope",
-        "duration",
-        "value_estimate",
-        "manifest_local",
-      ],
-    };
-  }
-
-  const window = generatedObjectBattleWindow(args, "status:purge-copy");
-
-  return {
-    idPart: `purge-copy-${window.count}-battles`,
-    name,
-    objectType: "Quest Status",
-    rulesText: `For the ${window.label}, the first card you purge each battle returns as a temporary copy for that battle.`,
-    tags: ["journey-only", "status", "battle", "temporary"],
-    references: {
-      rules: ["battle", "card", "Copy"],
-    },
-    duration: generatedObjectDuration(window.label, window.count),
-    lifetime: "temporary",
-    valueEstimate: {
-      convertedEssence: 105 + window.count * 10,
-      confidence: "medium",
-      basis: "Temporary battle rule with bounded card-copy upside.",
-    },
-    payload: {
-      statusScope: "battle",
-      affectedObject: "card",
-      durationBattles: window.count,
-      source: "manifest_generated",
-    },
-    ruleIds: [
-      "stable_id",
-      "status_scope",
-      "duration",
       "value_estimate",
       "manifest_local",
     ],
@@ -650,11 +473,11 @@ function naturalGeneratedObjectDefinition(
       : args.kind === "dreamsign"
         ? undefined
         : args.kind === "status"
-          ? naturalStatusBody(args)
+          ? undefined
           : naturalTransfigurationBody(args);
 
   if (!body) {
-    throw new Error("Generated Dreamsign definitions are not supported");
+    throw new Error("Generated Dreamsign and status definitions are not supported");
   }
 
   const generatedObjectId = `generated-${args.kind}-${kebab(body.name)}-${body.idPart}`;
@@ -748,12 +571,10 @@ export function generatedObjectOptions(
     operation: "create",
   });
   const transform = generatedObjectPayload({
-    kind: "generated_object_transform",
+    kind: "generated_object_return",
     generatedObject,
-    operation: "transform",
-    extra: {
-      transformIntoGeneratedObjectId: generatedObject.generatedObjectId,
-    },
+    operation: "reserve",
+    duration: "at the next Dream Journey site",
   });
   const temporary = generatedObjectPayload({
     kind: "generated_object_temporary_grant",
@@ -785,7 +606,7 @@ export function generatedObjectOptions(
     }),
     option({
       number: 2,
-      text: `Delete a chosen card, Dreamsign, status, or transfiguration and gain {${generatedObject.name}}. ${compactRules}`,
+      text: `Reserve {${generatedObject.name}} at the next Dream Journey site. ${compactRules}`,
       effects: [transform],
       effect: Math.max(120, value - 10),
       uncertainty: -10,

@@ -121,7 +121,6 @@ function payloadCompatibilityFor(
   const hasDreamsign = supportedTags.includes("dreamsign");
   const generatedObjectShape = [
     "same_cost_different_rewards",
-    "one_target_many_operations",
   ].includes(id);
 
   return Object.freeze([

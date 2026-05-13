@@ -257,8 +257,8 @@ describe("evaluateOptionValue", () => {
           },
           {
             kind: "generated_object_grant",
-            generatedObjectId: "generated-status",
-            generatedObjectKind: "status",
+            generatedObjectId: "generated-card",
+            generatedObjectKind: "card",
             generatedObjectName: "Lantern Echo",
             generatedObjectReferenceKind: "placeholder",
             componentConvertedEssence: 155,

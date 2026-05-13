@@ -23,10 +23,6 @@ import {
 import { catalogRewardCards, namedCardPayload } from "./namedCardPayloads.js";
 import { routeEditRewards } from "./routeEditCatalog.js";
 import {
-  generatedObjectDefinition,
-  generatedObjectPayload,
-} from "./generatedObjects.js";
-import {
   GENERIC_CARD_DRAFT_PROFILE,
   type RewardSlot,
   baneTarget,
@@ -619,48 +615,13 @@ type PairedReturnReward = {
   uncertainty?: number;
 };
 
-function generatedObjectReturnReward(args: {
-  context: JourneyContext;
-  drawContext: DrawContext;
-  label: string;
-  shapeId: JourneyShapeId;
-  stage: HookStage;
-}): PairedReturnReward {
-  const generatedObject = generatedObjectDefinition({
-    kind: "dreamsign",
-    drawContext: args.drawContext,
-    shapeId: args.shapeId,
-    stage: args.stage,
-    cards: catalogRewardCards(args.context, args.drawContext)
-      .slice(0, 3)
-      .map((card) => ({ id: card.id, name: card.name })),
-    dreamsigns: selectedDreamsignTargets(args.context, args.drawContext)
-      .slice(0, 3)
-      .map((dreamsign) => ({ id: dreamsign.id, name: dreamsign.name })),
-  });
-  const payload = generatedObjectPayload({
-    kind: "generated_object_grant",
-    generatedObject,
-    operation: "grant",
-    extra: { timing: "return scene" },
-  });
-
-  return {
-    key: `return-generated-object:${generatedObject.generatedObjectId}`,
-    text: `gain generated Dreamsign {${generatedObject.name}}`,
-    payloads: [payload],
-    effect: generatedObject.valueEstimate.convertedEssence,
-    uncertainty: -8,
-  };
-}
-
 function pairedReturnReward(
   context: JourneyContext,
   drawContext: DrawContext,
   label: string,
   shapeId: JourneyShapeId,
   stage: HookStage,
-  rewardKind: "resource" | "card_purge" | "card_duplicate" | "dreamsign" | "route" | "bane" | "generated_object",
+  rewardKind: "resource" | "card_purge" | "card_duplicate" | "dreamsign" | "route" | "bane",
 ): PairedReturnReward {
   const dreamsigns = selectedDreamsignTargets(context, drawContext);
   const dreamsign = dreamsigns[0] ?? context.content.dreamsigns[0]!;
@@ -789,13 +750,7 @@ function pairedReturnReward(
     };
   }
 
-  return generatedObjectReturnReward({
-    context,
-    drawContext,
-    label,
-    shapeId,
-    stage,
-  });
+  return pairedReturnReward(context, drawContext, label, shapeId, stage, "dreamsign");
 }
 
 function returnRewardKindFor(
@@ -823,7 +778,7 @@ function returnRewardKindFor(
   }
 
   if (family === "borrowed_dreamsign") {
-    return optionNumber % 2 === 0 ? "generated_object" : "resource";
+    return optionNumber % 2 === 0 ? "dreamsign" : "resource";
   }
 
   if (family === "borrowed_card_draft") {

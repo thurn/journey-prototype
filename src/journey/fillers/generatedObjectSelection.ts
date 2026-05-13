@@ -21,7 +21,7 @@ export function naturalGeneratedObjectKind(args: {
   drawContext: DrawContext;
   shapeId: JourneyShapeId;
   stage: JourneyStage;
-}): GeneratedObjectDefinition["generatedObjectKind"] | undefined {
+}): Exclude<GeneratedObjectDefinition["generatedObjectKind"], "dreamsign" | "status"> | undefined {
   const policy = getShapePlugin(args.shapeId).generatedObjects;
 
   if (policy?.natural !== true) {
@@ -53,7 +53,6 @@ export function naturalGeneratedObjectKind(args: {
     `generated-object:${args.stage}:${args.shapeId}:kind`,
     [
       { item: "card" as const, weight: args.stage === "early" ? 4 : 3 },
-      { item: "status" as const, weight: args.stage === "mid" ? 4 : 2 },
       {
         item: "transfiguration" as const,
         weight: args.stage === "late" ? 4 : 1,

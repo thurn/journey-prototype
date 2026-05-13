@@ -1,9 +1,8 @@
 import type { GeneratedObjectDefinition } from "../../manifest.js";
-import { generatedObjectDuration } from "../../fillers/generatedObjects.js";
 
 type GeneratedObjectKind = Exclude<
   GeneratedObjectDefinition["generatedObjectKind"],
-  "dreamsign"
+  "dreamsign" | "status"
 >;
 
 export function debugGeneratedObjectDefinition(
@@ -42,41 +41,6 @@ export function debugGeneratedObjectDefinition(
         energyCost: 0,
         cardType: "Event",
         keywords: ["Fast"],
-        source: "manifest_generated",
-      },
-    },
-    status: {
-      generatedObjectKind: "status",
-      generatedObjectId: "generated-status-afterimage-oath",
-      name: "Afterimage Oath",
-      objectType: "Quest Status",
-      rulesText:
-        "For the next 3 battles, the first card you purge each battle returns as a temporary copy for that battle.",
-      tags: ["journey-only", "status", "battle", "temporary"],
-      references: {
-        rules: ["battle", "card"],
-      },
-      duration: generatedObjectDuration("next 3 battles", 3),
-      lifetime: "temporary",
-      valueEstimate: {
-        convertedEssence: 135,
-        confidence: "medium",
-        basis: "Temporary battle rule with bounded card-copy upside.",
-      },
-      validation: {
-        source: "generated_manifest_local",
-        status: "validated",
-        ruleIds: [
-          "stable_id",
-          "status_scope",
-          "duration",
-          "value_estimate",
-          "manifest_local",
-        ],
-      },
-      payload: {
-        statusScope: "battle",
-        affectedObject: "card",
         source: "manifest_generated",
       },
     },

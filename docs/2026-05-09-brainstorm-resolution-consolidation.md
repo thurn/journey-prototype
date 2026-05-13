@@ -219,9 +219,8 @@ priority order:
   today the anchor must be a real catalog Dreamsign.
 - **`expires/dissolves after N triggers` lifetime semantics** (Repeating
   Bell). No payload describes object lifetime in trigger units.
-- **In-battle one-shot status archetype** (Emergency Thread). The existing
-  `naturalStatusBody` archetypes (`purge-copy`, `shop-reclaim`,
-  `bane-essence`) do not cover hand/energy/turn manipulations.
+- **In-battle one-shot status archetype** (Emergency Thread). Status payload
+  fixtures need hand/energy/turn manipulation coverage.
 
 Each of these should be a small focused addition rather than a per-example
 shape or compound family.

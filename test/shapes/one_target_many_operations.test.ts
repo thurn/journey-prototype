@@ -79,6 +79,54 @@ describe("one_target_many_operations generation", () => {
       expect(manifest.options.map((option) => option.text).join("\n")).not.toMatch(
         new RegExp(["Transform a chosen", "eligible object"].join(" "), "u"),
       );
+      expect(manifest.options.map((option) => option.text).join("\n")).not.toMatch(
+        /generated object/u,
+      );
+    }
+  });
+
+  it("keeps zero-cost operation values comparable", async () => {
+    for (const [seed, stage] of [
+      ["audit:one_target_many_operations:early:09", "early"],
+      ["audit:one_target_many_operations:mid:08", "mid"],
+      ["audit:one_target_many_operations:mid:09", "mid"],
+      ["audit:one_target_many_operations:late:03", "late"],
+      ["audit:one_target_many_operations:late:06", "late"],
+      ["audit:one_target_many_operations:late:10", "late"],
+    ] as const) {
+      const context = await contextFor(seed, stage);
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "one_target_many_operations",
+        forcedStage: stage,
+      });
+      const values = manifest.options.map((option) => option.netConvertedEssence);
+      const lowest = Math.min(...values);
+      const highest = Math.max(...values);
+
+      expect(lowest, seed).toBeGreaterThanOrEqual(stage === "late" ? 60 : stage === "mid" ? 30 : 20);
+      expect(highest, seed).toBeLessThanOrEqual(lowest * 1.6);
+    }
+  });
+
+  it("renders root option labels with explicit nouns and sentence case", async () => {
+    const seeds = [
+      ["random:e334de9a-d7b0-4ab6-a194-2087241b1493", "early"],
+      ["otmo-chosen-starter-237", "mid"],
+    ] as const;
+
+    for (const [seed, stage] of seeds) {
+      const context = await contextFor(seed, stage);
+      const manifest = generateNextJourney({
+        context,
+        forcedShapeId: "one_target_many_operations",
+        forcedStage: stage,
+      });
+
+      for (const text of manifest.options.map((option) => option.text)) {
+        expect(text).not.toMatch(/^cards/u);
+        expect(text).not.toMatch(/\bit\b/u);
+      }
     }
   });
 });

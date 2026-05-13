@@ -205,7 +205,7 @@ Replay:
 Steps to reproduce:
 
 1. Run the replay command from the repository root.
-2. Read the generated-object offer that creates `Violet Anchor`.
+2. Read the generated-object offer that creates a manifest-local object.
 3. Confirm the offer describes a manifest-local Dreamsign rather than an existing canonical Dreamsign.
 
 Seed: `audit:one_target_many_operations:mid:07`
@@ -216,12 +216,12 @@ Replay:
 Steps to reproduce:
 
 1. Run the replay command from the repository root.
-2. Read the generated-object offer that creates `Afterimage Promise`.
+2. Read the generated-object offer that creates a manifest-local object.
 3. Confirm the offer describes a manifest-local status rather than an existing canonical Dreamsign or card.
 
 Issue:
 
-`one_target_many_operations` should not call the generic generated-object menu pipeline. The shape is built around one existing target with several operations. Manifest-local objects such as `Violet Anchor` and `Afterimage Promise` create new Dreamsign/status designs inside the Journey pipeline and break that shape contract.
+`one_target_many_operations` should not call the generic generated-object menu pipeline. The shape is built around one existing target with several operations. Manifest-local generated objects create new Dreamsign/status designs inside the Journey pipeline and break that shape contract.
 
 Recommendation:
 
@@ -238,9 +238,9 @@ Replay:
 
 Generated options:
 
-1. `* Create and gain {Violet Anchor}. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
-2. `* ! [generated-object transform option for Violet Anchor]`
-3. `* ! Gain {Violet Anchor} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Violet Anchor: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
+1. `* Create and gain {manifest-local object}. Manifest-local object: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
+2. `* ! [generated-object transform option for manifest-local object]`
+3. `* ! Gain {manifest-local object} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Manifest-local object: For the next 3 battles, the first time you gain an omen each battle, Foresee 2.`
 
 Debug metadata:
 
@@ -253,9 +253,9 @@ Replay:
 
 Generated options:
 
-1. `* Create and gain {Afterimage Promise}. Afterimage Promise: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
-2. `* ! [generated-object transform option for Afterimage Promise]`
-3. `* ! Gain {Afterimage Promise} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Afterimage Promise: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
+1. `* Create and gain {manifest-local object}. Manifest-local object: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
+2. `* ! [generated-object transform option for manifest-local object]`
+3. `* ! Gain {manifest-local object} temporarily, then return it at the next Dream Journey site or trade it for 120 essence after using it once. Manifest-local object: Until the next Shop, the first card you buy gains Reclaim 1. If it is {Veil Shatter}, it also gains Fast.`
 
 Debug metadata:
 
