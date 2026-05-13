@@ -85,14 +85,15 @@ function assertRevealOption(option: JourneyOption) {
 function assertRandomRevealedOption(option: JourneyOption) {
   expect(option.number).toBe(2);
   expect(option.text).toMatch(
-    /^Reveal \d+ rewards\. Choose one random revealed reward \(precommitted: .+\) and gain \d+ \{[^}]+\}\.$/u,
+    /^Reveal \d+ rewards\. Take the precommitted revealed reward: .+\. Gain \d+ omens? and gain \d+ \{[^}]+\}\.$/u,
   );
-  expect(option.effects).toEqual([
+  expect(option.effects).toEqual(expect.arrayContaining([
     expect.objectContaining({
       kind: "random_reward",
       table: "visible_reveal_pool",
     }),
-  ]);
+    expect.objectContaining({ kind: "gain_omens" }),
+  ]));
   expect(option.burdens).toEqual([
     expect.objectContaining({ kind: "bane_gain" }),
   ]);
@@ -101,7 +102,9 @@ function assertRandomRevealedOption(option: JourneyOption) {
 
 function assertHiddenRandomOption(option: JourneyOption) {
   expect(option.number).toBe(3);
-  expect(option.text).toBe("Gain one random reward from the visible pool.");
+  expect(option.text).toMatch(
+    /^Gain one random reward from the visible pool: .+\.$/u,
+  );
   expect(option.effects).toEqual([
     expect.objectContaining({
       kind: "random_reward",
@@ -128,10 +131,16 @@ function assertRevealChoiceMenuManifest(manifest: JourneyManifest) {
   assertRandomRevealedOption(randomRevealed!);
   assertHiddenRandomOption(hiddenRandom!);
 
-  expect(randomEnvelope(manifest, "visible_pool")).toMatchObject({
+  const visiblePool = randomEnvelope(manifest, "visible_pool");
+
+  expect(visiblePool).toMatchObject({
     summary: expect.any(String),
     rewards: expect.any(Array),
   });
+  expect(visiblePool.summary).toMatch(/^Visible reward pool: .+\.$/u);
+  expect(visiblePool.rewards).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ kind: "bane_gain" })]),
+  );
   expect(randomEnvelope(manifest, "reveal_rewards")).toMatchObject({
     optionNumber: 1,
     revealCount: expect.any(Number),
@@ -194,6 +203,23 @@ describe("reveal_choice_menu fill", () => {
         assertRevealChoiceMenuManifest(manifest);
         expect(manifest.stage).toBe(stage);
         expect(manifest.debug.validation.ok, seed).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the compensated precommitted take competitive with the hidden pool draw", async () => {
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:reveal_choice_menu:${stage}:${seedNumber}`;
+        const manifest = await forcedRevealChoiceMenuManifest(seed, stage);
+        const [, precommittedTake, hiddenPoolDraw] = manifest.options;
+
+        expect(precommittedTake).toBeDefined();
+        expect(hiddenPoolDraw).toBeDefined();
+        expect(
+          precommittedTake!.netConvertedEssence,
+          `${seed}: ${precommittedTake!.text} / ${hiddenPoolDraw!.text}`,
+        ).toBeGreaterThanOrEqual(hiddenPoolDraw!.netConvertedEssence - 25);
       }
     }
   });

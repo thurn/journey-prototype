@@ -9,14 +9,24 @@ import {
   randomVisibility,
   revealCount,
   revealPoolSize,
+  type RandomPoolCandidate,
   visibleWheelPool,
   worstCaseBurden,
 } from "../../fillers/randomPayloads.js";
-import { lowerFirst, option } from "../../fillers/shared.js";
+import { gainOmen, lowerFirst, option } from "../../fillers/shared.js";
+import { valueOmenGain } from "../../value.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { revealBurdenProfile } from "./payloads.js";
 
 const SHAPE_LABEL = "reveal_choice_menu";
+
+function candidateText(candidate: RandomPoolCandidate): string {
+  return lowerFirst(candidate.text).replace(/\.$/u, "");
+}
+
+function poolSummary(candidates: readonly RandomPoolCandidate[]): string {
+  return `Visible reward pool: ${candidates.map(candidateText).join("; ")}.`;
+}
 
 function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
   options: JourneyOption[];
@@ -28,9 +38,11 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
     drawContext: args.drawContext,
     label: args.label,
     stage: args.stage,
-    size: poolSize,
+    size: poolSize + 2,
   });
-  const candidates = wheel.candidates;
+  const candidates = wheel.candidates
+    .filter((candidate) => candidate.family !== "burden")
+    .slice(0, poolSize);
   const poolId = `${args.label}:visible-wheel`;
   const revealCountValue = revealCount({
     drawContext: args.drawContext,
@@ -41,12 +53,6 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
   const allPayloads = flattenPayloads(candidates);
   const revealedCandidates = candidates.slice(0, revealCountValue);
   const revealed = flattenPayloads(revealedCandidates);
-  const randomIndex = drawInt(
-    args.drawContext,
-    `${args.label}:revealed-random-index`,
-    0,
-    candidates.length - 1,
-  );
   const hiddenIndex = drawInt(
     args.drawContext,
     `${args.label}:hidden-random-index`,
@@ -55,15 +61,30 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
   );
   const revealedText = candidates
     .slice(0, revealCountValue)
-    .map((candidate) => lowerFirst(candidate.text).replace(/\.$/u, ""))
+    .map(candidateText)
     .join("; ");
-  const randomRevealed = candidates[randomIndex]!;
+  const randomRevealed = candidates.reduce((best, candidate) =>
+    candidate.value > best.value ? candidate : best,
+  candidates[0]!);
   const hiddenReward = candidates[hiddenIndex]!;
   const randomRevealBurden = revealBurdenProfile({
     drawContext: args.drawContext,
     label: args.label,
     stage: args.stage,
   });
+  const optionTwoOmenBonus = args.stage === "early" ? 2 : 1;
+  const optionTwoOmenPayload = gainOmen(optionTwoOmenBonus);
+  const optionTwoOmenValue = valueOmenGain(optionTwoOmenBonus);
+  const optionTwoOmenText =
+    `${optionTwoOmenBonus} ${optionTwoOmenBonus === 1 ? "omen" : "omens"}`;
+  const visiblePoolSummary = poolSummary(candidates);
+  const visiblePoolEnvelope = {
+    ...wheel.visiblePoolEnvelope,
+    summary: visiblePoolSummary,
+    rewards: allPayloads,
+    expectedConvertedEssence: averageValue(candidates),
+    worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
+  } satisfies RandomPrecommittedOutcome;
 
   return {
     options: [
@@ -84,16 +105,19 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
       }),
       option({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. Choose one random revealed reward (precommitted: ${lowerFirst(randomRevealed.text).replace(/\.$/u, "")}) and ${randomRevealBurden.text}.`,
-        effects: [{ kind: "random_reward", table: "visible_reveal_pool" }],
+        text: `Reveal ${candidates.length} rewards. Take the precommitted revealed reward: ${candidateText(randomRevealed)}. Gain ${optionTwoOmenText} and ${randomRevealBurden.text}.`,
+        effects: [
+          { kind: "random_reward", table: "visible_reveal_pool" },
+          optionTwoOmenPayload,
+        ],
         burdens: [randomRevealBurden.payload],
         burden: randomRevealBurden.value,
-        effect: averageValue(candidates),
+        effect: randomRevealed.value + optionTwoOmenValue,
         uncertainty: -16,
       }),
       option({
         number: 3,
-        text: "Gain one random reward from the visible pool.",
+        text: `Gain one random reward from the visible pool: ${candidates.map(candidateText).join("; ")}.`,
         effects: [
           { kind: "random_reward", table: "visible_reveal_pool", poolId },
         ],
@@ -102,7 +126,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
       }),
     ],
     precommitted: [
-      wheel.visiblePoolEnvelope,
+      visiblePoolEnvelope,
       {
         kind: "reveal_rewards",
         optionNumber: 1,
@@ -140,13 +164,13 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
         optionNumber: 2,
         revealCount: candidates.length,
         rewards: allPayloads,
-        committedReward: randomRevealed.payloads,
+        committedReward: [...randomRevealed.payloads, optionTwoOmenPayload],
         visibilityPolicy: randomVisibility(
           "pre_rolled",
           "A reward is selected at random from the revealed set and committed in metadata.",
           true,
         ),
-        expectedConvertedEssence: averageValue(candidates),
+        expectedConvertedEssence: averageValue(candidates) + optionTwoOmenValue,
         riskPremiumConvertedEssence: -10,
         worstCaseBurdenConvertedEssence: worstCaseBurden(candidates),
         presentation: "reveal_choice_menu_choose_random_revealed",

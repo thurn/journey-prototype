@@ -6,8 +6,8 @@ import { valueBaneBurden } from "../../value.js";
 
 const REVEAL_BURDEN_COUNT_BANDS = {
   early: [1],
-  mid: [1, 1, 2],
-  late: [1, 2],
+  mid: [1],
+  late: [1],
 } as const satisfies Record<JourneyStage, readonly number[]>;
 
 export function revealBurdenProfile(args: {
