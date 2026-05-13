@@ -30,7 +30,6 @@ import { catalogRewardCards, namedCardPayload } from "../../fillers/namedCardPay
 import { routeEditRewards } from "../../fillers/routeEditCatalog.js";
 import {
   GENERIC_CARD_DRAFT_PROFILE,
-  type RewardSlot,
   baneTarget,
   cost,
   draftCards,
@@ -393,7 +392,6 @@ export function pairedReturnHookFill(args: {
   drawContext: DrawContext;
   shapeId: string;
   optionNumber: number;
-  reward: RewardSlot;
   familyId?: PairedReturnFamilyId;
   stage?: HookStage;
 }): { option: JourneyOption; precommit: Record<string, unknown> } {

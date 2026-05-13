@@ -1,6 +1,5 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import { drawInt, type DrawContext } from "../../../util/rng.js";
-import { rewardSlots } from "../../fillers/shared.js";
 import type { JourneyStage } from "../../manifest.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 import { pairedReturnHookFill } from "./hookFill.js";
@@ -27,17 +26,11 @@ export type PairedReturnFillResult = {
 
 export function pairedReturnJourneyFill(args: ShapeFillArgs): FilledJourney {
   const { context, drawContext, stage } = args;
-  const rewards = rewardSlots(
-    context,
-    drawContext,
-    "paired_return:return-rewards",
-  ).filter((entry) => entry.routeEffects === undefined);
   const firstReturn = pairedReturnHookFill({
     context,
     drawContext,
     shapeId: "paired_return",
     optionNumber: 1,
-    reward: rewards[0]!,
     stage,
   });
   const secondReturn = pairedReturnHookFill({
@@ -45,7 +38,6 @@ export function pairedReturnJourneyFill(args: ShapeFillArgs): FilledJourney {
     drawContext,
     shapeId: "paired_return",
     optionNumber: 2,
-    reward: rewards[1] ?? rewards[0]!,
     stage,
   });
   const thirdReturn = pairedReturnHookFill({
@@ -53,7 +45,6 @@ export function pairedReturnJourneyFill(args: ShapeFillArgs): FilledJourney {
     drawContext,
     shapeId: "paired_return",
     optionNumber: 3,
-    reward: rewards[2] ?? rewards[1] ?? rewards[0]!,
     stage,
   });
 
