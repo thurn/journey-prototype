@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 // Import the validate barrel first so the shapes registry finishes loading
 // before this shape plugin module is evaluated.
 import "../../src/journey/validate/index.js";
+import { loadContentContext } from "../../src/commands/shared.js";
+import { generateNextJourney } from "../../src/journey/generate.js";
+import type { JourneyManifest, JourneyStage } from "../../src/journey/manifest.js";
 import { commitNowFuturePayoffPlugin } from "../../src/journey/shapes/commit_now_future_payoff/index.js";
+import { buildJourneyContext } from "../../src/quest/context.js";
+import {
+  createInitialJourneyState,
+  simulateQuestStateForStage,
+} from "../../src/quest/init.js";
 import { makeTestContext } from "../helpers/journey-context.js";
 
 type SharedTemplatePayload = {
@@ -10,6 +18,30 @@ type SharedTemplatePayload = {
   readonly templateId?: string;
   readonly timing?: string;
 };
+
+async function manifestFor(seed: string, stage: JourneyStage): Promise<JourneyManifest> {
+  const { content, contentVersion } = await loadContentContext(process.cwd());
+  const state = createInitialJourneyState({ seed, content, contentVersion });
+
+  simulateQuestStateForStage({
+    state,
+    stage,
+    drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+  });
+
+  const context = buildJourneyContext({
+    projectRoot: process.cwd(),
+    content,
+    state,
+    contentVersion,
+  });
+
+  return generateNextJourney({
+    context,
+    forcedShapeId: "commit_now_future_payoff",
+    forcedStage: stage,
+  });
+}
 
 describe("commit_now_future_payoff fill", () => {
   it("pairs immediate commitments with visible delayed payoffs", () => {
@@ -68,5 +100,70 @@ describe("commit_now_future_payoff fill", () => {
     expect(commitNowFuturePayoffPlugin.fill(args)).toEqual(
       commitNowFuturePayoffPlugin.fill(args),
     );
+  });
+
+  it("renders victory hooks with the visible two-battle payoff window", async () => {
+    const manifest = await manifestFor("audit:commit_now_future_payoff:early:01", "early");
+
+    expect(manifest.options).toHaveLength(3);
+    expect(manifest.options.every((option) =>
+      option.text.includes("If you win within the next 2 battles,")
+    )).toBe(true);
+  });
+
+  it("keeps multi-action delayed rewards under one timing clause", async () => {
+    const manifest = await manifestFor("audit:commit_now_future_payoff:mid:05", "mid");
+    const multiAction = manifest.options.find((option) =>
+      option.text.includes("transform a chosen card with a 'judgment' ability")
+    );
+
+    expect(multiAction?.text).toContain(
+      "If you win within the next 2 battles, draft 1 of 4 Characters, apply Scarlet to it, and transform a chosen card with a 'judgment' ability into 'Peak Plunder'.",
+    );
+    expect(multiAction?.text).not.toMatch(/\. Transform/u);
+  });
+
+  it("excludes target-dependent transfiguration-removal commitments", async () => {
+    const excludedTemplateIds = new Set([
+      "pay_max_essence",
+      "purge_all_duplicate_cards",
+      "remove_transfiguration_from_card",
+      "remove_transfigurations_from_random_predicate",
+    ]);
+    const cases: Array<{ readonly seed: string; readonly stage: JourneyStage }> = [
+      { seed: "audit:commit_now_future_payoff:early:03", stage: "early" },
+      { seed: "audit:commit_now_future_payoff:late:06", stage: "late" },
+      { seed: "audit:commit_now_future_payoff:mid:05", stage: "mid" },
+    ];
+
+    for (const { seed, stage } of cases) {
+      const manifest = await manifestFor(seed, stage);
+      const costTemplateIds = manifest.options.flatMap((option) =>
+        option.costs.map((cost) => (cost as { readonly templateId?: string }).templateId),
+      );
+
+      for (const templateId of excludedTemplateIds) {
+        expect(costTemplateIds, seed).not.toContain(templateId);
+      }
+
+      expect(manifest.options.map((option) => option.text).join("\n")).not.toMatch(
+        /remove the transfiguration/u,
+      );
+    }
+  });
+
+  it("keeps cited audit offer net values within a tighter band", async () => {
+    const cases: Array<{ readonly seed: string; readonly stage: JourneyStage }> = [
+      { seed: "audit:commit_now_future_payoff:early:02", stage: "early" },
+      { seed: "audit:commit_now_future_payoff:late:10", stage: "late" },
+    ];
+
+    for (const { seed, stage } of cases) {
+      const manifest = await manifestFor(seed, stage);
+      const nets = manifest.options.map((option) => option.netConvertedEssence);
+      const spread = Math.max(...nets) - Math.min(...nets);
+
+      expect(spread).toBeLessThanOrEqual(stage === "early" ? 70 : 115);
+    }
   });
 });
