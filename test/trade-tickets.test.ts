@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeTestContext } from "./helpers/journey-context.js";
 import { tradeTicketBody } from "../src/journey/fillers/generatedObjects.js";
-import { pairedReturnFill } from "../src/journey/shapes/paired_return.js";
+import { pairedReturnFill } from "../src/journey/shapes/paired_return/index.js";
 import { loadContent } from "../src/content/loadToml.js";
 import { buildJourneyContext } from "../src/quest/context.js";
 import { createInitialJourneyState } from "../src/quest/init.js";

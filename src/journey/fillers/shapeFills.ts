@@ -78,7 +78,6 @@ import {
   delayedHookFillFromExpanded,
   delayedRewardHookFill,
   expandedDelayedHookFills,
-  pairedReturnHookFill,
 } from "./hookPayloads.js";
 import {
   randomVisibility,
@@ -580,53 +579,6 @@ export function fillOptions(
         symmetryContracts: sharedOperationTargetClassContract
           ? [sharedOperationTargetClassContract]
           : [],
-      };
-    }
-    case "paired_return": {
-      const rewards = rewardSlots(
-        context,
-        drawContext,
-        `${shapeId}:return-rewards`,
-      ).filter((entry) => entry.routeEffects === undefined);
-      const firstReturn = pairedReturnHookFill({
-        context,
-        drawContext,
-        shapeId,
-        optionNumber: 1,
-        reward: rewards[0]!,
-        stage,
-      });
-      const secondReturn = pairedReturnHookFill({
-        context,
-        drawContext,
-        shapeId,
-        optionNumber: 2,
-        reward: rewards[1] ?? rewards[0]!,
-        stage,
-      });
-      const thirdReturn = pairedReturnHookFill({
-        context,
-        drawContext,
-        shapeId,
-        optionNumber: 3,
-        reward: rewards[2] ?? rewards[1] ?? rewards[0]!,
-        stage,
-      });
-
-      return {
-        options: [firstReturn.option, secondReturn.option, thirdReturn.option],
-        precommitted: {
-          delayed: [
-            firstReturn.precommit,
-            secondReturn.precommit,
-            thirdReturn.precommit,
-          ],
-          pairedReturn: [
-            firstReturn.precommit,
-            secondReturn.precommit,
-            thirdReturn.precommit,
-          ],
-        },
       };
     }
   }
