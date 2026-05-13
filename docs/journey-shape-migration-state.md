@@ -112,7 +112,7 @@ the target end state.
 | `reveal_choice_menu` | Complete | Complete |
 | `resolved_random_series` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
-| `risk_or_skip` | Needed | Needed |
+| `risk_or_skip` | Complete | Complete |
 | `shared_prefix_menu` | Complete | Complete |
 | `service_menu` | Complete | Complete |
 | `shop_row` | Complete | Complete |
