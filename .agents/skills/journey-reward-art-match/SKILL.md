@@ -33,7 +33,7 @@ from `docs/rewards.md`; the pool is small enough to review directly.
 ## Duplicate Tracking
 
 Before matching, check for any existing assignment ledger requested by the user.
-If none is provided, use `docs/journey-reward-art-matches.md` when it exists.
+If none is provided, use `docs/journey-reward-art-matches.toml` when it exists.
 
 Track:
 

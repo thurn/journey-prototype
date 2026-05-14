@@ -151,6 +151,25 @@ def validate_assignments(assignments: list[dict[str, str]]) -> list[str]:
         if count > cap:
             errors.append(f"reward over cap: {reward_type} has {count}/{cap} assignments")
 
+    words = name_words(assignments)
+    for word, count in sorted(words.items()):
+        if count > 3:
+            errors.append(f"name word over cap: {word} has {count}/3 uses")
+
+    return errors
+
+
+def validate_result_file_shape(path: Path) -> list[str]:
+    errors: list[str] = []
+    if not path.exists():
+        return [f"{path}: result file does not exist"]
+    dreams = parse_toml(path)
+    if len(dreams) != 1:
+        errors.append(f"{path}: expected exactly one [[dreams]] entry")
+        return errors
+    image_id = dreams[0].get("image_id", "")
+    if image_id != path.stem:
+        errors.append(f"{path}: image_id {image_id} does not match filename stem {path.stem}")
     return errors
 
 
@@ -286,6 +305,7 @@ def command_word_report(_: argparse.Namespace) -> int:
 
 def command_validate(args: argparse.Namespace) -> int:
     path = Path(args.path)
+    errors = validate_result_file_shape(path)
     assignments = load_assignments(include_results=False)
     for result_path in result_files():
         if result_path.resolve() != path.resolve():
@@ -295,7 +315,7 @@ def command_validate(args: argparse.Namespace) -> int:
     for dream in parse_toml(path):
         dream["_source"] = str(path)
         assignments.append(dream)
-    errors = validate_assignments(assignments)
+    errors.extend(validate_assignments(assignments))
     if errors:
         print("FAIL")
         print("\n".join(errors))

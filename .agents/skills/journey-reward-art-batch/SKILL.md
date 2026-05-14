@@ -28,6 +28,12 @@ dream_name = "Ember Aftermath"
 reward_type = "Gain X essence."
 ```
 
+Each per-image result file under `/tmp/journey-reward-art-batch/results/` must
+contain exactly one `[[dreams]]` table, no extra fields, and an `image_id` that
+matches the filename stem. Dream names use title case and exactly two words.
+Reward text must be copied exactly from `docs/rewards.md` without the leading
+percentage.
+
 ## Assignment Caps
 
 Reward counts include existing assignments in
@@ -44,6 +50,11 @@ Cap rules:
 
 There is no active preference for unassigned or under-2 rewards beyond those
 caps. Agents may pick any matching reward that is under the current cap.
+
+The transition is evaluated against the aggregate assignment set at validation
+and join time. `join` is the authoritative final gate; parallel cap races may
+require post-drain correction of one or more per-image result files before the
+TOML can be joined.
 
 ## Helper Script
 
@@ -129,6 +140,10 @@ You are matching one Journey image to one Dream Journey reward.
 Image ID: {IMAGE_ID}
 
 Read `.agents/skills/journey-reward-art-match/SKILL.md` and follow it.
+Use `docs/journey-reward-art-matches.toml` and
+`/tmp/journey-reward-art-batch/results/` as the assignment ledger context.
+Open and inspect the actual image for this ID; do not match from filename or
+JSON description alone.
 
 You are not alone in the workspace. Do not edit shared files. You own only:
 `/tmp/journey-reward-art-batch/results/{IMAGE_ID}.toml`
@@ -158,6 +173,8 @@ Write exactly this TOML schema to your owned result file:
 image_id = "{IMAGE_ID}"
 dream_name = "<Two Word Name>"
 reward_type = "<exact reward type copied from docs/rewards.md without percentage>"
+
+The file must contain exactly one `[[dreams]]` table and no extra fields.
 
 Validate your file before finishing:
 
