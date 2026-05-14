@@ -594,24 +594,6 @@ cost, a risk envelope, or a clearly diminishing later reward. A menu where every
 item is pure upside collapses into taking everything and should use a shape with
 real limiting structure, not an open-pick menu pretending to contain decisions.
 
-### probability_ladder
-
-The site displays a bounded decision tree where each level lets the player stop
-or pay for a chance to gain one fixed reward. The process ends immediately when
-the chance succeeds. The player cannot gain the fixed reward multiple times
-from the same Journey.
-
-The chance structure may use one of four supported variants:
-
-- escalating costs and escalating odds
-- fixed costs and escalating odds
-- escalating costs and fixed odds
-- fixed costs and fixed odds
-
-Within one generated Journey, all costs must use the same resource type and all
-attempts must pursue the same reward. The odds and cost pattern must be visible
-for every level in the tree.
-
 ### random_pool_draws
 
 The site displays a bounded decision tree where each level lets the player stop

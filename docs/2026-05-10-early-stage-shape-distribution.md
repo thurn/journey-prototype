@@ -67,7 +67,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | shared_prefix_menu | 70 | 2.33% |
 | alter_dreamscapes | 67 | 2.23% |
 | choose_your_loss | 62 | 2.07% |
-| probability_ladder | 60 | 2.00% |
 | random_pool_draws | 58 | 1.93% |
 | push_your_luck | 57 | 1.90% |
 | single_offer | 52 | 1.73% |

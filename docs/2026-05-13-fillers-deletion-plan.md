@@ -450,7 +450,7 @@ Run these commands from the repository root after the cleanup:
 - `npm run journey -- run --seed qa --no-color`
 - `npm run journey -- --seed qa --json`
 - `npm run journey -- --seed qa --debug --no-color`
-- `npm run journey -- --seed qa --shape probability_ladder --no-color`
+- `npm run journey -- --seed qa --shape random_pool_draws --no-color`
 - `npm run journey -- --seed qa --count 5 --json`
 
 The expected result is that each command exits successfully, generated

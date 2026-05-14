@@ -15,7 +15,6 @@ const typedRandomEnvelopeKinds = new Set([
   "repeated_pool_draws",
   "random_range",
   "wager",
-  "probability_ladder",
   "push_choice",
   "complete_decision_tree",
 ]);

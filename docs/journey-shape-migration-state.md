@@ -25,7 +25,6 @@ Each queued shape follows this sequence:
 | 13 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 16 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 19 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 21 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 22 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 23 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 24 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
@@ -62,7 +61,6 @@ These shapes are reference implementations for the migration target:
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
 - `single_offer` completed migration commit `e50cefb`, audit commit `7a01663`, and fix commit `e84877e`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
-- `probability_ladder` completed migration commit `69cdfb7`, audit commit `e5090e8`, and fix commit `adaa912`.
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
 - `shared_prefix_menu` completed migration commit `6c00aa2`, audit commit `b8d1014`, and fix commit `d026c29`.
 - `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
@@ -89,7 +87,6 @@ the target end state.
 | `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
 | `paired_return` | Complete | Complete |
-| `probability_ladder` | Complete | Complete |
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
@@ -100,7 +97,6 @@ the target end state.
 | `single_wager` | Complete | Complete |
 | `take_any_number` | Complete | Complete |
 
-Generic typed-contract plumbing still carries shape IDs for structured
-manifest kinds such as `probability_ladder`, `paired_return`, and
-`flat_escalating_trade`. Debug fixture metadata also carries shape filters for
-renderer fixtures.
+Generic typed-contract plumbing carries shape IDs for structured manifest kinds
+such as `paired_return` and `flat_escalating_trade`. Debug fixture metadata also
+carries shape filters for renderer fixtures.

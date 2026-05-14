@@ -562,8 +562,6 @@ function committedOutcomeText(value: unknown): string {
       return `Gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
     case "visible_downside":
       return `Visible downside: gain ${countText(value.count, String(value.baneName ?? "Bane"), `${String(value.baneName ?? "Bane")}s`)}.`;
-    case "probability_ladder":
-      return `Probability ladder outcome is ${value.bounded === true ? "bounded" : "precommitted"}.`;
     case "push_failure":
       return `Push-your-luck failure is ${value.bounded === true ? "bounded" : "precommitted"}.`;
     default:

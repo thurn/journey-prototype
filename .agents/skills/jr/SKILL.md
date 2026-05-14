@@ -32,7 +32,7 @@ npm run journey -- --seed qa --no-color
 npm run journey -- run --seed qa --no-color
 npm run journey -- --seed qa --json
 npm run journey -- --seed qa --debug --no-color
-npm run journey -- --seed qa --shape probability_ladder --no-color
+npm run journey -- --seed qa --shape random_pool_draws --no-color
 ```
 
 Match QA to the changed surface:

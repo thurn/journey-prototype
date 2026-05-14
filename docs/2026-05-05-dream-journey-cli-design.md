@@ -90,7 +90,6 @@ metadata.
 
 The canonical true-sequential tree shapes are:
 
-- `probability_ladder`
 - `random_pool_draws`
 - `push_your_luck`
 - `escalating_reward_chain`

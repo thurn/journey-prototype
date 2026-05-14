@@ -641,11 +641,6 @@ export type RandomPrecommittedOutcome =
     committedResult: "success" | "failure";
   })
   | (RandomPrecommitBase & {
-    kind: "probability_ladder";
-    bounded: true;
-    levels?: { level: number; odds: RandomOdds; reward: unknown }[];
-  })
-  | (RandomPrecommitBase & {
     kind: "push_choice";
     bounded: true;
     attempts?: unknown;

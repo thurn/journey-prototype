@@ -9,7 +9,6 @@ import { nowVsLaterPlugin } from "./now_vs_later/index.js";
 import { oneOperationManyTargetsPlugin } from "./one_operation_many_targets/index.js";
 import { oneTargetManyOperationsPlugin } from "./one_target_many_operations/index.js";
 import { pairedReturnPlugin } from "./paired_return/index.js";
-import { probabilityLadderPlugin } from "./probability_ladder/index.js";
 import { pushYourLuckPlugin } from "./push_your_luck/index.js";
 import { randomRewardsPlugin } from "./random_rewards/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
@@ -48,7 +47,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   pairedReturnPlugin,
   takeAnyNumberPlugin,
   pushYourLuckPlugin,
-  probabilityLadderPlugin,
   randomPoolDrawsPlugin,
   escalatingRewardChainPlugin,
   flatEscalatingTradePlugin,

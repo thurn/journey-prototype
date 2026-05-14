@@ -30,7 +30,6 @@ const expectedShapeIds = [
   "paired_return",
   "take_any_number",
   "push_your_luck",
-  "probability_ladder",
   "random_pool_draws",
   "escalating_reward_chain",
   "flat_escalating_trade",
@@ -75,7 +74,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(24);
+    expect(actualShapeIds).toHaveLength(23);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -167,6 +166,18 @@ describe("JOURNEY_SHAPES", () => {
 
   it("does not expose the deleted reveal_choice_menu shape", () => {
     const retiredShapeId = "reveal_choice_menu";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
+  it("does not expose the deleted probability_ladder shape", () => {
+    const retiredShapeId = "probability_ladder";
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(
@@ -302,7 +313,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v23;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v24;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

@@ -15,7 +15,7 @@ export const randomPoolDrawsPlugin = defineShapePlugin({
     ],
     debugLabel: "Random pool draws",
     versionContribution: {
-      catalogVersion: "journey-shapes:v23",
+      catalogVersion: "journey-shapes:v24",
       id: "random_pool_draws",
       topology: "decision_tree",
     },

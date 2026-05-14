@@ -28,7 +28,7 @@ rendering. `repeat_to_scale`, `sequential_offers`, and `escalating_search`
 should be deleted as canonical shapes. `push_your_luck` should stay as a name
 but be rebuilt around repeated risk of ending the Journey while chasing
 mechanically connected rewards. New canonical true-sequential shapes should
-cover probability ladders, random pool draws, and escalating reward chains.
+cover random pool draws, push-your-luck trees, and escalating reward chains.
 
 ## Related Information
 
@@ -304,8 +304,8 @@ represented as `shop_row`, `same_reward_different_costs`,
 
 `escalating_search` should be deleted. Search depth by itself is not a strong
 enough invariant. The viable designs should be represented by
-`probability_ladder`, `push_your_luck`, or `escalating_reward_chain`, depending
-on whether the depth is about chance, failure risk, or repeated rewards.
+`push_your_luck` or `escalating_reward_chain`, depending on whether the depth
+is about failure risk or repeated rewards.
 
 `push_your_luck` remains canonical but must be reimplemented. Its identity is
 repeatedly risking an immediate Journey-ending failure in order to access
@@ -313,12 +313,6 @@ stronger mechanically connected rewards. Deterministic escalating costs do not
 belong in this shape.
 
 ## New True-Sequential Shapes
-
-`probability_ladder` is a repeated gamble for one fixed reward. Each level lets
-the player stop or pay for a chance to gain that reward. A success ends the
-Journey immediately, so the player cannot receive the fixed reward multiple
-times. Variants may use escalating or fixed costs and escalating or fixed odds,
-but one Journey must keep the same reward and same cost resource throughout.
 
 `random_pool_draws` is a repeated draw from a fixed visible reward pool. Each
 level lets the player stop or pay the same fixed cost for another random draw
@@ -363,18 +357,17 @@ from the initial output. Missing levels, hidden follow-up menus, unlabeled
 random branches, missing terminal outcomes, and non-terminal nodes without
 outgoing branches are structural errors.
 
-Validation should reject incoherent cost scaling. In `probability_ladder` and
-`escalating_reward_chain`, all payable costs should use the same resource type
-or the same repeated compound cost template.
+Validation should reject incoherent cost scaling. In `escalating_reward_chain`,
+all payable costs should use the same resource type or the same repeated
+compound cost template.
 
 Validation should reject incoherent reward scaling. Stop rewards, final prizes,
 fixed gamble rewards, repeated pool rewards, and repeated chain rewards should
 match the shape's required reward relationship.
 
-Validation should reject chance structures that can award a fixed reward more
-than once in `probability_ladder`. It should also reject push-your-luck trees
-where failure does not end the Journey or where the player can keep pushing
-after receiving a terminal take reward.
+Validation should reject push-your-luck trees where failure does not end the
+Journey or where the player can keep pushing after receiving a terminal take
+reward.
 
 Value validation should operate on branches as well as flat options. The
 generator should compute converted-essence values for costs, rewards, burdens,
@@ -416,9 +409,9 @@ survive temporarily only as migration scaffolding while tests and renderers are
 rewritten.
 
 The filler layer should stop producing step-one menus for sequential shapes.
-It should produce complete trees for `probability_ladder`, `random_pool_draws`,
-`push_your_luck`, and `escalating_reward_chain`. Direct menu fillers should
-continue to produce flat options.
+It should produce complete trees for `random_pool_draws`, `push_your_luck`, and
+`escalating_reward_chain`. Direct menu fillers should continue to produce flat
+options.
 
 The generator should treat `--shape` as a shape-selection constraint before
 weighted random shape selection. Forced shape generation still goes through
@@ -462,8 +455,8 @@ rewritten or retired when this design is implemented.
   Journeys without requiring a reset command.
 - Running `journey --seed qa --stage late` is deterministic under the same
   content and catalog versions.
-- Running `journey --shape probability_ladder --seed qa` either prints a valid
-  `probability_ladder` tree or fails with a clear validation error.
+- Running `journey --shape random_pool_draws --seed qa` either prints a valid
+  `random_pool_draws` tree or fails with a clear validation error.
 - Running `journey --json` includes the generated manifest, tree data when
   present, generated context, deck list, seed, stage, shape ID, content version,
   catalog version, and debug metadata.
@@ -517,42 +510,6 @@ procedural tests should assert manifest contracts, topology invariants, typed
 pool metadata, value progression, and seed diversity. Exact stdout assertions
 belong only in renderer fixtures that are explicitly labeled as such. The forced
 `--shape` flag is a QA input, not normal user-facing output.
-
-### Probability Ladder
-
-Command:
-
-```text
-$ journey --seed appendix-probability --stage mid --shape probability_ladder --no-color
-```
-
-Historical fixture stdout:
-
-```text
-Dream Journey
-Quest: Vaela, Ember Among Remnants
-Stage: mid    Essence: 120/500    Omens: 1
-
-Decision Tree
-
-Level 1
-Stop: Leave.
-Attempt: Pay 25 essence for a 25% chance to gain a Dreamsign.
-Success: Gain the Dreamsign. End the Journey.
-Failure: Go to Level 2.
-
-Level 2
-Stop: Leave.
-Attempt: Pay 45 essence for a 45% chance to gain a Dreamsign.
-Success: Gain the Dreamsign. End the Journey.
-Failure: Go to Level 3.
-
-Level 3
-Stop: Leave.
-Attempt: Pay 70 essence for a 70% chance to gain a Dreamsign.
-Success: Gain the Dreamsign. End the Journey.
-Failure: End the Journey.
-```
 
 ### Random Pool Draws
 

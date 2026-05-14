@@ -19,7 +19,6 @@ const MIGRATED_SHAPE_IDS = [
   "one_operation_many_targets",
   "one_target_many_operations",
   "paired_return",
-  "probability_ladder",
   "push_your_luck",
   "random_pool_draws",
   "random_rewards",
@@ -45,12 +44,6 @@ const FILES_ALLOWED_BY_SHAPE_ID = new Map(
     paired_return: [
       "src/journey/manifest.ts",
       "src/journey/operationBuilders.ts",
-      "src/render/human.ts",
-    ],
-    probability_ladder: [
-      "src/journey/manifest.ts",
-      "src/journey/operationBuilders.ts",
-      "src/journey/validate/randomContracts.ts",
       "src/render/human.ts",
     ],
   }).map(([shapeId, paths]) => [

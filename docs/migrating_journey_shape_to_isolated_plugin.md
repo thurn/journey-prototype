@@ -276,7 +276,7 @@ Reject migrations that exhibit any of these:
   the migration.
 - A factory function in a central file whose return type grows a new field
   named after the shape (e.g., `buildXTree`).
-- Any commit message of the form "expose X for probability_ladder migration" — if
+- Any commit message of the form "expose X for a shape migration" — if
   you needed to expose it, the body probably should have moved with it.
 
 ## When Isolation Should *Not* Be Forced

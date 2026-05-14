@@ -534,7 +534,6 @@ function isRandomEnvelopePayloadKind(kind: string | undefined): boolean {
     kind === "random_range" ||
     kind === "resource_random_range" ||
     kind === "wager" ||
-    kind === "probability_ladder" ||
     kind === "push_choice" ||
     kind === "complete_decision_tree";
 }

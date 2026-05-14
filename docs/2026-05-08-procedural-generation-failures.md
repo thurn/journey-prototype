@@ -286,12 +286,11 @@ general tree soup" and not "one fixed event script per tree family."
 
 **Resolution:** Normal decision-tree builders now keep the authored topology and
 progression identity, but fill visible tree payloads from reusable level-aware
-families. Probability ladders, random-pool draws, escalating reward chains, and
-push-your-luck trees now derive costs, odds, rewards, visible random-pool
-entries, and failure burdens from shared constrained families rather than
-selecting whole scripted tree profiles. The generators preserve deterministic
-replay, complete visible tree shapes, value growth across levels, and
-topology-specific invariants such as fixed probability-ladder rewards and
+families. Random-pool draws, escalating reward chains, and push-your-luck trees
+derive costs, odds, rewards, visible random-pool entries, and failure burdens
+from shared constrained families rather than selecting whole scripted tree
+profiles. The generators preserve deterministic replay, complete visible tree
+shapes, value growth across levels, and topology-specific invariants such as
 increasing push-your-luck risk.
 
 ### 8. Route Edits Are Fixed Site-Pair Scenarios
@@ -477,7 +476,7 @@ still depend on exact strings or allow unknown scenario kinds:
 - `validateRandomEnvelopePayload()` validates only a hardcoded set, then passes
   unknown random kinds in
   [`randomContracts.ts`](../src/journey/validate/randomContracts.ts#L123);
-- probability ladder and push-your-luck validators require exact labels such as
+- push-your-luck validators require exact labels such as
   `Success` and `Failure` in
   [`tree.ts`](../src/journey/validate/tree.ts#L94);
 - `random_pool_draws` checks whether summary text includes `replacement` instead

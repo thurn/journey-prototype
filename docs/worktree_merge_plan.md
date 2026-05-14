@@ -11,8 +11,8 @@ naturally). Inspection of the work product shows:
   passes after adding the shape ID to `MIGRATED_SHAPE_IDS`, and `grep` finds
   no remaining references in non-exempt central files.
 - **Worktrees requiring central-file cleanup** leak shape IDs into central files
-  (`probability_ladder`, `one_operation_many_targets`, `paired_return`,
-  `one_target_many_operations`, `flat_escalating_trade`).
+  (`one_operation_many_targets`, `paired_return`, `one_target_many_operations`,
+  `flat_escalating_trade`).
   Those need additional work — likely widening
   `JourneyShapePlugin` or extracting `dreamsignOperationCatalog` /
   `cardOperationCatalog` ownership — and are out of scope for this merge plan.
@@ -96,7 +96,7 @@ for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
     [ -d "${w}src/journey/shapes/$shape" ] || continue
     test_file="${w}test/journey-shape-isolation.test.ts"
     grep -q "\"$shape\"" "$test_file" && continue
-    sed -i.bak "s|\"shop_row\", \"probability_ladder\"|\"shop_row\", \"probability_ladder\", \"$shape\"|" "$test_file"
+    sed -i.bak "s|\"shop_row\"|\"shop_row\", \"$shape\"|" "$test_file"
     rm -f "$test_file.bak"
     (cd "$w" && ./node_modules/.bin/vitest run test/journey-shape-isolation.test.ts >/dev/null 2>&1) \
       && echo "$shape OK" || echo "$shape FAIL — revert"
@@ -118,7 +118,7 @@ state — investigate first.) This can be batched once per worktree:
 
 ```bash
 for w in .claude/worktrees/agent-*/; do
-  shape=$(ls -d "${w}src/journey/shapes/"*/ | grep -v 'probability_ladder\|shop_row' \
+  shape=$(ls -d "${w}src/journey/shapes/"*/ | grep -v 'shop_row' \
             | head -1 | xargs -I{} basename {})
   (cd "$w" && git add -A && git commit -m "Migrate $shape to isolated plugin")
 done
@@ -233,8 +233,8 @@ work.
 
 ## After all 23 merges
 
-The 7 remaining worktrees (`probability_ladder`, `paired_return`, etc.)
-need real migration work, not just merging — their fillers reference
+The remaining central-file worktrees need real migration work, not just merging
+— their fillers reference
 `dreamsignOperationCatalog` / `cardOperationCatalog` / `manifest.ts` shape
 unions that the current plugin contract does not absorb. Plan that work
 separately following §6 of `migrating_journey_shape_to_isolated_plugin.md`
