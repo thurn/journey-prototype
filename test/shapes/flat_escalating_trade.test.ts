@@ -66,17 +66,25 @@ function essenceCost(option: JourneyOption): number {
   return cost!.amount as number;
 }
 
-function omenReward(option: JourneyOption): number {
+function rewardPayload(option: JourneyOption): Record<string, unknown> {
   const reward = option.effects.find((entry) =>
     typeof entry === "object" &&
-    entry !== null &&
-    (entry as { kind?: unknown }).kind === "gain_omens"
-  ) as { amount?: unknown; escalationTier?: unknown } | undefined;
+    entry !== null
+  ) as Record<string, unknown> | undefined;
 
   expect(reward).toBeDefined();
   expect(reward!.escalationTier).toMatch(/^tier_\d+$/u);
-  expect(typeof reward!.amount).toBe("number");
-  return reward!.amount as number;
+  return reward!;
+}
+
+function rewardFamily(option: JourneyOption): string {
+  const reward = rewardPayload(option);
+  const family = typeof reward.templateId === "string"
+    ? reward.templateId
+    : reward.kind;
+
+  expect(typeof family).toBe("string");
+  return family as string;
 }
 
 function assertStrictlyIncreasing(values: readonly number[]) {
@@ -114,20 +122,23 @@ function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
 
   const costs = options.map(essenceCost);
-  const rewards = options.map(omenReward);
+  const rewards = options.map((option) => option.effectConvertedEssence);
+  const rewardFamilies = options.map(rewardFamily);
+  const [sharedRewardFamily] = rewardFamilies;
 
   expect(options.map((option) => option.number)).toEqual([1, 2, 3]);
+  expect(new Set(rewardFamilies)).toEqual(new Set([sharedRewardFamily]));
   assertStrictlyIncreasing(costs);
   assertStrictlyIncreasing(rewards);
   assertComparableNetValues(manifest);
 
   for (const option of options) {
     const price = essenceCost(option);
-    const omens = omenReward(option);
+    const reward = rewardPayload(option);
 
-    expect(option.text).toBe(
-      `Pay ${price} essence. Gain ${omens} ${omens === 1 ? "omen" : "omens"}.`,
-    );
+    expect(option.text).toMatch(new RegExp(`^Pay ${price} essence\\. .+\\.$`, "u"));
+    expect(rewardFamily(option)).toBe(sharedRewardFamily);
+    expect(reward).toEqual(expect.objectContaining({ escalationTier: expect.any(String) }));
     expect(option.pickBehavior).toBe("record_and_generate_next");
     expect(option.costConvertedEssence).toBe(price);
     expect(option.effectConvertedEssence).toBeGreaterThan(0);
@@ -139,8 +150,6 @@ function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.debug.symmetryContracts).toEqual([
     expect.objectContaining({
       contractKind: "flat_escalating_trade",
-      sharedProperty: "essence-for-omens trade family",
-      variedProperty: "strictly increasing price and omen reward",
       optionNumbers: [1, 2, 3],
     }),
   ]);
@@ -181,6 +190,29 @@ describe("flat_escalating_trade fill", () => {
         expect(manifest.stage).toBe(stage);
       }
     }
+  });
+
+  it("uses multiple scalable reward families across audited stage seeds", async () => {
+    const rewardFamilies = new Set<string>();
+
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:flat_escalating_trade:${stage}:${seedNumber}`;
+        const manifest = await forcedFlatEscalatingTradeManifest(seed, stage);
+        const options = manifest.options.filter((option) =>
+          option.pickBehavior !== "leave"
+        );
+
+        assertFlatEscalatingTradeManifest(manifest);
+        rewardFamilies.add(rewardFamily(options[0]!));
+      }
+    }
+
+    expect(rewardFamilies.size).toBeGreaterThan(1);
+    expect([...rewardFamilies]).toContain("gain_omens");
+    expect([...rewardFamilies].some((family) => family !== "gain_omens")).toBe(
+      true,
+    );
   });
 
   it("replays the same forced seed without changing trade tiers", async () => {
