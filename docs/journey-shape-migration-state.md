@@ -22,7 +22,6 @@ Each queued shape follows this sequence:
 | 8 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 9 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 11 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 12 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 13 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 14 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 15 | `single_reward` | 3 | Complete | Complete | Complete | Complete | Complete |
@@ -65,7 +64,6 @@ These shapes are reference implementations for the migration target:
 - `choose_your_loss` completed migration commit `21bfec1`, audit commit `ae9c2a8`, and fix commit `793b996`.
 - `commit_now_future_payoff` completed migration commit `8a0dcb5`, audit commit `a80eb5d`, and fix commit `eec82ad`.
 - `random_pool_draws` completed migration commits `f8a7ebd` and `5466d75`, audit commit `66da12a`, and fix commit `68ef48c`.
-- `resolved_random_series` completed migration commits `9496e74` and `2b4b002`, audit commit `a42356e`, and fix commit `21d11de`.
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
 - `prize_ladder` completed migration commit `9cdf1b7`, audit commit `ff3505c`, and fix commit `07b853b`.
 - `single_reward` completed migration commit `b088331`, audit commit `455f4da`, and fix commit `6a3caaf`.
@@ -106,7 +104,6 @@ the target end state.
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reveal_choice_menu` | Complete | Complete |
-| `resolved_random_series` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
 | `risk_or_skip` | Complete | Complete |
 | `shared_prefix_menu` | Complete | Complete |

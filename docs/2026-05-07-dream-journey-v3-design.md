@@ -322,7 +322,7 @@ result count, failure behavior, and value treatment.
 
 V3 random envelopes must support one-shot rolls, random costs, random rewards,
 random target selection, reveal-then-choose, reveal-then-random, roll twice and
-keep one, repeated pool draws, and resolved random series.
+keep one, and repeated pool draws.
 
 ### Generated Object
 

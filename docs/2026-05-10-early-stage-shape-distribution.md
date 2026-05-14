@@ -52,7 +52,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | one_target_many_operations | 188 | 6.27% |
 | take_any_number | 146 | 4.87% |
 | curated_reward_trio | 137 | 4.57% |
-| resolved_random_series | 129 | 4.30% |
 | random_rewards | 129 | 4.30% |
 | shop_row | 114 | 3.80% |
 | heterogeneous_pair | 114 | 3.80% |

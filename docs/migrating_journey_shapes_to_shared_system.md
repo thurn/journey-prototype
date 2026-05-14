@@ -67,7 +67,7 @@ export const examplePlugin = defineShapePlugin({
     repairPreferences: [],
     debugLabel: "Example",
     versionContribution: {
-      catalogVersion: "journey-shapes:v17",
+      catalogVersion: "journey-shapes:v18",
       id: "example",
       topology: "direct_menu",
       bypassStandardValidation: true,

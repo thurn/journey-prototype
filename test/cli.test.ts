@@ -85,7 +85,7 @@ describe("buildProgram", () => {
   }, 30_000);
 
   it("rejects unknown forced shapes with the project error", async () => {
-    const retiredShapeId = ["timed", "window", "menu"].join("_");
+    const retiredShapeId = ["resolved", "random", "series"].join("_");
 
     await expect(
       execFileAsync(
@@ -123,7 +123,7 @@ describe("buildProgram", () => {
         stage: "late",
         versions: {
           contentVersion: expect.any(String),
-          shapeCatalogVersion: "journey-shapes:v17",
+          shapeCatalogVersion: "journey-shapes:v18",
           effectCatalogVersion: "effects:v7",
           valueModelVersion: "value:v10",
           rendererVersion: "renderer:v1",
@@ -184,7 +184,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 1,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v17",
+              shapeCatalogVersion: "journey-shapes:v18",
             },
           },
         },
@@ -198,7 +198,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 2,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v17",
+              shapeCatalogVersion: "journey-shapes:v18",
             },
           },
         },
@@ -212,7 +212,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 3,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v17",
+              shapeCatalogVersion: "journey-shapes:v18",
             },
           },
         },

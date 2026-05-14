@@ -556,18 +556,6 @@ repair, generated-object, and distinctness contracts for a shape.
   - Stop: leave.
   - Take: pay 60 essence and gain 2 omens, then end the Journey.
 
-# resolved_random_series
-
-## Coin Cascade
-
-- Flip 3 coins. Gain 30 essence for each heads.
-
-## Three Locked Caches
-
-- Choose characters, events, or fast cards. Draft 1 of 6 from that pool.
-- Roll twice. First success lets you draft 1 of 6 from one remaining pool;
-  second success lets you draft 1 of 6 from the last remaining pool.
-
 # single_random_outcome
 
 ## Turning Wheel

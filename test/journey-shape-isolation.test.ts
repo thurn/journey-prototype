@@ -25,7 +25,6 @@ const MIGRATED_SHAPE_IDS = [
   "random_pool_draws",
   "random_rewards",
   "random_trades",
-  "resolved_random_series",
   "reveal_choice_menu",
   "reward_after_trigger",
   "risk_or_skip",
@@ -54,12 +53,6 @@ const FILES_ALLOWED_BY_SHAPE_ID = new Map(
       "src/render/human.ts",
     ],
     probability_ladder: [
-      "src/journey/manifest.ts",
-      "src/journey/operationBuilders.ts",
-      "src/journey/validate/randomContracts.ts",
-      "src/render/human.ts",
-    ],
-    resolved_random_series: [
       "src/journey/manifest.ts",
       "src/journey/operationBuilders.ts",
       "src/journey/validate/randomContracts.ts",

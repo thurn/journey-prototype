@@ -18,7 +18,6 @@ const typedRandomEnvelopeKinds = new Set([
   "probability_ladder",
   "push_choice",
   "complete_decision_tree",
-  "resolved_random_series",
 ]);
 
 const legacyDebugRandomPrecommitKinds = new Set([
@@ -254,10 +253,6 @@ export function validateRandomEnvelopePayload(value: unknown): ValidationResult 
     if (!value.rolls.includes(value.keptRoll)) {
       return fail("invalid_roll_twice_payload", "Roll-twice kept roll must be one of the committed rolls");
     }
-  }
-
-  if (kind === "resolved_random_series" && (!Array.isArray(value.series) || value.series.length === 0)) {
-    return fail("empty_random_pool", "Resolved random series requires at least one committed outcome");
   }
 
   if (

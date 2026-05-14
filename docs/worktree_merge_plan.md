@@ -7,12 +7,12 @@ journey shape each per `docs/migrating_journey_shape_to_isolated_plugin.md`.
 All 30 subagents were terminated mid-run by a quota limit (none completed
 naturally). Inspection of the work product shows:
 
-- **23 worktrees** have a clean migration: typecheck passes, isolation test
+- **Clean migration worktrees** have typecheck passing, isolation test
   passes after adding the shape ID to `MIGRATED_SHAPE_IDS`, and `grep` finds
   no remaining references in non-exempt central files.
-- **7 worktrees** still leak shape IDs into central files
-  (`probability_ladder`, `one_operation_many_targets`, `resolved_random_series`,
-  `paired_return`, `one_target_many_operations`, `flat_escalating_trade`).
+- **Worktrees requiring central-file cleanup** leak shape IDs into central files
+  (`probability_ladder`, `one_operation_many_targets`, `paired_return`,
+  `one_target_many_operations`, `flat_escalating_trade`).
   Those need additional work — likely widening
   `JourneyShapePlugin` or extracting `dreamsignOperationCatalog` /
   `cardOperationCatalog` ownership — and are out of scope for this merge plan.

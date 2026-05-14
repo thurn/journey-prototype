@@ -15,7 +15,7 @@ export const nowVsLaterPlugin = defineShapePlugin({
     ],
     debugLabel: "Now versus later",
     versionContribution: {
-      catalogVersion: "journey-shapes:v17",
+      catalogVersion: "journey-shapes:v18",
       id: "now_vs_later",
       topology: "delayed_hook",
     },

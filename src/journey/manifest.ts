@@ -672,11 +672,6 @@ export type RandomPrecommittedOutcome =
     failureBranchIds: string[];
     rewardBranchIds: string[];
   })
-  | (RandomPrecommitBase & {
-    kind: "resolved_random_series";
-    series: unknown[];
-    resolved: true;
-  })
   | ({ kind: string; optionNumber?: number } & Record<string, unknown>);
 
 export type TargetOperation = OperationBase & {

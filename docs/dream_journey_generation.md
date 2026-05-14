@@ -615,9 +615,8 @@ Every accepted reward must carry real limiting structure: a shared burden, a
 cost, a risk envelope, or a clearly diminishing later reward. A menu where every
 item is pure upside collapses into taking everything and should not use this
 shape. Rare "gain this whole cache" moments should be authored as
-`single_reward`, `resolved_random_series`, or another special-event shape where
-the whole bundle is the one reward, not as an open-pick menu pretending to
-contain decisions.
+`single_reward` or another special-event shape where the whole bundle is the one
+reward, not as an open-pick menu pretending to contain decisions.
 
 ### prize_ladder
 
@@ -696,12 +695,6 @@ locked behind earlier takes. It differs from `prize_ladder` because the player
 receives the repeated reward at each accepted level rather than preserving a
 larger stop reward for later.
 
-### resolved_random_series
-
-The site resolves a fixed small series of bounded random outcomes after one
-commitment. The scene begins once and presents the resolved reward series
-before the player chooses.
-
 ### single_random_outcome
 
 The site resolves one bounded random outcome after entry. This is the right
@@ -752,7 +745,7 @@ stable while still preserving expressive power. The main exception is when a
 shared property is itself the authored promise of the scene. If overt symmetry,
 shared timing, fixed random cadence, or an authored callback is the thing the
 player is primarily reacting to, it may deserve an explicit top-level shape such
-as `resolved_random_series` or `paired_return`.
+as `paired_return`.
 
 ## Effect Lists
 
