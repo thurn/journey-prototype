@@ -276,8 +276,6 @@ current non-bypassed shapes should be handled as follows:
   option, visible bounded downside odds, and precommitted downside metadata;
 - `single_offer` keeps a shape-local assertion for one take option and one
   no-effect leave option;
-- `single_rule_trial` keeps a shape-local assertion only if its production fill
-  can emit more than one option or a meaningful cost;
 - `paired_return` keeps a shape-local assertion only for required paired-return
   precommit metadata;
 - direct-menu reward and trade shapes should set `bypassStandardValidation:

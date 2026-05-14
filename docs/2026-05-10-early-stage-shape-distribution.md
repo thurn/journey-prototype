@@ -73,7 +73,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | push_your_luck | 57 | 1.90% |
 | risk_or_skip | 56 | 1.87% |
 | single_offer | 52 | 1.73% |
-| single_rule_trial | 52 | 1.73% |
 | escalating_reward_chain | 51 | 1.70% |
 | random_trades | 22 | 0.73% |
 

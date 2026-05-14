@@ -19,7 +19,6 @@ export type JourneyShapeId = string;
 export type JourneyTopology =
   | "direct_menu"
   | "single_offer_refusal"
-  | "single_rule_trial"
   | "random_commit"
   | "delayed_hook"
   | "route_edit"

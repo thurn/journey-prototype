@@ -99,6 +99,19 @@ describe("buildProgram", () => {
     });
   }, 30_000);
 
+  it("rejects the deleted single_rule_trial forced shape", async () => {
+    await expect(
+      execFileAsync(
+        "npm",
+        ["run", "journey", "--", "--seed", "qa", "--shape", "single_rule_trial"],
+        { cwd: process.cwd(), timeout: 15_000 },
+      ),
+    ).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("unknown Journey shape 'single_rule_trial'"),
+    });
+  }, 30_000);
+
   it("emits parseable stateless JSON through the npm run journey contract", async () => {
     const result = await execFileAsync(
       "npm",
@@ -123,7 +136,7 @@ describe("buildProgram", () => {
         stage: "late",
         versions: {
           contentVersion: expect.any(String),
-          shapeCatalogVersion: "journey-shapes:v20",
+          shapeCatalogVersion: "journey-shapes:v21",
           effectCatalogVersion: "effects:v7",
           valueModelVersion: "value:v10",
           rendererVersion: "renderer:v1",
@@ -184,7 +197,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 1,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v20",
+              shapeCatalogVersion: "journey-shapes:v21",
             },
           },
         },
@@ -198,7 +211,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 2,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v20",
+              shapeCatalogVersion: "journey-shapes:v21",
             },
           },
         },
@@ -212,7 +225,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 3,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v20",
+              shapeCatalogVersion: "journey-shapes:v21",
             },
           },
         },

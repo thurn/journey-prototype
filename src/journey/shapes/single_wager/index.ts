@@ -15,7 +15,7 @@ export const singleWagerPlugin = defineShapePlugin({
     ],
     debugLabel: "Single wager",
     versionContribution: {
-      catalogVersion: "journey-shapes:v20",
+      catalogVersion: "journey-shapes:v21",
       id: "single_wager",
       topology: "random_commit",
     },

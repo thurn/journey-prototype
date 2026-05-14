@@ -24,7 +24,6 @@ Each queued shape follows this sequence:
 | 11 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 13 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 16 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 17 | `single_rule_trial` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 18 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 19 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 20 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
@@ -64,7 +63,6 @@ These shapes are reference implementations for the migration target:
 - `random_pool_draws` completed migration commits `f8a7ebd` and `5466d75`, audit commit `66da12a`, and fix commit `68ef48c`.
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
 - `single_offer` completed migration commit `e50cefb`, audit commit `7a01663`, and fix commit `e84877e`.
-- `single_rule_trial` completed migration commit `19cd77d`, audit commit `d39cd6e`, and fix commit `7c022a0`.
 - `risk_or_skip` completed migration commit `9ddb42d`, audit commit `7c2dd50`, and fix commit `4ca9d0b`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `reveal_choice_menu` completed migration commit `b872093`, audit commit `0843b8e`, and fix commit `6ebc12e`.
@@ -105,7 +103,6 @@ the target end state.
 | `shop_row` | Complete | Complete |
 | `single_offer` | Complete | Complete |
 | `single_random_outcome` | Complete | Complete |
-| `single_rule_trial` | Complete | Complete |
 | `single_wager` | Complete | Complete |
 | `take_any_number` | Complete | Complete |
 

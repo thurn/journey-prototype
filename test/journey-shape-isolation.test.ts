@@ -33,7 +33,6 @@ const MIGRATED_SHAPE_IDS = [
   "shop_row",
   "single_offer",
   "single_random_outcome",
-  "single_rule_trial",
   "single_wager",
   "take_any_number",
 ];

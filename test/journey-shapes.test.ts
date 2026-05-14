@@ -24,7 +24,6 @@ const expectedShapeIds = [
   "one_operation_many_targets",
   "choose_your_loss",
   "single_offer",
-  "single_rule_trial",
   "risk_or_skip",
   "single_wager",
   "now_vs_later",
@@ -78,7 +77,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(27);
+    expect(actualShapeIds).toHaveLength(26);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -148,6 +147,18 @@ describe("JOURNEY_SHAPES", () => {
     );
   });
 
+  it("does not expose the deleted single_rule_trial shape", () => {
+    const retiredShapeId = "single_rule_trial";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
   it("provides complete definitions and lookups for every canonical shape", () => {
     for (const id of expectedShapeIds) {
       const definition = getShapeDefinition(id);
@@ -181,12 +192,6 @@ describe("JOURNEY_SHAPES", () => {
   it("requires non-tree shapes to expose a root choice", () => {
     for (const definition of JOURNEY_SHAPES) {
       if (definition.topology === "decision_tree") {
-        continue;
-      }
-
-      // These topologies apply one deterministic result instead of presenting
-      // a comparative root choice surface.
-      if (definition.topology === "single_rule_trial") {
         continue;
       }
 
@@ -282,7 +287,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v20;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v21;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });
