@@ -15,7 +15,7 @@ export const resolvedRandomSeriesPlugin = defineShapePlugin({
     ],
     debugLabel: "Resolved random series",
     versionContribution: {
-      catalogVersion: "journey-shapes:v16",
+      catalogVersion: "journey-shapes:v17",
       id: "resolved_random_series",
       topology: "random_commit",
     },

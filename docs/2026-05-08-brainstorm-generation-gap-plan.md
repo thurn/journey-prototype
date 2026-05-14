@@ -1130,8 +1130,6 @@ Add focused QA for the changed surface:
 - Use `--shape one_operation_many_targets` for shared-operation symmetry.
 - Use `--shape one_target_many_operations` for shared-target symmetry.
 - Use `--shape alter_dreamscapes` for route changes.
-- Use `--shape timed_window_menu` for battle, Dreamwell, shop, route, and
-  temporary-object windows.
 - Use `--shape reward_after_trigger` and `--shape paired_return` for hook and
   return contracts.
 - Use `--shape single_random_outcome`, `--shape risk_or_skip`,

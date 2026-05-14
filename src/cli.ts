@@ -8,10 +8,7 @@ import type { CommandResult, CommonCommandOptions } from "./commands/options.js"
 import { handleRun } from "./commands/run.js";
 import { supportsColor } from "./util/ansi.js";
 import { ExitCode } from "./util/exitCodes.js";
-import {
-  isJourneyShapeId,
-  journeyShapeDefinitions,
-} from "./journey/shapes.js";
+import { isJourneyShapeId } from "./journey/shapes.js";
 
 export type RawCommonOptions = {
   json?: boolean;
@@ -88,8 +85,7 @@ function addGenerationFlags(command: Command): Command {
         .choices(["early", "mid", "late"]),
     )
     .addOption(
-      new Option("--shape <shape>", "force a canonical Journey shape")
-        .choices(journeyShapeDefinitions().map((shape) => shape.id)),
+      new Option("--shape <shape>", "force a canonical Journey shape"),
     );
 }
 

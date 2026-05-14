@@ -232,7 +232,7 @@ while the costs differ.
 
 **Status:** Fixed.
 
-The original `timed_window_menu` selected from three authored arrays of effects
+One temporary-window prototype selected from three authored arrays of effects
 in [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L1144). Every option
 was hardcoded around "next 3 battles" and a small set of battle/card modifiers:
 opening-hand cards, turn-1 energy, event Fast, character discounts, starting

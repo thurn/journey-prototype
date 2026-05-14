@@ -27,7 +27,6 @@ import { singleRewardPlugin } from "./single_reward/index.js";
 import { singleRuleTrialPlugin } from "./single_rule_trial/index.js";
 import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
-import { timedWindowMenuPlugin } from "./timed_window_menu/index.js";
 import { revealChoiceMenuPlugin } from "./reveal_choice_menu/index.js";
 import { shapeScoreWeightIds } from "./scoreWeights.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
@@ -56,7 +55,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   nowVsLaterPlugin,
   rewardAfterTriggerPlugin,
   pairedReturnPlugin,
-  timedWindowMenuPlugin,
   takeAnyNumberPlugin,
   pushYourLuckPlugin,
   prizeLadderPlugin,

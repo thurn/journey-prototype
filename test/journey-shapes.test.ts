@@ -31,7 +31,6 @@ const expectedShapeIds = [
   "now_vs_later",
   "reward_after_trigger",
   "paired_return",
-  "timed_window_menu",
   "take_any_number",
   "push_your_luck",
   "prize_ladder",
@@ -82,7 +81,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(31);
+    expect(actualShapeIds).toHaveLength(30);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -113,6 +112,18 @@ describe("JOURNEY_SHAPES", () => {
     );
     expect(() => getShapePlugin(deletedServiceShapeId)).toThrow(
       `Unknown Journey shape ID: ${deletedServiceShapeId}`,
+    );
+  });
+
+  it("does not expose the timed window menu as a canonical shape", () => {
+    const retiredShapeId = ["timed", "window", "menu"].join("_");
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
     );
   });
 
@@ -253,7 +264,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v16;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v17;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

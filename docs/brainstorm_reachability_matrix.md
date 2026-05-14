@@ -26,9 +26,6 @@ operation tags that make the named example procedurally possible.
 | One Card, Three Masks | `m18-one-card-three-masks-0` | early | `one_target_many_operations` | `card_transfigure`, `card:exact`, `symmetry:shared_target_operations` | `reward:card_transfigure`, `target:card:exact` |
 | Narrow Reservoir | `m24-resource-0` | early | `same_cost_different_rewards` | `resource_amount:random_range`, `resource_cost:essence` | `cost:essence:random_range` |
 | Atlas Locksmith | `matrix-atlas-locksmith` | late | `alter_dreamscapes` | `route_edit:replace_site`, `route_edit:add_site`, `route_site:exact`, `symmetry:shared_source_site_destinations` | `route_edit:replace_site`, `route_edit:add_site`, `reward:resource`, `burden:bane_gain` |
-| First Breath | `m12-timed-window-0` | mid | `timed_window_menu` | `battle_window_modifier`, `delayed:next 2 battles`, `symmetry:shared_timing_different_rewards` | `reward:battle_window_modifier` |
-| Dreamwell Switch | `m13-167` | mid | `timed_window_menu` | `dreamwell_modifier`, `delayed:next 3 battles`, `symmetry:shared_timing_different_rewards` | `reward:dreamwell_modifier` |
-| Shop Courtesy | `m14-shop-courtesy-5` | mid | `timed_window_menu` | `shop_economy_modifier`, `resource_amount:restore_to_maximum` | `reward:shop_economy_modifier`, `reward:resource` |
 | Sealed Hands | `m14-sealed-hands-0` | late | `single_offer` | `status`, `card_transform` | `status:status_structural_constraint`, `reward:card_transform` |
 | Sleeping Contract | `sleeping-contract` | early | `reward_after_trigger` | `delayed_hook`, `dreamsign_gain`, `trigger:site_visit` | `delayed_hook:site_visit`, `reward:dreamsign_gain` |
 | Borrowed Crown | `organic-paired-return` | late | `paired_return` | `paired_return`, `dreamsign_temporary_grant`, `trigger:each_battle` | `paired_return:borrowed_object_return`, `reward:dreamsign_temporary_grant` |

@@ -39,7 +39,6 @@ const MIGRATED_SHAPE_IDS = [
   "single_rule_trial",
   "single_wager",
   "take_any_number",
-  "timed_window_menu",
 ];
 
 const FILES_EXEMPT_FROM_ISOLATION = new Set<string>();

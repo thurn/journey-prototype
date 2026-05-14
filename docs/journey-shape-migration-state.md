@@ -21,7 +21,6 @@ Each queued shape follows this sequence:
 | 7 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 8 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 9 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 10 | `timed_window_menu` | 5 | Complete | Complete | Complete | Complete | Complete |
 | 11 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 12 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
 | 13 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
@@ -65,7 +64,6 @@ These shapes are reference implementations for the migration target:
 - `now_vs_later` completed migration commit `6003bee`, audit commit `04917a9`, and fix commit `3c0c79e`.
 - `choose_your_loss` completed migration commit `21bfec1`, audit commit `ae9c2a8`, and fix commit `793b996`.
 - `commit_now_future_payoff` completed migration commit `8a0dcb5`, audit commit `a80eb5d`, and fix commit `eec82ad`.
-- `timed_window_menu` completed migration commit `ad24ec5`, audit commit `25a297a`, and fix commit `07f32cb`.
 - `random_pool_draws` completed migration commits `f8a7ebd` and `5466d75`, audit commit `66da12a`, and fix commit `68ef48c`.
 - `resolved_random_series` completed migration commits `9496e74` and `2b4b002`, audit commit `a42356e`, and fix commit `21d11de`.
 - `push_your_luck` completed migration commit `7e64afc`, audit commit `4078956`, and fix commit `514a28b`.
@@ -119,8 +117,6 @@ the target end state.
 | `single_rule_trial` | Complete | Complete |
 | `single_wager` | Complete | Complete |
 | `take_any_number` | Complete | Complete |
-| `timed_window_menu` | Complete | Complete |
-
 Generic typed-contract plumbing still carries shape IDs for structured
 manifest kinds such as `probability_ladder`, `paired_return`, and
 `flat_escalating_trade`. Debug fixture metadata also carries shape filters for

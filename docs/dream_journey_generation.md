@@ -604,23 +604,6 @@ Use `reward_after_trigger` when the future payoff is just a stored package or
 tracked condition, and use `commit_now_future_payoff` when the run cares about
 the delayed commitment more than about an authored callback.
 
-### timed_window_menu
-
-The site presents several options that all share the same temporary window,
-duration, or future timing. This shape is useful when the shared timing is the
-main identity of the scene rather than a secondary fill detail.
-
-Battle-window versions must be broad enough to change how the player approaches
-upcoming fights. They should use a multi-battle duration and alter battle play
-directly, rather than wrapping ordinary resource rewards in battle timing or
-temporarily modifying only one low-impact card.
-
-Timed-window menus may also use Dreamwell, shop, route, or temporary-object
-windows when the payload contract carries a structured shared duration. The
-options in one menu should share that exact scope and duration, while varying
-the affected object class, modifier, amount, and value inside the same timing
-identity.
-
 ### take_any_number
 
 The site reveals a bounded cache of rewards and lets the player claim any
@@ -769,7 +752,7 @@ stable while still preserving expressive power. The main exception is when a
 shared property is itself the authored promise of the scene. If overt symmetry,
 shared timing, fixed random cadence, or an authored callback is the thing the
 player is primarily reacting to, it may deserve an explicit top-level shape such
-as `timed_window_menu`, `resolved_random_series`, or `paired_return`.
+as `resolved_random_series` or `paired_return`.
 
 ## Effect Lists
 

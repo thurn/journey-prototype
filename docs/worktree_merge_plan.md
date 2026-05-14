@@ -55,7 +55,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | single_random_outcome | 7 | fillers/randomPayloads.ts |
 | risk_or_skip | 18 | fillers/randomPayloads.ts, validate/precommitRules.ts |
 | single_wager | 13 | validate/precommitRules.ts |
-| timed_window_menu | 27 | DELETES fillers/timedWindowPayloads.ts, validate/values.ts |
 | take_any_number | 0 | test only |
 
 ### Pairwise conflict surfaces
@@ -92,7 +91,7 @@ the test-registration step, patch line 11 of
 
 ```bash
 for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
-             now_vs_later timed_window_menu single_wager \
+             now_vs_later single_wager \
              same_reward_different_costs commit_now_future_payoff \
              random_pool_draws risk_or_skip curated_reward_trio \
              reward_after_trigger single_reward single_random_outcome; do
@@ -185,13 +184,6 @@ collisions are likely. Merge smallest first.
 
 21. `single_wager` (validate/precommitRules.ts — pairs with risk_or_skip in T5)
 22. `curated_reward_trio` (large shapes/shared.ts diff, no other file overlap)
-23. `timed_window_menu` (deletes timedWindowPayloads.ts wholesale; touches
-    validate/values.ts; shapes/shared=27)
-
-`timed_window_menu` is last because it deletes a whole file. Doing it after
-everything else means there's no risk of another worktree's import to
-`timedWindowPayloads.ts` going stale mid-sequence (none do today, but the
-position is the safest).
 
 ## Per-merge procedure
 
