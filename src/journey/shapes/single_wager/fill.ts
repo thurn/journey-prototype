@@ -113,11 +113,11 @@ function materializeReward(
       ((draw.selectionAttempt ?? 0) * 100) + attempt * 100 + template.id.length,
   }) as TemplateParams;
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
-  const cec = template.cec(params as never, context);
+  const cec = template.cec(params, context);
   if (cec <= 0) {
     return undefined;
   }
@@ -126,7 +126,7 @@ function materializeReward(
     template,
     params,
     cec,
-    text: template.render(params as never, context),
+    text: template.render(params, context),
     weight: template.weight,
   };
 }
@@ -171,8 +171,8 @@ function essenceStake(context: JourneyContext, amount: number): SharedCostStake 
     kind: "shared_cost_template",
     templateId: "pay_essence",
     params,
-    text: PAY_ESSENCE_COST.render(params as never, context),
-    convertedEssence: PAY_ESSENCE_COST.cec(params as never, context),
+    text: PAY_ESSENCE_COST.render(params, context),
+    convertedEssence: PAY_ESSENCE_COST.cec(params, context),
   };
 }
 

@@ -77,7 +77,7 @@ function costIsUsableForLoss(template: Cost): boolean {
 }
 
 function renderLossText(template: Cost, params: TemplateParams, context: JourneyContext): string {
-  const rendered = template.render(params as never, context);
+  const rendered = template.render(params, context);
 
   if (template.id !== "purge_named_dreamsign" || rendered.startsWith("[LOCKED] ")) {
     return rendered;
@@ -98,7 +98,7 @@ function materializeLoss(
 
   const params = template.rollParams(context, drawFor(drawContext, template, attempt));
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
@@ -108,7 +108,7 @@ function materializeLoss(
     return undefined;
   }
 
-  const convertedEssence = template.cec(params as never, context);
+  const convertedEssence = template.cec(params, context);
 
   if (convertedEssence < MINIMUM_LOSS_CEC) {
     return undefined;

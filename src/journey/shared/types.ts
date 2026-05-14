@@ -8,10 +8,10 @@ export type TemplateParams = Record<string, unknown>;
 export type Reward<P extends TemplateParams = TemplateParams> = {
   readonly id: string;
   readonly weight: number;
-  readonly rollParams: (ctx: JourneyContext, draw: DrawContext) => P;
-  readonly cec: (params: P, ctx: JourneyContext) => number;
-  readonly viable: (params: P, ctx: JourneyContext) => boolean;
-  readonly render: (params: P, ctx: JourneyContext) => string;
+  rollParams(ctx: JourneyContext, draw: DrawContext): P;
+  cec(params: P, ctx: JourneyContext): number;
+  viable(params: P, ctx: JourneyContext): boolean;
+  render(params: P, ctx: JourneyContext): string;
 };
 
 export type Cost<P extends TemplateParams = TemplateParams> = Reward<P>;

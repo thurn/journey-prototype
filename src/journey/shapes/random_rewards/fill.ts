@@ -2,14 +2,14 @@
 import type { JourneyOption } from "../../manifest.js";
 import { REWARDS } from "../../shared/rewards.js";
 import { weightedChoice, type DrawContext } from "../../../util/rng.js";
-import type { Reward } from "../../shared/types.js";
+import type { Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const TOLERANCE_LO_INITIAL = 0.6;
 const TOLERANCE_HI_INITIAL = 1.4;
 const TOLERANCE_WIDEN_STEP = 0.2;
 
-type RolledReward = { template: Reward; params: unknown; cec: number };
+type RolledReward = { template: Reward; params: TemplateParams; cec: number };
 
 function emptyOption(number: number, text: string, symbols: readonly string[], cec: number): JourneyOption {
   return {
@@ -32,7 +32,7 @@ function emptyOption(number: number, text: string, symbols: readonly string[], c
   };
 }
 
-function subTemplateIdsOf(rolled: { template: Reward; params: unknown }): readonly string[] {
+function subTemplateIdsOf(rolled: { template: Reward; params: TemplateParams }): readonly string[] {
   // For meta_gain_2_rewards, params has subIds; for others, none.
   if (rolled.template.id === "meta_gain_2_rewards") {
     const p = rolled.params as { subIds: readonly [string, string] };
@@ -41,7 +41,7 @@ function subTemplateIdsOf(rolled: { template: Reward; params: unknown }): readon
   return [];
 }
 
-function consumedIds(rolled: { template: Reward; params: unknown }): readonly string[] {
+function consumedIds(rolled: { template: Reward; params: TemplateParams }): readonly string[] {
   return [rolled.template.id, ...subTemplateIdsOf(rolled)];
 }
 
@@ -51,11 +51,11 @@ function rollOneCandidate(
   pool: readonly Reward[],
   ctx: import("../../../quest/context.js").JourneyContext,
 ): RolledReward | undefined {
-  const viable: Array<{ template: Reward; params: unknown; cec: number; weight: number }> = [];
+  const viable: Array<{ template: Reward; params: TemplateParams; cec: number; weight: number }> = [];
   for (const template of pool) {
     const params = template.rollParams(ctx, { ...draw, selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length });
-    if (!template.viable(params as never, ctx)) continue;
-    const cec = template.cec(params as never, ctx);
+    if (!template.viable(params, ctx)) continue;
+    const cec = template.cec(params, ctx);
     // Reject degenerate (CEC<=0) anchors so the tolerance band has a meaningful scale.
     if (cec <= 0) continue;
     const rolled = { template, params, cec };
@@ -66,7 +66,7 @@ function rollOneCandidate(
 }
 
 function meetsDistinctness(
-  rolled: { template: Reward; params: unknown },
+  rolled: { template: Reward; params: TemplateParams },
   used: ReadonlySet<string>,
 ): boolean {
   for (const id of consumedIds(rolled)) {
@@ -91,15 +91,15 @@ export function randomRewardsFill(args: ShapeFillArgs): FilledJourney {
     let hi = TOLERANCE_HI_INITIAL;
     for (let attempt = 0; attempt < 16; attempt += 1) {
       const pool = REWARDS.filter((r) => !used.has(r.id));
-      const candidates: Array<{ template: Reward; params: unknown; cec: number; weight: number }> = [];
+      const candidates: Array<{ template: Reward; params: TemplateParams; cec: number; weight: number }> = [];
       for (const template of pool) {
         const params = template.rollParams(context, {
           ...drawContext,
           sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
           selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt,
         });
-        if (!template.viable(params as never, context)) continue;
-        const cec = template.cec(params as never, context);
+        if (!template.viable(params, context)) continue;
+        const cec = template.cec(params, context);
         if (cec < lo * anchor || cec > hi * anchor) continue;
         const rolled = { template, params, cec };
         if (!meetsDistinctness(rolled, used)) continue;
@@ -123,9 +123,9 @@ export function randomRewardsFill(args: ShapeFillArgs): FilledJourney {
   const row3 = rollFurtherRow(3);
 
   const options: JourneyOption[] = [
-    emptyOption(1, row1.template.render(row1.params as never, context), ["reward"], row1.cec),
-    emptyOption(2, row2.template.render(row2.params as never, context), ["reward"], row2.cec),
-    emptyOption(3, row3.template.render(row3.params as never, context), ["reward"], row3.cec),
+    emptyOption(1, row1.template.render(row1.params, context), ["reward"], row1.cec),
+    emptyOption(2, row2.template.render(row2.params, context), ["reward"], row2.cec),
+    emptyOption(3, row3.template.render(row3.params, context), ["reward"], row3.cec),
   ];
 
   return { options, precommitted: {} };

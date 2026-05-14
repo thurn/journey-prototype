@@ -152,8 +152,8 @@ function sharedRewardPayload(
   params: TemplateParams,
 ): PushReward {
   const template = getReward(templateId);
-  const text = template.render(params as never, context);
-  const convertedEssence = template.cec(params as never, context);
+  const text = template.render(params, context);
+  const convertedEssence = template.cec(params, context);
 
   return {
     text: `${lowerFirst(text)}.`,

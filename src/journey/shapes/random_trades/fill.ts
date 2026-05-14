@@ -6,7 +6,7 @@ import { REWARDS } from "../../shared/rewards.js";
 import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js";
 import { BANE_NAMES, essenceAmount } from "../../shared/content.js";
 import { withLockedPrefix } from "../../shared/text.js";
-import type { Cost, Reward } from "../../shared/types.js";
+import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const TOLERANCE_INITIAL = 15;
@@ -14,8 +14,8 @@ const TOLERANCE_WIDEN_STEP = 10;
 const PAY_FLOOR = 25;
 const PAY_STEP = 5;
 
-type RolledReward = { template: Reward; params: unknown; cec: number };
-type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type RolledReward = { template: Reward; params: TemplateParams; cec: number };
+type RolledCost = { template: Cost; params: TemplateParams; cec: number; rendered: string };
 type NetRange = { lo: number; hi: number };
 type CostRange = { floor: number; ceiling: number };
 type ResourceFamily = "essence" | "omens";
@@ -108,7 +108,7 @@ function addResourceFamilyForCostId(families: Set<ResourceFamily>, id: string): 
   if (OMEN_PAYMENT_COST_IDS.has(id)) families.add("omens");
 }
 
-function costResourceFamilies(template: Cost, params: unknown): ReadonlySet<ResourceFamily> {
+function costResourceFamilies(template: Cost, params: TemplateParams): ReadonlySet<ResourceFamily> {
   const families = new Set<ResourceFamily>();
   if (template.id === "meta_pay_2_costs") {
     const p = params as { subIds?: readonly string[] };
@@ -124,7 +124,7 @@ function costResourceFamilies(template: Cost, params: unknown): ReadonlySet<Reso
 function conflictsWithRewardResourceGain(
   rewardFamilies: ReadonlySet<ResourceFamily>,
   template: Cost,
-  params: unknown,
+  params: TemplateParams,
 ): boolean {
   for (const family of costResourceFamilies(template, params)) {
     if (rewardFamilies.has(family)) return true;
@@ -132,7 +132,7 @@ function conflictsWithRewardResourceGain(
   return false;
 }
 
-function hasResourceCost(template: Cost, params: unknown): boolean {
+function hasResourceCost(template: Cost, params: TemplateParams): boolean {
   return costResourceFamilies(template, params).size > 0;
 }
 
@@ -162,8 +162,8 @@ function rollReward(
       ...draw,
       selectionAttempt: ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
-    const rolled: RolledReward = { template, params, cec: template.cec(params as never, ctx) };
+    if (!template.viable(params, ctx)) continue;
+    const rolled: RolledReward = { template, params, cec: template.cec(params, ctx) };
     if (rolled.cec < minimumCec) continue;
     if (!meetsRewardDistinctness(rolled, used)) continue;
     candidates.push({ rolled, weight: template.weight });
@@ -216,7 +216,7 @@ function rollCostParamsForRewardCap(
   rewardCec: number,
   cap: number,
   netRange?: NetRange,
-): unknown | undefined {
+): TemplateParams | undefined {
   const range = costRange(rewardCec, cap, netRange);
   if (range.ceiling < range.floor) return undefined;
   if (template.id === "pay_essence") {
@@ -295,15 +295,15 @@ function pickCostForReward(
     const params = rollCostParamsForRewardCap(ctx, draw, template, rewardCec, cap, netRange);
     if (params === undefined) continue;
     if (conflictsWithRewardResourceGain(blockedResourceFamilies, template, params)) continue;
-    if (!template.viable(params as never, ctx)) continue;
-    const cec = template.cec(params as never, ctx);
+    if (!template.viable(params, ctx)) continue;
+    const cec = template.cec(params, ctx);
     if (cec > cap) continue;
     if (netRange) {
       const net = rewardCec - cec;
       if (net < netRange.lo || net > netRange.hi) continue;
     }
     candidates.push({
-      rolled: { template, params, cec, rendered: template.render(params as never, ctx) },
+      rolled: { template, params, cec, rendered: template.render(params, ctx) },
       weight: template.weight,
     });
   }
@@ -330,7 +330,7 @@ function pickCostForReward(
 }
 
 function renderRow(reward: RolledReward, cost: RolledCost | undefined, ctx: JourneyContext): string {
-  const rewardText = reward.template.render(reward.params as never, ctx);
+  const rewardText = reward.template.render(reward.params, ctx);
   if (!cost) return rewardText;
   return `${cost.rendered}. ${rewardText}`;
 }
@@ -374,8 +374,8 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
           sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
           selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + attempt + template.id.length,
         });
-        if (!template.viable(params as never, context)) continue;
-        const rCec = template.cec(params as never, context);
+        if (!template.viable(params, context)) continue;
+        const rCec = template.cec(params, context);
         const reward: RolledReward = { template, params, cec: rCec };
         if (!meetsRewardDistinctness(reward, used)) continue;
         const cost = pickCostForReward(
@@ -417,8 +417,8 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
         sequenceStep: (drawContext.sequenceStep ?? 0) * 100 + rowIndex,
         selectionAttempt: ((drawContext.selectionAttempt ?? 0) * 100) + 10000 + template.id.length,
       });
-      if (!template.viable(params as never, context)) continue;
-      const rCec = template.cec(params as never, context);
+      if (!template.viable(params, context)) continue;
+      const rCec = template.cec(params, context);
       const reward: RolledReward = { template, params, cec: rCec };
       if (!meetsRewardDistinctness(reward, used)) continue;
       const cost = pickCostForReward(

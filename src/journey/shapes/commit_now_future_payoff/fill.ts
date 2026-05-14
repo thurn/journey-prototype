@@ -377,13 +377,13 @@ function rollRewardCandidates(args: ShapeFillArgs): readonly RolledReward[] {
       drawFor(args.drawContext, 1, template.id.length),
     ) as TemplateParams;
 
-    if (!template.viable(params as never, args.context)) continue;
+    if (!template.viable(params, args.context)) continue;
 
     const reward = {
       template,
       params,
-      cec: template.cec(params as never, args.context),
-      text: template.render(params as never, args.context),
+      cec: template.cec(params, args.context),
+      text: template.render(params, args.context),
     };
 
     if (!rewardFitsShape(reward, args.stage)) continue;
@@ -406,13 +406,13 @@ function rollCostCandidates(args: ShapeFillArgs): readonly RolledCost[] {
       drawFor(args.drawContext, 2, template.id.length),
     ) as TemplateParams;
 
-    if (!template.viable(params as never, args.context)) continue;
+    if (!template.viable(params, args.context)) continue;
 
     const cost = {
       template,
       params,
-      cec: template.cec(params as never, args.context),
-      text: template.render(params as never, args.context),
+      cec: template.cec(params, args.context),
+      text: template.render(params, args.context),
     };
 
     if (!costFitsShape(cost)) continue;

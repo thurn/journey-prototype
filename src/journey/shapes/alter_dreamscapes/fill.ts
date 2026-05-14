@@ -274,7 +274,7 @@ function routeRewardCec(
   params: TemplateParams,
   args: ShapeFillArgs,
 ): number {
-  const templateCec = template.cec(params as never, args.context);
+  const templateCec = template.cec(params, args.context);
 
   return templateId === "replace_site_type"
     ? replacementUpgradeCec(params, templateCec)
@@ -294,12 +294,12 @@ function rollRouteReward(
   });
   const params = normalizedRouteParams(args, templateId, rolledParams, index);
 
-  if (!template.viable(params as never, args.context)) {
+  if (!template.viable(params, args.context)) {
     throw new Error(`alter_dreamscapes reward '${templateId}' is not viable`);
   }
 
   const cec = routeRewardCec(template, templateId, params, args);
-  const text = template.render(params as never, args.context);
+  const text = template.render(params, args.context);
 
   return {
     template,
@@ -356,7 +356,7 @@ function rollDistinctRouteReward(
 
   const params = { ...fallback.params, siteType };
   const cec = routeRewardCec(fallback.template, templateId, params, args);
-  const text = fallback.template.render(params as never, args.context);
+  const text = fallback.template.render(params, args.context);
 
   return {
     ...fallback,

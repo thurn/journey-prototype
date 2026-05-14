@@ -455,9 +455,9 @@ function rollCandidates(
         attempt * 100 +
         template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
+    if (!template.viable(params, ctx)) continue;
 
-    const cec = template.cec(params as never, ctx);
+    const cec = template.cec(params, ctx);
     if (cec <= 0) continue;
 
     const consumedIds = consumedTemplateIds({ template, params });
@@ -467,7 +467,7 @@ function rollCandidates(
       template,
       params,
       cec,
-      text: template.render(params as never, ctx),
+      text: template.render(params, ctx),
       axes: rewardAxes(consumedIds),
       profile: mergeProfiles(consumedIds),
       consumedIds,

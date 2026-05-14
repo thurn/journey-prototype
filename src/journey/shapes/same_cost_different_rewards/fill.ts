@@ -3,7 +3,7 @@ import { drawInt, weightedChoice, type DrawContext } from "../../../util/rng.js"
 import type { JourneyOption, JourneyStage } from "../../manifest.js";
 import { COSTS, getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
-import type { Cost, Reward } from "../../shared/types.js";
+import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_LABEL = "same_cost_different_rewards";
@@ -34,8 +34,8 @@ const STRICT_SHARED_COST_IDS = new Set([
 const RANDOM_ACTIVE_DREAMSIGN_COPY_ID = "gain_copy_of_random_dreamsign";
 const CHOSEN_ACTIVE_DREAMSIGN_COPY_ID = "gain_copy_of_chosen_dreamsign";
 
-type RolledReward = { template: Reward; params: unknown; cec: number };
-type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type RolledReward = { template: Reward; params: TemplateParams; cec: number };
+type RolledCost = { template: Cost; params: TemplateParams; cec: number; rendered: string };
 type RolledOffer = {
   rewards: readonly [RolledReward, RolledReward, RolledReward];
   sharedCost: RolledCost;
@@ -200,14 +200,7 @@ function matchesFamilyRestriction(
   );
 }
 
-function shopEssenceDiscountCec(
-  params: unknown,
-  stage: JourneyStage,
-): number | undefined {
-  if (typeof params !== "object" || params === null || !("percent" in params)) {
-    return undefined;
-  }
-
+function shopEssenceDiscountCec(params: TemplateParams, stage: JourneyStage): number | undefined {
   const percent = (params as { percent?: unknown }).percent;
   if (typeof percent !== "number") return undefined;
 
@@ -217,15 +210,15 @@ function shopEssenceDiscountCec(
 
 function rewardCec(
   template: Reward,
-  params: unknown,
+  params: TemplateParams,
   ctx: JourneyContext,
   stage: JourneyStage,
 ): number {
   if (template.id === "shop_essence_discount") {
-    return shopEssenceDiscountCec(params, stage) ?? template.cec(params as never, ctx);
+    return shopEssenceDiscountCec(params, stage) ?? template.cec(params, ctx);
   }
 
-  return template.cec(params as never, ctx);
+  return template.cec(params, ctx);
 }
 
 function rewardSpreadRatio(rewards: readonly RolledReward[]): number {
@@ -267,7 +260,7 @@ function rollReward(
       selectionAttempt:
         ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
+    if (!template.viable(params, ctx)) continue;
     const cec = rewardCec(template, params, ctx, stage);
     if (cec <= 0) continue;
     const rolled = { template, params, cec };
@@ -309,7 +302,7 @@ function rollFurtherReward(
         selectionAttempt:
           ((draw.selectionAttempt ?? 0) * 100) + attempt + template.id.length,
       });
-      if (!template.viable(params as never, ctx)) continue;
+      if (!template.viable(params, ctx)) continue;
       const cec = rewardCec(template, params, ctx, stage);
       if (cec <= 0) continue;
       if (cec < lo * anchor || cec > hi * anchor) continue;
@@ -390,16 +383,16 @@ function rollSharedCost(
       selectionAttempt:
         ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
+    if (!template.viable(params, ctx)) continue;
     if (!sharedCostTextIsCoherent(template, params)) continue;
-    const cec = template.cec(params as never, ctx);
+    const cec = template.cec(params, ctx);
     if (cec <= 0 || cec > cap) continue;
     candidates.push({
       rolled: {
         template,
         params,
         cec,
-        rendered: template.render(params as never, ctx),
+        rendered: template.render(params, ctx),
       },
       weight: template.weight,
     });
@@ -436,7 +429,7 @@ function sentence(text: string): string {
 function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
   const costText = normalizeDreamsignTerm(withoutLockedPrefix(cost.rendered));
   const rewardText = normalizeDreamsignTerm(
-    withoutLockedPrefix(reward.template.render(reward.params as never, ctx)),
+    withoutLockedPrefix(reward.template.render(reward.params, ctx)),
   );
   const text = `${sentence(costText)} ${sentence(rewardText)}`;
   return cost.rendered.includes("[LOCKED]") ? `[LOCKED] ${text}` : text;

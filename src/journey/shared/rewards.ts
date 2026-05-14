@@ -1139,15 +1139,15 @@ const metaGain2Rewards: Reward<MetaGain2Params> = {
   },
   cec: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getReward(id));
-    return a!.cec(p.subParams[0] as never, ctx) + b!.cec(p.subParams[1] as never, ctx);
+    return a!.cec(p.subParams[0], ctx) + b!.cec(p.subParams[1], ctx);
   },
   viable: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getReward(id));
-    return a!.viable(p.subParams[0] as never, ctx) && b!.viable(p.subParams[1] as never, ctx);
+    return a!.viable(p.subParams[0], ctx) && b!.viable(p.subParams[1], ctx);
   },
   render: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getReward(id));
-    return [a!.render(p.subParams[0] as never, ctx), b!.render(p.subParams[1] as never, ctx)].join(". ");
+    return [a!.render(p.subParams[0], ctx), b!.render(p.subParams[1], ctx)].join(". ");
   },
 };
 
@@ -1216,7 +1216,7 @@ export const REWARDS: readonly Reward[] = Object.freeze([
   shopEssenceDiscount,
   shopOmenDiscount,
   metaGain2Rewards,
-] as unknown as Reward[]);
+]);
 
 const BY_ID = new Map(REWARDS.map((r) => [r.id, r]));
 

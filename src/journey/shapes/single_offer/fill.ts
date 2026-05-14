@@ -99,11 +99,11 @@ function materializeReward(
 
   const params = template.rollParams(context, drawFor(drawContext, template.id, attempt));
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
-  const text = template.render(params as never, context);
+  const text = template.render(params, context);
 
   if (/\b(?:Draft \d|Choose 1 of|random|chosen Starter)\b/iu.test(text)) {
     return undefined;
@@ -113,7 +113,7 @@ function materializeReward(
     template,
     params,
     text,
-    convertedEssence: template.cec(params as never, context),
+    convertedEssence: template.cec(params, context),
   };
 }
 
@@ -129,11 +129,11 @@ function materializeCost(
 
   const params = template.rollParams(context, drawFor(drawContext, template.id, attempt));
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
-  const text = template.render(params as never, context);
+  const text = template.render(params, context);
 
   if (text.startsWith("[LOCKED] ")) {
     return undefined;
@@ -143,7 +143,7 @@ function materializeCost(
     template,
     params,
     text,
-    convertedEssence: template.cec(params as never, context),
+    convertedEssence: template.cec(params, context),
   };
 }
 

@@ -130,19 +130,19 @@ export type OneOperationManyTargetsReward<P extends TemplateParams = TemplatePar
   readonly targetKind: string;
   readonly symbols: readonly string[];
   readonly stages?: readonly JourneyStage[];
-  readonly rollParams: (ctx: JourneyContext, draw: DrawContext, stage: JourneyStage) => P;
-  readonly operationKey: (params: P) => string;
-  readonly targets: (params: P, ctx: JourneyContext) => readonly TargetedRewardTarget[];
-  readonly cec: (params: P, target: TargetedRewardTarget, ctx: JourneyContext) => number;
-  readonly render: (params: P, target: TargetedRewardTarget, ctx: JourneyContext) => string;
-  readonly operations: (
+  rollParams(ctx: JourneyContext, draw: DrawContext, stage: JourneyStage): P;
+  operationKey(params: P): string;
+  targets(params: P, ctx: JourneyContext): readonly TargetedRewardTarget[];
+  cec(params: P, target: TargetedRewardTarget, ctx: JourneyContext): number;
+  render(params: P, target: TargetedRewardTarget, ctx: JourneyContext): string;
+  operations(
     params: P,
     target: TargetedRewardTarget,
     args: {
       readonly optionNumber: number;
       readonly cec: number;
     },
-  ) => readonly JourneyOperation[];
+  ): readonly JourneyOperation[];
 };
 
 function cardTarget(card: CardContent, source: "catalog" | "deck"): TargetedRewardTarget {
@@ -1569,4 +1569,4 @@ export const ONE_OPERATION_MANY_TARGETS_REWARDS: readonly OneOperationManyTarget
   targetTransformDreamsignToNamed,
   targetReplaceSiteType,
   targetMetaGain2Rewards,
-] as unknown as OneOperationManyTargetsReward[]);
+]);

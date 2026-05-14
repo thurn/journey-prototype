@@ -160,11 +160,11 @@ function rollRewards(args: ShapeFillArgs): readonly RolledReward[] {
         ((drawContext.selectionAttempt ?? 0) * 100) + template.id.length,
     });
 
-    if (!template.viable(params as never, context)) {
+    if (!template.viable(params, context)) {
       continue;
     }
 
-    const cec = template.cec(params as never, context);
+    const cec = template.cec(params, context);
 
     if (cec <= 0) {
       continue;
@@ -174,7 +174,7 @@ function rollRewards(args: ShapeFillArgs): readonly RolledReward[] {
       template,
       params,
       cec,
-      text: template.render(params as never, context),
+      text: template.render(params, context),
     });
   }
 

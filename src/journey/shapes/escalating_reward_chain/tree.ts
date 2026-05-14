@@ -298,8 +298,8 @@ function sharedRewardPayload(
 ): EscalatingReward {
   const templateId = profile.rewardId;
   const template = getReward(templateId);
-  const text = template.render(params as never, context);
-  const convertedEssence = template.cec(params as never, context);
+  const text = template.render(params, context);
+  const convertedEssence = template.cec(params, context);
 
   return {
     text: `${text.charAt(0).toLowerCase()}${text.slice(1)}.`,
@@ -327,7 +327,7 @@ function profileIsViable(
   const reward = getReward(profile.rewardId);
 
   return profile.rows.every((params) =>
-    reward.viable(params as never, context)
+    reward.viable(params, context)
   );
 }
 

@@ -92,11 +92,11 @@ function rollRewardCandidate(
       ((drawContext.selectionAttempt ?? 0) * 100) + template.id.length,
   });
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
-  const cec = template.cec(params as never, context);
+  const cec = template.cec(params, context);
 
   if (cec <= 0) {
     return undefined;
@@ -106,7 +106,7 @@ function rollRewardCandidate(
     template,
     params,
     cec,
-    rendered: template.render(params as never, context),
+    rendered: template.render(params, context),
   };
 }
 
@@ -231,7 +231,7 @@ function pricedReward(
   return {
     reward,
     price,
-    costCec: PAY_ESSENCE.cec({ x: price } as never, args.context),
+    costCec: PAY_ESSENCE.cec({ x: price }, args.context),
   };
 }
 
@@ -290,7 +290,7 @@ function adjustDominatedEqualPriceRows(rows: PricedReward[], context: JourneyCon
     }
 
     dominated.price = Math.max(PRICE_STEP, dominated.price - PRICE_STEP);
-    dominated.costCec = PAY_ESSENCE.cec({ x: dominated.price } as never, context);
+    dominated.costCec = PAY_ESSENCE.cec({ x: dominated.price }, context);
   }
 
   return rows;

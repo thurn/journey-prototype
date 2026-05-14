@@ -447,16 +447,16 @@ const metaPay2Costs: Cost<MetaPay2Params> = {
   },
   cec: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getCost(id));
-    return a!.cec(p.subParams[0] as never, ctx) + b!.cec(p.subParams[1] as never, ctx);
+    return a!.cec(p.subParams[0], ctx) + b!.cec(p.subParams[1], ctx);
   },
   viable: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getCost(id));
-    return a!.viable(p.subParams[0] as never, ctx) && b!.viable(p.subParams[1] as never, ctx);
+    return a!.viable(p.subParams[0], ctx) && b!.viable(p.subParams[1], ctx);
   },
   render: (p, ctx) => {
     const [a, b] = p.subIds.map((id) => getCost(id));
-    const aText = a!.render(p.subParams[0] as never, ctx);
-    const bText = b!.render(p.subParams[1] as never, ctx);
+    const aText = a!.render(p.subParams[0], ctx);
+    const bText = b!.render(p.subParams[1], ctx);
     const aLocked = aText.startsWith("[LOCKED] ");
     const bLocked = bText.startsWith("[LOCKED] ");
     const stripped = (s: string) => s.startsWith("[LOCKED] ") ? s.slice("[LOCKED] ".length) : s;
@@ -496,7 +496,7 @@ export const COSTS: readonly Cost[] = Object.freeze([
   removeDreamsignSitesFromNextDreamscapes,
   loseMaxEssence,
   metaPay2Costs,
-] as unknown as Cost[]);
+]);
 
 const BY_ID = new Map(COSTS.map((c) => [c.id, c]));
 

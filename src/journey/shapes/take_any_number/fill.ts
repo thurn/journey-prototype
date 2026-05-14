@@ -95,11 +95,11 @@ function rollReward(
       drawFor(args.drawContext, row, template.id.length),
     );
 
-    if (!template.viable(params as never, args.context)) continue;
+    if (!template.viable(params, args.context)) continue;
     if (!rewardIsCoherent(template.id, params)) continue;
     if (hasUsedTemplate(template.id, params, used)) continue;
 
-    const cec = template.cec(params as never, args.context);
+    const cec = template.cec(params, args.context);
     if (cec < MIN_REWARD_CEC) continue;
     if (cec > STAGE_VALUE_CEILINGS[args.stage].effect) continue;
 
@@ -108,7 +108,7 @@ function rollReward(
         template,
         params,
         cec,
-        text: template.render(params as never, args.context),
+        text: template.render(params, args.context),
       },
       weight: template.weight,
     });
@@ -154,14 +154,14 @@ function rollCost(
       drawFor(args.drawContext, row + TAKE_OPTION_COUNT, template.id.length),
     );
 
-    if (!template.viable(params as never, args.context)) continue;
+    if (!template.viable(params, args.context)) continue;
     if (!costIsCoherent(template, params)) continue;
     if (hasUsedTemplate(template.id, params, used)) continue;
 
-    const text = template.render(params as never, args.context);
+    const text = template.render(params, args.context);
     if (text.startsWith("[LOCKED] ")) continue;
 
-    const cec = template.cec(params as never, args.context);
+    const cec = template.cec(params, args.context);
     if (cec <= 0) continue;
     if (rewardCec - cec > STAGE_VALUE_CEILINGS[args.stage].net) continue;
 

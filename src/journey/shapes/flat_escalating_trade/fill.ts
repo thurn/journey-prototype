@@ -256,7 +256,7 @@ function rewardValue(
     return valueOmenGain((params as { x: number }).x);
   }
 
-  return getReward(profile.rewardId).cec(params as never, context);
+  return getReward(profile.rewardId).cec(params, context);
 }
 
 function rewardPayload(
@@ -324,7 +324,7 @@ function tradeOption(args: {
   context: JourneyContext;
 }): JourneyOption {
   const reward = getReward(args.profile.rewardId);
-  const rewardText = reward.render(args.params as never, args.context);
+  const rewardText = reward.render(args.params, args.context);
   const effectConvertedEssence = rewardValue(
     args.profile,
     args.params,
@@ -385,7 +385,7 @@ function profileIsViable(
   const reward = getReward(profile.rewardId);
 
   return profile.rows.every((row) => {
-    if (!reward.viable(row.params as never, context)) {
+    if (!reward.viable(row.params, context)) {
       return false;
     }
 

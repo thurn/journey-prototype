@@ -285,11 +285,11 @@ function materializeReward(
       (draw.selectionAttempt ?? 0) * 1000 + attempt * 100 + template.id.length,
   }) as TemplateParams;
 
-  if (!template.viable(params as never, context)) {
+  if (!template.viable(params, context)) {
     return undefined;
   }
 
-  const convertedEssence = template.cec(params as never, context);
+  const convertedEssence = template.cec(params, context);
   if (
     convertedEssence < MIN_POOL_REWARD_CEC ||
     convertedEssence > MAX_POOL_REWARD_CEC_BY_STAGE[stage]
@@ -306,7 +306,7 @@ function materializeReward(
     return undefined;
   }
 
-  const text = template.render(params as never, context);
+  const text = template.render(params, context);
   const key = [template.id, ...templateSubIds(template.id, params)].join(":");
 
   return {

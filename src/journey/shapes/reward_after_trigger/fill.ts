@@ -268,15 +268,15 @@ function materializeReward(
       drawFor(args.drawContext, optionNumber, template.id.length),
     ) as TemplateParams;
 
-    if (!template.viable(params as never, args.context)) continue;
+    if (!template.viable(params, args.context)) continue;
     if (rewardSubIds(template.id, params).some((id) => usedRewardIds.has(id))) continue;
     if (usedRewardIds.has(template.id)) continue;
 
     const reward = {
       template,
       params,
-      text: template.render(params as never, args.context),
-      convertedEssence: template.cec(params as never, args.context),
+      text: template.render(params, args.context),
+      convertedEssence: template.cec(params, args.context),
     };
 
     if (!rewardFitsShape(reward, args)) continue;

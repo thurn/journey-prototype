@@ -5,7 +5,7 @@ import { cardMatches, essenceAmount } from "../../shared/content.js";
 import { COSTS, getCost } from "../../shared/costs.js";
 import { getPredicate } from "../../shared/predicates.js";
 import { REWARDS } from "../../shared/rewards.js";
-import type { Cost, Reward } from "../../shared/types.js";
+import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
 const SHAPE_LABEL = "same_reward_different_costs";
@@ -38,8 +38,8 @@ const ALL_PREDICATE_TRANSFIGURATION_LIMITS: Record<
   late: { maxTargets: 5, maxCec: 560 },
 };
 
-type RolledReward = { template: Reward; params: unknown; cec: number };
-type RolledCost = { template: Cost; params: unknown; cec: number; rendered: string };
+type RolledReward = { template: Reward; params: TemplateParams; cec: number };
+type RolledCost = { template: Cost; params: TemplateParams; cec: number; rendered: string };
 type RolledOffer = {
   reward: RolledReward;
   costs: readonly [RolledCost, RolledCost, RolledCost];
@@ -88,13 +88,13 @@ function sentence(text: string): string {
 function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
   const costText = normalizeDreamsignTerm(withoutLockedPrefix(cost.rendered));
   const rewardText = normalizeDreamsignTerm(
-    withoutLockedPrefix(reward.template.render(reward.params as never, ctx)),
+    withoutLockedPrefix(reward.template.render(reward.params, ctx)),
   );
   const text = `${sentence(costText)} ${sentence(rewardText)}`;
   return cost.rendered.includes("[LOCKED]") ? `[LOCKED] ${text}` : text;
 }
 
-function costSubIds(template: Cost, params: unknown): readonly string[] {
+function costSubIds(template: Cost, params: TemplateParams): readonly string[] {
   if (template.id === "meta_pay_2_costs") {
     const metaParams = params as { subIds?: readonly string[] };
     return metaParams.subIds ?? [];
@@ -106,7 +106,7 @@ function consumedCostIds(cost: RolledCost): readonly string[] {
   return [cost.template.id, ...costSubIds(cost.template, cost.params)];
 }
 
-function sharedCostTextIsCoherent(template: Cost, params: unknown): boolean {
+function sharedCostTextIsCoherent(template: Cost, params: TemplateParams): boolean {
   if (EXCLUDED_SHARED_COST_IDS.has(template.id)) return false;
   if (template.id === "meta_pay_2_costs") {
     return costSubIds(template, params).every(
@@ -157,8 +157,8 @@ function rollReward(
       selectionAttempt:
         ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
-    const cec = template.cec(params as never, ctx);
+    if (!template.viable(params, ctx)) continue;
+    const cec = template.cec(params, ctx);
     if (cec < MIN_SHARED_REWARD_CEC) continue;
     const rolled = { template, params, cec };
     if (!rewardFitsShape(rolled, ctx, stage)) continue;
@@ -193,15 +193,15 @@ function rolledCostCandidates(
       selectionAttempt:
         ((draw.selectionAttempt ?? 0) * 100) + template.id.length,
     });
-    if (!template.viable(params as never, ctx)) continue;
+    if (!template.viable(params, ctx)) continue;
     if (!sharedCostTextIsCoherent(template, params)) continue;
-    const cec = template.cec(params as never, ctx);
+    const cec = template.cec(params, ctx);
     if (cec <= 0 || cec > maxCostCec) continue;
     candidates.push({
       template,
       params,
       cec,
-      rendered: template.render(params as never, ctx),
+      rendered: template.render(params, ctx),
     });
   }
 
