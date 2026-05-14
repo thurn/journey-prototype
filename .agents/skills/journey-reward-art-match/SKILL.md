@@ -153,6 +153,10 @@ Name rules:
 - Keep names evocative and specific to the image.
 - Prefer the primary subject, action, or emotional promise of the art over minor
   background details.
+- Name visible subjects and objects directly. Do not use a concrete object noun
+  metaphorically when that object is not visibly present; for example, a glowing
+  orb or hand-held light is not a "Lantern" unless the art shows a lantern body,
+  frame, handle, vessel, candle, or similar physical lamp structure.
 - Do not name ambiguous visual effects as specific weather, ash, snow, fireflies,
   etc. unless the image clearly shows that thing.
 - Check prior assignments and avoid repeatedly using the same distinctive words.
