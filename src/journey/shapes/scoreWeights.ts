@@ -3,7 +3,7 @@
 // these values are the *relative* prevalence anchors for the first journey of
 // a fresh `--stage early` seed. Weights are *not* normalized to sum to 100; the
 // actual observed share for shape i is roughly `weight(i) / sum(weights) ≈
-// weight(i) / 148`.
+// weight(i) / 140`.
 //
 // `random_trades` still incurs ~22% repair drift even after the fill's
 // viability filter (`src/journey/shapes/random_trades/fill.ts`), and its
