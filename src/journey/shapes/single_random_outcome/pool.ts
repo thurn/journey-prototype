@@ -211,7 +211,7 @@ export function weightedRewardPool(args: {
     available.splice(available.indexOf(chosen), 1);
   }
 
-  if (selected.length < Math.min(2, args.size)) {
+  if (selected.length < args.size) {
     throw new Error("single_random_outcome fill could not roll enough viable shared rewards");
   }
 

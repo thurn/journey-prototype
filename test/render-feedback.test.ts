@@ -3,7 +3,11 @@ import { buildCommonOptions } from "../src/cli.js";
 import type { JourneyManifest } from "../src/journey/manifest.js";
 import { buildPrecommittedOperations } from "../src/journey/operationBuilders.js";
 import { createJourneyError, renderError } from "../src/render/errors.js";
-import { renderJourneyHuman, renderStateHuman } from "../src/render/human.js";
+import {
+  renderJourneyHuman,
+  renderSelectedHuman,
+  renderStateHuman,
+} from "../src/render/human.js";
 import { ExitCode } from "../src/util/exitCodes.js";
 import { fixtureManifest, fixtureState } from "./fixtures/render.js";
 
@@ -320,6 +324,32 @@ describe("review feedback regressions", () => {
       "   - Gain 80 essence",
       "   - Gain a card",
       "   - Gain an omen",
+    ].join("\n"));
+  });
+
+  it("indents multiline selected option text under the selected row", () => {
+    const [option] = fixtureManifest().options;
+
+    const output = renderSelectedHuman(
+      {
+        ...option!,
+        symbols: ["cost", "random", "reward"],
+        text: "Lose 20 essence. Gain one of the following at random:\n- Gain 80 essence\n- Gain a card\n- Gain an omen",
+      },
+      {
+        json: false,
+        debug: false,
+        color: false,
+      },
+    );
+
+    expect(output).toBe([
+      "Selected 1. $ * Lose 20 essence. Gain one of the following at random:",
+      "   - Gain 80 essence",
+      "   - Gain a card",
+      "   - Gain an omen",
+      "",
+      "",
     ].join("\n"));
   });
 

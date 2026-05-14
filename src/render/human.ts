@@ -146,16 +146,21 @@ function optionTone(option: JourneyOption): keyof typeof THEME {
 function optionLine(option: JourneyOption, options: RenderOptions): string {
   const symbols = displaySymbols(option);
   const prefix = `${color(`${option.number}.`, "optionNumber", options)}${symbols.length > 0 ? ` ${symbols}` : ""}`;
-  const text = color(option.text, optionTone(option), options).replace(/\n/gu, "\n   ");
+  const text = indentContinuationLines(color(option.text, optionTone(option), options));
 
   return `${prefix} ${text}`;
+}
+
+function indentContinuationLines(text: string): string {
+  return text.replace(/\n/gu, "\n   ");
 }
 
 function selectedLine(option: JourneyOption, options: RenderOptions): string {
   const symbols = displaySymbols(option);
   const symbolText = symbols.length > 0 ? `${symbols} ` : "";
+  const text = indentContinuationLines(option.text);
 
-  return `${color(`Selected ${option.number}.`, "optionNumber", options)} ${symbolText}${option.text}\n\n`;
+  return `${color(`Selected ${option.number}.`, "optionNumber", options)} ${symbolText}${text}\n\n`;
 }
 
 function flatMenuLines(manifest: JourneyManifest, options: RenderOptions): string[] {
