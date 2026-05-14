@@ -113,19 +113,18 @@ describe("automatic leave options", () => {
     expect(manifest.options).toHaveLength(3);
   });
 
-  it("adds canonical leave branches to tree levels that need them", async () => {
+  it("keeps tree-local leave branches intact", async () => {
     const manifest = await forcedManifest(
-      "prize_ladder",
-      "automatic-leave:prize-ladder",
+      "escalating_reward_chain",
+      "automatic-leave:escalating-reward-chain",
     );
 
     expect(manifest.tree?.nodes).toHaveLength(3);
     expect(leaveBranches(manifest)).toHaveLength(3);
 
     for (const node of manifest.tree?.nodes ?? []) {
-      expect(node.branches.at(-1)).toMatchObject({
-        id: `${node.id}-leave`,
-        label: "Leave",
+      expect(node.branches.at(0)).toMatchObject({
+        label: "Stop",
         text: "Leave.",
         kind: "player_choice",
         terminal: {

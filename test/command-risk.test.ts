@@ -101,14 +101,31 @@ describe("stateless command risk transitions", () => {
       const result = await handleJourney(options({
         seed: "qa",
         stage: "late",
-        shape: "prize_ladder",
+        shape: "escalating_reward_chain",
       }));
 
       expect(result.exitCode).toBe(ExitCode.Success);
       expect(result.stderr).toBe("");
       expect(result.stdout).toContain("Decision Tree");
       expect(result.stdout).toContain("Level 1");
-      expect(result.stdout).toContain("Claim -");
+      expect(result.stdout).toContain("Take -");
+      await expectMissingState(statePath);
+    });
+  });
+
+  it("rejects the retired deterministic ladder branch shape as unknown", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const retiredShapeId = ["prize", "ladder"].join("_");
+      const result = await handleJourney(options({
+        seed: "qa",
+        shape: retiredShapeId,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.UsageOrInput);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain(
+        `Unknown Journey shape: ${retiredShapeId}`,
+      );
       await expectMissingState(statePath);
     });
   });
@@ -270,7 +287,6 @@ describe("stateless command risk transitions", () => {
       "push_your_luck",
       "single_random_outcome",
       "reveal_choice_menu",
-      "prize_ladder",
       "now_vs_later",
       "commit_now_future_payoff",
       "paired_return",

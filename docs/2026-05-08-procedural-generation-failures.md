@@ -266,8 +266,6 @@ option to be a text-matched "next 3 battles" battle modifier.
 
 Decision-tree shapes are heavily scripted:
 
-- prize ladder profiles hardcode costs and stop rewards in
-  [`treeBuilders.ts`](../src/journey/fillers/treeBuilders.ts#L201);
 - random pool content and summary text are hardcoded in
   [`treeBuilders.ts`](../src/journey/fillers/treeBuilders.ts#L388);
 - escalating reward chains hardcode costs, essence ladders, omen ladders,
@@ -288,13 +286,13 @@ general tree soup" and not "one fixed event script per tree family."
 
 **Resolution:** Normal decision-tree builders now keep the authored topology and
 progression identity, but fill visible tree payloads from reusable level-aware
-families. Prize ladders, probability ladders, random-pool draws, escalating
-reward chains, and push-your-luck trees now derive costs, odds, stop rewards,
-take rewards, push rewards, visible random-pool entries, and failure burdens
-from shared constrained families rather than selecting whole scripted tree
-profiles. The generators preserve deterministic replay, complete visible tree
-shapes, value growth across levels, and topology-specific invariants such as
-fixed probability-ladder rewards and increasing push-your-luck risk.
+families. Probability ladders, random-pool draws, escalating reward chains, and
+push-your-luck trees now derive costs, odds, rewards, visible random-pool
+entries, and failure burdens from shared constrained families rather than
+selecting whole scripted tree profiles. The generators preserve deterministic
+replay, complete visible tree shapes, value growth across levels, and
+topology-specific invariants such as fixed probability-ladder rewards and
+increasing push-your-luck risk.
 
 ### 8. Route Edits Are Fixed Site-Pair Scenarios
 

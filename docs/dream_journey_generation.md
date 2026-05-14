@@ -177,7 +177,6 @@ useful are all shapes:
 - take any number from a visible cache
 - one-shot random outcome
 - push your luck
-- escalating costs toward a large reward
 - repeated probabilistic attempts at a fixed prize
 - repeated random draws from a fixed pool
 - escalating repeated rewards
@@ -618,20 +617,6 @@ shape. Rare "gain this whole cache" moments should be authored as
 `single_reward` or another special-event shape where the whole bundle is the one
 reward, not as an open-pick menu pretending to contain decisions.
 
-### prize_ladder
-
-The site displays a bounded decision tree where each level offers a stop reward
-or a continue cost that moves to the next level. Stop rewards are repeated and
-scaled versions of the same reward family, and continue costs are repeated and
-scaled versions of the same cost family. The final level always contains a large
-thematically connected reward rather than a small continuation of the earlier
-stop rewards.
-
-This shape is for deterministic escalating commitments. It must not mix cost
-families between levels, such as charging essence at one level and adding a
-Bane at the next, unless the whole authored variant explicitly defines a
-compound cost family that repeats coherently at every level.
-
 ### probability_ladder
 
 The site displays a bounded decision tree where each level lets the player stop
@@ -680,7 +665,7 @@ level uses the same reward pool and the same cost family, while the hazard
 chance escalates.
 
 If every level has a guaranteed escalating cost and no chance to fail out of
-the tree, use `prize_ladder` or `escalating_reward_chain` instead.
+the tree, use `escalating_reward_chain` instead.
 
 ### escalating_reward_chain
 
@@ -691,9 +676,8 @@ gain an omen. The final level may use a much higher cost to provide a
 thematically connected stronger variant of the same reward.
 
 This differs from `take_any_number` because order matters and later levels are
-locked behind earlier takes. It differs from `prize_ladder` because the player
-receives the repeated reward at each accepted level rather than preserving a
-larger stop reward for later.
+locked behind earlier takes. The player receives the repeated reward at each
+accepted level.
 
 ### single_random_outcome
 

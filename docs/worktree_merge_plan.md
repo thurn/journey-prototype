@@ -99,7 +99,7 @@ for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
     [ -d "${w}src/journey/shapes/$shape" ] || continue
     test_file="${w}test/journey-shape-isolation.test.ts"
     grep -q "\"$shape\"" "$test_file" && continue
-    sed -i.bak "s|\"shop_row\", \"prize_ladder\"|\"shop_row\", \"prize_ladder\", \"$shape\"|" "$test_file"
+    sed -i.bak "s|\"shop_row\", \"probability_ladder\"|\"shop_row\", \"probability_ladder\", \"$shape\"|" "$test_file"
     rm -f "$test_file.bak"
     (cd "$w" && ./node_modules/.bin/vitest run test/journey-shape-isolation.test.ts >/dev/null 2>&1) \
       && echo "$shape OK" || echo "$shape FAIL — revert"
@@ -121,7 +121,7 @@ state — investigate first.) This can be batched once per worktree:
 
 ```bash
 for w in .claude/worktrees/agent-*/; do
-  shape=$(ls -d "${w}src/journey/shapes/"*/ | grep -v 'prize_ladder\|shop_row' \
+  shape=$(ls -d "${w}src/journey/shapes/"*/ | grep -v 'probability_ladder\|shop_row' \
             | head -1 | xargs -I{} basename {})
   (cd "$w" && git add -A && git commit -m "Migrate $shape to isolated plugin")
 done

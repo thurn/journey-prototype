@@ -19,7 +19,6 @@ const MIGRATED_SHAPE_IDS = [
   "one_operation_many_targets",
   "one_target_many_operations",
   "paired_return",
-  "prize_ladder",
   "probability_ladder",
   "push_your_luck",
   "random_pool_draws",

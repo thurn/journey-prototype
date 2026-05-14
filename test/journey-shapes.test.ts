@@ -33,7 +33,6 @@ const expectedShapeIds = [
   "paired_return",
   "take_any_number",
   "push_your_luck",
-  "prize_ladder",
   "probability_ladder",
   "random_pool_draws",
   "escalating_reward_chain",
@@ -80,7 +79,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(29);
+    expect(actualShapeIds).toHaveLength(28);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -128,6 +127,18 @@ describe("JOURNEY_SHAPES", () => {
 
   it("does not expose the retired random series as a canonical shape", () => {
     const retiredShapeId = ["resolved", "random", "series"].join("_");
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
+  it("does not expose the retired deterministic ladder branch shape", () => {
+    const retiredShapeId = ["prize", "ladder"].join("_");
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(

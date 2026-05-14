@@ -1,10 +1,9 @@
 // Per-shape weights consumed by `scoreShapes` in src/journey/generate.ts. The
 // final selection weight is `contextualScore * scoreWeight + tieJitter`, so
 // these values are the *relative* prevalence anchors for the first journey of
-// a fresh `--stage early` seed. The values form a linear decay from 10 (top)
-// to 1 (bottom) across the 29 shapes in the order below — a 10:1 dynamic
-// range. Weights are *not* normalized to sum to 100; the actual observed
-// share for shape i is roughly `weight(i) / sum(weights) ≈ weight(i) / 154`.
+// a fresh `--stage early` seed. Weights are *not* normalized to sum to 100; the
+// actual observed share for shape i is roughly `weight(i) / sum(weights) ≈
+// weight(i) / 150`.
 //
 // `random_trades` still incurs ~22% repair drift even after the fill's
 // viability filter (`src/journey/shapes/random_trades/fill.ts`), and its
@@ -36,7 +35,6 @@ const JOURNEY_SHAPE_SCORE_WEIGHTS: Readonly<Record<string, number>> =
     commit_now_future_payoff: 5,
     random_pool_draws: 4,
     push_your_luck: 4,
-    prize_ladder: 4,
     single_reward: 3,
     single_offer: 3,
     single_rule_trial: 3,

@@ -335,45 +335,6 @@ repair, generated-object, and distinctness contracts for a shape.
   Transfiguration} to a chosen card.
 - Leave.
 
-# prize_ladder
-
-## Omen Stair
-
-- Level 1:
-  - Stop: gain 1 omen.
-  - Continue: pay 35 essence and go to Level 2.
-- Level 2:
-  - Stop: gain 2 omens.
-  - Continue: pay 70 essence and go to Level 3.
-- Level 3:
-  - Stop: gain 3 omens.
-  - Claim: pay 100 essence and choose 1 of 3 Dreamsigns.
-
-## Golden Descent
-
-- Level 1:
-  - Stop: apply {Viridian Transfiguration} to a chosen starter card.
-  - Continue: pay 30 essence and go to Level 2.
-- Level 2:
-  - Stop: apply {Viridian Transfiguration} to 2 chosen starter cards.
-  - Continue: pay 60 essence and go to Level 3.
-- Level 3:
-  - Stop: apply {Viridian Transfiguration} to 3 chosen starter cards.
-  - Claim: pay 100 essence and apply {Golden Transfiguration} to 3 chosen
-    cards.
-
-## Deep Draft Promise
-
-- Level 1:
-  - Stop: draft 1 of 4 cards.
-  - Continue: pay 25 essence and go to Level 2.
-- Level 2:
-  - Stop: draft 1 of 8 cards.
-  - Continue: pay 50 essence and go to Level 3.
-- Level 3:
-  - Stop: draft 1 of 12 cards.
-  - Claim: pay 90 essence and draft 2 of 12 cards.
-
 # probability_ladder
 
 ## Sign In The Fog

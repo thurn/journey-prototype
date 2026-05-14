@@ -57,7 +57,7 @@ Expected behavior:
 Command:
 
 ```text
-journey --seed qa --stage late --shape prize_ladder --no-color
+journey --seed qa --stage late --shape probability_ladder --no-color
 ```
 
 Expected behavior:
@@ -156,9 +156,8 @@ Expected behavior:
 - Canonical shapes do not include `repeat_to_scale`, `sequential_offers`, or
   `escalating_search`.
 - `take_any_number` renders as a repeatable flat menu.
-- `prize_ladder`, `probability_ladder`, `random_pool_draws`,
-  `push_your_luck`, and `escalating_reward_chain` render complete tree
-  structures.
+- `probability_ladder`, `random_pool_draws`, `push_your_luck`, and
+  `escalating_reward_chain` render complete tree structures.
 
 ## Scenario 11: Deterministic Payload QA Surface
 
