@@ -1,0 +1,4 @@
+interface:
+  display_name: "Journey Reward Art Match"
+  short_description: "Match Journey art to reward effects"
+  default_prompt: "Use $journey-reward-art-match to match a Journey image to a two-word dream name and reward type."
