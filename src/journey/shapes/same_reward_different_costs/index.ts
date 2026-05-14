@@ -15,7 +15,7 @@ export const sameRewardDifferentCostsPlugin = defineShapePlugin({
     ],
     debugLabel: "Same reward, different costs",
     versionContribution: {
-      catalogVersion: "journey-shapes:v18",
+      catalogVersion: "journey-shapes:v19",
       id: "same_reward_different_costs",
       topology: "direct_menu",
     },

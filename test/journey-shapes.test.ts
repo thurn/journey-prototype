@@ -286,7 +286,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v18;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v19;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

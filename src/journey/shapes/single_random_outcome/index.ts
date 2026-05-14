@@ -15,7 +15,7 @@ export const singleRandomOutcomePlugin = defineShapePlugin({
     ],
     debugLabel: "Single random outcome",
     versionContribution: {
-      catalogVersion: "journey-shapes:v18",
+      catalogVersion: "journey-shapes:v19",
       id: "single_random_outcome",
       topology: "random_commit",
     },
