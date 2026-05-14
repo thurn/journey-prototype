@@ -657,9 +657,9 @@ Required work:
   essence restoration before next shop, future shop trade hooks, and purchase
   counters.
 - Add status payloads for next victory reward replacement, Battle reward
-  reduction, Essence-site reward reduction, no longer gaining essence, no
-  longer modifying deck, no longer transfiguring cards, deck-size floor, and
-  exact deck-size mandate.
+  reduction, Essence-site reward reduction, essence gain lockout, deck
+  modification lockout, transfiguration lockout, deck-size floor, and exact
+  deck-size mandate.
 - Add value rules for persistent prohibitions and reward reductions when paired
   with large named rewards.
 - Keep positive persistent player benefits as Dreamsigns when that is the
@@ -795,7 +795,7 @@ Required work:
   risk premium.
 Acceptance criteria:
 
-- Normal generation can produce reveal-choice and wheel-style root menus.
+- Normal generation can produce reveal and wheel-style random root menus.
 - Random envelope validation rejects unknown envelope kinds and empty pools.
 - Human output reveals committed pre-rolled outcomes when the visibility policy
   says they are player-visible.
@@ -874,8 +874,6 @@ Candidate shapes:
   decision tree.
 - `shared_prefix_menu`: every row starts with the same cost, burden, purge, or
   cleanup prerequisite and then varies the payoff.
-- `reveal_choice_menu`: root choices around revealing rewards, choosing one,
-  choosing one random revealed reward, or taking a random reward.
 - `return_row`: several sealed or borrowed objects with parallel future return
   scenes.
 - `compound_bundle_menu`: a workshop-style menu where each option is a small
@@ -899,8 +897,7 @@ Acceptance criteria:
   possible as a flat escalating trade menu when the new topology is added,
   rather than only as a decision tree.
 - Validate that [Covered Cups](brainstorm_examples.md#covered-cups) is possible
-  through a reveal-choice topology if that topology becomes a new shape rather
-  than a random payload variant in an existing shape.
+  through random and reveal payload variants in an existing shape.
 
 ## Milestone 20: Add Compound Payload Composition And Coherence Rules
 

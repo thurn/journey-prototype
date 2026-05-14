@@ -22,10 +22,10 @@ naturally). Inspection of the work product shows:
 Universal:
 - New directory `src/journey/shapes/<shape>/` (at minimum `index.ts` +
   `fill.ts`, sometimes `tree.ts`, `validators.ts`, helper files).
-- `src/journey/shapes/<shape>.ts` deleted (legacy single-file plugin).
+- Active shape plugin entry point at `src/journey/shapes/<shape>/index.ts`.
 - `src/journey/shapes/registry.ts` — one import line changes from
   `"./<shape>.js"` to `"./<shape>/index.js"`. The plugin array is unchanged.
-- `src/journey/fillers/shapeFills.ts` — the shape's `case` body is removed.
+- Shape-specific fill logic lives in `src/journey/shapes/<shape>/fill.ts`.
 
 Per-worktree extras vary; see the conflict matrix below.
 
@@ -50,7 +50,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | same_cost_different_rewards | 0 | fillers/shared.ts, test |
 | choose_your_loss | 6 | fillers/shared.ts, test |
 | alter_dreamscapes | 13 | fillers/shared.ts, types.ts |
-| reveal_choice_menu | 0 | fillers/randomPayloads.ts, test |
 | single_random_outcome | 7 | fillers/randomPayloads.ts |
 | single_wager | 13 | validate/precommitRules.ts |
 | take_any_number | 0 | test only |
@@ -171,9 +170,8 @@ collisions are likely. Merge smallest first.
 13. `same_cost_different_rewards` (shapes/shared=0, fillers/shared.ts)
 14. `choose_your_loss` (shapes/shared=6, fillers/shared.ts)
 15. `alter_dreamscapes` (shapes/shared=13, fillers/shared.ts, types.ts)
-### Tier 5 — `fillers/randomPayloads.ts` cluster (3 merges)
+### Tier 5 — `fillers/randomPayloads.ts` cluster (2 merges)
 
-18. `reveal_choice_menu` (shared=0, randomPayloads only)
 19. `single_random_outcome` (shared=7, randomPayloads only)
 ### Tier 6 — solo specialized (3 merges)
 
@@ -190,10 +188,10 @@ git -C .claude/worktrees/agent-XXX fetch origin
 git -C .claude/worktrees/agent-XXX rebase master
 
 # Conflict resolution checklist during rebase:
-# - shapeFills.ts: keep both removals (union of cases removed)
+# - shapeFills.ts: combine both migrated case sets
 # - registry.ts: keep both import-path edits
-# - shapes/shared.ts: keep both removals (every removal in this set is
-#   "delete a reference to a shape that has now migrated"). When two
+# - shapes/shared.ts: combine both migrations; every change in this set
+#   narrows shared references for migrated shapes. When two
 #   worktrees rewrite the same line (e.g. dropping two predicates from one
 #   `||` chain), keep the smaller residue.
 # - test/journey-shape-isolation.test.ts: union the MIGRATED_SHAPE_IDS list
@@ -213,19 +211,18 @@ npm test
 
 If `npm test` regresses on master after a merge, the most likely cause is
 that the merged plugin's `fill.ts` produces a different manifest than the
-old `case` did — investigate the case body that was removed from
-`shapeFills.ts` and reconcile.
+legacy `shapeFills.ts` case body. Compare both implementations and reconcile.
 
 ## Suggested inline edits to make merging easier
 
 These are optional but cheap and would noticeably reduce conflict resolution
 work.
 
-1. **Normalize `shapes/shared.ts` removals.** Before any merging, write a
+1. **Normalize `shapes/shared.ts` migration edits.** Before any merging, write a
    single commit on master that converts the imperative `id === "X"` chains
    in `shared.ts` into a metadata-driven lookup (`SHAPE_FAMILY_TAGS[id]`).
-   Each migrating worktree's removal becomes "drop one entry from a const
-   table" instead of "rewrite a multi-clause boolean expression." This
+   Each migrating worktree adjusts one const table entry instead of rewriting
+   a multi-clause boolean expression. This
    eliminates the most likely real conflict in the entire plan, at the cost
    of one focused refactor commit before Tier 1.
 

@@ -22,7 +22,6 @@ import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome/index.js";
 import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
-import { revealChoiceMenuPlugin } from "./reveal_choice_menu/index.js";
 import { shapeScoreWeightIds } from "./scoreWeights.js";
 import { cloneSerializable, JOURNEY_SHAPE_CATALOG_VERSION } from "./shared.js";
 import type {
@@ -54,7 +53,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   escalatingRewardChainPlugin,
   flatEscalatingTradePlugin,
   singleRandomOutcomePlugin,
-  revealChoiceMenuPlugin,
   commitNowFuturePayoffPlugin,
   alterDreamscapesPlugin,
 ] satisfies readonly JourneyShapePlugin[]);

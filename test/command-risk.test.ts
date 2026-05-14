@@ -198,6 +198,23 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("rejects the deleted reveal_choice_menu shape as unknown", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const retiredShapeId = "reveal_choice_menu";
+      const result = await handleJourney(options({
+        seed: "qa",
+        shape: retiredShapeId,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.UsageOrInput);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain(
+        `Unknown Journey shape: ${retiredShapeId}`,
+      );
+      await expectMissingState(statePath);
+    });
+  });
+
   it("JSON contains manifest, context, tree data, and no ANSI", async () => {
     await withTempState(async ({ options }) => {
       const result = await handleJourney(options({
@@ -216,7 +233,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v22",
+        catalogVersion: "journey-shapes:v23",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -225,7 +242,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v22",
+            shapeCatalogVersion: "journey-shapes:v23",
             effectCatalogVersion: "effects:v7",
             valueModelVersion: "value:v10",
             rendererVersion: "renderer:v1",
@@ -303,7 +320,6 @@ describe("stateless command risk transitions", () => {
       "random_pool_draws",
       "push_your_luck",
       "single_random_outcome",
-      "reveal_choice_menu",
       "now_vs_later",
       "commit_now_future_payoff",
       "paired_return",

@@ -66,7 +66,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | flat_escalating_trade | 71 | 2.37% |
 | shared_prefix_menu | 70 | 2.33% |
 | alter_dreamscapes | 67 | 2.23% |
-| reveal_choice_menu | 65 | 2.17% |
 | choose_your_loss | 62 | 2.07% |
 | probability_ladder | 60 | 2.00% |
 | random_pool_draws | 58 | 1.93% |

@@ -16,7 +16,7 @@ export const randomTradesPlugin = defineShapePlugin({
     ],
     debugLabel: "Random trades",
     versionContribution: {
-      catalogVersion: "journey-shapes:v22",
+      catalogVersion: "journey-shapes:v23",
       id: "random_trades",
       topology: "direct_menu",
     },

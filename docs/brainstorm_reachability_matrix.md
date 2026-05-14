@@ -32,7 +32,6 @@ operation tags that make the named example procedurally possible.
 | Covered Cups | `covered-cups-3` | mid | `single_random_outcome` | `random:reveal_rewards`, `reveal_envelope`, `random` | `random:reveal_rewards` |
 | Emergency Thread | `m24-generated-16` | late | `one_target_many_operations` | `generated_object`, `generated_object:dreamsign` | `generated_object:dreamsign`, `reward:generated_object_grant` |
 | Bottomless Bowl | `bottomless-bowl-flat-trade` | mid | `flat_escalating_trade` | `resource_cost:essence`, `resource`, `symmetry:flat_escalating_trade` | `cost:essence:fixed`, `reward:resource` |
-| Covered Cups Reveal Menu | `covered-cups-reveal-choice-menu` | mid | `reveal_choice_menu` | `random:choose_one_revealed_reward`, `random:gain_one_random_reward`, `reveal_envelope` | `random:choose_one_revealed_reward`, `random:gain_one_random_reward` |
 | Shared Prefix Menu | `shared-prefix-menu-forced` | mid | `shared_prefix_menu` | `bane_gain`, `dreamsign_gain`, `card_draft`, `route_edit:add_site`, `symmetry:shared_burden_different_rewards` | `burden:bane_gain`, `reward:dreamsign_gain`, `reward:card_draft`, `route_edit:add_site` |
 
 | Example | Needed topology | Payload families | Selector families | Timing families | Normal reach | Debug fixture |

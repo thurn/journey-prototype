@@ -16,7 +16,7 @@ export const randomRewardsPlugin = defineShapePlugin({
     ],
     debugLabel: "Random rewards",
     versionContribution: {
-      catalogVersion: "journey-shapes:v22",
+      catalogVersion: "journey-shapes:v23",
       id: "random_rewards",
       topology: "direct_menu",
     },

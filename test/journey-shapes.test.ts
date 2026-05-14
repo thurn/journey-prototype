@@ -35,7 +35,6 @@ const expectedShapeIds = [
   "escalating_reward_chain",
   "flat_escalating_trade",
   "single_random_outcome",
-  "reveal_choice_menu",
   "commit_now_future_payoff",
   "alter_dreamscapes",
 ] as const;
@@ -76,7 +75,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(25);
+    expect(actualShapeIds).toHaveLength(24);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -84,10 +83,6 @@ describe("JOURNEY_SHAPES", () => {
     expect(getShapeDefinition("flat_escalating_trade")).toMatchObject({
       topology: "direct_menu",
       rootOptionCount: { min: 3, max: 4 },
-    });
-    expect(getShapeDefinition("reveal_choice_menu")).toMatchObject({
-      topology: "random_commit",
-      rootOptionCount: { min: 3, max: 3 },
     });
     expect(getShapeDefinition("shared_prefix_menu")).toMatchObject({
       topology: "direct_menu",
@@ -160,6 +155,18 @@ describe("JOURNEY_SHAPES", () => {
 
   it("does not expose the deleted risk_or_skip shape", () => {
     const retiredShapeId = "risk_or_skip";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
+  it("does not expose the deleted reveal_choice_menu shape", () => {
+    const retiredShapeId = "reveal_choice_menu";
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(
@@ -295,7 +302,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v22;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v23;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });
