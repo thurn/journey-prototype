@@ -1,64 +1,64 @@
-- Gain X essence.
-- Gain X omens.
-- Set essence to X% of maximum essence.
-- Gain X-Y essence from a random roll.
-- Gain essence up to maximum.
-- Increase maximum essence by X.
-- Gain X random <predicate> cards.
-- Gain <card>.
-- Draft 1 of 4 <predicate> cards.
-- Draft 2 of 4 <predicate> cards.
-- Draft 1 of 4 <predicate> cards and gain X copies of it.
-- Draft 1 of 4 <predicate> cards and apply <transfiguration> to it.
-- Take any number of <predicate> cards from X choices.
-- Apply a transfiguration of your choice to a chosen card.
-- Apply <transfiguration> to <card>.
-- Apply <transfiguration> to X chosen <predicate> cards.
-- Apply <transfiguration> to X random <predicate> cards.
-- Apply <transfiguration> to all <predicate> cards.
-- Apply random transfigurations to X chosen starter cards.
-- Apply random transfigurations to X random starter cards.
-- Apply a random transfiguration to each starter card.
-- Apply random transfigurations to X random cards.
-- Change <card> to become <card type>.
-- Modify X random cards to become <card type>.
-- Change X random cards to have <keyword>.
-- Add Reclaim X to <card>.
-- Add Reclaim X to X random cards.
-- Reduce the cost of <predicate> cards by X for the next X battles.
-- Purge up to X chosen <predicate> cards.
-- Transform up to X chosen <predicate> cards into random <predicate> cards.
-- Purge <starter card>.
-- Purge a random starter card.
-- Purge up to X chosen starter cards.
-- Purge all starter cards.
-- Transform a random starter card into a random <predicate> card.
-- Choose a starter card to transform into <card>.
-- Transform <card> into <card>.
-- Transform a chosen <predicate> card into <card>.
-- Replace a chosen starter card with 1 of 4 drafted cards.
-- Create X duplicates of <card>.
-- Duplicate X chosen cards.
-- Duplicate X random <predicate> cards.
-- Draw X cards from your deck and duplicate one chosen drawn card.
-- Purge X bane cards.
-- Purge all bane cards.
-- Gain a random Dreamsign.
-- Gain <Dreamsign>.
-- Choose 1 of X Dreamsigns to gain.
-- Gain a copy of a random active Dreamsign.
-- Gain a copy of a chosen active Dreamsign.
-- Transform a chosen Dreamsign into <Dreamsign>.
-- Gain a random Dreamsign for the next X battles.
-- Add a <site> site to this dreamscape.
-- Add a <site> site to the next dreamscape.
-- Replace a <site> site in this dreamscape with a <site> site.
-- Increase the chance to see <site> sites by X% for X dreamscapes.
-- Set the starting dreamwell card to <dreamwell card>.
-- Shuffle X copies of <dreamwell card> into the dreamwell.
-- Make the next X shop rerolls free.
-- Permanently reduce shop essence costs by X%.
-- Make the next X shop purchases cost 1 fewer omen.
-- Have <card> in your opening hand for the next X battles.
-- Gain a temporary copy of <card> for the next X battles.
-- Gain two rewards from the reward catalog.
+- [1.68%] Gain X essence.
+- [1.68%] Gain X omens.
+- [1.68%] Set essence to X% of maximum essence.
+- [1.68%] Gain X-Y essence from a random roll.
+- [1.68%] Gain essence up to maximum.
+- [1.68%] Increase maximum essence by X.
+- [1.68%] Gain X random <predicate> cards.
+- [1.68%] Gain <card>.
+- [1.68%] Draft 1 of 4 <predicate> cards.
+- [0.00%] Draft 2 of 4 <predicate> cards.
+- [1.68%] Draft 1 of 4 <predicate> cards and gain X copies of it.
+- [1.68%] Draft 1 of 4 <predicate> cards and apply <transfiguration> to it.
+- [1.68%] Take any number of <predicate> cards from X choices.
+- [1.68%] Apply a transfiguration of your choice to a chosen card.
+- [1.68%] Apply <transfiguration> to <card>.
+- [1.68%] Apply <transfiguration> to X chosen <predicate> cards.
+- [1.68%] Apply <transfiguration> to X random <predicate> cards.
+- [1.68%] Apply <transfiguration> to all <predicate> cards.
+- [1.68%] Apply random transfigurations to X chosen starter cards.
+- [1.68%] Apply random transfigurations to X random starter cards.
+- [1.68%] Apply a random transfiguration to each starter card.
+- [1.68%] Apply random transfigurations to X random cards.
+- [1.68%] Change <card> to become <card type>.
+- [1.68%] Modify X random cards to become <card type>.
+- [1.68%] Change X random cards to have <keyword>.
+- [1.68%] Add Reclaim X to <card>.
+- [1.68%] Add Reclaim X to X random cards.
+- [1.68%] Reduce the cost of <predicate> cards by X for the next X battles.
+- [1.68%] Purge up to X chosen <predicate> cards.
+- [1.68%] Transform up to X chosen <predicate> cards into random <predicate> cards.
+- [1.68%] Purge <starter card>.
+- [1.68%] Purge a random starter card.
+- [1.68%] Purge up to X chosen starter cards.
+- [1.68%] Purge all starter cards.
+- [1.68%] Transform a random starter card into a random <predicate> card.
+- [1.68%] Choose a starter card to transform into <card>.
+- [1.68%] Transform <card> into <card>.
+- [1.68%] Transform a chosen <predicate> card into <card>.
+- [1.68%] Replace a chosen starter card with 1 of 4 drafted cards.
+- [1.68%] Create X duplicates of <card>.
+- [1.68%] Duplicate X chosen cards.
+- [1.68%] Duplicate X random <predicate> cards.
+- [1.68%] Draw X cards from your deck and duplicate one chosen drawn card.
+- [1.68%] Purge X bane cards.
+- [1.68%] Purge all bane cards.
+- [1.68%] Gain a random Dreamsign.
+- [1.68%] Gain <Dreamsign>.
+- [1.68%] Choose 1 of X Dreamsigns to gain.
+- [1.68%] Gain a copy of a random active Dreamsign.
+- [1.68%] Gain a copy of a chosen active Dreamsign.
+- [1.68%] Transform a chosen Dreamsign into <Dreamsign>.
+- [0.42%] Gain a random Dreamsign for the next X battles.
+- [1.68%] Add a <site> site to this dreamscape.
+- [1.68%] Add a <site> site to the next dreamscape.
+- [1.68%] Replace a <site> site in this dreamscape with a <site> site.
+- [1.68%] Increase the chance to see <site> sites by X% for X dreamscapes.
+- [0.42%] Set the starting dreamwell card to <dreamwell card>.
+- [0.42%] Shuffle X copies of <dreamwell card> into the dreamwell.
+- [1.68%] Make the next X shop rerolls free.
+- [1.68%] Permanently reduce shop essence costs by X%.
+- [1.68%] Make the next X shop purchases cost 1 fewer omen.
+- [0.84%] Have <card> in your opening hand for the next X battles.
+- [0.42%] Gain a temporary copy of <card> for the next X battles.
+- [1.68%] Gain two rewards from the reward catalog.
