@@ -159,7 +159,7 @@ describe("random_pool_draws fill", () => {
     expect(fill.rewardPool).toMatchObject({
       operations: [],
     });
-    expect(fill.rewardPool?.rewards.length).toBeGreaterThanOrEqual(5);
+    expect(fill.rewardPool?.rewards.length).toBeLessThanOrEqual(3);
 
     const random = fill.precommitted.random ?? [];
     expect(random[0]).toMatchObject({
@@ -239,6 +239,28 @@ describe("random_pool_draws fill", () => {
       "visible_pool",
       "repeated_pool_draws",
     ]);
+  });
+
+  it.each([
+    ["audit:random_pool_draws:early:03", "early"],
+    ["audit:random_pool_draws:mid:01", "mid"],
+    ["audit:random_pool_draws:late:05", "late"],
+  ] as const)("caps %s visible reward pool at three outcomes", async (seed, stage) => {
+    const manifest = await forcedRandomPoolManifest(seed, stage);
+    const rewards = manifest.rewardPool?.rewards ?? [];
+
+    expect(rewards.length).toBeGreaterThan(0);
+    expect(rewards.length).toBeLessThanOrEqual(3);
+
+    const visiblePool = manifest.precommitted.random?.find((entry) =>
+      entry.kind === "visible_pool"
+    );
+    const repeatedDraws = manifest.precommitted.random?.find((entry) =>
+      entry.kind === "repeated_pool_draws"
+    );
+
+    expect(visiblePool?.rewards).toHaveLength(rewards.length);
+    expect(repeatedDraws?.rewards).toHaveLength(rewards.length);
   });
 
   it.each([

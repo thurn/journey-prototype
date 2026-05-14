@@ -23,9 +23,9 @@ const LEVEL_COUNT_BANDS = {
 } as const satisfies Record<JourneyStage, readonly number[]>;
 
 const POOL_SIZE_BANDS = {
-  early: [5],
-  mid: [5, 6],
-  late: [6],
+  early: [3],
+  mid: [3],
+  late: [3],
 } as const satisfies Record<JourneyStage, readonly number[]>;
 
 const MIN_DRAW_COST_BY_STAGE = {
