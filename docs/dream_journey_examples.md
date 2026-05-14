@@ -236,17 +236,18 @@ repair, generated-object, and distinctness contracts for a shape.
 
 ## Essence Flip
 
-- Pay 100 essence. Gain 250 essence, 100 essence, or nothing.
+- Gamble 30 essence. 50% chance to gain 100 essence.
+- Leave.
 
 ## Bane Toss
 
-- Gain 1 {Nightmare}. Purge it and gain {Ginger Root}, keep it and gain 120
-  essence, or keep it and gain nothing.
+- Gamble 30 essence. 45% chance to purge 1 Bane and gain {Ginger Root}.
+- Leave.
 
 ## Chaos Portal
 
-- Purge a chosen card. Roll for {Beacon of Tomorrow}, {Scrap Reclaimer}, or
-  {Evacuation Enforcer}; gain the result.
+- Gamble 30 essence. 55% chance to gain {Beacon of Tomorrow}.
+- Leave.
 
 # now_vs_later
 

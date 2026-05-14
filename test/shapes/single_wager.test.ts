@@ -78,30 +78,25 @@ async function realStageContext(
   };
 }
 
-function comparableNetSpread(nets: readonly number[]): boolean {
-  const spread = Math.abs(nets[0]! - nets[1]!);
-  const magnitude = Math.max(Math.abs(nets[0]!), Math.abs(nets[1]!));
-
-  return spread <= Math.max(50, magnitude * 0.35);
-}
-
 describe("single_wager fill", () => {
-  it("produces two visible wagers with precommitted rolls", () => {
+  it("produces one visible wager with a precommitted no-reward failure", () => {
     const fill = singleWagerPlugin.fill({
       context: fakeContext(),
       drawContext: fakeDraw("visible-wagers"),
       stage: "early" as JourneyStage,
     });
 
-    expect(fill.options).toHaveLength(2);
-    expect(fill.precommitted.random).toHaveLength(2);
+    expect(fill.options).toHaveLength(1);
+    expect(fill.precommitted.random).toHaveLength(1);
 
     for (const option of fill.options) {
       expect(option.operations).toEqual([]);
       expect(option.text).toMatch(
-        /^Pay \d+ essence for a \d+% chance to .+\. If it fails, gain nothing\.$/u,
+        /^Gamble \d+ essence\. \d+% chance to .+\.$/u,
       );
-      expect(option.text).not.toMatch(/\b(?:On success|on failure):/u);
+      expect(option.text).not.toMatch(
+        /\b(?:On success|on failure|If it fails|gain nothing):?/u,
+      );
       expect(option.costs[0]).toMatchObject({
         kind: "shared_cost_template",
         templateId: "pay_essence",
@@ -135,7 +130,7 @@ describe("single_wager fill", () => {
     expect(first.precommitted).toEqual(second.precommitted);
   });
 
-  it("pairs audit-seed rewards into comparable expected-value bands", async () => {
+  it("keeps audit-seed wagers in a viable expected-value band", async () => {
     const cases: Array<readonly [string, JourneyStage]> = [
       ["audit:single_wager:early:02", "early"],
       ["audit:single_wager:early:08", "early"],
@@ -149,8 +144,9 @@ describe("single_wager fill", () => {
       const fill = singleWagerPlugin.fill(await realStageContext(seed, stage));
       const nets = fill.options.map((option) => option.netConvertedEssence);
 
+      expect(fill.options, seed).toHaveLength(1);
+      expect(fill.precommitted.random, seed).toHaveLength(1);
       expect(Math.max(...nets), seed).toBeGreaterThanOrEqual(-10);
-      expect(comparableNetSpread(nets), seed).toBe(true);
     }
   });
 });

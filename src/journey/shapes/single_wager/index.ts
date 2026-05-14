@@ -5,7 +5,7 @@ export const singleWagerPlugin = defineShapePlugin({
   definition: {
     id: "single_wager",
     topology: "random_commit",
-    rootOptionCount: { min: 2, max: 2 },
+    rootOptionCount: { min: 1, max: 1 },
     supportedTags: [],
     validationRules: [
       "manifest_schema_version",
