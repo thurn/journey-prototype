@@ -26,7 +26,6 @@ const expectedShapeIds = [
   "single_wager",
   "now_vs_later",
   "reward_after_trigger",
-  "paired_return",
   "take_any_number",
   "push_your_luck",
   "random_pool_draws",
@@ -73,7 +72,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(22);
+    expect(actualShapeIds).toHaveLength(21);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -86,7 +85,6 @@ describe("JOURNEY_SHAPES", () => {
     expect(
       isJourneyShapeId(["compound", deletedServiceShapeId].join("_")),
     ).toBe(false);
-    expect(getShapeDefinition("paired_return").rootOptionCount.max).toBe(3);
   });
 
   it("does not expose the deleted service shape as a canonical shape", () => {
@@ -185,6 +183,18 @@ describe("JOURNEY_SHAPES", () => {
 
   it("does not expose the deleted shared_prefix_menu shape", () => {
     const retiredShapeId = "shared_prefix_menu";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
+  it("does not expose the deleted paired_return shape", () => {
+    const retiredShapeId = "paired_return";
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(
@@ -320,7 +330,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v25;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v26;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

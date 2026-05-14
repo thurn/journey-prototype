@@ -15,7 +15,7 @@ export const alterDreamscapesPlugin = defineShapePlugin({
     ],
     debugLabel: "Alter dreamscapes",
     versionContribution: {
-      catalogVersion: "journey-shapes:v25",
+      catalogVersion: "journey-shapes:v26",
       id: "alter_dreamscapes",
       topology: "direct_menu",
     },

@@ -432,22 +432,6 @@ function committedOutcomeText(value: unknown): string {
 
       return `${trigger}: ${tracked} ${resolution} Expiration: ${expiration}`;
     }
-    case "paired_return_contract": {
-      const anchor = typeof value.anchor === "string" ? value.anchor : "paired return";
-      const created = isRecord(value.created) && typeof value.created.label === "string"
-        ? value.created.label
-        : "Remember the created object.";
-      const returnScene = isRecord(value.returnScene) && typeof value.returnScene.resolution === "string"
-        ? value.returnScene.resolution
-        : "Resolve the return scene.";
-      const expiration = isRecord(value.returnScene) &&
-        isRecord(value.returnScene.expiration) &&
-        typeof value.returnScene.expiration.label === "string"
-        ? value.returnScene.expiration.label
-        : "Expires after its bounded window.";
-
-      return `${anchor}: ${created} Return: ${returnScene} Expiration: ${expiration}`;
-    }
     case "visible_pool": {
       const summary = typeof value.summary === "string" ? value.summary : "Visible random pool.";
       const replacement = typeof value.replacement === "string" ? ` ${value.replacement.replace(/_/gu, " ")}.` : "";
@@ -573,7 +557,6 @@ function committedOutcomeLines(manifest: JourneyManifest): string[] {
   const lines: string[] = [];
   const random = manifest.precommitted.random ?? [];
   const delayed = manifest.precommitted.delayed ?? [];
-  const pairedReturn = manifest.precommitted.pairedReturn ?? [];
   const routeEdits = manifest.precommitted.routeEdits ?? [];
   const sequenceMenus = manifest.precommitted.sequenceMenus ?? {};
 
@@ -590,18 +573,6 @@ function committedOutcomeLines(manifest: JourneyManifest): string[] {
       if (isRecord(entry) && "reward" in entry) {
         const trigger = typeof entry.trigger === "string" ? entry.trigger : "committed trigger";
         lines.push(`  ${index + 1}. ${trigger}: ${committedOutcomeText(entry.reward)}`);
-      } else {
-        lines.push(`  ${index + 1}. ${committedOutcomeText(entry)}`);
-      }
-    });
-  }
-
-  if (pairedReturn.length > 0) {
-    lines.push("Paired return:");
-    pairedReturn.forEach((entry, index) => {
-      if (isRecord(entry) && "reward" in entry) {
-        const anchor = typeof entry.anchor === "string" ? entry.anchor : "committed anchor";
-        lines.push(`  ${index + 1}. ${anchor}: ${committedOutcomeText(entry.reward)}`);
       } else {
         lines.push(`  ${index + 1}. ${committedOutcomeText(entry)}`);
       }
@@ -803,15 +774,6 @@ function operationContractDebugText(operation: JourneyOption["operations"][numbe
     if (operation.hookBudgetCost !== undefined) {
       lines.push(`  Hook budget cost: ${operation.hookBudgetCost}.`);
     }
-  }
-
-  if (operation.operationKind === "paired_return" && operation.contract) {
-    lines.push(
-      `  Paired return: ${operation.contract.pairedReturnId}; created=${operation.contract.created.referenceId}; scene=${operation.contract.returnScene.returnSceneKind}.`,
-      `  Return trigger: ${operation.contract.returnScene.triggerSelector.triggerKind} (${operation.contract.returnScene.triggerSelector.label}).`,
-      `  Return resolution: ${operation.contract.returnScene.resolution}`,
-      `  Return expiration: ${operation.contract.returnScene.expiration.label}`,
-    );
   }
 
   return lines;

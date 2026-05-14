@@ -274,8 +274,6 @@ current non-bypassed shapes should be handled as follows:
   emits a tree in production;
 - `single_offer` keeps a shape-local assertion for one take option and one
   no-effect leave option;
-- `paired_return` keeps a shape-local assertion only for required paired-return
-  precommit metadata;
 - direct-menu reward and trade shapes should set `bypassStandardValidation:
   true` when their fills own coherence.
 
@@ -328,9 +326,7 @@ shape-level natural generated-object policy.
 
 Renderer support for generated objects may stay if production shapes can emit
 generated objects directly. The rendering helper should live outside
-`fillers`. If the only production generated-object behavior is the paired
-return trade-ticket body owned by `paired_return`, then that shape should own
-the ticket body and any shape-local text needed to render the option.
+`fillers`, and generated-object text should stay with the shape that emits it.
 
 Generated-object validation and target-resolution support can remain when the
 manifest schema still permits generated objects. Those modules are not part of

@@ -477,10 +477,9 @@ statuses, prohibitions, both-player battle rules, reward replacement, and
 structural constraints.
 
 Examples include one-time hand banish and draw effects, battle point caps,
-players keeping unspent energy, players starting with fixed energy, no longer
-gaining essence, no longer modifying the deck, no longer transfiguring cards,
-victory rewards changing into Dreamsign drafts, and exact deck-size
-constraints.
+players keeping unspent energy, players starting with fixed energy, essence
+gain prohibition, deck modification prohibition, transfiguration prohibition,
+victory rewards changing into Dreamsign drafts, and exact deck-size constraints.
 
 Validation must reject incoherent or unsupported statuses, but it must no
 longer reject all statuses categorically.
@@ -512,11 +511,11 @@ from the player's perspective.
 
 V3 must support sealing an object, later recovering it, borrowing temporary
 objects, delayed loss and payment, trading named objects at future sites, and
-paired-return callbacks.
+structured return callbacks.
 
-These effects should use delayed hook and paired-return infrastructure rather
-than bespoke text. A future return scene should know which exact object or
-promise was created by the earlier Journey.
+These effects should use delayed-hook infrastructure rather than bespoke text. A
+future return scene should know which exact object or promise was created by the
+earlier Journey.
 
 ## Manifest Requirements
 
@@ -728,7 +727,7 @@ Compound effects should expose total value and component value. For example,
 independent Dreamsign gains; it is an immediate object plus a delayed promise.
 
 Negative persistent statuses need strong value penalties. Permanent
-prohibitions such as no longer gaining essence are run-defining costs and should
+prohibitions such as essence gain locks are run-defining costs and should
 appear only in high-stakes shapes with major compensation.
 
 Random outcomes should be valued using expected value plus risk premium. Hidden
@@ -976,8 +975,8 @@ Debug output should make content-authoring problems obvious. Missing named
 objects, empty target pools, unsupported status scopes, invalid site types, and
 unbalanced payloads should produce actionable errors.
 
-The generator should avoid excessive hook saturation. Delayed hooks, statuses,
-and paired returns are memorable partly because they are not everywhere. The
+The generator should avoid excessive hook saturation. Delayed hooks and statuses
+are memorable partly because they are not everywhere. The
 simulated context should track a hook budget even when the CLI is stateless, so
 single generated Journeys do not contain too many persistent obligations.
 
@@ -1043,5 +1042,5 @@ representative Journey classes:
 - one-time, temporary, and persistent statuses;
 - custom Journey-only objects;
 - reveal, roll, random-pool, wager, and keep-one mechanics;
-- seal, recover, borrow, trade, and paired-return mechanics;
+- seal, recover, borrow, trade, and return mechanics;
 - complete decision-tree Journeys using richer V3 payloads.

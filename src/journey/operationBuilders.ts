@@ -17,7 +17,6 @@ import type {
   HookExpirationPolicy,
   HookTriggerSelector,
   HookVisibilityPolicy,
-  PairedReturnContract,
   TargetSelectionMode,
   TargetSelector,
 } from "./manifest.js";
@@ -1992,42 +1991,6 @@ function adaptDelayedPrecommit(value: unknown, operationId: string): JourneyOper
   };
 }
 
-function pairedReturnContractFromPayload(value: unknown): PairedReturnContract | undefined {
-  return isRecord(value) &&
-    typeof value.pairedReturnId === "string" &&
-    typeof value.anchor === "string" &&
-    isRecord(value.created) &&
-    isRecord(value.returnScene) &&
-    isRecord(value.visibilityPolicy)
-    ? {
-        pairedReturnId: value.pairedReturnId,
-        ...(typeof value.optionNumber === "number" ? { optionNumber: value.optionNumber } : {}),
-        anchor: value.anchor,
-        created: value.created as PairedReturnContract["created"],
-        returnScene: value.returnScene as PairedReturnContract["returnScene"],
-        visibilityPolicy: value.visibilityPolicy as HookVisibilityPolicy,
-      }
-    : undefined;
-}
-
-function adaptPairedReturn(value: unknown, operationId: string): JourneyOperation {
-  const contract = pairedReturnContractFromPayload(value);
-
-  return {
-    operationId,
-    operationKind: "paired_return",
-    role: "paired_return",
-    visibility: "precommitted",
-    ...(contract?.anchor
-      ? { anchor: contract.anchor }
-      : isRecord(value) && typeof value.anchor === "string"
-        ? { anchor: value.anchor }
-        : {}),
-    ...(contract ? { contract } : {}),
-    payload: clonePayload(value),
-  };
-}
-
 function adaptRecordArray(
   values: readonly unknown[],
   prefix: string,
@@ -2099,7 +2062,6 @@ export function buildPrecommittedOperations(precommitted: Omit<PrecommittedOutco
       (value, operationId) => adaptRandomEnvelope(value, operationId),
     ),
     ...adaptRecordArray(precommitted.delayed ?? [], "precommitted:delayed", adaptDelayedPrecommit),
-    ...adaptRecordArray(precommitted.pairedReturn ?? [], "precommitted:paired-return", adaptPairedReturn),
     ...adaptRecordArray(precommitted.routeEdits ?? [], "precommitted:route", adaptRouteEdit),
   ];
 }

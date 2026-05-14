@@ -11,7 +11,7 @@ naturally). Inspection of the work product shows:
   passes after adding the shape ID to `MIGRATED_SHAPE_IDS`, and `grep` finds
   no remaining references in non-exempt central files.
 - **Worktrees requiring central-file cleanup** leak shape IDs into central files
-  (`one_operation_many_targets`, `paired_return`, `one_target_many_operations`,
+  (`one_operation_many_targets`, `one_target_many_operations`,
   `flat_escalating_trade`).
   Those need additional work — likely widening
   `JourneyShapePlugin` or extracting `dreamsignOperationCatalog` /

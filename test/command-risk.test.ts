@@ -249,6 +249,23 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("rejects the deleted paired_return shape as unknown", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const retiredShapeId = "paired_return";
+      const result = await handleJourney(options({
+        seed: "qa",
+        shape: retiredShapeId,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.UsageOrInput);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain(
+        `Unknown Journey shape: ${retiredShapeId}`,
+      );
+      await expectMissingState(statePath);
+    });
+  });
+
   it("JSON contains manifest, context, tree data, and no ANSI", async () => {
     await withTempState(async ({ options }) => {
       const result = await handleJourney(options({
@@ -267,7 +284,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v25",
+        catalogVersion: "journey-shapes:v26",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -276,7 +293,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v25",
+            shapeCatalogVersion: "journey-shapes:v26",
             effectCatalogVersion: "effects:v7",
             valueModelVersion: "value:v10",
             rendererVersion: "renderer:v1",
@@ -356,7 +373,6 @@ describe("stateless command risk transitions", () => {
       "single_random_outcome",
       "now_vs_later",
       "commit_now_future_payoff",
-      "paired_return",
     ] as const;
 
     await withTempState(async ({ options }) => {

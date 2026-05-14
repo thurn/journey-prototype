@@ -27,7 +27,6 @@ Each queued shape follows this sequence:
 | 19 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 22 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 24 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 25 | `paired_return` | 1.0 | Complete | Complete | Complete | Complete | Complete |
 
 ## Reference Shapes
 
@@ -62,7 +61,6 @@ These shapes are reference implementations for the migration target:
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
 - `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
-- `paired_return` completed migration commit `5265c18`, audit commit `c84da7f`, fix commit `9bf8ac3`, colocation commit `3966ddf`, and dependency cleanup commit `58ae214`.
 - Migrated shape fills live in `src/journey/shapes/<shape>/`.
 - Shared reward data comes from `src/journey/shared/rewards.ts`.
 - Shared cost data comes from `src/journey/shared/costs.ts` when the shape needs an explicit cost axis.
@@ -84,7 +82,6 @@ the target end state.
 | `now_vs_later` | Complete | Complete |
 | `one_operation_many_targets` | Complete | Shape-local shared reward adapter |
 | `one_target_many_operations` | Complete | Shape-local shared reward adapter |
-| `paired_return` | Complete | Complete |
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
@@ -95,5 +92,5 @@ the target end state.
 | `take_any_number` | Complete | Complete |
 
 Generic typed-contract plumbing carries shape IDs for structured manifest kinds
-such as `paired_return` and `flat_escalating_trade`. Debug fixture metadata also
-carries shape filters for renderer fixtures.
+such as `flat_escalating_trade`. Debug fixture metadata also carries shape
+filters for renderer fixtures.

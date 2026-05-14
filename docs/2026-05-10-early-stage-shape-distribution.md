@@ -59,7 +59,6 @@ Monte Carlo sampling rather than closed-form analysis:
 | commit_now_future_payoff | 112 | 3.73% |
 | same_reward_different_costs | 109 | 3.63% |
 | reward_after_trigger | 95 | 3.17% |
-| paired_return | 91 | 3.03% |
 | single_wager | 78 | 2.60% |
 | single_random_outcome | 77 | 2.57% |
 | now_vs_later | 73 | 2.43% |

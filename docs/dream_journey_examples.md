@@ -249,37 +249,6 @@ repair, generated-object, and distinctness contracts for a shape.
 
 - After you visit a {Purge} site, gain 200 essence.
 
-# paired_return
-
-## Buried Card
-
-- First scene:
-  - Bury {Beacon of Tomorrow}.
-  - Bury {Scrap Reclaimer}.
-  - Bury {Evacuation Enforcer}.
-- Later return:
-  - Reclaim the buried card with {Bronze Transfiguration}.
-  - Duplicate the buried card.
-
-## Sealed Sign
-
-- First scene:
-  - Seal {Ginger Root}.
-  - Seal {Pyramid Relic}.
-  - Seal {Golden Acorn}.
-- Later return:
-  - Recover the sealed Dreamsign.
-  - Transform the sealed Dreamsign into {Mandrake Root}.
-
-## Unchosen Marks
-
-- First scene:
-  - Give {Glimpse of What Was} Reclaim.
-  - Give {Glimpse of What Was} Fast.
-  - Make {Glimpse of What Was} cost 1 less.
-- Later return:
-  - Apply the two marks you did not choose to {Glimpse of What Was}.
-
 # take_any_number
 
 ## Toll Cache

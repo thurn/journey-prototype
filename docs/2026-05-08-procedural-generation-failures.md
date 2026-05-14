@@ -34,18 +34,18 @@ instead of using the richer hook, random, generated-object, and payload contract
 The highest-risk production issues are:
 
 - fixed manifest-local generated objects can appear in natural generation;
-- delayed and paired-return shapes emit simple text/precommit records instead of
-  full hook contracts;
+- delayed-hook shapes emit simple text/precommit records instead of full hook
+  contracts;
 - several normal shape fills embed reusable card, route, timed-window, random
   pool, and ladder payload catalogs directly inside shape-specific code;
 - validators still accept or enforce magic strings, exact labels, and unknown
   random kinds, which lets hardcoded scenario contracts survive.
 
 Debug payload menus are less concerning. They intentionally force deterministic
-edge cases such as resource ranges, Bane transformations, shop hooks, Dreamwell
-windows, and paired-return scenes. They should remain QA fixtures, but tests and
-docs should not treat them as evidence that natural procedural generation can
-compose those effects.
+edge cases such as resource ranges, Bane transformations, shop hooks, and
+Dreamwell windows. They should remain QA fixtures, but tests and docs should not
+treat them as evidence that natural procedural generation can compose those
+effects.
 
 ## Findings
 
@@ -128,41 +128,16 @@ precommitted delayed outcome, so deterministic replay, rendering, validation,
 and semantic operations all derive from the manifest contract instead of a text
 promise.
 
-### 3. Generic Paired Return Bypasses The Paired-Return Contract
+### 3. Future Callback Contracts Use Active Hook Shapes
 
 **Status:** Fixed.
 
-The normal `paired_return` fill in
-[`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L1094) creates text such
-as "Commit a return hook..." and precommitted metadata containing only
-`optionNumber`, `anchor`, and `reward`.
-
-The richer paired-return contract exists in
-[`manifest.ts`](../src/journey/manifest.ts#L140),
-[`hookPayloads.ts`](../src/journey/fillers/hookPayloads.ts#L435), and
-[`operationAdapters.ts`](../src/journey/operationAdapters.ts#L998). The debug
-payload can create specific sealed, borrowed, and trade return scenes, but the
-generic production path does not create `pairedReturnId`, `created`, or
-`returnScene`.
-
-This is the same class as the example "Return {borrowedDreamsign.name} and pay 1
-omen; if paid, gain 90 essence." The hardcoded debug scene is useful, but the
-normal paired-return generator should be able to compose that class from a
-return-contract payload family.
-
-**Compelling justification:** Weak. A simplified fallback may have been
-reasonable during migration, but it now bypasses the richer procedural model.
-
-**Resolution:** Normal `paired_return` generation now routes through a reusable
-paired-return fill. It composes real TOML-backed cards or Dreamsigns, created
-return anchors, return scenes, expiration windows, future costs, rewards, stable
-IDs, reward metadata, and visible hook policy into full
-`paired_return_contract` payloads. Those same payloads are mirrored into
-precommitted delayed outcomes and paired-return metadata, so renderer output,
-semantic operations, validation, and deterministic replay all derive from the
-typed `PairedReturnContract`. The forced `paired-return-seal-borrow-trade` debug
-fixture remains available for deterministic QA of the sealed, borrowed, and
-future-trade return scenes.
+Future callback examples use the active delayed-hook and trigger-backed shape
+catalog. Those fills compose real TOML-backed cards or Dreamsigns, explicit
+triggers, expiration windows, rewards, stable IDs, reward metadata, and visible
+hook policy into structured delayed-hook payloads. Renderer output, semantic
+operations, validation, and deterministic replay derive from the typed manifest
+contract.
 
 ### 4. Normal Card Operation Shapes Embed A Private Operation Catalog
 
@@ -424,12 +399,12 @@ docs/tests label them as coverage fixtures rather than natural output.
 debug payload listing now labels every advertised variant as `debug_fixture`
 coverage. Regression coverage separately proves that organic generation reaches
 the corresponding reusable contracts without forced debug payload metadata:
-normal delayed-hook shapes emit `delayed_hook_contract` outcomes, paired-return
-shapes emit `paired_return_contract` outcomes, risk and wager shapes emit typed
-random envelopes, generated objects come from the natural generated-object
-builder, and timed-window menus sample battle, Dreamwell, shop, and temporary
-object windows. Exact hardcoded debug menus are therefore treated as contract QA
-fixtures, not as evidence of natural generation breadth.
+normal delayed-hook shapes emit `delayed_hook_contract` outcomes, risk and
+wager shapes emit typed random envelopes, generated objects come from the
+natural generated-object builder, and timed-window menus sample battle,
+Dreamwell, shop, and temporary object windows. Exact hardcoded debug menus are
+therefore treated as contract QA fixtures, not as evidence of natural
+generation breadth.
 
 ### 12. Repair Logic Uses A Global Hardcoded Script And Shape-Specific Fallbacks
 
@@ -561,9 +536,8 @@ procedural generation.
    card operations, timed windows, route edits, random pools, ladder rewards,
    Bane burdens, and generated objects.
 
-3. Upgrade generic delayed and paired-return shapes to use full hook contracts.
-   The simple text/precommit form should be removed or reserved for explicit
-   compatibility tests.
+3. Keep delayed-hook shapes on full hook contracts with structured trigger,
+   duration, reward, and visibility metadata.
 
 4. Replace fixed generated object definitions in natural generation with either
    data-backed catalogs containing multiple authored entries or compositional
@@ -585,7 +559,6 @@ procedural generation.
 | --- | --- | --- |
 | Fixed generated objects | Yes | Error |
 | Generic delayed hooks | Yes | Error |
-| Generic paired return | Yes | Error |
 | `same_reward_different_costs` reward drift | Yes | Error |
 | Card operation shape lists | Yes | Error / curated concern |
 | Timed-window fixed menus | Yes | Error / curated concern |

@@ -136,7 +136,7 @@ Expected behavior:
 - Behaves like `journey --seed qa --stage mid --no-color`.
 - Does not read, freeze, or write pending simulator state.
 
-## Scenario 9: Removed Commands
+## Scenario 9: Command Surface
 
 Command:
 
@@ -174,7 +174,7 @@ Expected behavior:
   supported stages, availability, and descriptions.
 - Supported QA IDs include adapter/current, named card operations, named
   Dreamsign shops and transformations, Bane/resource edge cases, route/shop/
-  Dreamwell/status payloads, hooks, paired returns, random reveal/roll/wager
+  Dreamwell/status payloads, hooks, random reveal/roll/wager
   envelopes, generated objects, and complete decision trees.
 - Forced payload commands are deterministic and either generate a legal
   manifest or fail with an error that names the incompatible family, variant,

@@ -57,7 +57,7 @@ Target behavior:
   and reward pools expose typed operations at construction time.
 - Value metadata is produced by the typed operation builders or by the value
   subsystem from typed operation fields.
-- Random envelopes, delayed hooks, paired returns, generated objects, and route
+- Random envelopes, delayed hooks, generated objects, and route
   edits own their typed builders and validators.
 - Tests assert typed operation output at the shape or operation-family boundary.
 
@@ -103,7 +103,6 @@ operation-family registries rather than central switches:
 - Dreamsign operations
 - random envelopes
 - delayed hooks
-- paired returns
 - route edits
 - generated objects
 - status and rule mutations

@@ -18,7 +18,6 @@ const MIGRATED_SHAPE_IDS = [
   "now_vs_later",
   "one_operation_many_targets",
   "one_target_many_operations",
-  "paired_return",
   "push_your_luck",
   "random_pool_draws",
   "random_rewards",
@@ -39,11 +38,6 @@ const FILES_ALLOWED_BY_SHAPE_ID = new Map(
   Object.entries({
     flat_escalating_trade: [
       "src/journey/manifest.ts",
-    ],
-    paired_return: [
-      "src/journey/manifest.ts",
-      "src/journey/operationBuilders.ts",
-      "src/render/human.ts",
     ],
   }).map(([shapeId, paths]) => [
     shapeId,

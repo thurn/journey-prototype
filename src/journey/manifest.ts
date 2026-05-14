@@ -198,41 +198,6 @@ export type DelayedHookContract = {
   hookBudgetCost: number;
 };
 
-export type PairedReturnContract = {
-  pairedReturnId: string;
-  optionNumber?: number;
-  anchor: string;
-  created: {
-    referenceKind: "sealed_object" | "borrowed_object" | "trade_promise" | "status" | "cost" | "promise";
-    referenceId: string;
-    label: string;
-    objectKind?: "card" | "dreamsign" | "status" | "cost" | "promise";
-    cardId?: string;
-    cardName?: string;
-    dreamsignId?: string;
-    dreamsignName?: string;
-    statusScope?: string;
-    cost?: {
-      resource: "essence" | "omens";
-      amount: number;
-    };
-  };
-  returnScene: {
-    returnSceneKind: "sealed_object_return" | "borrowed_object_return" | "future_trade";
-    triggerSelector: HookTriggerSelector;
-    referencesCreatedId: string;
-    referencesAnchor?: string;
-    resolution: string;
-    expiration: HookExpirationPolicy;
-    duration: BoundedDuration;
-    futureCost?: unknown | unknown[];
-    returnReward?: unknown | unknown[];
-  };
-  futureCost?: unknown | unknown[];
-  returnReward?: unknown | unknown[];
-  visibilityPolicy: HookVisibilityPolicy;
-};
-
 export type ResourceAmountSemantics = {
   resource: "essence" | "omens" | "maxEssence";
   amountKind:
@@ -366,7 +331,6 @@ type OperationBase = {
     | "route_edit"
     | "random"
     | "delayed_hook"
-    | "paired_return"
     | "validation_requirement"
     | "generated_object";
   visibility: OperationVisibility;
@@ -490,13 +454,6 @@ export type DelayedHookOperation = OperationBase & {
   visibilityPolicy?: HookVisibilityPolicy;
   hookBudgetCost?: number;
   rewardOperations?: JourneyOperation[];
-};
-
-export type PairedReturnOperation = OperationBase & {
-  operationKind: "paired_return";
-  role: "paired_return";
-  anchor?: string;
-  contract?: PairedReturnContract;
 };
 
 export type RandomEnvelopeOperation = OperationBase & {
@@ -694,7 +651,6 @@ export type JourneyOperation =
   | StatusOperation
   | RouteEditOperation
   | DelayedHookOperation
-  | PairedReturnOperation
   | RandomEnvelopeOperation
   | TargetOperation
   | GeneratedObjectOperation
@@ -703,7 +659,6 @@ export type JourneyOperation =
 export type PrecommittedOutcomes = {
   random?: RandomPrecommittedOutcome[];
   delayed?: unknown[];
-  pairedReturn?: unknown[];
   routeEdits?: unknown[];
   sequenceMenus?: Record<string, JourneyOption[]>;
   operations?: JourneyOperation[];

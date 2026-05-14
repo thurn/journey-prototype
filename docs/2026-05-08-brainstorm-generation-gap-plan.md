@@ -62,7 +62,7 @@ output from [src/render/](../src/render/).
 The current manifest model in [src/journey/manifest.ts](../src/journey/manifest.ts)
 already contains many of the semantic surfaces needed by the brainstorm
 examples: target selectors, operation roles, resource semantics, delayed hooks,
-paired returns, random envelopes, generated objects, and value metadata.
+random envelopes, generated objects, and value metadata.
 However, normal generation still reaches only a narrower set of payloads than
 the manifest can describe. Several richer payloads exist only as debug fixtures
 under [src/journey/fixtures/debug/](../src/journey/fixtures/debug/), which is
@@ -727,7 +727,7 @@ Acceptance criteria:
 - Validate that [Waking Cache](brainstorm_examples.md#waking-cache) is possible
   as named card rewards with delayed Bane obligations.
 
-## Milestone 16: Expand Paired Return, Sealing, Borrowing, And Trading
+## Milestone 16: Expand Delayed Hook, Sealing, Borrowing, And Trading
 
 Return examples need sealed Dreamsigns, borrowed Dreamsigns with later costs,
 future trades for resources or route edits, and card or Dreamsign recovery.
@@ -737,19 +737,16 @@ Relevant files:
 - [src/journey/fillers/hookPayloads.ts](../src/journey/fillers/hookPayloads.ts)
 - [src/journey/fillers/dreamsignPayloads.ts](../src/journey/fillers/dreamsignPayloads.ts)
 - [src/journey/fillers/namedCardPayloads.ts](../src/journey/fillers/namedCardPayloads.ts)
-- [src/journey/shapes/paired_return.ts](../src/journey/shapes/paired_return.ts)
 - [src/journey/validate/precommitRules.ts](../src/journey/validate/precommitRules.ts)
 - [src/journey/value.ts](../src/journey/value.ts)
 
 Required work:
 
-- Add paired-return families for sealed Dreamsigns, sealed cards, borrowed
+- Add delayed-hook families for sealed Dreamsigns, sealed cards, borrowed
   Dreamsigns, borrowed temporary card drafts, future named-object trades,
   return-for-resource, return-for-card-operation, and return-for-route-edit.
-- Let `paired_return` support three root options when a return family needs a
-  row of symmetric sealed objects.
 - Make the created object, return scene, future cost, and return reward all
-  structured in the paired-return contract.
+  structured in the delayed-hook contract.
 - Ensure future rewards can come from resource, card, Dreamsign, route, Bane,
   and generated-object payload catalogs.
 
@@ -758,8 +755,7 @@ Acceptance criteria:
 - Normal generation can seal or borrow Dreamsigns, not only cards.
 - Return scenes can grant resources, purge cards, duplicate cards, or add route
   sites through structured operations.
-- The paired-return validator proves the return scene references the created
-  anchor.
+- Hook validation proves the return scene references the created anchor.
 - Validate that [Returning Lantern](brainstorm_examples.md#returning-lantern)
   is possible as sealed Dreamsign rows with later recovery and varied payoffs.
 - Validate that [Borrowed Crown](brainstorm_examples.md#borrowed-crown) is
@@ -988,7 +984,7 @@ Required work:
 
 - Add validators for expanded card operations, Dreamsign operations, Bane
   operations, resource semantics, route effects, battle windows, Dreamwell
-  windows, shop/status rules, delayed hooks, paired returns, random envelopes,
+  windows, shop/status rules, delayed hooks, random envelopes,
   and generated objects.
 - Ensure validators inspect typed operations and payload metadata, not rendered
   option text.
@@ -1122,8 +1118,7 @@ Add focused QA for the changed surface:
 - Use `--shape one_operation_many_targets` for shared-operation symmetry.
 - Use `--shape one_target_many_operations` for shared-target symmetry.
 - Use `--shape alter_dreamscapes` for route changes.
-- Use `--shape reward_after_trigger` and `--shape paired_return` for hook and
-  return contracts.
+- Use `--shape reward_after_trigger` for hook and return contracts.
 - Use `--shape single_random_outcome`, `--shape single_wager`, and any new
   reveal or wheel shape for random envelopes.
 

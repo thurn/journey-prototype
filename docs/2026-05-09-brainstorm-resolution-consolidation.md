@@ -213,8 +213,8 @@ priority order:
   enforce `rootOptionCount.min >= 2`. A single-rule application has no shape
   home.
 - **Generated trade tickets** (Key Ticket). Generic ticket-style anchors
-  (Key, Parchment, Token) for `paired_return`'s `future_named_object_trade`;
-  today the anchor must be a real catalog Dreamsign.
+  (Key, Parchment, Token) need a current shape owner before they can appear in
+  production generation.
 - **`expires/dissolves after N triggers` lifetime semantics** (Repeating
   Bell). No payload describes object lifetime in trigger units.
 - **In-battle one-shot status archetype** (Emergency Thread). Status payload

@@ -138,6 +138,19 @@ describe("buildProgram", () => {
     });
   }, 30_000);
 
+  it("rejects the deleted paired_return forced shape", async () => {
+    await expect(
+      execFileAsync(
+        "npm",
+        ["run", "journey", "--", "--seed", "qa", "--shape", "paired_return"],
+        { cwd: process.cwd(), timeout: 15_000 },
+      ),
+    ).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("unknown Journey shape 'paired_return'"),
+    });
+  }, 30_000);
+
   it("emits parseable stateless JSON through the npm run journey contract", async () => {
     const result = await execFileAsync(
       "npm",
@@ -162,7 +175,7 @@ describe("buildProgram", () => {
         stage: "late",
         versions: {
           contentVersion: expect.any(String),
-          shapeCatalogVersion: "journey-shapes:v25",
+          shapeCatalogVersion: "journey-shapes:v26",
           effectCatalogVersion: "effects:v7",
           valueModelVersion: "value:v10",
           rendererVersion: "renderer:v1",
@@ -223,7 +236,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 1,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v25",
+              shapeCatalogVersion: "journey-shapes:v26",
             },
           },
         },
@@ -237,7 +250,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 2,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v25",
+              shapeCatalogVersion: "journey-shapes:v26",
             },
           },
         },
@@ -251,7 +264,7 @@ describe("buildProgram", () => {
             rootJourneyIndex: 3,
             versions: {
               contentVersion: expect.any(String),
-              shapeCatalogVersion: "journey-shapes:v25",
+              shapeCatalogVersion: "journey-shapes:v26",
             },
           },
         },
