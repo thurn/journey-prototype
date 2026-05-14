@@ -41,8 +41,8 @@ such as a Dream Journey reward. Omens have no cap. Dreamtides does not use an
 explicit rarity system for cards, except for certain powerful cards that are
 designated as legendary cards.
 
-In addition to deck cards, users during a quest will select a Dreamcaller to
-lead their deck and may have some number of Dreamsigns:
+In addition to deck cards, users during a quest will select 1 of 3 Dreamcallers
+to lead their deck and may have some number of Dreamsigns:
 
 - **Dreamcaller:** An animated 3D character who starts each battle already in
   play for both participants in a battle. Each Dreamcaller has powerful ongoing,
@@ -51,10 +51,8 @@ lead their deck and may have some number of Dreamsigns:
   seeds the run's draft multiset, Dreamsign pool, and default reward bias.
 - **Dreamsigns:** Cards with 2D illustrations of objects which provide more
   minor ongoing effects. Dreamsign effects can apply during battles, on the
-  quest map, or both. Dreamsigns have a display tide for UI chrome, plus hidden
-  package-tide memberships used for quest content generation. Dreamsigns are
-  pulled from a shared run pool and are spent as soon as they are shown to the
-  player.
+  quest map, or both. Dreamsigns are pulled from a shared run pool and are spent
+  as soon as they are shown to the player.
 
 Quests display a top-level 3D screen called the [Dream Atlas](#dream-atlas) with
 a series of "dreamscapes" the user can navigate to. Each dreamscape is
@@ -71,31 +69,10 @@ battle, the user is able to select another dreamscape to navigate to, and the
 process repeats. By default, quests are single elimination: if the player loses
 any battle, the quest ends immediately.
 
-## Current Quest Prototype
-
-The current reference prototype for quest flow lives in
-`scripts/quest_prototype/` as a standalone web app. It reflects the current
-package-based run setup:
-
-1. The player is offered 3 Dreamcallers.
-2. Choosing a Dreamcaller resolves a fixed package once for the run.
-3. The starter deck, draft multiset, Dreamsign pool, and atlas are initialized.
-4. The player views the starting deck.
-5. The player views the starting dreamscape and enters it directly, with no
-   dreamscape choice, intermediate Dreamcaller Draft, or tide-pick screen.
-
-The older Unity quest prototype remains useful for some layout exploration, but
-it is no longer the source of truth for quest flow, tide logic, or draft pool
-construction. The documents [current_prototype.md](current_prototype.md) and
-[`docs/quest_prototype/quest_prototype.md`](../../quest_prototype/quest_prototype.md)
-are the technical references for the live prototype behavior that this design
-document should track.
-
 ## Tides
 
-Quest content now uses the layered tide system described in
-[Tides](../../tides/tides.md). Tides are gameplay packages, not a battle
-resource system:
+Quest content uses the layered tide system described in
+[Tides](../../tides/tides.md):
 
 - **Structural tides** are full shells. They define the deck's main engines,
   payoffs, and finishers.
@@ -104,16 +81,16 @@ resource system:
 - **Utility tides** are broad role packages. They provide generic curve,
   interaction, selection, refuel, and closing tools.
 
-Cards are assigned tides by battlefield function, not by flavor or surface
-terminology. A single card may belong to multiple package tides if it genuinely
-supports multiple gameplay patterns.
+Cards are assigned tides by battle function, not by flavor or surface
+terminology. A single card may belong to multiple package tides.
 
 For quests, the important consequences are:
 
 - Dreamcallers define **mandatory package tides** and **optional package
   tides**.
-- A run resolves one fixed **selected tide package** at quest start: mandatory
-  tides plus a chosen optional subset.
+- At the start of a quest, the player picks 1 of 3 Dreamcallers, and the tides
+  for that Dreamcaller are used to determine the draft pool for the quest as
+  described in [Package Resolution Algorithm](#package-resolution-algorithm).
 - Draft pools, Dreamsign pools, shops, and reward generators all key off these
   package tides.
 - Battles themselves use the core
@@ -121,16 +98,41 @@ For quests, the important consequences are:
   paid for with **energy**, and energy production comes from the shared
   **Dreamwell** rather than from tide-specific resources.
 
-Cards and Dreamsigns may still expose one of the seven display tides
-(Bloom/Arc/Ignite/Pact/Umbra/Rime/Surge, plus Neutral) for iconography and card
-chrome, but quest generation should treat those as presentation. The underlying
-package tides are what drive run identity.
+Cards and Dreamsigns are tagged with tides.
+
+## Quest Start & Dreamcaller Selection
+
+Dreamcaller selection is the quest-start screen shown before the player enters
+the Dream Atlas. The player is presented with 3 Dreamcallers and chooses one to
+define the run.
+
+Selecting a Dreamcaller performs all run bootstrap work immediately:
+
+- Add the fixed starter deck.
+- Resolve the Dreamcaller's mandatory and optional package tides into one legal
+  selected tide package.
+- Initialize the draft multiset and Dreamsign pool from that package.
+- Generate the initial atlas.
+- Make the starting deck available through the deck UI.
+- Set the starting dreamscape as the current destination and enter it directly.
+
+**UI:** Dreamcallers are shown in their full-body "card" representation, with
+ability text displayed alongside their 3D models and highlighted structural and
+support tides. The Dreamcaller cards animate in from a small size in the center
+of the screen. Each Dreamcaller does a different humanoid animation within its
+card frame. A primary action button appears below each Dreamcaller allowing it
+to be selected. The selected Dreamcaller animates to the bottom left of the
+screen to appear in a square frame (head only). The other cards animate back to
+a small size.
+
+## Rarity
+
+Dreamtides does *not* have card rarity, except for the "legendary" status on
+certain powerful cards.
 
 ## Draft Pool Construction
 
-The draft is now a fixed multiset built from the selected Dreamcaller package.
-It is not a pod draft, does not use AI bot drafters, and does not deal or pass
-packs.
+The draft pool is a fixed multiset built from the selected Dreamcaller's tides.
 
 ### Package Resolution Algorithm
 
@@ -150,8 +152,8 @@ At quest start, choosing a Dreamcaller resolves the run's draft pool as follows:
 6. Legal draft pools are `175-225` cards. Preferred draft pools are `190-210`
    cards.
 7. Choose the best candidate from the preferred range if one exists; otherwise
-   choose the best legal candidate. "Best" currently means the largest pool
-   size, with deterministic tie-breaking by the sorted optional-subset key.
+   choose the best legal candidate. "Best" means the closest to the center of
+   the target pool size.
 
 This makes the run package concrete and replayable: Dreamcaller choice decides
 which structural/support/utility packages are active, and cards that bridge
@@ -162,10 +164,10 @@ The same resolution step also builds the run's initial Dreamsign pool by taking
 every Dreamsign template with any package-tide overlap against the selected
 tides.
 
-### Offer Generation
+### Draft Pick Generation
 
 The draft state stores `remainingCopiesByCard` for the resolved multiset and
-generates offers directly from that data:
+generates draft pick offers directly from that data:
 
 - Each pick shows **4 unique cards** when at least 4 unique cards remain.
 - Cards are sampled **without replacement**, weighted by their remaining copy
@@ -174,17 +176,13 @@ generates offers directly from that data:
   burned; they do not return to the pool later.
 - The player pick adds the chosen card to the deck but does not otherwise alter
   the already-spent offer.
-- The draft multiset persists across dreamscapes for the entire run.
-- There are no rounds, no refresh after 10 picks, and no hidden bot picks.
-
-This system makes the run feel like drafting through a finite, Dreamcaller-tuned
-inventory rather than fighting over shared packs at a table.
+- The draft multiset is recreated when it runs out of cards.
 
 ### Draft Sites On The Map
 
 Each [Draft site](#draft) on the dreamscape map provides **5 picks** from the
-ongoing multiset. Early dreamscapes still provide more opportunities to draft
-than late dreamscapes:
+ongoing multiset. Early dreamscapes provide more opportunities to draft than
+late dreamscapes:
 
 | Completion Level | Draft Sites |
 | ---------------- | ----------- |
@@ -219,22 +217,20 @@ side with content beside them.
 
 The Battle site is the core gameplay element of Dreamtides, and it allows users
 to play a match against an AI opponent. Each battle has an assigned opponent
-dreamcaller with their own deck. Opponent decks are (for now) defined statically
-in TOML. Before the battle begins, the opposing dreamcaller is displayed so the
-user can understand any special abilities they have. Opposing dreamsigns are
-also shown. When the battle completes, the [Victory or Defeat](#victory--defeat)
-screen is shown along with any associated battle rewards. Battles use the normal
-Dreamwell-and-energy rules from
-[`docs/battle_rules/battle_rules.md`](../../battle_rules/battle_rules.md): the
-Dreamwell phase increases energy production, current energy resets to production
-each turn, and playing cards only checks energy cost, not tide membership.
-Quests are single elimination by default, so losing this battle ends the run.
+dreamcaller with their own deck. Opponent decks are derived randomly from the
+required tide pool for that dreamcaller. Before the battle begins, the opposing
+dreamcaller is displayed so the user can understand any special abilities they
+have. Opposing dreamsigns are also shown. When the battle completes, the
+[Victory or Defeat](#victory--defeat) screen is shown along with any associated
+battle rewards. Battles use the rules from [Battle
+Rules](../../battle_rules/battle_rules.md). Quests are single elimination by
+default, so losing this battle ends the run.
 
 **UI:** The camera pans in to the battle scene. The "full body" card
 representation of the enemy dreamcaller animates in from a small size at the
 center of the battle area. The enemy's deck is present in the center of the
-scene. The dreamcaller character within the card performs a humanoid animation.
-The rules text on the enemy dreamcaller is displayed, along with any enemy
+scene. The dreamcaller character within the card performs an animation. The
+rules text on the enemy dreamcaller is displayed, along with any enemy
 dreamsigns. A "start battle" button is shown. Clicking the start battle button
 causes the enemy dreamcaller to animate to their battle position in the small
 dreamcaller card format (head only, no text). The user dreamcaller and user
@@ -261,58 +257,6 @@ back to the map view. Cards are shown with an orange outline.
 
 Icon: "Rectangle Vertical"
 
-### Dreamcaller Selection
-
-Dreamcaller selection is no longer a dreamscape site. It is the quest-start
-screen shown before the player enters the Dream Atlas. The player is presented
-with 3 Dreamcallers and chooses one to define the run.
-
-Selecting a Dreamcaller performs all run bootstrap work immediately:
-
-- Add the fixed starter deck.
-- Resolve the Dreamcaller's mandatory and optional package tides into one legal
-  selected tide package.
-- Initialize the draft multiset and Dreamsign pool from that package.
-- Generate the initial atlas.
-- Show the starting deck.
-- Show the starting dreamscape, then enter that dreamscape directly.
-
-Dreamcallers should communicate their intended play pattern by surfacing a small
-set of structural/support tides and their rules text, but there is no longer a
-mid-run "wait to pick your archetype" decision or Dreamcaller-granted resource
-fixing.
-
-**UI:** Dreamcallers are shown in their full-body "card" representation, with
-ability text displayed alongside their 3D models and highlighted structural and
-support tides. The Dreamcaller cards animate in from a small size in the center
-of the screen. Each Dreamcaller does a different humanoid animation within its
-card frame. A primary action button appears below each Dreamcaller allowing it
-to be selected. The selected Dreamcaller animates to the bottom left of the
-screen to appear in a square frame (head only). The other cards animate back to
-a small size.
-
-Icon: "Crown"
-
-### Specialty Shop
-
-A specialty shop operates in a similar manner to
-[Battle Rewards](#battle-rewards), showing a curated selection of powerful cards
-that prefer the run's selected package tides and then tighten further around the
-player's actual deck composition.
-
-Future iterations may experiment with more novel offerings, such as:
-
-- A curated selection of cards from *other* packages that synergize well with
-  the player's deck.
-- A curated offering of removal effects, card advantage effects, or other
-  mechanical categories.
-- Strong package-adjacent card selection (the default behavior).
-
-**UI:** Identical UI to the regular shop site except that it features a
-different NPC.
-
-Icon: "Store Alt 2"
-
 ### Shop
 
 The shop is the primary site in which the user can spend quest currencies. Shops
@@ -323,11 +267,12 @@ cost essence. Dreamsigns cost omens rather than essence, typically around 1-3
 omens. Rerolling the shop also costs omens rather than essence, typically 1
 omen.
 
-Shop cards should prefer content that overlaps the run's selected package tides,
-then weight further toward the packages the player's current deck has actually
-started to accumulate. If no package-adjacent content is available, the shop may
-fall back to the broader card pool. Dreamsign offers are drawn from the shared
-remaining Dreamsign pool for the run.
+A standard shop configuration is 3 cards to purchase, 2 dreamsigns to purchase,
+and 1 reroll to purchase.
+
+Shop cards and dreamsigns are drawn from the tide-based draft pool, in the same
+manner as draft picks and dreamsign offerings. Cards and dreamsigns draw from
+the shop are removed from the draft pool, even if not selected.
 
 Shop base prices and the overall essence/omen economy are defined in TOML. The
 shop implements a random "discount" system where one or more items can be
@@ -351,13 +296,24 @@ be revisited.
 
 Icon: "Store"
 
+### Specialty Shop
+
+A specialty shop operates in a similar manner to a [Shop](#shop), except that it
+*only* features cards or dreamsigns from a single tide, which is always one of
+the mandatory tides for the user's dreamcaller.
+
+**UI:** Identical UI to the regular shop site except that it features a
+different NPC.
+
+Icon: "Store Alt 2"
+
 ### Dreamsign Offering
 
 At a dreamsign offering site, the user is presented with a single dreamsign to
 gain. The offering may be rejected, but there is no reward for doing so. The
 offered Dreamsign is drawn from the run's shared Dreamsign pool, which was
-seeded from the selected Dreamcaller package. Revealed Dreamsigns are spent from
-that pool immediately, so rejecting an offer does not return it to the run.
+seeded from the selected Dreamcaller's tides. Revealed Dreamsigns are removed
+from that pool immediately, so rejecting an offer does not return it to the run.
 
 **UI:** The dreamsign animates to be displayed from screen center at a small
 scale. A purple accept button and a gray reject button are displayed. The
@@ -368,11 +324,12 @@ Icon: "Sparkles"
 
 ### Dreamsign Draft
 
-At a dreamsign draft site, the user is presented with around three dreamsigns
-and is able to select one to gain. It is again possible to select no dreamsign.
-As with Dreamsign Offering, the shown Dreamsigns are drawn from the run's shared
-Dreamsign pool and are spent as soon as they are shown. Skipping the site means
-the revealed Dreamsigns are lost for the rest of the run.
+At a dreamsign draft site, the user is presented with three dreamsigns and is
+able to select one to gain. It is again possible to select no dreamsign. As with
+Dreamsign Offering, the shown Dreamsigns are drawn from the run's shared
+Dreamsign pool based on tides and are removed from the pool as soon as they are
+shown. Skipping the site means the revealed Dreamsigns are lost for the rest of
+the run, or until the pool runs out and needs to be regenerated.
 
 **UI:** The three dreamsigns animate in at full size from the bottom of the
 screen in a staggered animation, positioning themselves in a single row. Purple
@@ -386,27 +343,14 @@ Icon: "Sparkles Alt"
 ### Dream Journey
 
 A dream journey functions in a manner similar to a random event in other
-roguelike deckbuilding games. The user is offered a selection between two
-circular cards with unique art. Each card has a description, although the amount
-of information revealed about the effects is variable, and some dream journeys
-have highly random effects which are not disclosed in advance. This is where we
-put the biggest random effects which can structurally change a quest or modify
-the user's entire deck. A close button is displayed in a similar manner to the
-shop screen allowing the user to reject the dream journey options.
-
-Some dream journeys are drawn with a distinct "cost" card frame, indicating that
-the journey has both a benefit and an associated cost the user must pay to
-accept it. Cost-framed journeys are drawn from the same pool and appear at
-ordinary Dream Journey sites alongside benefit-only journeys; the frame is
-purely a visual cue that a price is attached. When a cost-framed journey is
-accepted, the cost card resolves alongside the benefit, typically with its own
-effect animation, sound effect, and particle effect.
-
-All dream journeys are equally likely to appear: there is no normal rarity tier
-or weighting between journey templates. The only explicit rarity-like concept in
-Dreamtides is that certain powerful cards are designated as legendary cards.
-Which journeys show up at a given site is determined purely by uniform random
-sampling from the journey pool.
+roguelike deckbuilding games. The user is offered a selection between 1-3
+circular cards with art based on the effect. Each card has a description,
+although the amount of information revealed about the effects is variable, and
+some dream journeys have highly random effects which are not disclosed in
+advance. This is where we put the biggest random effects which can structurally
+change a quest or modify the user's entire deck. A close button is displayed in
+a similar manner to the shop screen allowing the user to reject the dream
+journey options. Some dream journey types explicitly remove the close button.
 
 **UI:** An NPC is shown who performs an animation and displays a speech bubble
 with some dialog when the camera arrives at this site. The journey cards animate
@@ -420,9 +364,8 @@ via a custom animation (e.g. cards might fade in and then be animated to the
 user's quest deck if the journey effect is "add 3 cards to your deck"). Once the
 effect animation completes, the camera pulls back to the map screen. A dream
 journey is a circular card image which displays its rules text on hover/long
-press. For cost-framed journeys, after the benefit animation completes the cost
-card animates to screen center and plays its own custom animation before the
-camera pulls back.
+press. For journeys with multiple costs or effects, each animation plays in
+sequence.
 
 Icon: "Moon + Star"
 
@@ -482,7 +425,7 @@ transfiguration. Possible transfigurations include:
 - Magenta Transfiguration: Increases the frequency of named card triggers,
   changing:
   - A "materialized" trigger to also happen when the card dissolves
-  - A "judgment" trigger to also happen when the card is materialized
+  - A "dawn" trigger to also happen when the card is materialized
   - A "once per turn" trigger to happen any number of times per turn
 - Azure Transfiguration: Appends "draw a card" to the text of an event card.
   Only available for events.
@@ -527,12 +470,13 @@ to allow the user to decline duplication.
 
 Icon: "Copy"
 
-### Reward Site
+### Dreamsign Reward Site
 
-A reward site is a special site for granting the user a fixed reward (a specific
-card or cards, dreamsign, group of dreamsigns, etc). The distinguishing factor
-of reward sites is that the reward is fixed by dreamscape generation rather than
-randomly rolled when the site is visited.
+A dreamsign reward site is a special site for granting the user a known
+dreamsign. The distinguishing factor of dreamsign reward sites is that the
+reward is fixed by dreamscape generation and appears on the dream atlas rather
+than randomly rolled when the site is visited. Otherwise it is identical to a
+[Dreamsign Offering](#dreamsign-offering) site.
 
 **UI:** The camera pulls in on a scene showing the reward items in question,
 with a purple "accept" button and a gray "decline" button. Accepting the reward
@@ -543,15 +487,15 @@ Icon: "Treasure Chest"
 
 ### Cleanse
 
-A Cleanse site allows the user to remove up to 3 random [Banes](#banes) from
+A Cleanse site allows the user to remove up to 3 chosen [Banes](#banes) from
 their deck or dreamsigns.
 
 **UI:** An NPC is shown who performs an animation and displays a speech bubble
-with some dialog when the camera arrives at this site. The randomly selected
-cards or dreamsigns to cleanse emerge from the quest deck or dreamsign display.
-A purple "cleanse" button is displayed, along with a gray "decline" button.
-Selecting "cleanse" causes the bane cards to play a dissolve animation, and then
-the camera pulls back to the map screen.
+with some dialog when the camera arrives at this site. The cards or dreamsigns
+to cleanse emerge from the quest deck or dreamsign display. A purple "cleanse"
+button is displayed, along with a gray "decline" button. Selecting "cleanse"
+causes the bane cards to play a dissolve animation, and then the camera pulls
+back to the map screen.
 
 Icon: "Snowflake"
 
@@ -577,12 +521,8 @@ custom cards in their decks. See [Boss Dreamcallers](bosses.md) for details.
 ### Battle Rewards
 
 Completing a battle always grants an essence reward, which increases as the user
-completes more dreamscapes. On victory, the user also gains 1-3 omens. The user
-then gets a 4-card reward pick drawn from a package-adjacent reward pool. This
-reward generator should prefer cards overlapping the run's selected package
-tides, with a fallback to the broader pool if necessary. Battle rewards do not
-consume the main draft multiset, so they are a separate way to inject
-high-synergy cards into the deck. This draft pick cannot be skipped.
+completes more dreamscapes. The user also gains 1-3 omens, again increasing as
+the user completes more dreamscapes.
 
 ## Limits
 
@@ -617,12 +557,11 @@ Bane cards generally have negative effects when drawn. Bane cards can be
 
 ## Dream Atlas
 
-The Dream Atlas is the world map players navigate after Dreamcaller selection,
-starting deck review, and starting dreamscape review. It shows a 3D map of
-dreamscapes represented as circular miniature "worlds," connected by dotted
-lines. For later dreamscape choices, the player can hover over or long-press a
-dreamscape to preview its biome and preview site, then click it again to zoom
-the camera in to that dreamscape.
+The Dream Atlas is the world map players navigate after Dreamcaller selection.
+It shows a 3D map of dreamscapes represented as circular miniature "worlds,"
+connected by dotted lines. For later dreamscape choices, the player can hover
+over or long-press a dreamscape to preview its biome and preview site, then
+click it again to zoom the camera in to that dreamscape.
 
 Each dreamscape can be in one of three states:
 
@@ -632,18 +571,18 @@ Each dreamscape can be in one of three states:
   destination.
 - **Unavailable**: The player cannot choose this dreamscape yet.
 
-The player begins at the center of the Dream Atlas, called the **Nexus**. At the
-start, the run has exactly one starting dreamscape connected to the Nexus. The
-player views that dreamscape and enters it directly instead of choosing between
-multiple initial dreamscapes.
+The player begins inside the **starting dreamscape**, which sits at the center
+of the Dream Atlas. The player enters the starting dreamscape directly when the
+run begins; the Atlas screen marks it "You started here" with a slight visual
+emphasis so the player keeps their bearings.
 
 After the player visits a dreamscape and completes its battle, that dreamscape
 becomes **Completed**. Any dreamscapes directly connected to it then also become
 **Available**. The number of dreamscapes the user has completed is called the
 'Completion Level' for that quest.
 
-In other words, a dreamscape is **Available** only if it is connected to the
-Nexus or to at least one **Completed** dreamscape.
+In other words, a dreamscape is **Available** only if it is connected to at
+least one **Completed** dreamscape.
 
 Each dreamscape displays exactly one site icon on the atlas to preview one site
 contained in that dreamscape. This icon is not a battle or draft site. If the
@@ -673,8 +612,7 @@ Transfiguration, Purge, and Duplication sites are more common later in the
 Quest, for example.
 
 All sites can appear a maximum of 1 time in a dreamscape, with the exception
-that there can be up to 2 Draft sites (as noted below) and up to 2 Essence
-sites.
+that there can be up to 2 Draft sites.
 
 Draft sites are handled differently. Dreamscapes have a deterministic number of
 draft sites based on completion level.
@@ -685,10 +623,7 @@ draft sites based on completion level.
 | 2, 3             | 1           |
 | 4+               | 0           |
 
-Battle sites are also distinct: Each dreamscape has exactly one Battle site. The
-opponent dreamcaller, dreamsigns, and deck for the battle is selected from a
-pool of opponents defined in TOML for a given completion level. Difficulty
-scaling is configured in TOML.
+Battle sites are also distinct: Each dreamscape has exactly one Battle site.
 
 ### Enhanced Sites
 
@@ -702,14 +637,11 @@ visited. The available enhanced sites are:
 - **Shop**: The reroll option is free
 - **Dreamsign Offering/Dreamsign Draft**: A dreamsign draft is offered instead,
   or a draft is offered with an additional option
-- **Dream Journey**: A 3rd dream journey option is provided
 - **Purge**: Up to 6 cards can be removed from the deck
 - **Essence**: The essence amount given is doubled
 - **Transfiguration**: The player may select which card in their deck receives
   transfiguration
 - **Duplication**: The player may select which card in their deck is duplicated
-- **Specialty Shop**: The player may select any number of the offered cards to
-  add to their deck.
 
 ## Implementation Strategy and QA
 
