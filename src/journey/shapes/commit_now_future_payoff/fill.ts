@@ -667,13 +667,13 @@ function commitmentOption(
   row: CommitmentRow,
   timing: TimingProfile,
 ): JourneyOption {
-  const costText = lowerFirst(costTextForCommitment(row.cost));
+  const costText = costTextForCommitment(row.cost);
   const rewardText = lowerFirst(rewardTextForDelay(row.reward));
 
   return {
     number,
     symbols: ["commitment", "cost", "future", "reward"],
-    text: `Commit now. ${sentence(costText)} ${sentence(`${timing.optionPrefix}, ${rewardText}`)}`,
+    text: `${sentence(costText)} ${sentence(`${timing.optionPrefix}, ${rewardText}`)}`,
     operations: [],
     costs: [costPayload(row.cost)],
     effects: [],

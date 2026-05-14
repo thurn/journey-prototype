@@ -19,6 +19,9 @@ const BROAD_DELAYED_REWARD_IDS = new Set([
   "apply_named_transfiguration_to_all_predicate_cards",
 ]);
 
+const NOW_VS_LATER_LABEL_TEXT =
+  /\b(?:Take a modest reward now|reward now|for a richer reward)\b/iu;
+
 type SharedRewardPayload = {
   readonly templateId?: string;
   readonly subIds?: readonly string[];
@@ -88,8 +91,11 @@ describe("now_vs_later fill", () => {
     const fill = nowVsLaterPlugin.fill(args);
 
     expect(fill.options).toHaveLength(2);
-    expect(fill.options[0]!.text).toMatch(/\bnow\b/u);
-    expect(fill.options[1]!.text).toMatch(/\bWait\b/u);
+    expect(fill.options[0]!.text).not.toMatch(NOW_VS_LATER_LABEL_TEXT);
+    expect(fill.options[1]!.text).toMatch(
+      /^(?:At the next dreamscape|After two dreamscapes|After your next battle victory), /u,
+    );
+    expect(fill.options[1]!.text).not.toMatch(NOW_VS_LATER_LABEL_TEXT);
     expect(fill.options[1]!.netConvertedEssence).toBeGreaterThan(
       fill.options[0]!.netConvertedEssence,
     );

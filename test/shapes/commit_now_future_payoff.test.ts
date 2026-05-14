@@ -19,6 +19,16 @@ type SharedTemplatePayload = {
   readonly timing?: string;
 };
 
+type SharedCostPayload = SharedTemplatePayload & {
+  readonly text?: string;
+};
+
+const COMMITMENT_LABEL_TEXT = /\bCommit now\b/iu;
+
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
 async function manifestFor(seed: string, stage: JourneyStage): Promise<JourneyManifest> {
   const { content, contentVersion } = await loadContentContext(process.cwd());
   const state = createInitialJourneyState({ seed, content, contentVersion });
@@ -52,7 +62,11 @@ describe("commit_now_future_payoff fill", () => {
     expect(fill.precommitted.delayed).toHaveLength(3);
 
     for (const option of fill.options) {
-      expect(option.text).toMatch(/^Commit now\. /u);
+      const cost = option.costs[0] as SharedCostPayload | undefined;
+
+      expect(cost?.text).toBeDefined();
+      expect(option.text.startsWith(sentence(cost!.text!))).toBe(true);
+      expect(option.text).not.toMatch(COMMITMENT_LABEL_TEXT);
       expect(option.operations).toEqual([]);
       expect(option.triggers).toEqual([]);
       expect(option.costs[0]).toMatchObject({
@@ -122,7 +136,8 @@ describe("commit_now_future_payoff fill", () => {
     const multiAction = fill.options.find((option) => option.text.includes(", and "));
 
     expect(multiAction).toBeDefined();
-    expect(multiAction!.text).toMatch(/^Commit now\. .+ At the next dreamscape, .+, and .+\.$/u);
+    expect(multiAction!.text).toMatch(/^.+\. At the next dreamscape, .+, and .+\.$/u);
+    expect(multiAction!.text).not.toMatch(COMMITMENT_LABEL_TEXT);
     expect(multiAction!.text.split("At the next dreamscape, ")[1]!.slice(0, -1))
       .not.toContain(".");
   });

@@ -52,7 +52,7 @@ type TimingProfile = {
 const TIMING_PROFILES: readonly TimingProfile[] = [
   {
     key: "next-dreamscape",
-    optionPrefix: "Wait until the next dreamscape",
+    optionPrefix: "At the next dreamscape",
     triggerSelector: {
       triggerKind: "dreamscape",
       label: "the next dreamscape",
@@ -70,7 +70,7 @@ const TIMING_PROFILES: readonly TimingProfile[] = [
   },
   {
     key: "two-dreamscapes",
-    optionPrefix: "Wait for two dreamscapes",
+    optionPrefix: "After two dreamscapes",
     triggerSelector: {
       triggerKind: "dreamscape",
       label: "after two dreamscapes",
@@ -88,7 +88,7 @@ const TIMING_PROFILES: readonly TimingProfile[] = [
   },
   {
     key: "next-victory",
-    optionPrefix: "Wait until your next victory",
+    optionPrefix: "After your next battle victory",
     triggerSelector: {
       triggerKind: "victory",
       label: "your next victory",
@@ -364,13 +364,13 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
     options: [
       emptyOption(
         1,
-        sentence(`Take a modest reward now and ${lowerFirst(immediate.text)}`),
+        sentence(immediate.text),
         ["reward", "now"],
         immediate.cec,
       ),
       emptyOption(
         2,
-        sentence(`${timing.optionPrefix} for a richer reward, ${lowerFirst(delayedRewardText(delayed))}`),
+        sentence(`${timing.optionPrefix}, ${lowerFirst(delayedRewardText(delayed))}`),
         ["reward", "delayed"],
         delayed.cec,
         delayedUncertainty,
