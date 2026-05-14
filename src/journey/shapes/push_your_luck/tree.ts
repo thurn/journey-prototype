@@ -20,8 +20,6 @@ const PUSH_REWARD_FAMILIES = [
   "omens",
 ] as const;
 
-type PushRewardFamilyId = (typeof PUSH_REWARD_FAMILIES)[number];
-
 type TreeBranchArgs = {
   id: string;
   label: string;
@@ -145,10 +143,6 @@ function pushChanceProgression(
   return Array.from({ length: levels }, (_, index) =>
     Math.min(ceiling, start + step * index),
   );
-}
-
-function withoutFinalPeriod(text: string): string {
-  return text.replace(/\.$/u, "");
 }
 
 function lowerFirst(text: string): string {
