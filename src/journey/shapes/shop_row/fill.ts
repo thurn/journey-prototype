@@ -29,6 +29,7 @@ const RESOURCE_ARBITRAGE_REWARD_IDS = new Set([
 
 const SHOP_ROW_EXCLUDED_REWARD_IDS = new Set([
   "apply_named_transfiguration_to_all_predicate_cards",
+  "take_any_from_predicate_choices",
 ]);
 
 type RolledReward = {
@@ -516,6 +517,7 @@ export function shopRowFill(args: ShapeFillArgs): FilledJourney {
   );
 
   return {
+    presentation: { flatMenuHeader: "Take any number:" },
     options: priced.map((reward, index) => shopOption(index + 1, reward)),
     precommitted: {},
   };

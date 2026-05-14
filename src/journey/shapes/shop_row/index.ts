@@ -7,8 +7,8 @@ import { shopRowFill } from "./fill.js";
 export const shopRowPlugin = defineShapePlugin({
   definition: {
     id: "shop_row",
-    topology: "direct_menu",
-    rootOptionCount: { min: 2, max: 4 },
+    topology: "repeatable_menu",
+    rootOptionCount: { min: 3, max: 3 },
     supportedTags: ["shop", "cost", "essence", "reward", "menu"],
     validationRules: [
       "manifest_schema_version",
@@ -20,7 +20,7 @@ export const shopRowPlugin = defineShapePlugin({
     versionContribution: {
       catalogVersion: JOURNEY_SHAPE_CATALOG_VERSION,
       id: "shop_row",
-      topology: "direct_menu",
+      topology: "repeatable_menu",
     },
   },
   fill: shopRowFill,

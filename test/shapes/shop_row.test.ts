@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { validateJourneyManifest } from "../../src/journey/validate/index.js";
 import { loadContentContext } from "../../src/commands/shared.js";
 import { generateNextJourney } from "../../src/journey/generate.js";
+import { getShapePlugin } from "../../src/journey/shapes.js";
 import { buildJourneyContext } from "../../src/quest/context.js";
 import {
   createInitialJourneyState,
   simulateQuestStateForStage,
 } from "../../src/quest/init.js";
+import { renderJourneyHuman } from "../../src/render/human.js";
 
 async function shopRowManifest(seed: string, stage: "early" | "mid" | "late" = "mid") {
   const { content, contentVersion } = await loadContentContext(process.cwd());
@@ -115,6 +117,22 @@ describe("shop_row fill", () => {
     expect(validateJourneyManifest(first.manifest, first.context)).toEqual({
       ok: true,
     });
+  });
+
+  it("renders shop rows as a take-any-number purchase menu", async () => {
+    const { context, manifest } = await shopRowManifest("audit:shop_row:mid:01", "mid");
+    const rendered = renderJourneyHuman(context.state, manifest, {
+      color: false,
+      debug: false,
+      debugContext: false,
+      showDeck: false,
+      verbose: false,
+    });
+
+    expect(getShapePlugin("shop_row").definition.topology).toBe("repeatable_menu");
+    expect(manifest.presentation).toEqual({ flatMenuHeader: "Take any number:" });
+    expect(rendered).toContain("\nTake any number:\n1. ");
+    expect(rendered).not.toMatch(/\n\d+\. .*Take any number/u);
   });
 
   it("keeps all-predicate transfiguration upgrades out of shop rows", async () => {
