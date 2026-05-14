@@ -32,14 +32,6 @@ is 1. In a batch, each item uses the same quest seed and command parameters but
 increments the root Journey index, producing stable Journey IDs and independent
 root generation rolls without writing simulator state.
 
-Removed from the documented workflow:
-
-- `journey pick`
-- `journey new`
-- `journey state`
-
-Those old commands described a stateful simulator and are not part of V2.
-
 ## Determinism
 
 Without `--seed`, each invocation chooses a fresh random seed. With the same
@@ -58,9 +50,9 @@ one generated Journey and includes the journey ID, seed, stage, shape ID,
 selected tags, flat options or decision-tree data, references, precommitted
 outcomes, values, repairs, and debug metadata.
 
-Flat menus remain flat. `take_any_number` is a repeatable menu with a visible
-cap and leave option. True sequential shapes are represented by complete tree
-data:
+Flat menus remain flat. `take_any_number` is a repeatable menu with a
+body-level selection header and leave option. True sequential shapes are
+represented by complete tree data:
 
 - root node ID
 - level nodes
@@ -95,12 +87,6 @@ shape ID, content version, catalog version, command parameters, and debug
 metadata.
 
 ## Shape Catalog
-
-The V2 catalog removes the old interactive sequential shapes:
-
-- `repeat_to_scale`
-- `sequential_offers`
-- `escalating_search`
 
 The canonical true-sequential tree shapes are:
 

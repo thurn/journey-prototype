@@ -58,7 +58,7 @@ function fakeDraw(seed: string): DrawContext {
 }
 
 describe("take_any_number fill", () => {
-  it("produces a capped repeatable menu with a leave option", () => {
+  it("produces an any-number repeatable menu with a leave option", () => {
     for (let index = 0; index < 20; index += 1) {
       const context = fakeCtx();
       const drawContext = fakeDraw(`take-any-number-${index}`);
@@ -66,13 +66,14 @@ describe("take_any_number fill", () => {
       const fill = takeAnyNumberPlugin.fill({ context, drawContext, stage });
 
       expect(fill.options).toHaveLength(4);
+      expect(fill.presentation).toEqual({ flatMenuHeader: "Take any number:" });
       expect(fill.precommitted).toEqual({});
       expect(fill.symmetryContracts).toBeUndefined();
 
       for (const option of fill.options.slice(0, 3)) {
-        expect(option.text).toMatch(
-          /^Take up to 2 rewards from this cache\. .+\. .+\.$/u,
-        );
+        expect(option.text).toMatch(/^.+\. .+\.$/u);
+        expect(option.text).not.toContain("Take up to");
+        expect(option.text).not.toContain("Take any number");
         expect(option.text).not.toMatch(/\b(?:Cost|Reward):/u);
         expect(option.pickBehavior).toBe("record_and_generate_next");
         expect(option.operations).toEqual([]);
@@ -151,6 +152,7 @@ describe("take_any_number fill", () => {
         forcedStage: "early",
       });
 
+      expect(manifest.presentation).toEqual({ flatMenuHeader: "Take any number:" });
       expect(manifest.options).toHaveLength(4);
       for (const option of manifest.options.slice(0, 3)) {
         expect(option.text).not.toMatch(/Take any number of .+ from \d+ choices/u);
@@ -191,5 +193,38 @@ describe("take_any_number fill", () => {
 
     expect(rendered).toContain("Selected shape: take_any_number");
     expect(rendered).toMatch(/Shape scoring: [a-z_]+ [0-9.]+/u);
+  });
+
+  it("renders the any-number instruction as a body header", async () => {
+    const seed = "audit:take_any_number:early:01";
+    const { content, contentVersion } = await loadContentContext(process.cwd());
+    const state = createInitialJourneyState({ seed, content, contentVersion });
+    simulateQuestStateForStage({
+      state,
+      stage: "early",
+      drawContext: { seed, contentVersion, rootJourneyIndex: 0 },
+    });
+    const context = buildJourneyContext({
+      projectRoot: process.cwd(),
+      content,
+      state,
+      contentVersion,
+    });
+    const manifest = generateNextJourney({
+      context,
+      forcedShapeId: "take_any_number",
+      forcedStage: "early",
+    });
+    const rendered = renderJourneyHuman(state, manifest, {
+      color: false,
+      debug: false,
+      debugContext: false,
+      showDeck: false,
+      verbose: false,
+    });
+
+    expect(rendered).toContain("\nTake any number:\n1. ");
+    expect(rendered).not.toContain("Take up to 2 rewards from this cache.");
+    expect(rendered).not.toMatch(/\n1\. Take any number:/u);
   });
 });

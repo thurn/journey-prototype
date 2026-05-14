@@ -174,7 +174,7 @@ useful are all shapes:
 - singular reward
 - risk or skip
 - now versus later
-- take any number up to a visible cap
+- take any number from a visible cache
 - one-shot random outcome
 - push your luck
 - escalating costs toward a large reward
@@ -411,7 +411,7 @@ classify new ideas quickly.
 
 Simple reward-effect entries should be beneficial in at least some reasonable
 run states. If an effect already contains its own downside, uncertainty, or
-tradeoff and no longer reads cleanly as cost plus reward, it should usually be
+tradeoff and does not read cleanly as cost plus reward, it should usually be
 authored as a compound entry or as a Journey-Shape-specific fill rule rather
 than pretending to be a simple reward.
 
@@ -632,15 +632,13 @@ identity.
 ### take_any_number
 
 The site reveals a bounded cache of rewards and lets the player claim any
-subset of them up to a visible cap. This is structurally distinct from true
-sequential Journeys: it is an open repeatable menu, not a decision tree. The
-player sees each available take action and a leave action at the same time.
+subset of them. This is structurally distinct from true sequential Journeys: it
+is an open repeatable menu, not a decision tree. The player sees each available
+take action and a leave action at the same time.
 
 Every accepted reward must carry real limiting structure: a shared burden, a
-cost, a risk envelope, or a clearly diminishing later reward. A pure cap is only
-sufficient in a surface that actually shows more desirable rewards than the cap
-allows the player to keep. If the menu is fully open and every item is pure
-upside, the scene collapses into taking everything and should not use this
+cost, a risk envelope, or a clearly diminishing later reward. A menu where every
+item is pure upside collapses into taking everything and should not use this
 shape. Rare "gain this whole cache" moments should be authored as
 `single_reward`, `resolved_random_series`, or another special-event shape where
 the whole bundle is the one reward, not as an open-pick menu pretending to
@@ -903,7 +901,7 @@ Validation should reject patterns such as:
 
 - one option that grants a reward and another option that is only the cost or
   burden from a related bargain
-- one option that upgrades or adds future value and another that simply removes
+- one option that upgrades or adds future value and another that simply subtracts
   future value with no compensating upside
 - a one-target surgery menu where one button is an upgrade path and another is
   just self-sabotage on the same target

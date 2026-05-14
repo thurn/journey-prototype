@@ -50,8 +50,15 @@ export type BuildJourneyArgs = {
 
 function optionalFilledManifestFields(
   filled: FilledJourney,
-): Pick<JourneyManifest, "tree" | "rewardPool" | "sequence"> {
-  const fields: Pick<JourneyManifest, "tree" | "rewardPool" | "sequence"> = {};
+): Pick<JourneyManifest, "tree" | "rewardPool" | "sequence" | "presentation"> {
+  const fields: Pick<
+    JourneyManifest,
+    "tree" | "rewardPool" | "sequence" | "presentation"
+  > = {};
+
+  if (filled.presentation) {
+    fields.presentation = filled.presentation;
+  }
 
   if (filled.tree) {
     fields.tree = filled.tree;

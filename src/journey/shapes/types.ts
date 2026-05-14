@@ -4,6 +4,7 @@ import type {
   GeneratedObjectDefinition,
   JourneyManifest,
   JourneyOption,
+  JourneyPresentation,
   JourneyRewardPool,
   JourneyStage,
   JourneySymmetryContractDebug,
@@ -50,6 +51,7 @@ export type ShapeFillArgs = {
 
 export type FilledJourney = {
   readonly options: JourneyOption[];
+  readonly presentation?: JourneyPresentation;
   readonly tree?: JourneyTree;
   readonly rewardPool?: JourneyRewardPool;
   readonly sequence?: SequenceState;

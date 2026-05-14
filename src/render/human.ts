@@ -157,6 +157,15 @@ function selectedLine(option: JourneyOption, options: RenderOptions): string {
   return `${color(`Selected ${option.number}.`, "optionNumber", options)} ${symbolText}${option.text}\n\n`;
 }
 
+function flatMenuLines(manifest: JourneyManifest, options: RenderOptions): string[] {
+  return [
+    ...(manifest.presentation?.flatMenuHeader
+      ? [color(manifest.presentation.flatMenuHeader, "resourceLabel", options)]
+      : []),
+    ...manifest.options.map((option) => optionLine(option, options)),
+  ];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1170,7 +1179,7 @@ export function renderJourneyHuman(
     "",
     ...(manifest.tree
       ? treeLines(manifest, options)
-      : manifest.options.map((option) => optionLine(option, options))),
+      : flatMenuLines(manifest, options)),
   );
 
   return `${lines.join("\n")}\n`;
@@ -1218,7 +1227,7 @@ export function renderStateHuman(
   ];
 
   if (pending) {
-    lines.push(...pending.options.map((option) => optionLine(option, options)));
+    lines.push(...flatMenuLines(pending, options));
   }
 
   lines.push(

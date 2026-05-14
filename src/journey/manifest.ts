@@ -791,6 +791,10 @@ export type JourneyOption = {
   pickBehavior: PickBehavior;
 };
 
+export type JourneyPresentation = {
+  flatMenuHeader?: string;
+};
+
 export type JourneyTreeBranchKind =
   | "player_choice"
   | "random_chance"
@@ -863,6 +867,7 @@ export type JourneyManifest = {
   dreamscape: number;
   selectedTags: string[];
   options: JourneyOption[];
+  presentation?: JourneyPresentation;
   generatedObjects: GeneratedObjectDefinition[];
   tree?: JourneyTree;
   rewardPool?: JourneyRewardPool;

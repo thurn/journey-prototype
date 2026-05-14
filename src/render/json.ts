@@ -40,6 +40,7 @@ function manifestJson(manifest: JourneyManifest) {
     selectedTags: manifest.selectedTags,
     sequence: manifest.sequence,
     generatedObjects: manifest.generatedObjects,
+    presentation: manifest.presentation,
     options: manifest.options.map(optionJson),
     tree: manifest.tree,
     rewardPool: manifest.rewardPool,

@@ -5,7 +5,6 @@ import { REWARDS } from "../../shared/rewards.js";
 import type { Cost, Reward, TemplateParams } from "../../shared/types.js";
 import type { FilledJourney, ShapeFillArgs } from "../types.js";
 
-const CAP = 2;
 const TAKE_OPTION_COUNT = 3;
 const MIN_REWARD_CEC = 40;
 const MAX_COST_TO_REWARD_RATIO = 0.85;
@@ -198,7 +197,7 @@ function takeOption(
   return {
     number,
     symbols: [],
-    text: `Take up to ${CAP} rewards from this cache. ${sentence(cost.text)} ${sentence(reward.text)}`,
+    text: `${sentence(cost.text)} ${sentence(reward.text)}`,
     operations: [],
     costs: [],
     effects: [],
@@ -251,6 +250,7 @@ export function takeAnyNumberFill(args: ShapeFillArgs): FilledJourney {
   }
 
   return {
+    presentation: { flatMenuHeader: "Take any number:" },
     options: [...rows, leaveOption(TAKE_OPTION_COUNT + 1)],
     precommitted: {},
   };
