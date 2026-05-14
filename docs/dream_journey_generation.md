@@ -172,7 +172,6 @@ useful are all shapes:
 - one target, many operations
 - one operation, many targets
 - singular reward
-- risk or skip
 - now versus later
 - take any number from a visible cache
 - one-shot random outcome
@@ -242,8 +241,8 @@ There are a few things that Dreamtides journeys do not do:
   when the Journey is shown.
 - A root option should show dream art, short hover text, and referenced-object
   popups when needed.
-- Refusal belongs only to `single_offer` and `risk_or_skip`, and it must not be
-  used to make a forced one-option site look like a strategic choice.
+- Refusal belongs only to `single_offer`, and it must not be used to make a
+  forced one-option site look like a strategic choice.
 - Sites with 3 root options should usually have an explicit linking property
   such as shared cost, reward class, target, operation, timing, or motif. Truly
   unrelated offers should be uncommon and mostly reserved for 2-option sites.
@@ -269,7 +268,7 @@ not "a tuple of generated effects."
 ### Choice Topology Beats Reward Noun
 
 The same dreamsign reward can feel radically different depending on whether it
-appears in a utility menu, a risk-or-skip scene, a delayed trigger scene, or an
+appears in a utility menu, a single wager, a delayed trigger scene, or an
 escalating sequence. The choice topology is the scene.
 
 ### Reusable Effects Are Inputs, Not Scenes
@@ -551,25 +550,14 @@ ordinary priced services, clean one-shot bargains, and other cases where the
 tension is simply whether the deal is worth taking, not what the outcome will
 be.
 
-### risk_or_skip
-
-The player is offered one tempting reward and may refuse, with the reward
-guaranteed if accepted but the cost, burden, sacrifice, or corruption outcome
-determined randomly inside a clearly signaled envelope. This is a compact
-high-tension shape for cursed gifts, dangerous boons, and other optional
-temptations where the player is specifically gambling on whether, which, or how
-much downside applies. The downside must be represented as a typed random
-envelope, with the shape's accept-or-safe refusal invariant recorded as an
-envelope constraint. If the cost definitely applies, use `single_offer` instead.
-
 ### single_wager
 
 The site offers one visible one-shot gamble with a known stake and a bounded
-outcome envelope. Unlike `risk_or_skip`, the stake or cost is known up front and
-the reward is the uncertain part. Unlike `push_your_luck`, the player commits
-once and the scene does not ask whether to continue. The stake, odds, success,
-failure, and committed roll must use the manifest `wager` random envelope, with
-the known-stake invariant recorded as an envelope constraint.
+outcome envelope. The stake or cost is known up front, and the reward is the
+uncertain part. Unlike `push_your_luck`, the player commits once and the scene
+does not ask whether to continue. The stake, odds, success, failure, and
+committed roll must use the manifest `wager` random envelope, with the
+known-stake invariant recorded as an envelope constraint.
 
 ### now_vs_later
 

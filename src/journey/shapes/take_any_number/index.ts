@@ -15,7 +15,7 @@ export const takeAnyNumberPlugin = defineShapePlugin({
     ],
     debugLabel: "Take any number",
     versionContribution: {
-      catalogVersion: "journey-shapes:v21",
+      catalogVersion: "journey-shapes:v22",
       id: "take_any_number",
       topology: "repeatable_menu",
     },

@@ -15,7 +15,7 @@ export const oneTargetManyOperationsPlugin = defineShapePlugin({
     ],
     debugLabel: "One target, many operations",
     versionContribution: {
-      catalogVersion: "journey-shapes:v21",
+      catalogVersion: "journey-shapes:v22",
       id: "one_target_many_operations",
       topology: "direct_menu",
     },

@@ -26,7 +26,6 @@ const MIGRATED_SHAPE_IDS = [
   "random_trades",
   "reveal_choice_menu",
   "reward_after_trigger",
-  "risk_or_skip",
   "same_cost_different_rewards",
   "same_reward_different_costs",
   "shared_prefix_menu",

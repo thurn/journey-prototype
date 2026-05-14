@@ -201,23 +201,6 @@ repair, generated-object, and distinctness contracts for a shape.
 - Gain 1 {Nightmare}. Duplicate {Aspiring Guardian}.
 - Leave.
 
-# risk_or_skip
-
-## Cursed Draft
-
-- Draft 1 of 12 cards. 50% chance to gain 1 {Nightmare}.
-- Leave.
-
-## Unstable Copy
-
-- Duplicate {Aspiring Guardian} with a 35% chance to purge it after each battle.
-- Leave.
-
-## Sarcophagus Dreamsign
-
-- Gain {Ginger Root}. 50% chance to gain 1 {Nightmare}.
-- Leave.
-
 # single_wager
 
 ## Essence Flip

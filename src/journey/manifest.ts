@@ -537,7 +537,6 @@ export type RandomEnvelopeConstraint = {
   constraintKind: "shape_invariant";
   shapeId: JourneyShapeId;
   ruleId:
-    | "risk_or_skip_bounded_downside"
     | "single_wager_known_stake";
   label: string;
 };

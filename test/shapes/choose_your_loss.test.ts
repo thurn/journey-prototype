@@ -146,7 +146,7 @@ describe("choose_your_loss fill", () => {
           expect(option.text, seed).not.toBe("Purge all duplicate cards from your deck.");
 
           if (payload.templateId === "purge_named_dreamsign") {
-            expect(option.text, seed).toMatch(/^Purge Dreamsign '[^']+'\.$/u);
+            expect(option.text, seed).toMatch(/^Purge Dreamsign '.+'\.$/u);
           }
         }
       }

@@ -272,8 +272,6 @@ current non-bypassed shapes should be handled as follows:
 
 - decision-tree shapes keep shape-local tree assertions only when the shape
   emits a tree in production;
-- `risk_or_skip` keeps a shape-local assertion for one accept option, one leave
-  option, visible bounded downside odds, and precommitted downside metadata;
 - `single_offer` keeps a shape-local assertion for one take option and one
   no-effect leave option;
 - `paired_return` keeps a shape-local assertion only for required paired-return

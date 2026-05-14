@@ -49,7 +49,7 @@ operation tags that make the named example procedurally possible.
 | One Blessing, Three Vessels | one operation, many targets | `card_transfigure` | `card:exact` | `immediate` | partial: generic targets only | card fixture |
 | Thin Air | choose loss | `resource_loss`, `bane_gain` | `bane:exact` | `immediate` | partial: one loss per option only | bane/resource separate |
 | Priced Silence | single offer | `resource_cost:essence`, `card_purge` | `card:chosen_after_commitment` | `immediate` | partial: offer/cost only | card fixture |
-| Cursed Star | risk or skip | `dreamsign_gain`, `bane_gain`, `random_envelope` | `dreamsign:exact`, `bane:exact` | `immediate`, `random` | partial: random downside only | dreamsign/bane separate |
+| Cursed Star | single wager | `dreamsign_gain`, `bane_gain`, `random_envelope` | `dreamsign:exact`, `bane:exact` | `immediate`, `random` | partial: wager envelope only | dreamsign/bane separate |
 | Veiled Cache | random pool draw | `resource_cost:essence`, `random_reward`, `bane_random_purge`, `card_draft`, `dreamsign_gain` | `dreamsign:exact`, `bane:hidden_random`, `card:predicate` | `random`, `immediate` | partial: generic pool only | random/bane/dreamsign separate |
 | Sleeping Contract | delayed promise | `dreamsign_gain`, `delayed_hook` | `dreamsign:exact` | `trigger:victory`, `duration:battle_count` | partial: next-victory hook only | hook/dreamsign separate |
 | Winchime Promise | delayed site trigger | `delayed_hook`, `dreamsign_gain` | `route_site:exact`, `dreamsign:exact` | `trigger:site_visit` | no | hook fixture |

@@ -24,7 +24,6 @@ const expectedShapeIds = [
   "one_operation_many_targets",
   "choose_your_loss",
   "single_offer",
-  "risk_or_skip",
   "single_wager",
   "now_vs_later",
   "reward_after_trigger",
@@ -77,7 +76,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(26);
+    expect(actualShapeIds).toHaveLength(25);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -159,6 +158,18 @@ describe("JOURNEY_SHAPES", () => {
     );
   });
 
+  it("does not expose the deleted risk_or_skip shape", () => {
+    const retiredShapeId = "risk_or_skip";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
   it("provides complete definitions and lookups for every canonical shape", () => {
     for (const id of expectedShapeIds) {
       const definition = getShapeDefinition(id);
@@ -182,11 +193,8 @@ describe("JOURNEY_SHAPES", () => {
   });
 
   it("uses registry lookup without a closed ID union", () => {
-    expect(isJourneyShapeId("risk_or_skip")).toBe(true);
     expect(isJourneyShapeId("fixture_test_shape")).toBe(false);
-    expect(getShapePlugin("risk_or_skip").validators?.map((entry) => entry.ruleId)).toContain(
-      "risk_or_skip_envelope",
-    );
+    expect(getShapePlugin("single_wager").definition.id).toBe("single_wager");
   });
 
   it("requires non-tree shapes to expose a root choice", () => {
@@ -287,7 +295,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v21;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v22;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

@@ -15,7 +15,7 @@ export const heterogeneousPairPlugin = defineShapePlugin({
     ],
     debugLabel: "Heterogeneous pair",
     versionContribution: {
-      catalogVersion: "journey-shapes:v21",
+      catalogVersion: "journey-shapes:v22",
       id: "heterogeneous_pair",
       topology: "direct_menu",
     },

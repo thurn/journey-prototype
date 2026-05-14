@@ -14,7 +14,6 @@ import { pushYourLuckPlugin } from "./push_your_luck/index.js";
 import { randomRewardsPlugin } from "./random_rewards/index.js";
 import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
-import { riskOrSkipPlugin } from "./risk_or_skip/index.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards/index.js";
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs/index.js";
 import { sharedPrefixMenuPlugin } from "./shared_prefix_menu/index.js";
@@ -44,7 +43,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   oneOperationManyTargetsPlugin,
   chooseYourLossPlugin,
   singleOfferPlugin,
-  riskOrSkipPlugin,
   singleWagerPlugin,
   nowVsLaterPlugin,
   rewardAfterTriggerPlugin,

@@ -36,7 +36,6 @@ const JOURNEY_SHAPE_SCORE_WEIGHTS: Readonly<Record<string, number>> =
     random_pool_draws: 4,
     push_your_luck: 4,
     single_offer: 3,
-    risk_or_skip: 2,
     flat_escalating_trade: 2,
     reveal_choice_menu: 2,
     probability_ladder: 2,

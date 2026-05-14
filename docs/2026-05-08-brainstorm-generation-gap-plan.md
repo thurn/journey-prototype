@@ -793,9 +793,6 @@ Required work:
   explicitly allows a wheel or cache topology.
 - Add value metadata for expected value, worst-case burden, visibility, and
   risk premium.
-- Make `risk_or_skip` support named Dreamsign rewards and chance bands beyond
-  the current 35/50/65 list when value rules permit.
-
 Acceptance criteria:
 
 - Normal generation can produce reveal-choice and wheel-style root menus.
@@ -1132,9 +1129,8 @@ Add focused QA for the changed surface:
 - Use `--shape alter_dreamscapes` for route changes.
 - Use `--shape reward_after_trigger` and `--shape paired_return` for hook and
   return contracts.
-- Use `--shape single_random_outcome`, `--shape risk_or_skip`,
-  `--shape single_wager`, and any new reveal or wheel shape for random
-  envelopes.
+- Use `--shape single_random_outcome`, `--shape single_wager`, and any new
+  reveal or wheel shape for random envelopes.
 
 The manual QA evidence should name the command, seed, forced shape if any, and
 the structured capability observed in the manifest or debug output. When a

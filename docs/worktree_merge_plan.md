@@ -52,7 +52,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | alter_dreamscapes | 13 | fillers/shared.ts, types.ts |
 | reveal_choice_menu | 0 | fillers/randomPayloads.ts, test |
 | single_random_outcome | 7 | fillers/randomPayloads.ts |
-| risk_or_skip | 18 | fillers/randomPayloads.ts, validate/precommitRules.ts |
 | single_wager | 13 | validate/precommitRules.ts |
 | take_any_number | 0 | test only |
 
@@ -92,7 +91,7 @@ the test-registration step, patch line 11 of
 for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
              now_vs_later single_wager \
              same_reward_different_costs commit_now_future_payoff \
-             random_pool_draws risk_or_skip curated_reward_trio \
+             random_pool_draws curated_reward_trio \
              reward_after_trigger single_random_outcome; do
   for w in .claude/worktrees/agent-*/; do
     [ -d "${w}src/journey/shapes/$shape" ] || continue
@@ -176,11 +175,9 @@ collisions are likely. Merge smallest first.
 
 18. `reveal_choice_menu` (shared=0, randomPayloads only)
 19. `single_random_outcome` (shared=7, randomPayloads only)
-20. `risk_or_skip` (shared=18, randomPayloads + precommitRules)
-
 ### Tier 6 — solo specialized (3 merges)
 
-21. `single_wager` (validate/precommitRules.ts — pairs with risk_or_skip in T5)
+21. `single_wager` (validate/precommitRules.ts)
 22. `curated_reward_trio` (large shapes/shared.ts diff, no other file overlap)
 
 ## Per-merge procedure

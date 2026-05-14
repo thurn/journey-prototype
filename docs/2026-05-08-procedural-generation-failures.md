@@ -331,40 +331,30 @@ instead of selecting from fixed Shop/Purge and Draft/Transfiguration branches,
 while the forced `route/route-edits` debug payload remains a deterministic QA
 fixture for exact adapter coverage.
 
-### 9. Risk And Wager Shapes Use Parallel Hardcoded Random Contracts
+### 9. Wager Shapes Use Typed Random Contracts
 
 **Status:** Fixed.
 
-`risk_or_skip` and `single_wager` use bespoke precommit kinds and option stubs:
+`single_wager` uses a typed precommit kind and visible option operations:
 
-- `risk_downside_roll` in
-  [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L914);
-- `wager_roll` and `{ kind: "random_reward", table: "wager" }` in
-  [`shapeFills.ts`](../src/journey/fillers/shapeFills.ts#L930).
+- `wager` random envelopes in visible option operations;
+- committed `wager` random envelopes in precommitted rolls.
 
 The manifest and validator already know about typed random envelope kinds such
-as `wager`, `random_reward`, `chance_to_gain_bane`, and `random_range`. Shape
-specific validators in
-[`precommitRules.ts`](../src/journey/validate/precommitRules.ts#L166) preserve
-the current magic strings instead of pushing these shapes through the same random
-envelope contract.
+as `wager`, `random_reward`, and `random_range`.
 
 **Compelling justification:** Partial. Shape-specific random invariants are
 valid, but parallel random payload names make it easier for one-off scenarios to
 survive outside the general random model.
 
-**Proposed fix to remove hardcoded content:** Convert `risk_or_skip` and
-`single_wager` to emit the same typed random envelope payloads used by the
-manifest contract, with shape-specific rules expressed as envelope constraints.
+**Proposed fix to remove hardcoded content:** Keep `single_wager` on the same
+typed random envelope payloads used by the manifest contract, with
+shape-specific rules expressed as envelope constraints.
 
-**Resolution:** Normal `risk_or_skip` generation now emits constrained
-`chance_to_gain_bane` or `chance_to_pay_cost` random envelopes for bounded
-downsides instead of `risk_downside_roll`. Normal `single_wager` generation now
-uses constrained `wager` envelopes for both visible option operations and
-precommitted rolls instead of `wager_roll` plus shape-local `random_reward`
-stubs. The shape validators now require those typed envelope constraints, so
-the risk and wager invariants live in manifest metadata rather than magic
-precommit kind strings.
+**Resolution:** Normal `single_wager` generation uses constrained `wager`
+envelopes for both visible option operations and precommitted rolls. The shape
+validators require those typed envelope constraints, so the wager invariant
+lives in manifest metadata rather than magic precommit kind strings.
 
 ### 10. Bane Handling Defaults To Nightmare In Shared Paths
 
