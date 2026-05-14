@@ -66,7 +66,8 @@ describe("same_cost_different_rewards fill", () => {
 
       for (const option of fill.options) {
         expect(option.symbols).toEqual([]);
-        expect(option.text).toMatch(/^Cost: .+\. Reward: .+/u);
+        expect(option.text).toMatch(/^.+\. .+\.$/u);
+        expect(option.text).not.toMatch(/\b(?:Cost|Reward):/u);
         expect(option.operations).toEqual([]);
         expect(option.costs).toEqual([]);
         expect(option.effects).toEqual([]);

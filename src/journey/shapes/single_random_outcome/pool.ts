@@ -269,7 +269,7 @@ export function visibleRewardPool(args: {
   const candidates = weightedRewardPool({ ...args, size: poolSize });
   const rewards = flattenPayloads(candidates);
   const poolId = `${args.label}:visible-reward-pool`;
-  const summary = `Randomly gain one: ${candidates
+  const summary = `Randomly gain one of ${candidates
     .map((candidate) => stripTerminalPeriod(lowerFirst(candidate.text)))
     .join(", ")}.`;
   const expectedConvertedEssence = averageValue(candidates);

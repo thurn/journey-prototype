@@ -145,7 +145,7 @@ function pairedReturnContract(args: {
     triggerSelector,
     referencesCreatedId: String(args.created.referenceId),
     referencesAnchor: args.anchor,
-    resolution: `Trade {${args.anchor}} for a reward: ${rewardText}.`,
+    resolution: `Trade {${args.anchor}} for a reward, ${rewardText}.`,
     expiration: {
       policyKind: "forfeit_reward",
       label: "If the next dreamscape does not resolve, discard this return scene.",
@@ -199,7 +199,7 @@ function optionFor(args: {
   const built = {
     number: args.optionNumber,
     symbols: ["paired-return", "trade", "reward"],
-    text: `Create {${args.anchor}}. At the next dreamscape, trade it for a reward: ${rewardText}.`,
+    text: `Create {${args.anchor}}. At the next dreamscape, trade it for a reward, ${rewardText}.`,
     operations: [],
     costs: [],
     effects: [rewardPayload(args.reward)],

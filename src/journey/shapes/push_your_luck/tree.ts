@@ -643,7 +643,7 @@ export function buildPushYourLuckTree(
           treeBranch({
             id: `level-${level}-push`,
             label: "Push",
-            text: `Risk immediate failure: ${successPercent}% chance to ${reward.text} Success banks ${bankedRewardText(level)}. ${nextText}`,
+            text: `Risk immediate failure for a ${successPercent}% chance to ${reward.text} Success banks ${bankedRewardText(level)}. ${nextText}`,
             odds: odds(successPercent),
             effects: reward.effects,
             targets: reward.targets ?? [],

@@ -429,12 +429,16 @@ function withoutLockedPrefix(text: string): string {
   return text.replace(/\[LOCKED\]\s*/gu, "");
 }
 
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
 function renderOption(cost: RolledCost, reward: RolledReward, ctx: JourneyContext): string {
   const costText = normalizeDreamsignTerm(withoutLockedPrefix(cost.rendered));
   const rewardText = normalizeDreamsignTerm(
     withoutLockedPrefix(reward.template.render(reward.params as never, ctx)),
   );
-  const text = `Cost: ${costText}. Reward: ${rewardText}`;
+  const text = `${sentence(costText)} ${sentence(rewardText)}`;
   return cost.rendered.includes("[LOCKED]") ? `[LOCKED] ${text}` : text;
 }
 

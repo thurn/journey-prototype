@@ -80,7 +80,7 @@ export function revealChoiceOptions(args: {
       }),
       emptyOption({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. The revealed random reward is: ${stripTerminalPeriod(lowerFirst(randomRevealed.text))}. Then gain ${bonusDrawCount} random rewards from the visible pool.`,
+        text: `Reveal ${candidates.length} rewards. The revealed random reward is ${stripTerminalPeriod(lowerFirst(randomRevealed.text))}. Then gain ${bonusDrawCount} random rewards from the visible pool.`,
         symbols: ["random", "reward"],
         effectConvertedEssence:
           randomRevealed.value + visiblePoolExpectedConvertedEssence * bonusDrawCount,

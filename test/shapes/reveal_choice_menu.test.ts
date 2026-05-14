@@ -85,7 +85,7 @@ function assertRevealOption(option: JourneyOption) {
 function assertRandomRevealedOption(option: JourneyOption) {
   expect(option.number).toBe(2);
   expect(option.text).toMatch(
-    /^Reveal \d+ rewards\. Take the precommitted revealed reward: .+\. Gain \d+ omens? and gain \d+ \{[^}]+\}\.$/u,
+    /^Reveal \d+ rewards\. Take the precommitted revealed reward, .+\. Gain \d+ omens? and gain \d+ \{[^}]+\}\.$/u,
   );
   expect(option.effects).toEqual(expect.arrayContaining([
     expect.objectContaining({
@@ -103,7 +103,7 @@ function assertRandomRevealedOption(option: JourneyOption) {
 function assertHiddenRandomOption(option: JourneyOption) {
   expect(option.number).toBe(3);
   expect(option.text).toMatch(
-    /^Gain one random reward from the visible pool: .+\.$/u,
+    /^Gain one random reward from the visible pool\. It contains .+\.$/u,
   );
   expect(option.effects).toEqual([
     expect.objectContaining({
@@ -137,7 +137,7 @@ function assertRevealChoiceMenuManifest(manifest: JourneyManifest) {
     summary: expect.any(String),
     rewards: expect.any(Array),
   });
-  expect(visiblePool.summary).toMatch(/^Visible reward pool: .+\.$/u);
+  expect(visiblePool.summary).toMatch(/^Visible reward pool includes .+\.$/u);
   expect(visiblePool.rewards).not.toEqual(
     expect.arrayContaining([expect.objectContaining({ kind: "bane_gain" })]),
   );

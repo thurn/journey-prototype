@@ -444,17 +444,17 @@ function poolSummary(
   replacement: RandomPoolReplacementPolicy,
 ): string {
   return [
-    "Randomly gain one:",
+    "Randomly gain one of these outcomes.",
     ...candidates.map((candidate) => `${candidate.poolIndex}. ${stripTerminalPeriod(candidate.text)}`),
-    `Replacement policy: ${replacementSentence(replacement)}`,
+    replacementSentence(replacement),
   ].join("\n");
 }
 
 function visiblePoolDebugSummary(candidates: readonly PoolCandidate[]): string {
   return [
-    "Randomly gain one:",
+    "Randomly gain one of these outcomes.",
     ...candidates.map((candidate) => `${candidate.poolIndex}. ${stripTerminalPeriod(candidate.text)}`),
-    "Replacement policy:",
+    "The replacement policy is shown with the reward pool.",
   ].join("\n");
 }
 
@@ -689,7 +689,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     visibilityPolicy: {
       outcomeVisibility: "pre_rolled",
       disclosure:
-        `Committed draw order: ${committedLabels.join(" -> ")}`,
+        `Committed draw order is ${committedLabels.join(" -> ")}`,
       playerVisible: true,
     },
     expectedConvertedEssence: averageReward * levelCount,

@@ -99,9 +99,9 @@ describe("single_wager fill", () => {
     for (const option of fill.options) {
       expect(option.operations).toEqual([]);
       expect(option.text).toMatch(
-        /^Pay \d+ essence\. \d+% chance\. On success: .+; on failure: gain nothing\.$/u,
+        /^Pay \d+ essence for a \d+% chance to .+\. If it fails, gain nothing\.$/u,
       );
-      expect(option.text).not.toContain("chance to");
+      expect(option.text).not.toMatch(/\b(?:On success|on failure):/u);
       expect(option.costs[0]).toMatchObject({
         kind: "shared_cost_template",
         templateId: "pay_essence",

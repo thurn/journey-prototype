@@ -280,6 +280,14 @@ function withoutLockedPrefix(text: string): string {
   return text.replace(/\[LOCKED\]\s*/gu, "");
 }
 
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 function rewardSubIds(rolled: RolledReward): readonly string[] {
   if (rolled.template.id === "meta_gain_2_rewards") {
     const params = rolled.params as { subIds?: readonly string[] };
@@ -537,7 +545,7 @@ function renderOption(row: RolledService, family: ServiceFamily, ctx: JourneyCon
     row.reward.template.render(row.reward.params as never, ctx),
   );
 
-  return `${family.scene}: ${rewardText}. Price: ${costText}`;
+  return `At the ${family.scene}, ${sentence(lowerFirst(rewardText))} ${sentence(costText)}`;
 }
 
 export function serviceMenuFill(args: ShapeFillArgs): FilledJourney {

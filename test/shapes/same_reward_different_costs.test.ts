@@ -59,11 +59,11 @@ function strippedText(text: string): string {
 }
 
 function rewardText(text: string): string {
-  return strippedText(text).replace(/^Cost: .+\. Reward: /u, "");
+  return strippedText(text).split(". ").slice(1).join(". ").replace(/\.$/u, "");
 }
 
 function costText(text: string): string {
-  return strippedText(text).replace(/^Cost: /u, "").replace(/\. Reward: .+$/u, "");
+  return strippedText(text).split(". ")[0] ?? "";
 }
 
 function isCurrentEssenceCost(text: string): boolean {
@@ -90,7 +90,8 @@ describe("same_reward_different_costs fill", () => {
 
       for (const option of fill.options) {
         expect(option.symbols).toEqual([]);
-        expect(strippedText(option.text)).toMatch(/^Cost: .+\. Reward: .+/u);
+        expect(strippedText(option.text)).toMatch(/^.+\. .+\.$/u);
+        expect(option.text).not.toMatch(/\b(?:Cost|Reward):/u);
         expect(option.operations).toEqual([]);
         expect(option.costs).toEqual([]);
         expect(option.effects).toEqual([]);

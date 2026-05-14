@@ -364,13 +364,13 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
     options: [
       emptyOption(
         1,
-        sentence(`Take a modest reward now: ${lowerFirst(immediate.text)}`),
+        sentence(`Take a modest reward now and ${lowerFirst(immediate.text)}`),
         ["reward", "now"],
         immediate.cec,
       ),
       emptyOption(
         2,
-        sentence(`${timing.optionPrefix} for a richer reward: ${lowerFirst(delayedRewardText(delayed))}`),
+        sentence(`${timing.optionPrefix} for a richer reward, ${lowerFirst(delayedRewardText(delayed))}`),
         ["reward", "delayed"],
         delayed.cec,
         delayedUncertainty,

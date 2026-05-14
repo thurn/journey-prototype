@@ -17,10 +17,11 @@ describe("service_menu", () => {
     const sceneNames = new Set<string>();
 
     for (const option of firstFill.options) {
-      expect(option.text).toMatch(/^[^:]+: .+\. Price: .+/u);
+      expect(option.text).toMatch(/^At the [^,]+, .+\. .+\.$/u);
       expect(option.text).not.toContain("Cost:");
       expect(option.text).not.toContain("Reward:");
-      sceneNames.add(option.text.split(":")[0]!);
+      expect(option.text).not.toContain("Price:");
+      sceneNames.add(option.text.match(/^At the ([^,]+),/u)?.[1] ?? "");
       expect(option.symbols).toEqual(["service", "cost", "reward"]);
       expect(option.operations).toEqual([]);
       expect(option.costs).toEqual([]);
@@ -45,7 +46,7 @@ describe("service_menu", () => {
       );
 
       for (const option of fill.options) {
-        const price = option.text.split(". Price: ")[1] ?? "";
+        const price = (option.text.split(". ").at(-1) ?? "").replace(/\.$/u, "");
         expect(price).not.toMatch(
           /Purge (?:a chosen|a random|'|all duplicate|the transfiguration)|Transform .* into|Draw \d+ cards/u,
         );

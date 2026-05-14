@@ -123,7 +123,7 @@ function candidateText(candidate: PoolCandidate): string {
 }
 
 function poolSummary(candidates: readonly PoolCandidate[]): string {
-  return `Visible reward pool: ${candidates.map(candidateText).join("; ")}.`;
+  return `Visible reward pool includes ${candidates.map(candidateText).join("; ")}.`;
 }
 
 function worstCaseBurden(): number {
@@ -255,7 +255,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
       }),
       option({
         number: 2,
-        text: `Reveal ${candidates.length} rewards. Take the precommitted revealed reward: ${candidateText(randomRevealed)}. Gain ${optionTwoOmenText} and ${randomRevealBurden.text}.`,
+        text: `Reveal ${candidates.length} rewards. Take the precommitted revealed reward, ${candidateText(randomRevealed)}. Gain ${optionTwoOmenText} and ${randomRevealBurden.text}.`,
         effects: [
           { kind: "random_reward", table: "visible_reveal_pool" },
           optionTwoOmenPayload,
@@ -267,7 +267,7 @@ function revealChoiceMenuOptions(args: ShapeFillArgs & { label: string }): {
       }),
       option({
         number: 3,
-        text: `Gain one random reward from the visible pool: ${candidates.map(candidateText).join("; ")}.`,
+        text: `Gain one random reward from the visible pool. It contains ${candidates.map(candidateText).join("; ")}.`,
         effects: [
           { kind: "random_reward", table: "visible_reveal_pool", poolId },
         ],

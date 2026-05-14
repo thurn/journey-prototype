@@ -276,7 +276,7 @@ function selectSeries(args: {
 }
 
 function seriesText(series: readonly SeriesReward[]): string {
-  return `Resolve the shown reward series: ${series
+  return `Resolve the shown reward series by ${series
     .map((reward) => stripTerminalPeriod(lowerFirst(reward.text)))
     .join(", then ")}.`;
 }

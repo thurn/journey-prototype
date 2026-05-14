@@ -71,8 +71,9 @@ describe("take_any_number fill", () => {
 
       for (const option of fill.options.slice(0, 3)) {
         expect(option.text).toMatch(
-          /^Take up to 2 rewards from this cache\. Cost: .+\. Reward: .+/u,
+          /^Take up to 2 rewards from this cache\. .+\. .+\.$/u,
         );
+        expect(option.text).not.toMatch(/\b(?:Cost|Reward):/u);
         expect(option.pickBehavior).toBe("record_and_generate_next");
         expect(option.operations).toEqual([]);
         expect(option.costs).toEqual([]);

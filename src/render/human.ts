@@ -1036,7 +1036,7 @@ function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] 
     }
 
     for (const branch of node.branches) {
-      lines.push(`${branch.label}: ${branch.text}`);
+      lines.push(`${branch.label} - ${branch.text}`);
     }
   }
 

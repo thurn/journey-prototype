@@ -135,12 +135,12 @@ describe("single_random_outcome fill", () => {
     const fill = fillFor("audit:single_random_outcome:early:03", "early");
     const [wheelRow, essenceRow] = fill.options;
 
-    expect(wheelRow!.text).toContain("Spin the visible wheel twice; gain both shown results:");
+    expect(wheelRow!.text).toContain("Spin the visible wheel twice and gain both shown results,");
     expect(wheelRow!.costConvertedEssence).toBeGreaterThan(0);
     expect(wheelRow!.netConvertedEssence).toBeGreaterThan(0);
 
     expect(essenceRow!.text).toMatch(
-      /^Lose \d+ essence\. Gain the better of two essence rolls: \d+ essence/,
+      /^Lose \d+ essence\. Gain the better of two essence rolls, \d+ essence/,
     );
     expect(essenceRow!.text).not.toContain("random essence");
     expect(essenceRow!.costConvertedEssence).toBeGreaterThan(0);

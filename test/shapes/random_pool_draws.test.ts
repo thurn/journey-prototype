@@ -234,7 +234,7 @@ describe("random_pool_draws fill", () => {
 
     expect(manifest.options).toEqual([]);
     expect(manifest.tree?.rootNodeId).toBe("level-1");
-    expect(manifest.rewardPool?.summary).toContain("Randomly gain one:");
+    expect(manifest.rewardPool?.summary).toContain("Randomly gain one of these outcomes.");
     expect(manifest.precommitted.random?.map((entry) => entry.kind)).toEqual([
       "visible_pool",
       "repeated_pool_draws",
@@ -277,9 +277,9 @@ describe("random_pool_draws fill", () => {
     const manifest = await forcedRandomPoolManifest(seed, stage);
     const summary = manifest.rewardPool?.summary ?? "";
 
-    expect(summary).toMatch(/^Randomly gain one:\n1\. /u);
+    expect(summary).toMatch(/^Randomly gain one of these outcomes\.\n1\. /u);
     expect(summary).toContain("\n2. ");
-    expect(summary).toMatch(/\nReplacement policy: Outcomes draw (with|without) replacement\.$/u);
+    expect(summary).toMatch(/\nOutcomes draw (with|without) replacement\.$/u);
   });
 
   it.each([
@@ -321,7 +321,7 @@ describe("random_pool_draws fill", () => {
     );
 
     expect(repeatedDraws?.visibilityPolicy?.disclosure).toMatch(
-      /^Committed draw order: #\d+ /u,
+      /^Committed draw order is #\d+ /u,
     );
     expect(repeatedDraws?.visibilityPolicy?.disclosure).toContain(" -> ");
     expect(repeatedDraws?.visibilityPolicy?.disclosure.endsWith(".")).toBe(false);

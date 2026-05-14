@@ -69,6 +69,10 @@ function hasUsedTemplate(
   return consumedTemplateIds(templateId, params).some((id) => used.has(id));
 }
 
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
 function rememberTemplate(
   templateId: string,
   params: TemplateParams,
@@ -194,7 +198,7 @@ function takeOption(
   return {
     number,
     symbols: [],
-    text: `Take up to ${CAP} rewards from this cache. Cost: ${cost.text}. Reward: ${reward.text}`,
+    text: `Take up to ${CAP} rewards from this cache. ${sentence(cost.text)} ${sentence(reward.text)}`,
     operations: [],
     costs: [],
     effects: [],

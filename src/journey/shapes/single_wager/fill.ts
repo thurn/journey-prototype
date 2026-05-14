@@ -200,6 +200,10 @@ function stripTerminalPeriod(text: string): string {
   return text.replace(/\.$/u, "");
 }
 
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 function expectedNetConvertedEssence(args: {
   readonly reward: RolledReward;
   readonly stake: SharedCostStake;
@@ -413,7 +417,7 @@ function optionFor(args: {
   return {
     number: args.number,
     symbols: ["cost", "reward", "random"],
-    text: `Pay ${args.stake.params.x} essence. ${args.successPercent}% chance. On success: ${stripTerminalPeriod(args.reward.text)}; on failure: gain nothing.`,
+    text: `Pay ${args.stake.params.x} essence for a ${args.successPercent}% chance to ${stripTerminalPeriod(lowerFirst(args.reward.text))}. If it fails, gain nothing.`,
     operations: [],
     costs: [args.stake],
     effects: [],

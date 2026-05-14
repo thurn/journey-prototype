@@ -673,7 +673,7 @@ function commitmentOption(
   return {
     number,
     symbols: ["commitment", "cost", "future", "reward"],
-    text: `${sentence(`Commit now: ${costText}`)} ${sentence(`${timing.optionPrefix}, ${rewardText}`)}`,
+    text: `Commit now. ${sentence(costText)} ${sentence(`${timing.optionPrefix}, ${rewardText}`)}`,
     operations: [],
     costs: [costPayload(row.cost)],
     effects: [],

@@ -187,9 +187,8 @@ describe("push_your_luck fill", () => {
           const [stop, push, failure] = node.branches;
 
           expect(stop?.text).toMatch(/banked rewards|banked Level/u);
-          expect(push?.text).not.toMatch(/\ba \d+% chance/u);
           expect(push?.text).not.toMatch(/\s,|,\s*,/u);
-          expect(push?.text).toMatch(/Risk immediate failure: \d+% chance/u);
+          expect(push?.text).toMatch(/Risk immediate failure for a \d+% chance/u);
           expect(push?.text).toMatch(/Success banks/u);
           expect(failure?.text).toMatch(/banked|No rewards are banked/u);
 

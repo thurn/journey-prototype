@@ -69,7 +69,7 @@ export function wheelRootOptions(args: {
     options: [
       emptyOption({
         number: 1,
-        text: `${entryCost.text}. Spin the visible wheel twice; gain both shown results: ${drawnText}.`,
+        text: `${entryCost.text}. Spin the visible wheel twice and gain both shown results, ${drawnText}.`,
         symbols: ["cost", "random", "reward"],
         costs: [entryCost],
         costConvertedEssence: entryCost.convertedEssence,
@@ -78,7 +78,7 @@ export function wheelRootOptions(args: {
       }),
       emptyOption({
         number: 2,
-        text: `${rollCost.text}. Gain the better of two essence rolls: ${committedAmount} essence (rolls ${firstRoll}, ${secondRoll}; kept ${keptRoll}).`,
+        text: `${rollCost.text}. Gain the better of two essence rolls, ${committedAmount} essence (rolls ${firstRoll}, ${secondRoll}; kept ${keptRoll}).`,
         symbols: ["cost", "random", "reward"],
         costs: [rollCost],
         costConvertedEssence: rollCost.convertedEssence,

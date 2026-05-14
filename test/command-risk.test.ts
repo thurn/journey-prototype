@@ -108,7 +108,7 @@ describe("stateless command risk transitions", () => {
       expect(result.stderr).toBe("");
       expect(result.stdout).toContain("Decision Tree");
       expect(result.stdout).toContain("Level 1");
-      expect(result.stdout).toContain("Claim:");
+      expect(result.stdout).toContain("Claim -");
       await expectMissingState(statePath);
     });
   });
@@ -201,11 +201,49 @@ describe("stateless command risk transitions", () => {
       expect(result.exitCode).toBe(ExitCode.Success);
       expect(result.stderr).toBe("");
       expect(result.stdout).toMatch(
-        /Pay \d+ essence\. \d+% chance\. On success: .+; on failure: gain nothing\./u,
+        /Pay \d+ essence for a \d+% chance to .+\. If it fails, gain nothing\./u,
       );
       expect(result.stdout).toContain("Precommitted outcomes:");
       expect(result.stdout).toMatch(/1\. \d+% wager:/u);
       expect(result.stdout).toContain("committed roll:");
+    });
+  });
+
+  it("renders forced shape options as prose in normal output", async () => {
+    const cases = [
+      "same_cost_different_rewards",
+      "take_any_number",
+      "same_reward_different_costs",
+      "service_menu",
+      "single_wager",
+      "random_pool_draws",
+      "push_your_luck",
+      "resolved_random_series",
+      "single_random_outcome",
+      "reveal_choice_menu",
+      "prize_ladder",
+      "now_vs_later",
+      "commit_now_future_payoff",
+      "paired_return",
+    ] as const;
+
+    await withTempState(async ({ options }) => {
+      for (const shape of cases) {
+        const result = await handleJourney(options({
+          seed: `audit:${shape}:early:01`,
+          stage: "early",
+          shape,
+        }));
+
+        expect(result.exitCode).toBe(ExitCode.Success);
+        expect(result.stderr).toBe("");
+        expect(result.stdout).not.toMatch(
+          /\b(?:Cost|Reward|Price|Route Broker|On success|on failure|Visible reward pool|Randomly gain one|Replacement policy|Risk immediate failure|Resolve the shown reward series|shown results|essence rolls|precommitted revealed reward|revealed random reward is|visible pool|reward now|Commit now|for a reward):/u,
+        );
+        expect(result.stdout).not.toMatch(
+          /(?:^|\n)(?:Claim|Continue|Leave|Stop|Push|Failure|Draw): /u,
+        );
+      }
     });
   });
 });
