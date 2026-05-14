@@ -1038,7 +1038,10 @@ function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] 
 
   const lines: string[] = [];
 
-  if (manifest.rewardPool) {
+  if (
+    manifest.rewardPool &&
+    manifest.presentation?.treeRewardPoolDisplay !== "hidden"
+  ) {
     lines.push(color("Pool", "heading", options), manifest.rewardPool.summary, "");
   }
 
@@ -1050,9 +1053,17 @@ function treeLines(manifest: JourneyManifest, options: RenderOptions): string[] 
       lines.push(node.description);
     }
 
-    for (const branch of node.branches) {
-      lines.push(`${branch.label} - ${branch.text}`);
+    for (const [index, branch] of node.branches.entries()) {
+      if (manifest.presentation?.treeBranchFormat === "numbered") {
+        lines.push(`${index + 1}. ${indentContinuationLines(branch.text)}`);
+      } else {
+        lines.push(`${branch.label} - ${branch.text}`);
+      }
     }
+  }
+
+  if (manifest.presentation?.treeFooter) {
+    lines.push("", manifest.presentation.treeFooter);
   }
 
   return lines;

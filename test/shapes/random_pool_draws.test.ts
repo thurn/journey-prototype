@@ -9,6 +9,8 @@ import {
   createInitialJourneyState,
   simulateQuestStateForStage,
 } from "../../src/quest/init.js";
+import { renderJourneyHuman } from "../../src/render/human.js";
+import type { JourneyState } from "../../src/state/schema.js";
 import type { DrawContext } from "../../src/util/rng.js";
 
 const randomPoolDrawsPlugin = getShapePlugin("random_pool_draws");
@@ -88,7 +90,10 @@ function fakeDraw(seed: string): DrawContext {
   return { seed, contentVersion: "v1", rootJourneyIndex: 0 };
 }
 
-async function forcedRandomPoolManifest(seed: string, stage: JourneyStage) {
+async function forcedRandomPoolJourney(seed: string, stage: JourneyStage): Promise<{
+  manifest: ReturnType<typeof generateNextJourney>;
+  state: JourneyState;
+}> {
   const { content, contentVersion } = await loadContentContext(process.cwd());
   const state = createInitialJourneyState({ seed, content, contentVersion });
   simulateQuestStateForStage({
@@ -103,11 +108,17 @@ async function forcedRandomPoolManifest(seed: string, stage: JourneyStage) {
     contentVersion,
   });
 
-  return generateNextJourney({
+  const manifest = generateNextJourney({
     context,
     forcedShapeId: "random_pool_draws",
     forcedStage: stage,
   });
+
+  return { manifest, state };
+}
+
+async function forcedRandomPoolManifest(seed: string, stage: JourneyStage) {
+  return (await forcedRandomPoolJourney(seed, stage)).manifest;
 }
 
 function poolTemplateIds(manifest: Awaited<ReturnType<typeof forcedRandomPoolManifest>>): string[] {
@@ -302,6 +313,52 @@ describe("random_pool_draws fill", () => {
     expect(summary).toMatch(/^Randomly gain one of these outcomes\.\n1\. /u);
     expect(summary).toContain("\n2. ");
     expect(summary).toMatch(/\nOutcomes draw (with|without) replacement\.$/u);
+  });
+
+  it("renders random pool draws as numbered level options with inline rewards", async () => {
+    const { manifest, state } = await forcedRandomPoolJourney(
+      "audit:random_pool_draws:late:03",
+      "late",
+    );
+    const output = renderJourneyHuman(state, manifest, {
+      json: false,
+      debug: false,
+      color: false,
+    });
+    const rewardBullets = (manifest.rewardPool?.summary ?? "")
+      .split("\n")
+      .filter((line) => /^\d+\. /u.test(line))
+      .map((line) => `   - ${line.replace(/^\d+\. /u, "")}`);
+    const costs = drawCosts(manifest);
+
+    expect(rewardBullets).toHaveLength(3);
+    expect(output).not.toContain("\nPool\n");
+    expect(output).not.toMatch(/(?:^|\n)(?:Stop|Draw) - /u);
+    expect(output).not.toContain("visible pool");
+    expect(output).not.toContain("with replacement");
+    expect(output).not.toContain("without replacement");
+
+    for (const [index, cost] of costs.entries()) {
+      const levelNumber = index + 1;
+      const nextLevelNumber = levelNumber + 1;
+      const levelEnd = index === costs.length - 1
+        ? "\n(Previously drawn options will be omitted from the list)"
+        : `\nLevel ${nextLevelNumber}`;
+      const levelBlock = output.slice(
+        output.indexOf(`Level ${levelNumber}`),
+        output.indexOf(levelEnd),
+      );
+
+      expect(levelBlock).toContain("1. Leave.");
+      expect(levelBlock).toContain(
+        `2. Pay ${cost} essence and gain one random reward from among:`,
+      );
+      expect(levelBlock).toContain(rewardBullets.join("\n"));
+    }
+
+    expect(output.trimEnd().endsWith(
+      "(Previously drawn options will be omitted from the list)",
+    )).toBe(true);
   });
 
   it.each([

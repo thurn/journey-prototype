@@ -793,6 +793,9 @@ export type JourneyOption = {
 
 export type JourneyPresentation = {
   flatMenuHeader?: string;
+  treeBranchFormat?: "labeled" | "numbered";
+  treeRewardPoolDisplay?: "section" | "hidden";
+  treeFooter?: string;
 };
 
 export type JourneyTreeBranchKind =

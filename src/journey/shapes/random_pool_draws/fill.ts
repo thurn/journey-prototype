@@ -450,6 +450,12 @@ function poolSummary(
   ].join("\n");
 }
 
+function inlinePoolRewardText(candidates: readonly PoolCandidate[]): string {
+  return candidates
+    .map((candidate) => `- ${stripTerminalPeriod(candidate.text)}`)
+    .join("\n");
+}
+
 function visiblePoolDebugSummary(candidates: readonly PoolCandidate[]): string {
   return [
     "Randomly gain one of these outcomes.",
@@ -540,15 +546,11 @@ function drawBranch(args: {
   readonly levelCount: number;
   readonly costAmount: number;
   readonly averageReward: number;
+  readonly candidates: readonly PoolCandidate[];
   readonly replacement: RandomPoolReplacementPolicy;
 }): JourneyTreeBranch {
   const final = args.level === args.levelCount;
-  const replacementText = args.replacement === "with_replacement"
-    ? "with replacement"
-    : "without replacement";
-  const text = `Pay ${args.costAmount} essence and gain one random reward from the visible pool ${replacementText}. ${
-    final ? "End the Journey." : `Go to Level ${args.level + 1}.`
-  }`;
+  const text = `Pay ${args.costAmount} essence and gain one random reward from among:\n${inlinePoolRewardText(args.candidates)}`;
   const costConvertedEssence = PAY_ESSENCE.cec(
     { x: args.costAmount },
     args.context,
@@ -584,6 +586,7 @@ function buildTree(args: {
   readonly levelCount: number;
   readonly costAmounts: readonly number[];
   readonly averageReward: number;
+  readonly candidates: readonly PoolCandidate[];
   readonly replacement: RandomPoolReplacementPolicy;
 }): JourneyTree {
   return {
@@ -602,6 +605,7 @@ function buildTree(args: {
             levelCount: args.levelCount,
             costAmount: args.costAmounts[index]!,
             averageReward: args.averageReward,
+            candidates: args.candidates,
             replacement: args.replacement,
           }),
         ],
@@ -708,9 +712,15 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
       levelCount,
       costAmounts,
       averageReward,
+      candidates,
       replacement,
     }),
     rewardPool,
+    presentation: {
+      treeBranchFormat: "numbered",
+      treeRewardPoolDisplay: "hidden",
+      treeFooter: "(Previously drawn options will be omitted from the list)",
+    },
     precommitted: {
       ...precommitted,
       operations: buildPrecommittedOperations(precommitted),
