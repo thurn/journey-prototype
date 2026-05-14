@@ -32,10 +32,6 @@ function emptyOption(number: number, text: string, symbols: readonly string[], c
   };
 }
 
-function paramsRecord(params: unknown): Record<string, unknown> {
-  return typeof params === "object" && params !== null ? params as Record<string, unknown> : {};
-}
-
 function subTemplateIdsOf(rolled: { template: Reward; params: unknown }): readonly string[] {
   // For meta_gain_2_rewards, params has subIds; for others, none.
   if (rolled.template.id === "meta_gain_2_rewards") {
@@ -47,32 +43,6 @@ function subTemplateIdsOf(rolled: { template: Reward; params: unknown }): readon
 
 function consumedIds(rolled: { template: Reward; params: unknown }): readonly string[] {
   return [rolled.template.id, ...subTemplateIdsOf(rolled)];
-}
-
-function isStarterRandomPredicate(templateId: string, params: unknown): boolean {
-  return templateId === "apply_named_transfiguration_to_random_predicate_cards" &&
-    paramsRecord(params).predicateId === "starter";
-}
-
-function containsStarterRandomPredicate(rolled: { template: Reward; params: unknown }): boolean {
-  if (isStarterRandomPredicate(rolled.template.id, rolled.params)) {
-    return true;
-  }
-
-  if (rolled.template.id !== "meta_gain_2_rewards") {
-    return false;
-  }
-
-  const params = paramsRecord(rolled.params);
-  const subIds = params.subIds;
-  const subParams = params.subParams;
-  if (!Array.isArray(subIds) || !Array.isArray(subParams)) {
-    return false;
-  }
-
-  return subIds.some((id, index) =>
-    typeof id === "string" && isStarterRandomPredicate(id, subParams[index])
-  );
 }
 
 function rollOneCandidate(
@@ -89,7 +59,6 @@ function rollOneCandidate(
     // Reject degenerate (CEC<=0) anchors so the tolerance band has a meaningful scale.
     if (cec <= 0) continue;
     const rolled = { template, params, cec };
-    if (containsStarterRandomPredicate(rolled)) continue;
     viable.push({ ...rolled, weight: template.weight });
   }
   if (viable.length === 0) return undefined;
@@ -134,7 +103,6 @@ export function randomRewardsFill(args: ShapeFillArgs): FilledJourney {
         if (cec < lo * anchor || cec > hi * anchor) continue;
         const rolled = { template, params, cec };
         if (!meetsDistinctness(rolled, used)) continue;
-        if (containsStarterRandomPredicate(rolled)) continue;
         candidates.push({ ...rolled, weight: template.weight });
       }
       if (candidates.length > 0) {

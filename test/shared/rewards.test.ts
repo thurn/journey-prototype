@@ -57,6 +57,18 @@ function fakeCtxWithCards(cards: readonly CardContent[]): JourneyContext {
   } as JourneyContext;
 }
 
+async function realCtx(seed = "transfig-eligibility"): Promise<JourneyContext> {
+  const content = await loadContent(process.cwd());
+  const contentVersion = "test-content-version";
+  const state = createInitialJourneyState({ seed, content, contentVersion });
+  return buildJourneyContext({
+    projectRoot: process.cwd(),
+    content,
+    state,
+    contentVersion,
+  });
+}
+
 const starterCard: CardContent = {
   id: "starter-paranoia",
   name: "Paranoia",
@@ -305,6 +317,7 @@ describe("rewards table (card-pool family)", () => {
     const additionRewardIds = [
       "gain_random_predicate_cards",
       "take_any_from_predicate_choices",
+      "apply_named_transfiguration_to_random_predicate_cards",
       "duplicate_random_predicate",
     ];
     for (const id of additionRewardIds) {
@@ -1104,6 +1117,25 @@ describe("meta_gain_2_rewards", () => {
     // Sub-templates are picked among viable templates, so the meta should be viable.
     expect(t.viable(p, fakeCtx())).toBe(true);
   });
+
+  it("never embeds starter random-predicate transfiguration params", async () => {
+    const t = getReward("meta_gain_2_rewards");
+    const ctx = await realCtx();
+    let sawRandomPredicateTransfiguration = false;
+    for (let i = 0; i < 1000; i += 1) {
+      const p = t.rollParams(ctx, { ...draw, sequenceStep: i }) as {
+        subIds: readonly [string, string];
+        subParams: readonly [unknown, unknown];
+      };
+      for (const [index, id] of p.subIds.entries()) {
+        if (id !== "apply_named_transfiguration_to_random_predicate_cards") continue;
+        sawRandomPredicateTransfiguration = true;
+        const subParams = p.subParams[index] as { predicateId?: string };
+        expect(subParams.predicateId).not.toBe("starter");
+      }
+    }
+    expect(sawRandomPredicateTransfiguration).toBe(true);
+  });
 });
 
 describe("named-transfiguration rewards respect per-transfiguration eligibility", () => {
@@ -1118,18 +1150,6 @@ describe("named-transfiguration rewards respect per-transfiguration eligibility"
   // The reward generator must roll only transfiguration/predicate pairings
   // that are compatible with these filters — otherwise it produces
   // impossible offers like "Apply Bronze to 1 random Warrior".
-  async function realCtx(seed = "transfig-eligibility"): Promise<JourneyContext> {
-    const content = await loadContent(process.cwd());
-    const contentVersion = "test-content-version";
-    const state = createInitialJourneyState({ seed, content, contentVersion });
-    return buildJourneyContext({
-      projectRoot: process.cwd(),
-      content,
-      state,
-      contentVersion,
-    });
-  }
-
   it("isCardEligibleForTransfiguration enforces card type filters", async () => {
     const ctx = await realCtx();
     const characters = ctx.content.cards.filter((c) => c.cardType === "Character");

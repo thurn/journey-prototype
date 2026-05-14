@@ -470,16 +470,14 @@ preferences and has named topology escape hatches.
 declared repair preferences and typed failure reasons, then repair payload
 families before switching topology or falling back to simpler shapes.
 
-**Resolution:** Repair planning now starts from typed validation failures where
-the failed contract identifies a payload family, then applies the current
-shape's declared `repairPreferences` before any topology switch. Same-shape
+**Resolution:** Repair planning starts from typed validation failures where the
+failed contract identifies a payload family, then applies the current shape's
+declared `repairPreferences` before any topology switch. Same-shape
 payload-family regeneration is attempted for delayed hooks, route edits, random
 envelopes, decision trees, targets, costs, and root topology problems before
-fallback shapes are considered. The old global action script and named
-`convert_route_addition` / `replace_delayed_hook` escape hatches have been
-removed; topology changes now come only from explicit shape preferences or the
-generic unforced switch/fallback path. Forced-shape repair still fails clearly
-instead of silently switching shapes.
+fallback shapes are considered. Topology changes come from explicit shape
+preferences or the generic unforced switch/fallback path. Forced-shape repair
+fails with a clear error when repair requires switching shapes.
 
 ### 13. Validators Preserve Display Text And Magic Payload Kinds
 
@@ -499,9 +497,7 @@ still depend on exact strings or allow unknown scenario kinds:
   [`tree.ts`](../src/journey/validate/tree.ts#L192);
 - sequence and take-any-number validation match display text such as `^take`,
   `no effect`, and `refuse` in
-  [`precommitRules.ts`](../src/journey/validate/precommitRules.ts#L276);
-- `validateTimedWindowMenu()` detects duration through string matching in
-  [`values.ts`](../src/journey/validate/values.ts#L103).
+  [`precommitRules.ts`](../src/journey/validate/precommitRules.ts#L276).
 
 These rules do not directly create hardcoded scenarios, but they make hardcoded
 scenarios easier to keep because they validate current English copy and magic

@@ -327,7 +327,7 @@ const applyNamedTransfigurationToRandomPredicateCards: Reward<ApplyNamedTransfig
   id: "apply_named_transfiguration_to_random_predicate_cards",
   weight: 1.0,
   rollParams: (ctx, draw) => {
-    const predicateId = rollPredicate(draw, "named_transfig_random:p").id;
+    const predicateId = rollCardAdditionPredicate(draw, "named_transfig_random:p").id;
     return {
       transfiguration: pickTransfigurationForPredicate(ctx, draw, "named_transfig_random:t", predicateId),
       predicateId,
