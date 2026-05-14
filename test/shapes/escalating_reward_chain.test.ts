@@ -74,12 +74,28 @@ function primaryCostKind(branch: JourneyTreeBranch): string | undefined {
   return undefined;
 }
 
+function rewardTemplateId(branch: JourneyTreeBranch): string {
+  const primaryEffect = branch.effects[0];
+
+  expect(primaryEffect).toEqual(
+    expect.objectContaining({
+      kind: "shared_reward_template",
+      templateId: expect.any(String),
+      rewardFamily: expect.any(String),
+      escalationTier: expect.stringMatching(/^tier_\d+$/u),
+    }),
+  );
+
+  return (primaryEffect as { templateId: string }).templateId;
+}
+
 function assertEscalatingRewardChainTree(tree: JourneyTree) {
   expect(tree.rootNodeId).toBe("level-1");
   expect(tree.nodes).toHaveLength(3);
 
   const costs: number[] = [];
   const rewards: number[] = [];
+  const rewardFamilies: string[] = [];
 
   for (const [index, node] of tree.nodes.entries()) {
     const level = index + 1;
@@ -117,6 +133,7 @@ function assertEscalatingRewardChainTree(tree: JourneyTree) {
 
     costs.push(take!.costConvertedEssence);
     rewards.push(take!.effectConvertedEssence);
+    rewardFamilies.push(rewardTemplateId(take!));
 
     if (isFinal) {
       expect(take?.nextNodeId).toBeUndefined();
@@ -133,6 +150,7 @@ function assertEscalatingRewardChainTree(tree: JourneyTree) {
 
   expect(costs).toEqual([...costs].sort((left, right) => left - right));
   expect(rewards).toEqual([...rewards].sort((left, right) => left - right));
+  expect(new Set(rewardFamilies)).toEqual(new Set([rewardFamilies[0]]));
 }
 
 function fullTakePathCost(tree: JourneyTree): number {
@@ -178,6 +196,30 @@ describe("escalating_reward_chain fill", () => {
         }
       }
     }
+  });
+
+  it("uses multiple coherent scalable reward families across audited seeds", async () => {
+    const rewardFamilies = new Set<string>();
+
+    for (const stage of auditStages) {
+      for (const seedNumber of auditSeedNumbers) {
+        const seed = `audit:escalating_reward_chain:${stage}:${seedNumber}`;
+        const manifest = await forcedEscalatingRewardChainManifest(seed, stage);
+        const familyIds = manifest.tree!.nodes.map((node) =>
+          rewardTemplateId(node.branches[1]!)
+        );
+        const [sharedFamily] = familyIds;
+
+        expect(new Set(familyIds), seed).toEqual(new Set([sharedFamily]));
+        rewardFamilies.add(sharedFamily!);
+      }
+    }
+
+    expect(rewardFamilies.size).toBeGreaterThan(2);
+    expect([...rewardFamilies]).toContain("gain_omens");
+    expect([...rewardFamilies].some((family) =>
+      family !== "gain_essence" && family !== "gain_omens"
+    )).toBe(true);
   });
 
   it("is deterministic for a fixed seed and stage", async () => {

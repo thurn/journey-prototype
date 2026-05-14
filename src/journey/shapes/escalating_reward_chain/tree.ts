@@ -1,5 +1,5 @@
 import type { JourneyContext } from "../../../quest/context.js";
-import { drawInt, type DrawContext } from "../../../util/rng.js";
+import { shuffleDeterministic, type DrawContext } from "../../../util/rng.js";
 import type { JourneyStage, JourneyTree, JourneyTreeBranch } from "../../manifest.js";
 import {
   buildTreeBranchOperations,
@@ -12,6 +12,25 @@ type EscalatingReward = {
   readonly text: string;
   readonly effects: readonly unknown[];
   readonly effect: number;
+};
+
+type EscalatingRewardTemplateId =
+  | "gain_essence"
+  | "gain_omens"
+  | "increase_max_essence"
+  | "duplicate_chosen_cards"
+  | "make_random_cards_reclaim"
+  | "choose_1_of_X_dreamsigns";
+
+type EscalatingRewardProfile = {
+  readonly rewardId: EscalatingRewardTemplateId;
+  readonly sharedProperty: string;
+  readonly variedProperty: string;
+  readonly rows: readonly [
+    TemplateParams,
+    TemplateParams,
+    TemplateParams,
+  ];
 };
 
 type TreeBranchArgs = {
@@ -40,17 +59,168 @@ const COSTS: Record<JourneyStage, readonly [number, number, number]> = {
   late: [45, 95, 165],
 };
 
-const ESSENCE_AMOUNTS: Record<JourneyStage, readonly [number, number, number]> = {
-  early: [45, 90, 150],
-  mid: [90, 175, 300],
-  late: [130, 250, 430],
-};
-
 const OMEN_COUNTS: Record<JourneyStage, readonly [number, number, number]> = {
   early: [1, 2, 3],
   mid: [2, 4, 6],
   late: [3, 6, 9],
 };
+
+const REWARD_PROFILES = {
+  early: [
+    rewardProfile(
+      "gain_essence",
+      "essence reward family",
+      "strictly increasing essence amount",
+      [{ x: 45 }, { x: 90 }, { x: 150 }],
+    ),
+    rewardProfile(
+      "gain_omens",
+      "omen reward family",
+      "strictly increasing omen count",
+      omenRows(OMEN_COUNTS.early),
+    ),
+    rewardProfile(
+      "increase_max_essence",
+      "maximum-essence reward family",
+      "strictly increasing maximum-essence amount",
+      [{ amount: 70 }, { amount: 140 }, { amount: 240 }],
+    ),
+    rewardProfile(
+      "duplicate_chosen_cards",
+      "chosen-card duplication reward family",
+      "strictly increasing duplicate count",
+      [{ count: 1 }, { count: 2 }, { count: 3 }],
+    ),
+    rewardProfile(
+      "make_random_cards_reclaim",
+      "random-card Reclaim reward family",
+      "strictly increasing random-card count with fixed Reclaim amount",
+      [
+        { count: 1, reclaim: 2 },
+        { count: 2, reclaim: 2 },
+        { count: 3, reclaim: 2 },
+      ],
+    ),
+    rewardProfile(
+      "choose_1_of_X_dreamsigns",
+      "Dreamsign choice reward family",
+      "strictly increasing Dreamsign choice count",
+      [{ choices: 2 }, { choices: 3 }, { choices: 4 }],
+    ),
+  ],
+  mid: [
+    rewardProfile(
+      "gain_essence",
+      "essence reward family",
+      "strictly increasing essence amount",
+      [{ x: 90 }, { x: 175 }, { x: 300 }],
+    ),
+    rewardProfile(
+      "gain_omens",
+      "omen reward family",
+      "strictly increasing omen count",
+      omenRows(OMEN_COUNTS.mid),
+    ),
+    rewardProfile(
+      "increase_max_essence",
+      "maximum-essence reward family",
+      "strictly increasing maximum-essence amount",
+      [{ amount: 110 }, { amount: 210 }, { amount: 340 }],
+    ),
+    rewardProfile(
+      "duplicate_chosen_cards",
+      "chosen-card duplication reward family",
+      "strictly increasing duplicate count",
+      [{ count: 2 }, { count: 3 }, { count: 4 }],
+    ),
+    rewardProfile(
+      "make_random_cards_reclaim",
+      "random-card Reclaim reward family",
+      "strictly increasing random-card count with fixed Reclaim amount",
+      [
+        { count: 2, reclaim: 2 },
+        { count: 4, reclaim: 2 },
+        { count: 6, reclaim: 2 },
+      ],
+    ),
+    rewardProfile(
+      "choose_1_of_X_dreamsigns",
+      "Dreamsign choice reward family",
+      "strictly increasing Dreamsign choice count",
+      [{ choices: 2 }, { choices: 3 }, { choices: 4 }],
+    ),
+  ],
+  late: [
+    rewardProfile(
+      "gain_essence",
+      "essence reward family",
+      "strictly increasing essence amount",
+      [{ x: 130 }, { x: 250 }, { x: 430 }],
+    ),
+    rewardProfile(
+      "gain_omens",
+      "omen reward family",
+      "strictly increasing omen count",
+      omenRows(OMEN_COUNTS.late),
+    ),
+    rewardProfile(
+      "increase_max_essence",
+      "maximum-essence reward family",
+      "strictly increasing maximum-essence amount",
+      [{ amount: 140 }, { amount: 260 }, { amount: 380 }],
+    ),
+    rewardProfile(
+      "duplicate_chosen_cards",
+      "chosen-card duplication reward family",
+      "strictly increasing duplicate count",
+      [{ count: 2 }, { count: 4 }, { count: 5 }],
+    ),
+    rewardProfile(
+      "make_random_cards_reclaim",
+      "random-card Reclaim reward family",
+      "strictly increasing random-card count with fixed Reclaim amount",
+      [
+        { count: 3, reclaim: 2 },
+        { count: 5, reclaim: 2 },
+        { count: 8, reclaim: 2 },
+      ],
+    ),
+    rewardProfile(
+      "choose_1_of_X_dreamsigns",
+      "Dreamsign choice reward family",
+      "strictly increasing Dreamsign choice count",
+      [{ choices: 2 }, { choices: 3 }, { choices: 4 }],
+    ),
+  ],
+} as const satisfies Record<JourneyStage, readonly EscalatingRewardProfile[]>;
+
+function omenRows(
+  counts: readonly [number, number, number],
+): readonly [TemplateParams, TemplateParams, TemplateParams] {
+  return [
+    { x: counts[0] },
+    { x: counts[1] },
+    { x: counts[2] },
+  ];
+}
+
+function rewardProfile(
+  rewardId: EscalatingRewardTemplateId,
+  sharedProperty: string,
+  variedProperty: string,
+  rows: readonly [
+    TemplateParams,
+    TemplateParams,
+    TemplateParams,
+  ],
+): EscalatingRewardProfile {
+  return {
+    rewardId,
+    sharedProperty,
+    variedProperty,
+    rows,
+  };
+}
 
 function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
   const costs = [...(args.costs ?? [])];
@@ -112,14 +282,6 @@ function tree(nodes: JourneyTree["nodes"]): JourneyTree {
   };
 }
 
-function pickSequentialVariant<T>(
-  drawContext: DrawContext,
-  label: string,
-  variants: readonly T[],
-): T {
-  return variants[drawInt(drawContext, label, 0, variants.length - 1)]!;
-}
-
 function cost(amount: number): Record<string, unknown> {
   return {
     kind: "essence",
@@ -130,9 +292,11 @@ function cost(amount: number): Record<string, unknown> {
 
 function sharedRewardPayload(
   context: JourneyContext,
-  templateId: "gain_essence" | "gain_omens",
+  profile: EscalatingRewardProfile,
   params: TemplateParams,
+  escalationTier: string,
 ): EscalatingReward {
+  const templateId = profile.rewardId;
   const template = getReward(templateId);
   const text = template.render(params as never, context);
   const convertedEssence = template.cec(params as never, context);
@@ -146,10 +310,25 @@ function sharedRewardPayload(
         params,
         text,
         convertedEssence,
+        rewardFamily: templateId,
+        rewardFamilyLabel: profile.sharedProperty,
+        rewardEscalationAxis: profile.variedProperty,
+        escalationTier,
       },
     ],
     effect: convertedEssence,
   };
+}
+
+function profileIsViable(
+  profile: EscalatingRewardProfile,
+  context: JourneyContext,
+): boolean {
+  const reward = getReward(profile.rewardId);
+
+  return profile.rows.every((params) =>
+    reward.viable(params as never, context)
+  );
 }
 
 function rewardsFor(
@@ -157,19 +336,24 @@ function rewardsFor(
   drawContext: DrawContext,
   stage: JourneyStage,
 ): readonly EscalatingReward[] {
-  const family = pickSequentialVariant(
-    drawContext,
-    "escalating-chain:reward-family",
-    ["essence", "omens"] as const,
+  const profiles = REWARD_PROFILES[stage];
+  const viableProfiles = profiles.filter((profile) =>
+    profileIsViable(profile, context)
   );
+  const selectedProfile = shuffleDeterministic(
+    drawContext,
+    `escalating-chain:reward-profile:${stage}`,
+    viableProfiles.length > 0 ? viableProfiles : profiles,
+  )[0]!;
 
-  return family === "essence"
-    ? ESSENCE_AMOUNTS[stage].map((x) =>
-        sharedRewardPayload(context, "gain_essence", { x })
-      )
-    : OMEN_COUNTS[stage].map((x) =>
-        sharedRewardPayload(context, "gain_omens", { x })
-      );
+  return selectedProfile.rows.map((params, index) =>
+    sharedRewardPayload(
+      context,
+      selectedProfile,
+      params,
+      `tier_${index + 1}`,
+    )
+  );
 }
 
 export function buildEscalatingRewardChainTree(
