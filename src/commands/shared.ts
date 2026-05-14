@@ -70,9 +70,12 @@ export function setupErrorResult(
   options: CommonCommandOptions,
 ): CommandResult {
   const detail = error instanceof Error ? error.message : String(error);
+  const exitCode = detail.startsWith("Unknown Journey shape:")
+    ? ExitCode.UsageOrInput
+    : ExitCode.SetupOrSchema;
 
   return renderError(
-    createJourneyError(detail, ExitCode.SetupOrSchema),
+    createJourneyError(detail, exitCode),
     options,
   );
 }

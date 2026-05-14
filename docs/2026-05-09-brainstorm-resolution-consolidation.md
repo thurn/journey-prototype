@@ -1,8 +1,6 @@
 # Brainstorm Resolution Consolidation
 
-Companion to [Brainstorm Examples Analysis](brainstorm_examples_analysis.md).
-
-The analysis doc contains roughly 40 per-example "Suggested resolution" entries.
+This proposal consolidates a previous pass of per-example "Suggested resolution" entries.
 Almost every one is a bespoke band-aid for the example in front of it: a new
 named compound family for one specific cost+reward pair, a new shape that only
 fires for one brainstorm, a new catalog entry that hardcodes one transfiguration
@@ -162,7 +160,7 @@ all of them:
 
 Implementation: a single `homogeneous_family_trio` contract parameterized by
 which family pool the rows draw from. Existing reward-menu shapes
-(`curated_reward_trio`, `service_menu`, `same_cost_different_rewards`) gain an
+(`curated_reward_trio`, `same_cost_different_rewards`) gain an
 optional family-restriction filter; the contract records the chosen family
 so it surfaces in symmetry tagging.
 
@@ -228,11 +226,9 @@ shape or compound family.
 ## What this proposal supersedes
 
 Adopted as written, this consolidation supersedes the per-example "Suggested
-resolution" entries in `brainstorm_examples_analysis.md`. The analysis doc's
-verdicts (Generatable / Not generatable / Coincidence-only) remain useful as
-reachability bookkeeping; the resolutions should be replaced with pointers
-into the five structural fixes, three symmetry contracts, and the residual
-primitive list above.
+resolution" entries from the reachability pass. Reachability verdicts remain
+useful as bookkeeping; resolutions should point into the five structural fixes,
+three symmetry contracts, and the residual primitive list above.
 
 This also implies a revision to the milestone structure in
 [the Brainstorm Generation Gap

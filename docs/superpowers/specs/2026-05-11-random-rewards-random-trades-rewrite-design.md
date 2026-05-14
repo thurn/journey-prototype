@@ -4,7 +4,7 @@ Date: 2026-05-11
 
 ## Motivation
 
-The current implementations of `random_rewards` and `random_trades` are entangled with the broader filler/validator system: shared helpers in `src/journey/fillers/`, shape-coupled pool registries that route through `service_menu`'s generic-bundle pipeline, and validators that re-implement signatures to assert shape-specific invariants. The result is hard to reason about, hard to change, and reflects assumptions ported in from other shapes that don't actually apply here.
+The current implementations of `random_rewards` and `random_trades` are entangled with the broader filler/validator system: shared helpers in `src/journey/fillers/`, shape-coupled pool registries, and validators that re-implement signatures to assert shape-specific invariants. The result is hard to reason about, hard to change, and reflects assumptions ported in from other shapes that don't actually apply here.
 
 This spec describes a clean-room rewrite. Both shapes keep their existing IDs and registry entries, conform to the existing plugin API (with one small addition), and live entirely inside their own directories. No code is shared with the current implementations; assume all current code is wrong and do not emulate it.
 

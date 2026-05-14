@@ -17,7 +17,6 @@ const expectedShapeIds = [
   "same_cost_different_rewards",
   "same_reward_different_costs",
   "shared_prefix_menu",
-  "service_menu",
   "shop_row",
   "heterogeneous_pair",
   "random_trades",
@@ -46,6 +45,7 @@ const expectedShapeIds = [
   "commit_now_future_payoff",
   "alter_dreamscapes",
 ] as const;
+const deletedServiceShapeId = ["service", "menu"].join("_");
 
 const encoder = new TextEncoder();
 
@@ -82,7 +82,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(32);
+    expect(actualShapeIds).toHaveLength(31);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -100,9 +100,20 @@ describe("JOURNEY_SHAPES", () => {
       rootOptionCount: { min: 3, max: 3 },
     });
     expect(isJourneyShapeId("return_row")).toBe(false);
-    expect(isJourneyShapeId("compound_service_menu")).toBe(false);
+    expect(
+      isJourneyShapeId(["compound", deletedServiceShapeId].join("_")),
+    ).toBe(false);
     expect(getShapeDefinition("paired_return").rootOptionCount.max).toBe(3);
-    expect(getShapeDefinition("service_menu").supportedTags).toContain("service");
+  });
+
+  it("does not expose the deleted service shape as a canonical shape", () => {
+    expect(isJourneyShapeId(deletedServiceShapeId)).toBe(false);
+    expect(() => getShapeDefinition(deletedServiceShapeId)).toThrow(
+      `Unknown Journey shape ID: ${deletedServiceShapeId}`,
+    );
+    expect(() => getShapePlugin(deletedServiceShapeId)).toThrow(
+      `Unknown Journey shape ID: ${deletedServiceShapeId}`,
+    );
   });
 
   it("provides complete definitions and lookups for every canonical shape", () => {

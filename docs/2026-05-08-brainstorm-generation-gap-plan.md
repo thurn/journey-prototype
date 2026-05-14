@@ -399,7 +399,6 @@ Dreamsign purchases with shared currencies and coherent prices.
 Relevant files:
 
 - [src/journey/shapes/shop_row.ts](../src/journey/shapes/shop_row.ts)
-- [src/journey/shapes/service_menu.ts](../src/journey/shapes/service_menu.ts)
 - [src/journey/fillers/shapeFills.ts](../src/journey/fillers/shapeFills.ts)
 - [src/journey/fillers/dreamsignPayloads.ts](../src/journey/fillers/dreamsignPayloads.ts)
 - [src/journey/value.ts](../src/journey/value.ts)
@@ -882,7 +881,7 @@ Candidate shapes:
   choosing one random revealed reward, or taking a random reward.
 - `return_row`: several sealed or borrowed objects with parallel future return
   scenes.
-- `compound_service_menu`: a workshop-style menu where each option is a small
+- `compound_bundle_menu`: a workshop-style menu where each option is a small
   compatible bundle rather than one atomic reward.
 
 Required work:

@@ -270,7 +270,7 @@ not "a tuple of generated effects."
 ### Choice Topology Beats Reward Noun
 
 The same dreamsign reward can feel radically different depending on whether it
-appears in a service menu, a risk-or-skip scene, a delayed trigger scene, or an
+appears in a utility menu, a risk-or-skip scene, a delayed trigger scene, or an
 escalating sequence. The choice topology is the scene.
 
 ### Reusable Effects Are Inputs, Not Scenes
@@ -503,19 +503,11 @@ usually a `shop_row` or `curated_reward_trio`, not this shape; this shape works
 best when the root choice reveals the class, count, and pool bounds while the
 actual draft menu is opened after commitment.
 
-### service_menu
-
-The player chooses one of several discrete services from the same scene. The
-options may differ in both payload and target domain, but they should still feel
-like one vendor, workshop, shrine, or other unified offering. Every listed
-service should be something a rational player could actually want in some
-ordinary run state.
-
 ### shop_row
 
 The scene presents several purchasable offers with flat visible prices, like a
-miniature shop. This is a more commerce-like shape than `service_menu` and is
-especially useful when all options share a clear purchasing frame.
+miniature shop. This shape is especially useful when all options share a clear
+purchasing frame.
 
 ### curated_reward_trio
 

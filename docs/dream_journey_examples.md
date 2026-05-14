@@ -66,27 +66,6 @@ repair, generated-object, and distinctness contracts for a shape.
 - Pay 70 essence. Enter a Dreamsign draft from 4 random Dreamsigns.
 - Pay 105 essence. Enter a Dreamsign draft from 6 random Dreamsigns.
 
-# service_menu
-
-## Welcoming Weaver
-
-- Apply {Viridian Transfiguration} to a chosen starter card.
-- Transform a chosen Dreamsign into you choice of 1 of 3 Dreamsigns.
-- Replace a {Draft} site in the current dreamscape with a {Transfiguration}
-  site.
-
-## Quiet Shrine
-
-- Purge 2 Banes.
-- Purge a chosen starter card.
-- Restore essence to full.
-
-## Dreamsmith Counter
-
-- Duplicate a chosen card.
-- Gain {Ginger Root}.
-- Merge 2 chosen events.
-
 # shop_row
 
 ## Dreamsign Shelf

@@ -13,31 +13,30 @@ Each queued shape follows this sequence:
 | Order | Shape | Weight | Migration | Audit | Fix | Verification | Status |
 | --- | --- | ---: | --- | --- | --- | --- | --- |
 | 1 | `take_any_number` | 7 | Complete | Complete | Complete | Complete | Complete |
-| 2 | `service_menu` | 7 | Complete | Complete | Complete | Complete | Complete |
-| 3 | `heterogeneous_pair` | 7 | Complete | Complete | Complete | Complete | Complete |
-| 4 | `shop_row` | 7.0 | Complete | Complete | Complete | Complete | Complete |
-| 5 | `alter_dreamscapes` | 6 | Complete | Complete | Complete | Complete | Complete |
-| 6 | `single_wager` | 6 | Complete | Complete | Complete | Complete | Complete |
-| 7 | `single_random_outcome` | 6 | Complete | Complete | Complete | Complete | Complete |
-| 8 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 9 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 10 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 11 | `timed_window_menu` | 5 | Complete | Complete | Complete | Complete | Complete |
-| 12 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 13 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 14 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 15 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
-| 16 | `single_reward` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 17 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 18 | `single_rule_trial` | 3 | Complete | Complete | Complete | Complete | Complete |
-| 19 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 20 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 21 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 22 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
-| 23 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 24 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 25 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 26 | `paired_return` | 1.0 | Complete | Complete | Complete | Complete | Complete |
+| 2 | `heterogeneous_pair` | 7 | Complete | Complete | Complete | Complete | Complete |
+| 3 | `shop_row` | 7.0 | Complete | Complete | Complete | Complete | Complete |
+| 4 | `alter_dreamscapes` | 6 | Complete | Complete | Complete | Complete | Complete |
+| 5 | `single_wager` | 6 | Complete | Complete | Complete | Complete | Complete |
+| 6 | `single_random_outcome` | 6 | Complete | Complete | Complete | Complete | Complete |
+| 7 | `now_vs_later` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 8 | `choose_your_loss` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 9 | `commit_now_future_payoff` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 10 | `timed_window_menu` | 5 | Complete | Complete | Complete | Complete | Complete |
+| 11 | `random_pool_draws` | 4 | Complete | Complete | Complete | Complete | Complete |
+| 12 | `resolved_random_series` | 4 | Complete | Complete | Complete | Complete | Complete |
+| 13 | `push_your_luck` | 4 | Complete | Complete | Complete | Complete | Complete |
+| 14 | `prize_ladder` | 4 | Complete | Complete | Complete | Complete | Complete |
+| 15 | `single_reward` | 3 | Complete | Complete | Complete | Complete | Complete |
+| 16 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
+| 17 | `single_rule_trial` | 3 | Complete | Complete | Complete | Complete | Complete |
+| 18 | `risk_or_skip` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 19 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 20 | `reveal_choice_menu` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 21 | `probability_ladder` | 2 | Complete | Complete | Complete | Complete | Complete |
+| 22 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
+| 23 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
+| 24 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
+| 25 | `paired_return` | 1.0 | Complete | Complete | Complete | Complete | Complete |
 
 ## Reference Shapes
 
@@ -58,7 +57,6 @@ These shapes are reference implementations for the migration target:
   verification passes. The completion audit table tracks shared-system
   dependency cleanup for the target end state.
 - `take_any_number` completed migration commit `a0b65c4`, audit commit `2c2161c`, and fix commit `c6637f4`.
-- `service_menu` completed migration commit `49187f8`, audit commit `5753e50`, and fix commit `f7502ea`.
 - `heterogeneous_pair` completed migration commit `ea18545`, audit commit `c2cf5b7`, and fix commit `afb3ac7`.
 - `shop_row` completed migration commit `ee5f59a`, audit commit `aa3c0cf`, and fix commit `e912755`.
 - `alter_dreamscapes` completed migration commit `4ced08f`, audit commit `f0ba652`, and fix commit `50c3736`.
@@ -114,7 +112,6 @@ the target end state.
 | `reward_after_trigger` | Complete | Complete |
 | `risk_or_skip` | Complete | Complete |
 | `shared_prefix_menu` | Complete | Complete |
-| `service_menu` | Complete | Complete |
 | `shop_row` | Complete | Complete |
 | `single_offer` | Complete | Complete |
 | `single_random_outcome` | Complete | Complete |

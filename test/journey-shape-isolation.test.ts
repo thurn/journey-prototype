@@ -31,7 +31,6 @@ const MIGRATED_SHAPE_IDS = [
   "risk_or_skip",
   "same_cost_different_rewards",
   "same_reward_different_costs",
-  "service_menu",
   "shared_prefix_menu",
   "shop_row",
   "single_offer",

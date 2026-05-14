@@ -50,7 +50,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | same_cost_different_rewards | 0 | fillers/shared.ts, test |
 | choose_your_loss | 6 | fillers/shared.ts, test |
 | alter_dreamscapes | 13 | fillers/shared.ts, types.ts |
-| service_menu | 51 | fillers/shared.ts, test/journey-generation.test.ts |
 | single_reward | 0 | fillers/shared.ts, repair.ts, test/journey-generation.test.ts |
 | reveal_choice_menu | 0 | fillers/randomPayloads.ts, test |
 | single_random_outcome | 7 | fillers/randomPayloads.ts |
@@ -67,12 +66,9 @@ Per-worktree extras vary; see the conflict matrix below.
 - `src/journey/shapes/registry.ts` — every merge changes one import line.
   Conflicts only when adjacent imports change in the same merge.
 - `src/journey/shapes/shared.ts` — 16 of 23 worktrees touch it. The pattern
-  is *removing references to "this shape"* from generic helpers
-  (e.g. `service_menu` strips `serviceFamilyShape` and `id === "service_menu"`
-  predicates from many lines). **These edits frequently overlap on the same
-  lines** — for example `service_menu` and `curated_reward_trio` both rewrite
-  the `hasCard || serviceFamilyShape || id === "curated_reward_trio"` line.
-  This is the primary real conflict to plan around.
+  is *removing references to "this shape"* from generic helpers. **These edits
+  frequently overlap on the same lines**. This is the primary real conflict to
+  plan around.
 - `src/journey/fillers/treeBuilders.ts` — 3 worktrees, each removes a different
   `build*Tree` closure. Low overlap risk.
 - `src/journey/fillers/shared.ts` — 5 worktrees. Each removes shape-specific
@@ -96,7 +92,7 @@ the test-registration step, patch line 11 of
 
 ```bash
 for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
-             service_menu now_vs_later timed_window_menu single_wager \
+             now_vs_later timed_window_menu single_wager \
              same_reward_different_costs commit_now_future_payoff \
              random_pool_draws risk_or_skip curated_reward_trio \
              reward_after_trigger single_reward single_random_outcome; do
@@ -179,13 +175,6 @@ collisions are likely. Merge smallest first.
 14. `single_reward` (shapes/shared=0, fillers/shared.ts, repair.ts, journey-generation test)
 15. `choose_your_loss` (shapes/shared=6, fillers/shared.ts)
 16. `alter_dreamscapes` (shapes/shared=13, fillers/shared.ts, types.ts)
-17. `service_menu` (shapes/shared=51, fillers/shared.ts, journey-generation test)
-
-`service_menu` is last in this tier because its `shapes/shared.ts` diff is
-the largest (51 lines). Doing it last means it absorbs the conflict surface
-of every prior merge into one resolution, instead of replaying that
-resolution four times.
-
 ### Tier 5 — `fillers/randomPayloads.ts` cluster (3 merges)
 
 18. `reveal_choice_menu` (shared=0, randomPayloads only)
@@ -245,13 +234,7 @@ old `case` did — investigate the case body that was removed from
 These are optional but cheap and would noticeably reduce conflict resolution
 work.
 
-1. **Pre-rebase Tier 4 worktrees onto each other** before merging into
-   master. Specifically: rebase `service_menu` onto `alter_dreamscapes`,
-   then onto `choose_your_loss`, etc. Resolve the `shapes/shared.ts` and
-   `fillers/shared.ts` conflicts once in the rebase chain rather than four
-   times during master merges. Then fast-forward each into master.
-
-2. **Normalize `shapes/shared.ts` removals.** Before any merging, write a
+1. **Normalize `shapes/shared.ts` removals.** Before any merging, write a
    single commit on master that converts the imperative `id === "X"` chains
    in `shared.ts` into a metadata-driven lookup (`SHAPE_FAMILY_TAGS[id]`).
    Each migrating worktree's removal becomes "drop one entry from a const

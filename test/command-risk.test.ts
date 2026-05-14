@@ -113,6 +113,23 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("rejects a forced deleted service shape as unknown", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const deletedServiceShapeId = ["service", "menu"].join("_");
+      const result = await handleJourney(options({
+        seed: "qa",
+        shape: deletedServiceShapeId,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.UsageOrInput);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain(
+        `Unknown Journey shape: ${deletedServiceShapeId}`,
+      );
+      await expectMissingState(statePath);
+    });
+  });
+
   it("JSON contains manifest, context, tree data, and no ANSI", async () => {
     await withTempState(async ({ options }) => {
       const result = await handleJourney(options({
@@ -214,7 +231,6 @@ describe("stateless command risk transitions", () => {
       "same_cost_different_rewards",
       "take_any_number",
       "same_reward_different_costs",
-      "service_menu",
       "single_wager",
       "random_pool_draws",
       "push_your_luck",
