@@ -184,20 +184,6 @@ repair, generated-object, and distinctness contracts for a shape.
 - Gain 1 {Oblivion}.
 - Purge a random Dreamsign.
 
-# single_reward
-
-## Open Draft
-
-- Draft 1 of 10 cards.
-
-## Cleanse
-
-- Purge a chosen Bane.
-
-## Echo Shrine
-
-- Duplicate a chosen card.
-
 # single_offer
 
 ## Priced Purge

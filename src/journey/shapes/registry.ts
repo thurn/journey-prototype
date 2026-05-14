@@ -21,7 +21,6 @@ import { sharedPrefixMenuPlugin } from "./shared_prefix_menu/index.js";
 import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome/index.js";
-import { singleRewardPlugin } from "./single_reward/index.js";
 import { singleRuleTrialPlugin } from "./single_rule_trial/index.js";
 import { singleWagerPlugin } from "./single_wager/index.js";
 import { takeAnyNumberPlugin } from "./take_any_number/index.js";
@@ -45,7 +44,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   oneTargetManyOperationsPlugin,
   oneOperationManyTargetsPlugin,
   chooseYourLossPlugin,
-  singleRewardPlugin,
   singleOfferPlugin,
   singleRuleTrialPlugin,
   riskOrSkipPlugin,

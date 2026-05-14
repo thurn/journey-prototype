@@ -35,7 +35,6 @@ const JOURNEY_SHAPE_SCORE_WEIGHTS: Readonly<Record<string, number>> =
     commit_now_future_payoff: 5,
     random_pool_draws: 4,
     push_your_luck: 4,
-    single_reward: 3,
     single_offer: 3,
     single_rule_trial: 3,
     risk_or_skip: 2,

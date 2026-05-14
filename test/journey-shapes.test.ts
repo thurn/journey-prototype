@@ -23,7 +23,6 @@ const expectedShapeIds = [
   "one_target_many_operations",
   "one_operation_many_targets",
   "choose_your_loss",
-  "single_reward",
   "single_offer",
   "single_rule_trial",
   "risk_or_skip",
@@ -79,7 +78,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(28);
+    expect(actualShapeIds).toHaveLength(27);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -187,10 +186,7 @@ describe("JOURNEY_SHAPES", () => {
 
       // These topologies apply one deterministic result instead of presenting
       // a comparative root choice surface.
-      if (
-        definition.topology === "single_rule_trial" ||
-        definition.topology === "single_reward"
-      ) {
+      if (definition.topology === "single_rule_trial") {
         continue;
       }
 
@@ -286,7 +282,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v19;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v20;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

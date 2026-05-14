@@ -543,15 +543,6 @@ The site presents several visible negative outcomes and asks the player which
 one they are willing to accept. This shape is about damage control, triage, and
 picking the least harmful sacrifice, not about seeking upside.
 
-### single_reward
-
-The site grants one deterministic reward effect with little or no tension,
-price, or refusal structure. This is the right shape for singular boons, free
-cleanses, and other cases where the scene is simply "receive this reward" rather
-than "decide whether this exchange is worth it." If the player is deciding
-whether to pay, sacrifice, or otherwise accept a meaningful trade, use
-`single_offer` instead.
-
 ### single_offer
 
 The site presents one deterministic take-it-or-leave-it exchange with a visible
@@ -612,10 +603,8 @@ take action and a leave action at the same time.
 
 Every accepted reward must carry real limiting structure: a shared burden, a
 cost, a risk envelope, or a clearly diminishing later reward. A menu where every
-item is pure upside collapses into taking everything and should not use this
-shape. Rare "gain this whole cache" moments should be authored as
-`single_reward` or another special-event shape where the whole bundle is the one
-reward, not as an open-pick menu pretending to contain decisions.
+item is pure upside collapses into taking everything and should use a shape with
+real limiting structure, not an open-pick menu pretending to contain decisions.
 
 ### probability_ladder
 

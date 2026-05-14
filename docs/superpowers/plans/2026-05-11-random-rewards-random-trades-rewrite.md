@@ -3519,7 +3519,7 @@ The test surveys `status` operations with `ruleMutationKind === "next_victory_re
 - [ ] **Step 3: Run the affected tests**
 
 Run: `npx vitest run test/journey-shapes.test.ts test/journey-generation.test.ts`
-Expected: PASS. If the retargeted test fails because `curated_reward_trio` doesn't emit `next_victory_reward_replacement` in this seed range, retarget to `single_reward` instead — investigate output and pick whichever positive-menu shape still emits the status operations the assertion expects.
+Expected: PASS. If the retargeted test fails because `curated_reward_trio` doesn't emit `next_victory_reward_replacement` in this seed range, investigate output and pick a positive-menu shape that still emits the status operations the assertion expects.
 
 - [ ] **Step 4: Run the full suite**
 

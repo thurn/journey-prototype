@@ -130,6 +130,23 @@ describe("stateless command risk transitions", () => {
     });
   });
 
+  it("rejects the retired single reward shape as unknown", async () => {
+    await withTempState(async ({ statePath, options }) => {
+      const retiredShapeId = "single_reward";
+      const result = await handleJourney(options({
+        seed: "qa",
+        shape: retiredShapeId,
+      }));
+
+      expect(result.exitCode).toBe(ExitCode.UsageOrInput);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain(
+        `Unknown Journey shape: ${retiredShapeId}`,
+      );
+      await expectMissingState(statePath);
+    });
+  });
+
   it("rejects a forced deleted service shape as unknown", async () => {
     await withTempState(async ({ statePath, options }) => {
       const deletedServiceShapeId = ["service", "menu"].join("_");
@@ -199,7 +216,7 @@ describe("stateless command risk transitions", () => {
       expect(payload).toMatchObject({
         status: "ok",
         contentVersion: expect.any(String),
-        catalogVersion: "journey-shapes:v19",
+        catalogVersion: "journey-shapes:v20",
         seed: "qa",
         stage: "mid",
         shapeId: "random_pool_draws",
@@ -208,7 +225,7 @@ describe("stateless command risk transitions", () => {
           shapeId: "random_pool_draws",
           versions: {
             contentVersion: expect.any(String),
-            shapeCatalogVersion: "journey-shapes:v19",
+            shapeCatalogVersion: "journey-shapes:v20",
             effectCatalogVersion: "effects:v7",
             valueModelVersion: "value:v10",
             rendererVersion: "renderer:v1",

@@ -50,7 +50,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | same_cost_different_rewards | 0 | fillers/shared.ts, test |
 | choose_your_loss | 6 | fillers/shared.ts, test |
 | alter_dreamscapes | 13 | fillers/shared.ts, types.ts |
-| single_reward | 0 | fillers/shared.ts, repair.ts, test/journey-generation.test.ts |
 | reveal_choice_menu | 0 | fillers/randomPayloads.ts, test |
 | single_random_outcome | 7 | fillers/randomPayloads.ts |
 | risk_or_skip | 18 | fillers/randomPayloads.ts, validate/precommitRules.ts |
@@ -94,7 +93,7 @@ for shape in single_offer heterogeneous_pair alter_dreamscapes push_your_luck \
              now_vs_later single_wager \
              same_reward_different_costs commit_now_future_payoff \
              random_pool_draws risk_or_skip curated_reward_trio \
-             reward_after_trigger single_reward single_random_outcome; do
+             reward_after_trigger single_random_outcome; do
   for w in .claude/worktrees/agent-*/; do
     [ -d "${w}src/journey/shapes/$shape" ] || continue
     test_file="${w}test/journey-shape-isolation.test.ts"
@@ -171,9 +170,8 @@ Highest-risk tier because both `shapes/shared.ts` and `fillers/shared.ts`
 collisions are likely. Merge smallest first.
 
 13. `same_cost_different_rewards` (shapes/shared=0, fillers/shared.ts)
-14. `single_reward` (shapes/shared=0, fillers/shared.ts, repair.ts, journey-generation test)
-15. `choose_your_loss` (shapes/shared=6, fillers/shared.ts)
-16. `alter_dreamscapes` (shapes/shared=13, fillers/shared.ts, types.ts)
+14. `choose_your_loss` (shapes/shared=6, fillers/shared.ts)
+15. `alter_dreamscapes` (shapes/shared=13, fillers/shared.ts, types.ts)
 ### Tier 5 — `fillers/randomPayloads.ts` cluster (3 merges)
 
 18. `reveal_choice_menu` (shared=0, randomPayloads only)

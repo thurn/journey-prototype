@@ -453,8 +453,8 @@ used by the repair loop. The loop also contains shape-specific fallbacks:
 
 - `convert_route_addition` rebuilds only `alter_dreamscapes` as itself in
   [`repair.ts`](../src/journey/repair.ts#L306);
-- `replace_delayed_hook` converts delayed/return shapes directly to
-  `single_reward` in [`repair.ts`](../src/journey/repair.ts#L313).
+- delayed/return topology fallbacks convert failed payloads into simpler
+  visible reward promises.
 
 This is not an event hardcoding issue, but it can preserve or hide procedural
 failures by switching away from problematic topologies instead of repairing the

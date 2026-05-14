@@ -8,7 +8,7 @@ import type {
   ShapeValidator,
 } from "./types.js";
 
-export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v19";
+export const JOURNEY_SHAPE_CATALOG_VERSION = "journey-shapes:v20";
 
 export const commonValidationRules = [
   "root_option_count_within_bounds",
