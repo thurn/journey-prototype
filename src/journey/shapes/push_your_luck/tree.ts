@@ -138,11 +138,8 @@ function pushChanceProgression(
 ): number[] {
   const start = pickSequentialVariant(drawContext, `${label}:start`, [25, 30, 35]);
   const step = pickSequentialVariant(drawContext, `${label}:step`, [10, 20, 25]);
-  const ceiling = 95;
 
-  return Array.from({ length: levels }, (_, index) =>
-    Math.min(ceiling, start + step * index),
-  );
+  return Array.from({ length: levels }, (_, index) => start + step * index);
 }
 
 function lowerFirst(text: string): string {

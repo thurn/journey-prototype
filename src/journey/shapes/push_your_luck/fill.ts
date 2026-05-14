@@ -22,14 +22,6 @@ export function pushYourLuckFill(args: ShapeFillArgs): FilledJourney {
           costs: branch.costs,
           effects: branch.effects,
         })),
-        hazard: {
-          attempts: attemptBranches.map((branch) => ({
-            id: branch.id,
-            odds: branch.odds,
-            costs: branch.costs,
-            effects: branch.effects,
-          })),
-        },
         visibilityPolicy: {
           outcomeVisibility: "visible",
           disclosure:
