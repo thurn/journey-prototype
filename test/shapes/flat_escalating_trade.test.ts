@@ -88,7 +88,9 @@ function assertStrictlyIncreasing(values: readonly number[]) {
 }
 
 function netValues(manifest: JourneyManifest): number[] {
-  return manifest.options.map((option) => option.netConvertedEssence);
+  return manifest.options
+    .filter((option) => option.pickBehavior !== "leave")
+    .map((option) => option.netConvertedEssence);
 }
 
 function assertComparableNetValues(manifest: JourneyManifest) {
@@ -100,7 +102,10 @@ function assertComparableNetValues(manifest: JourneyManifest) {
 
 function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("flat_escalating_trade");
-  expect(manifest.options).toHaveLength(3);
+  const options = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  );
+  expect(options).toHaveLength(3);
   expect(manifest.tree).toBeUndefined();
   expect(manifest.rewardPool).toBeUndefined();
   expect(manifest.precommitted.random).toBeUndefined();
@@ -108,15 +113,15 @@ function assertFlatEscalatingTradeManifest(manifest: JourneyManifest) {
   expect(manifest.precommitted.routeEdits).toBeUndefined();
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
 
-  const costs = manifest.options.map(essenceCost);
-  const rewards = manifest.options.map(omenReward);
+  const costs = options.map(essenceCost);
+  const rewards = options.map(omenReward);
 
-  expect(manifest.options.map((option) => option.number)).toEqual([1, 2, 3]);
+  expect(options.map((option) => option.number)).toEqual([1, 2, 3]);
   assertStrictlyIncreasing(costs);
   assertStrictlyIncreasing(rewards);
   assertComparableNetValues(manifest);
 
-  for (const option of manifest.options) {
+  for (const option of options) {
     const price = essenceCost(option);
     const omens = omenReward(option);
 
@@ -195,7 +200,9 @@ describe("flat_escalating_trade fill", () => {
     for (const seedNumber of auditSeedNumbers) {
       const seed = `audit:flat_escalating_trade:late:${seedNumber}`;
       const manifest = await forcedFlatEscalatingTradeManifest(seed, "late");
-      const costs = manifest.options.map(essenceCost);
+      const costs = manifest.options
+        .filter((option) => option.pickBehavior !== "leave")
+        .map(essenceCost);
 
       expect(costs.at(-1), seed).toBeGreaterThanOrEqual(350);
       assertComparableNetValues(manifest);

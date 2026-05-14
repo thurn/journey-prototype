@@ -279,11 +279,6 @@ export function riskOrSkipFill(args: ShapeFillArgs): FilledJourney {
         effect: reward.value,
         uncertainty: downsideUncertainty,
       }),
-      option({
-        number: 2,
-        text: "Leave with no effect.",
-        pickBehavior: "leave",
-      }),
     ],
     precommitted: {
       ...precommitted,

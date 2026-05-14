@@ -22,7 +22,9 @@ function optionAppliesAStatus(
 function validateSingleOptionAppliesARuleStatus(
   manifest: JourneyManifest,
 ): ValidationResult {
-  const [only] = manifest.options;
+  const [only] = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  );
   if (!only) {
     // The pipeline's root option-count rule guards the missing-option case;
     // shape-specific validators only fire when a single option is present.
@@ -40,12 +42,16 @@ function validateSingleOptionAppliesARuleStatus(
 function validateSingleOptionHasNoMeaningfulCostOrChoice(
   manifest: JourneyManifest,
 ): ValidationResult {
-  if (manifest.options.length !== 1) {
+  const meaningfulOptions = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  );
+
+  if (meaningfulOptions.length !== 1) {
     // Root option-count rule reports the size mismatch; this validator focuses
     // on the cost-or-choice property of the single option when present.
     return { ok: true };
   }
-  const [only] = manifest.options;
+  const [only] = meaningfulOptions;
   if (!only) {
     return { ok: true };
   }

@@ -69,6 +69,7 @@ function fillForScope(scope: string, seed: string = `timed-window-menu:${scope}`
 
 function netSpreadRatio(manifest: JourneyManifest): number {
   const values = manifest.options
+    .filter((option) => option.pickBehavior !== "leave")
     .map((option) => option.netConvertedEssence)
     .filter((value) => value > 0);
 
@@ -163,10 +164,13 @@ describe("timed_window_menu fill", () => {
       for (let index = 1; index <= 10; index += 1) {
         const seed = `audit:timed_window_menu:${stage}:${String(index).padStart(2, "0")}`;
         const manifest = await manifestFor(seed, stage);
+        const options = manifest.options.filter((option) =>
+          option.pickBehavior !== "leave"
+        );
 
-        expect(manifest.options).toHaveLength(3);
+        expect(options).toHaveLength(3);
         expect(netSpreadRatio(manifest), seed).toBeLessThanOrEqual(2.35);
-        for (const option of manifest.options) {
+        for (const option of options) {
           expect(option.text, seed).not.toMatch(
             /^For the next (\d+) (battles|shops|dreamscapes), .*for the next \1 \2/u,
           );

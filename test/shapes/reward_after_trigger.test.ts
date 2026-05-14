@@ -69,14 +69,17 @@ describe("reward_after_trigger fill", () => {
       for (const seedNumber of auditSeedNumbers) {
         const seed = `audit:reward_after_trigger:${stage}:${seedNumber}`;
         const manifest = await forcedRewardAfterTriggerManifest(seed, stage);
+        const options = manifest.options.filter((option) =>
+          option.pickBehavior !== "leave"
+        );
 
         expect(manifest.shapeId, seed).toBe("reward_after_trigger");
-        expect(manifest.options, seed).toHaveLength(2);
+        expect(options, seed).toHaveLength(2);
         expect(manifest.precommitted.delayed, seed).toHaveLength(2);
-        expect(new Set(manifest.options.map((option) => option.text)).size, seed)
+        expect(new Set(options.map((option) => option.text)).size, seed)
           .toBe(2);
 
-        for (const option of manifest.options) {
+        for (const option of options) {
           expect(option.triggers, seed).toHaveLength(1);
           expect(option.text, seed).not.toMatch(/\s,|,\s*,/u);
           expect(option.text, seed).not.toMatch(/\bundefined\b/i);

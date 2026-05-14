@@ -108,7 +108,7 @@ function assertSingleOfferManifest(manifest: JourneyManifest) {
       take.uncertaintyConvertedEssence,
   );
 
-  expect(leave.text).toBe("Leave with no effect.");
+  expect(leave.text).toBe("Leave.");
   expect(leave.effects).toEqual([]);
   expect(leave.costs).toEqual([]);
   expect(leave.burdens).toEqual([]);
@@ -146,7 +146,7 @@ describe("single_offer fill", () => {
   it("uses a shape-local take-or-leave contract", () => {
     expect(singleOfferPlugin.definition).toMatchObject({
       topology: "single_offer_refusal",
-      rootOptionCount: { min: 2, max: 2 },
+      rootOptionCount: { min: 1, max: 1 },
       supportedTags: ["offer", "cost", "reward", "refusal", "bargain"],
       validationRules: [
         "root_option_count_within_bounds",
@@ -176,7 +176,7 @@ describe("single_offer fill", () => {
     const first = singleOfferPlugin.fill(args);
     const second = singleOfferPlugin.fill(args);
 
-    expect(first.options).toHaveLength(2);
+    expect(first.options).toHaveLength(1);
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
   });

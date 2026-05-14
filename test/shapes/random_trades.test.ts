@@ -543,7 +543,9 @@ describe("random_trades fill", () => {
       forcedStage: "mid",
     });
 
-    expect(manifest.options).toHaveLength(3);
+    expect(manifest.options.filter((option) =>
+      option.pickBehavior !== "leave"
+    )).toHaveLength(3);
   });
 
   it("falls back to mismatched viable rows when strict net matching exhausts widening", async () => {

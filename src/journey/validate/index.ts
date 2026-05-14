@@ -276,7 +276,10 @@ export function validateJourneyManifest(
 
   const plugin = getShapePlugin(manifest.shapeId);
   const { min, max } = plugin.definition.rootOptionCount;
-  if (manifest.options.length < min || manifest.options.length > max) {
+  const boundedRootOptionCount = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  ).length;
+  if (boundedRootOptionCount < min || boundedRootOptionCount > max) {
     return fail("root_option_count_within_bounds", `Root option count must be between ${min} and ${max}`);
   }
 

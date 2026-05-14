@@ -79,16 +79,19 @@ describe("shared_prefix_menu fill", () => {
       for (const seedNumber of auditSeedNumbers) {
         const seed = `audit:shared_prefix_menu:${stage}:${seedNumber}`;
         const manifest = await forcedSharedPrefixMenuManifest(seed, stage);
+        const options = manifest.options.filter((option) =>
+          option.pickBehavior !== "leave"
+        );
 
         expect(manifest.shapeId, seed).toBe("shared_prefix_menu");
-        expect(manifest.options, seed).toHaveLength(3);
+        expect(options, seed).toHaveLength(3);
 
-        const prefixSentences = manifest.options.map((option) =>
+        const prefixSentences = options.map((option) =>
           option.text.split(".")[0],
         );
         expect(new Set(prefixSentences).size, seed).toBe(1);
 
-        for (const option of manifest.options) {
+        for (const option of options) {
           expect(option.text, seed).not.toMatch(/\s,|,\s*,/u);
           expect(option.text, seed).not.toMatch(/\bundefined\b/i);
           if (hasBaneBurden(option)) {
@@ -104,9 +107,12 @@ describe("shared_prefix_menu fill", () => {
       "audit:shared_prefix_menu:late:01",
       "late",
     );
+    const options = manifest.options.filter((option) =>
+      option.pickBehavior !== "leave"
+    );
 
-    expect(manifest.options.every(hasBaneBurden)).toBe(true);
-    for (const option of manifest.options) {
+    expect(options.every(hasBaneBurden)).toBe(true);
+    for (const option of options) {
       if (option.routeEffects.length === 0) {
         expect(option.text).toContain("Gain 2 omens.");
         expect(option.effectConvertedEssence).toBeGreaterThan(320);

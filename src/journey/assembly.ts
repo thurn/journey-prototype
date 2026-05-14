@@ -17,6 +17,8 @@ import type {
   JourneyManifest,
   JourneyOption,
   JourneyStage,
+  JourneyTree,
+  JourneyTreeBranch,
   ManifestReferences,
   PrecommittedOutcomes,
   RandomPrecommittedOutcome,
@@ -50,6 +52,7 @@ export type BuildJourneyArgs = {
 
 function optionalFilledManifestFields(
   filled: FilledJourney,
+  tree: JourneyTree | undefined,
 ): Pick<JourneyManifest, "tree" | "rewardPool" | "sequence" | "presentation"> {
   const fields: Pick<
     JourneyManifest,
@@ -60,8 +63,8 @@ function optionalFilledManifestFields(
     fields.presentation = filled.presentation;
   }
 
-  if (filled.tree) {
-    fields.tree = filled.tree;
+  if (tree) {
+    fields.tree = tree;
   }
 
   if (filled.rewardPool) {
@@ -73,6 +76,108 @@ function optionalFilledManifestFields(
   }
 
   return fields;
+}
+
+function automaticLeaveEnabled(shapeId: JourneyShapeId): boolean {
+  return getShapePlugin(shapeId).definition.automaticLeave !== false;
+}
+
+function automaticLeaveOption(number: number): JourneyOption {
+  return {
+    number,
+    symbols: [],
+    text: "Leave.",
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 0,
+    effectConvertedEssence: 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: 0,
+    pickBehavior: "leave",
+  };
+}
+
+function automaticLeaveBranch(nodeId: string): JourneyTreeBranch {
+  return {
+    id: `${nodeId}-leave`,
+    label: "Leave",
+    kind: "player_choice",
+    text: "Leave.",
+    operations: [],
+    costs: [],
+    effects: [],
+    burdens: [],
+    targets: [],
+    triggers: [],
+    routeEffects: [],
+    costConvertedEssence: 0,
+    effectConvertedEssence: 0,
+    burdenConvertedEssence: 0,
+    uncertaintyConvertedEssence: 0,
+    netConvertedEssence: 0,
+    terminal: {
+      text: "Leave.",
+      outcome: "leave",
+      operations: [],
+      costs: [],
+      effects: [],
+      burdens: [],
+      targets: [],
+      routeEffects: [],
+    },
+  };
+}
+
+function withAutomaticLeaveOptions(
+  shapeId: JourneyShapeId,
+  options: readonly JourneyOption[],
+  tree: JourneyTree | undefined,
+): JourneyOption[] {
+  if (!automaticLeaveEnabled(shapeId) || tree) {
+    return [...options];
+  }
+
+  const meaningfulOptions = options
+    .filter((option) => option.pickBehavior !== "leave")
+    .map((option, index) => ({ ...option, number: index + 1 }));
+
+  return [
+    ...meaningfulOptions,
+    automaticLeaveOption(meaningfulOptions.length + 1),
+  ];
+}
+
+function withAutomaticLeaveBranches(
+  shapeId: JourneyShapeId,
+  tree: JourneyTree | undefined,
+): JourneyTree | undefined {
+  if (!tree || !automaticLeaveEnabled(shapeId)) {
+    return tree;
+  }
+
+  return {
+    ...tree,
+    nodes: tree.nodes.map((node) => {
+      const hasLeaveBranch = node.branches.some((branch) =>
+        branch.terminal?.outcome === "leave"
+      );
+
+      if (hasLeaveBranch) {
+        return { ...node, branches: [...node.branches] };
+      }
+
+      return {
+        ...node,
+        branches: [...node.branches, automaticLeaveBranch(node.id)],
+      };
+    }),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -259,7 +364,12 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
     drawContext: args.drawContext,
     stage: args.stage,
   });
-  const options = filled.options.slice(0, shape.rootOptionCount.max);
+  const tree = withAutomaticLeaveBranches(args.shapeId, filled.tree);
+  const options = withAutomaticLeaveOptions(
+    args.shapeId,
+    filled.options.slice(0, shape.rootOptionCount.max),
+    tree,
+  );
   const resourceRandomPrecommits = naturalResourceRandomPrecommits(options);
   const legacyPrecommitted: PrecommittedOutcomes = {
     ...filled.precommitted,
@@ -303,7 +413,7 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
     selectedTags: args.selectedTags,
     options,
     generatedObjects,
-    ...optionalFilledManifestFields(filled),
+    ...optionalFilledManifestFields(filled, tree),
     precommitted,
     debug: {
       shapeScores: args.shapeScores,

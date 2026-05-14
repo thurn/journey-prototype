@@ -83,6 +83,7 @@ export function freezeShapeDefinition(
     supportedTags: Object.freeze([...definition.supportedTags]),
     validationRules: Object.freeze([...definition.validationRules]),
     versionContribution: freezeSerializable(version),
+    ...(definition.automaticLeave === false ? { automaticLeave: false } : {}),
   });
 }
 

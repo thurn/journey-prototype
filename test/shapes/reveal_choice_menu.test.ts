@@ -117,7 +117,10 @@ function assertHiddenRandomOption(option: JourneyOption) {
 
 function assertRevealChoiceMenuManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("reveal_choice_menu");
-  expect(manifest.options).toHaveLength(3);
+  const options = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  );
+  expect(options).toHaveLength(3);
   expect(manifest.tree).toBeUndefined();
   expect(manifest.rewardPool).toBeUndefined();
   expect(manifest.precommitted.random).toHaveLength(5);
@@ -125,7 +128,7 @@ function assertRevealChoiceMenuManifest(manifest: JourneyManifest) {
   expect(manifest.precommitted.routeEdits).toBeUndefined();
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
 
-  const [reveal, randomRevealed, hiddenRandom] = manifest.options;
+  const [reveal, randomRevealed, hiddenRandom] = options;
 
   assertRevealOption(reveal!);
   assertRandomRevealedOption(randomRevealed!);
@@ -201,7 +204,9 @@ describe("reveal_choice_menu fill", () => {
       for (const seedNumber of auditSeedNumbers) {
         const seed = `audit:reveal_choice_menu:${stage}:${seedNumber}`;
         const manifest = await forcedRevealChoiceMenuManifest(seed, stage);
-        const [, precommittedTake, hiddenPoolDraw] = manifest.options;
+        const [, precommittedTake, hiddenPoolDraw] = manifest.options.filter(
+          (option) => option.pickBehavior !== "leave",
+        );
 
         expect(precommittedTake).toBeDefined();
         expect(hiddenPoolDraw).toBeDefined();

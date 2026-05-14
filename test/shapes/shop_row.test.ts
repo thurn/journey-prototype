@@ -72,15 +72,21 @@ describe("shop_row fill", () => {
   it("builds deterministic priced reward rows from shared templates", async () => {
     const first = await shopRowManifest("shop-row-shared");
     const second = await shopRowManifest("shop-row-shared");
-
-    expect(first.manifest.options).toHaveLength(3);
-    expect(first.manifest.generatedObjects).toEqual([]);
-    expect(first.manifest.options.map((option) => option.text)).toEqual(
-      second.manifest.options.map((option) => option.text),
+    const firstOptions = first.manifest.options.filter((option) =>
+      option.pickBehavior !== "leave"
     );
-    expect(new Set(first.manifest.options.map((option) => option.text)).size).toBe(3);
+    const secondOptions = second.manifest.options.filter((option) =>
+      option.pickBehavior !== "leave"
+    );
 
-    for (const option of first.manifest.options) {
+    expect(firstOptions).toHaveLength(3);
+    expect(first.manifest.generatedObjects).toEqual([]);
+    expect(firstOptions.map((option) => option.text)).toEqual(
+      secondOptions.map((option) => option.text),
+    );
+    expect(new Set(firstOptions.map((option) => option.text)).size).toBe(3);
+
+    for (const option of firstOptions) {
       expect(option.text).toMatch(/^Pay \d+ essence\. /u);
       expect(option.operations).toEqual([
         expect.objectContaining({
@@ -119,12 +125,15 @@ describe("shop_row fill", () => {
 
     for (const seed of seeds) {
       const { manifest } = await shopRowManifest(seed, "late");
-      const rewardTemplateIds = manifest.options.flatMap((option) =>
+      const options = manifest.options.filter((option) =>
+        option.pickBehavior !== "leave"
+      );
+      const rewardTemplateIds = options.flatMap((option) =>
         option.operations.map((operation) => operation.payload.templateId),
       );
 
       expect(rewardTemplateIds).not.toContain("apply_named_transfiguration_to_all_predicate_cards");
-      expect(manifest.options.map((option) => option.text).join("\n"))
+      expect(options.map((option) => option.text).join("\n"))
         .not.toMatch(/Apply Golden to all/u);
     }
   });
@@ -143,7 +152,9 @@ describe("shop_row fill", () => {
         seed,
         seed.includes(":late:") ? "late" : "mid",
       );
-      const rows = manifest.options.flatMap((option) => {
+      const rows = manifest.options.filter((option) =>
+        option.pickBehavior !== "leave"
+      ).flatMap((option) => {
         const rewardOperation = option.operations.find((operation) =>
           operation.role === "reward"
         );
@@ -181,7 +192,11 @@ describe("shop_row fill", () => {
       shopRowManifest("audit:shop_row:early:10", "early"),
     ]);
     const text = manifests
-      .flatMap(({ manifest }) => manifest.options.map((option) => option.text))
+      .flatMap(({ manifest }) =>
+        manifest.options
+          .filter((option) => option.pickBehavior !== "leave")
+          .map((option) => option.text)
+      )
       .join("\n");
 
     expect(text).not.toContain("a Essence site");

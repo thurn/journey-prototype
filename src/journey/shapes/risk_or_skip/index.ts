@@ -19,7 +19,7 @@ export const riskOrSkipPlugin = defineShapePlugin({
   definition: {
     id: "risk_or_skip",
     topology: "single_offer_refusal",
-    rootOptionCount: { min: 2, max: 2 },
+    rootOptionCount: { min: 1, max: 1 },
     supportedTags: ["risk", "reward", "random", "refusal", "temptation"],
     validationRules: [
       ...commonValidationRules,

@@ -93,14 +93,30 @@ function assertSingleRewardManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("single_reward");
   expect(manifest.tree).toBeUndefined();
   expect(manifest.rewardPool).toBeUndefined();
-  expect(manifest.options).toHaveLength(1);
-  expect(manifest.options.map((option) => option.number)).toEqual([1]);
+  expect(manifest.options).toHaveLength(2);
+  expect(manifest.options.map((option) => option.number)).toEqual([1, 2]);
   expect(manifest.precommitted.random).toBeUndefined();
   expect(manifest.precommitted.delayed).toBeUndefined();
   expect(manifest.precommitted.routeEdits).toBeUndefined();
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
 
-  for (const option of manifest.options) {
+  const rewardOptions = manifest.options.filter((option) =>
+    option.pickBehavior !== "leave"
+  );
+  const leaveOptions = manifest.options.filter((option) =>
+    option.pickBehavior === "leave"
+  );
+
+  expect(rewardOptions).toHaveLength(1);
+  expect(leaveOptions).toEqual([
+    expect.objectContaining({
+      number: 2,
+      text: "Leave.",
+      netConvertedEssence: 0,
+    }),
+  ]);
+
+  for (const option of rewardOptions) {
     assertVisibleSingleBoon(option, manifest.stage);
     expect(option.pickBehavior).toBe("record_and_generate_next");
     expect(option.costs).toEqual([]);

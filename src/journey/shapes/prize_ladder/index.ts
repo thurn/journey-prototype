@@ -71,6 +71,7 @@ export const prizeLadderPlugin = defineShapePlugin({
 
     for (const [index, node] of manifest.tree.nodes.entries()) {
       const level = index + 1;
+      const isFinal = index === manifest.tree.nodes.length - 1;
 
       if (node.id !== `level-${level}`) {
         return fail(
@@ -79,16 +80,26 @@ export const prizeLadderPlugin = defineShapePlugin({
         );
       }
 
-      if (node.branches.length !== 2) {
+      const leaveBranches = node.branches.filter((branch) =>
+        branch.terminal?.outcome === "leave"
+      );
+      if (
+        node.branches.length < 2 ||
+        node.branches.length > 3 ||
+        (node.branches.length === 3 && leaveBranches.length !== 1)
+      ) {
         return fail(
           "prize_ladder_branch_count",
-          "Prize ladder levels must offer exactly stop and continue choices",
+          "Prize ladder levels must offer stop, continue, and leave choices",
         );
       }
 
-      const stopBranch = node.branches[0];
-      const continueBranch = node.branches[1];
-      const isFinal = index === manifest.tree.nodes.length - 1;
+      const stopBranch = node.branches.find((branch) =>
+        branch.label === "Stop"
+      );
+      const continueBranch = node.branches.find((branch) =>
+        branch.label === (isFinal ? "Claim" : "Continue")
+      );
 
       if (
         !stopBranch ||

@@ -127,10 +127,12 @@ function assertPrizeLadderTree(tree: JourneyTree) {
     expect(node.branches.map((branch) => branch.label)).toEqual([
       "Stop",
       isFinal ? "Claim" : "Continue",
+      "Leave",
     ]);
 
     const stop = node.branches[0]!;
     const advance = node.branches[1]!;
+    const leave = node.branches[2]!;
 
     expect(stop.nextNodeId).toBeUndefined();
     expect(stop.costs).toEqual([]);
@@ -150,6 +152,12 @@ function assertPrizeLadderTree(tree: JourneyTree) {
     expect(advance.text).toMatch(/^Pay \d+ essence/u);
     costKinds.add(primaryCostKind(advance) ?? "missing");
     continueCosts.push(advance.costConvertedEssence);
+
+    expect(leave).toMatchObject({
+      id: `level-${level}-leave`,
+      text: "Leave.",
+      terminal: { outcome: "leave", costs: [], effects: [] },
+    });
 
     if (isFinal) {
       expect(advance.nextNodeId).toBeUndefined();

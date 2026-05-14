@@ -35,6 +35,7 @@ export type JourneyShapeDefinition = {
   readonly validationRules: readonly string[];
   readonly debugLabel: string;
   readonly versionContribution: unknown;
+  readonly automaticLeave?: boolean;
 };
 
 export type ShapeFillArgs = {

@@ -113,10 +113,15 @@ describe("push_your_luck fill", () => {
 
     for (const [index, node] of (manifest.tree?.nodes ?? []).entries()) {
       expect(node.id).toBe(`level-${index + 1}`);
-      expect(node.branches.map((branch) => branch.label)).toEqual([
+      expect(node.branches.map((branch) => branch.label)).toEqual(index === 0 ? [
         "Stop",
         "Push",
         "Failure",
+      ] : [
+        "Stop",
+        "Push",
+        "Failure",
+        "Leave",
       ]);
 
       const stop = node.branches[0]!;
@@ -130,6 +135,14 @@ describe("push_your_luck fill", () => {
       });
       expect(failure.nextNodeId).toBeUndefined();
       expect(failure.odds?.percent).toBe(100 - (push.odds?.percent ?? 0));
+
+      if (index > 0) {
+        expect(node.branches[3]).toMatchObject({
+          id: `level-${index + 1}-leave`,
+          text: "Leave.",
+          terminal: { outcome: "leave" },
+        });
+      }
 
       expect(push.kind).toBe("player_choice");
       expect(push.effects.length).toBeGreaterThan(0);

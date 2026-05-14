@@ -228,27 +228,6 @@ function offerOption(
   };
 }
 
-function leaveOption(): JourneyOption {
-  return {
-    number: 2,
-    symbols: [],
-    text: "Leave with no effect.",
-    operations: [],
-    costs: [],
-    effects: [],
-    burdens: [],
-    targets: [],
-    triggers: [],
-    routeEffects: [],
-    costConvertedEssence: 0,
-    effectConvertedEssence: 0,
-    burdenConvertedEssence: 0,
-    uncertaintyConvertedEssence: 0,
-    netConvertedEssence: 0,
-    pickBehavior: "leave",
-  };
-}
-
 function chooseViableOffer(args: {
   readonly costs: readonly MaterializedCost[];
   readonly rewards: readonly MaterializedReward[];
@@ -327,10 +306,7 @@ export function singleOfferFill(args: ShapeFillArgs): FilledJourney {
   });
 
   return {
-    options: [
-      offerOption(offer.cost, offer.reward),
-      leaveOption(),
-    ],
+    options: [offerOption(offer.cost, offer.reward)],
     precommitted: {},
   };
 }

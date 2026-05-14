@@ -125,13 +125,18 @@ function assertSingleRuleTrialManifest(manifest: JourneyManifest) {
   expect(manifest.shapeId).toBe("single_rule_trial");
   expect(manifest.tree).toBeUndefined();
   expect(manifest.rewardPool).toBeUndefined();
-  expect(manifest.options).toHaveLength(1);
-  expect(manifest.options.map((option) => option.number)).toEqual([1]);
+  expect(manifest.options).toHaveLength(2);
+  expect(manifest.options.map((option) => option.number)).toEqual([1, 2]);
   expect(manifest.precommitted.random).toBeUndefined();
   expect(manifest.precommitted.delayed).toBeUndefined();
   expect(manifest.precommitted.routeEdits).toBeUndefined();
   expect(manifest.precommitted.sequenceMenus).toBeUndefined();
   assertSingleRuleTrialOption(manifest.options[0]!);
+  expect(manifest.options[1]).toMatchObject({
+    text: "Leave.",
+    pickBehavior: "leave",
+    netConvertedEssence: 0,
+  });
 }
 
 describe("single_rule_trial plugin", () => {

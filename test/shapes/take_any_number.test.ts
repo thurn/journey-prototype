@@ -58,14 +58,14 @@ function fakeDraw(seed: string): DrawContext {
 }
 
 describe("take_any_number fill", () => {
-  it("produces an any-number repeatable menu with a leave option", () => {
+  it("produces an any-number repeatable menu", () => {
     for (let index = 0; index < 20; index += 1) {
       const context = fakeCtx();
       const drawContext = fakeDraw(`take-any-number-${index}`);
       const stage = "mid" as JourneyStage;
       const fill = takeAnyNumberPlugin.fill({ context, drawContext, stage });
 
-      expect(fill.options).toHaveLength(4);
+      expect(fill.options).toHaveLength(3);
       expect(fill.presentation).toEqual({ flatMenuHeader: "Take any number:" });
       expect(fill.precommitted).toEqual({});
       expect(fill.symmetryContracts).toBeUndefined();
@@ -91,13 +91,6 @@ describe("take_any_number fill", () => {
         );
         expect(option.netConvertedEssence).toBeLessThanOrEqual(230);
       }
-
-      expect(fill.options[3]).toMatchObject({
-        number: 4,
-        text: "Leave the cache.",
-        pickBehavior: "leave",
-        netConvertedEssence: 0,
-      });
     }
   });
 
@@ -114,7 +107,7 @@ describe("take_any_number fill", () => {
   it("uses the shape-owned validation bypass contract", () => {
     expect(takeAnyNumberPlugin.definition).toMatchObject({
       topology: "repeatable_menu",
-      rootOptionCount: { min: 4, max: 4 },
+      rootOptionCount: { min: 3, max: 3 },
       supportedTags: [],
       validationRules: [
         "manifest_schema_version",
@@ -160,6 +153,7 @@ describe("take_any_number fill", () => {
         expect(option.netConvertedEssence).toBeLessThanOrEqual(160);
       }
       expect(manifest.options[3]?.pickBehavior).toBe("leave");
+      expect(manifest.options[3]?.text).toBe("Leave.");
     }
   });
 

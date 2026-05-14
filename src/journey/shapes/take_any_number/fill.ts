@@ -214,27 +214,6 @@ function takeOption(
   };
 }
 
-function leaveOption(number: number): JourneyOption {
-  return {
-    number,
-    symbols: [],
-    text: "Leave the cache.",
-    operations: [],
-    costs: [],
-    effects: [],
-    burdens: [],
-    targets: [],
-    triggers: [],
-    routeEffects: [],
-    costConvertedEssence: 0,
-    effectConvertedEssence: 0,
-    burdenConvertedEssence: 0,
-    uncertaintyConvertedEssence: 0,
-    netConvertedEssence: 0,
-    pickBehavior: "leave",
-  };
-}
-
 export function takeAnyNumberFill(args: ShapeFillArgs): FilledJourney {
   const usedRewards = new Set<string>();
   const usedCosts = new Set<string>();
@@ -251,7 +230,7 @@ export function takeAnyNumberFill(args: ShapeFillArgs): FilledJourney {
 
   return {
     presentation: { flatMenuHeader: "Take any number:" },
-    options: [...rows, leaveOption(TAKE_OPTION_COUNT + 1)],
+    options: rows,
     precommitted: {},
   };
 }

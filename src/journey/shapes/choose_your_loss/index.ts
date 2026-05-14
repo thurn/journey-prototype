@@ -14,6 +14,7 @@ export const chooseYourLossPlugin = defineShapePlugin({
       "root_option_count_within_bounds",
     ],
     debugLabel: "Choose your loss",
+    automaticLeave: false,
     versionContribution: {
       catalogVersion: "journey-shapes:v16",
       id: "choose_your_loss",

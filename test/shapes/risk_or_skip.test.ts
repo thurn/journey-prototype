@@ -105,7 +105,7 @@ function assertRiskOrSkipManifest(manifest: JourneyManifest) {
   );
   expect(accept.text).not.toMatch(/\brandom essence\b/iu);
 
-  expect(skip.text).toBe("Leave with no effect.");
+  expect(skip.text).toBe("Leave.");
   expect(skip.effects).toEqual([]);
   expect(skip.costs).toEqual([]);
   expect(skip.burdens).toEqual([]);
@@ -137,7 +137,7 @@ describe("risk_or_skip fill", () => {
   it("uses a shape-local bounded random downside contract", () => {
     expect(riskOrSkipPlugin.definition).toMatchObject({
       topology: "single_offer_refusal",
-      rootOptionCount: { min: 2, max: 2 },
+      rootOptionCount: { min: 1, max: 1 },
       supportedTags: ["risk", "reward", "random", "refusal", "temptation"],
       validationRules: [
         "root_option_count_within_bounds",

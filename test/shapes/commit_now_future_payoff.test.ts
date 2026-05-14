@@ -105,9 +105,12 @@ describe("commit_now_future_payoff fill", () => {
   it("renders a visible payoff window for every commitment row", async () => {
     const manifest = await manifestFor("audit:commit_now_future_payoff:early:01", "early");
     const payoffWindow = /(?:If you win within the next 2 battles|After two battles|At the next dreamscape),/u;
+    const options = manifest.options.filter((option) =>
+      option.pickBehavior !== "leave"
+    );
 
-    expect(manifest.options).toHaveLength(3);
-    for (const option of manifest.options) {
+    expect(options).toHaveLength(3);
+    for (const option of options) {
       expect(option.text).toMatch(payoffWindow);
     }
   });
@@ -139,7 +142,10 @@ describe("commit_now_future_payoff fill", () => {
 
     for (const { seed, stage } of cases) {
       const manifest = await manifestFor(seed, stage);
-      const costTemplateIds = manifest.options.flatMap((option) =>
+      const options = manifest.options.filter((option) =>
+        option.pickBehavior !== "leave"
+      );
+      const costTemplateIds = options.flatMap((option) =>
         option.costs.map((cost) => (cost as { readonly templateId?: string }).templateId),
       );
 
@@ -147,7 +153,7 @@ describe("commit_now_future_payoff fill", () => {
         expect(costTemplateIds, seed).not.toContain(templateId);
       }
 
-      expect(manifest.options.map((option) => option.text).join("\n")).not.toMatch(
+      expect(options.map((option) => option.text).join("\n")).not.toMatch(
         /remove the transfiguration/u,
       );
     }
@@ -161,7 +167,9 @@ describe("commit_now_future_payoff fill", () => {
 
     for (const { seed, stage } of cases) {
       const manifest = await manifestFor(seed, stage);
-      const nets = manifest.options.map((option) => option.netConvertedEssence);
+      const nets = manifest.options
+        .filter((option) => option.pickBehavior !== "leave")
+        .map((option) => option.netConvertedEssence);
       const spread = Math.max(...nets) - Math.min(...nets);
 
       expect(spread).toBeLessThanOrEqual(stage === "early" ? 70 : 115);

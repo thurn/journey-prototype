@@ -10,7 +10,7 @@ export const singleOfferPlugin = defineShapePlugin({
   definition: {
     id: "single_offer",
     topology: "single_offer_refusal",
-    rootOptionCount: { min: 2, max: 2 },
+    rootOptionCount: { min: 1, max: 1 },
     supportedTags: ["offer", "cost", "reward", "refusal", "bargain"],
     validationRules: [
       ...commonValidationRules,

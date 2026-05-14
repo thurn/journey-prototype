@@ -150,7 +150,10 @@ describe("JOURNEY_SHAPES", () => {
         continue;
       }
 
-      expect(definition.rootOptionCount.min, definition.id).toBeGreaterThanOrEqual(2);
+      const renderedMinimum = definition.rootOptionCount.min +
+        (definition.automaticLeave === false ? 0 : 1);
+
+      expect(renderedMinimum, definition.id).toBeGreaterThanOrEqual(2);
     }
   });
 

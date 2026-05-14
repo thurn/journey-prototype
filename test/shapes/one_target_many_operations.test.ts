@@ -107,7 +107,9 @@ describe("one_target_many_operations generation", () => {
         forcedShapeId: "one_target_many_operations",
         forcedStage: stage,
       });
-      const values = manifest.options.map((option) => option.netConvertedEssence);
+      const values = manifest.options
+        .filter((option) => option.pickBehavior !== "leave")
+        .map((option) => option.netConvertedEssence);
       const lowest = Math.min(...values);
       const highest = Math.max(...values);
 
