@@ -14,6 +14,18 @@ const auditStages: readonly JourneyStage[] = ["early", "mid", "late"];
 const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
+const legacyRewardIds = new Set(["gain_essence", "gain_omens"]);
+
+type DelayedHook = {
+  readonly triggerSelector?: {
+    readonly label?: string;
+  };
+  readonly reward?: readonly [{
+    readonly templateId?: string;
+    readonly text?: string;
+    readonly convertedEssence?: number;
+  }];
+};
 
 let contentContextPromise:
   | ReturnType<typeof loadContentContext>
@@ -65,6 +77,9 @@ describe("reward_after_trigger fill", () => {
   });
 
   it("generates distinct valid hooks for every audited stage seed", async () => {
+    const rewardTemplateIds = new Set<string>();
+    const triggerLabels = new Set<string>();
+
     for (const stage of auditStages) {
       for (const seedNumber of auditSeedNumbers) {
         const seed = `audit:reward_after_trigger:${stage}:${seedNumber}`;
@@ -72,20 +87,39 @@ describe("reward_after_trigger fill", () => {
         const options = manifest.options.filter((option) =>
           option.pickBehavior !== "leave"
         );
+        const hooks = manifest.precommitted.delayed as readonly DelayedHook[];
 
         expect(manifest.shapeId, seed).toBe("reward_after_trigger");
         expect(options, seed).toHaveLength(2);
-        expect(manifest.precommitted.delayed, seed).toHaveLength(2);
+        expect(hooks, seed).toHaveLength(2);
         expect(new Set(options.map((option) => option.text)).size, seed)
           .toBe(2);
 
         for (const option of options) {
           expect(option.triggers, seed).toHaveLength(1);
+          expect(option.text, seed).toMatch(/^(After|At|When)\b/u);
+          expect(option.text, seed).toMatch(/,\s+[a-z0-9']/u);
+          expect(option.text, seed).toMatch(/\.$/u);
+          expect(option.text.slice(0, -1), seed).not.toContain(".");
           expect(option.text, seed).not.toMatch(/\s,|,\s*,/u);
           expect(option.text, seed).not.toMatch(/\bundefined\b/i);
         }
+
+        for (const hook of hooks) {
+          const reward = hook.reward?.[0];
+          expect(reward?.templateId, seed).toEqual(expect.any(String));
+          expect(reward?.text, seed).toEqual(expect.any(String));
+          expect(reward?.convertedEssence, seed).toEqual(expect.any(Number));
+
+          rewardTemplateIds.add(reward!.templateId!);
+          triggerLabels.add(hook.triggerSelector!.label!);
+        }
       }
     }
+
+    expect(rewardTemplateIds.size).toBeGreaterThanOrEqual(6);
+    expect([...rewardTemplateIds].some((id) => !legacyRewardIds.has(id))).toBe(true);
+    expect(triggerLabels.size).toBeGreaterThanOrEqual(6);
   });
 
   it("is deterministic for a fixed seed and stage", async () => {
