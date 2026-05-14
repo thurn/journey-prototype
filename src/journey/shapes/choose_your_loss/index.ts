@@ -16,7 +16,7 @@ export const chooseYourLossPlugin = defineShapePlugin({
     debugLabel: "Choose your loss",
     automaticLeave: false,
     versionContribution: {
-      catalogVersion: "journey-shapes:v24",
+      catalogVersion: "journey-shapes:v25",
       id: "choose_your_loss",
       topology: "direct_menu",
     },

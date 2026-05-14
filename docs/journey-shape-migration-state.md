@@ -26,7 +26,6 @@ Each queued shape follows this sequence:
 | 16 | `single_offer` | 3 | Complete | Complete | Complete | Complete | Complete |
 | 19 | `flat_escalating_trade` | 2 | Complete | Complete | Complete | Complete | Complete |
 | 22 | `escalating_reward_chain` | 1 | Complete | Complete | Complete | Complete | Complete |
-| 23 | `shared_prefix_menu` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 24 | `reward_after_trigger` | 1 | Complete | Complete | Complete | Complete | Complete |
 | 25 | `paired_return` | 1.0 | Complete | Complete | Complete | Complete | Complete |
 
@@ -62,7 +61,6 @@ These shapes are reference implementations for the migration target:
 - `single_offer` completed migration commit `e50cefb`, audit commit `7a01663`, and fix commit `e84877e`.
 - `flat_escalating_trade` completed migration commit `4f193ff`, audit commit `059f334`, and fix commit `1177ba3`.
 - `escalating_reward_chain` completed migration commit `216c863`, audit commit `e7cf2e8`, and fix commit `5f261bd`.
-- `shared_prefix_menu` completed migration commit `6c00aa2`, audit commit `b8d1014`, and fix commit `d026c29`.
 - `reward_after_trigger` completed migration commit `67b8c1c`, audit commit `90a630f`, and fix commit `d90844d`.
 - `paired_return` completed migration commit `5265c18`, audit commit `c84da7f`, fix commit `9bf8ac3`, colocation commit `3966ddf`, and dependency cleanup commit `58ae214`.
 - Migrated shape fills live in `src/journey/shapes/<shape>/`.
@@ -90,7 +88,6 @@ the target end state.
 | `push_your_luck` | Complete | Complete |
 | `random_pool_draws` | Complete | Complete |
 | `reward_after_trigger` | Complete | Complete |
-| `shared_prefix_menu` | Complete | Complete |
 | `shop_row` | Complete | Complete |
 | `single_offer` | Complete | Complete |
 | `single_random_outcome` | Complete | Complete |

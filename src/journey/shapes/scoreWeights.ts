@@ -3,7 +3,7 @@
 // these values are the *relative* prevalence anchors for the first journey of
 // a fresh `--stage early` seed. Weights are *not* normalized to sum to 100; the
 // actual observed share for shape i is roughly `weight(i) / sum(weights) ≈
-// weight(i) / 138`.
+// weight(i) / 137`.
 //
 // `random_trades` still incurs ~22% repair drift even after the fill's
 // viability filter (`src/journey/shapes/random_trades/fill.ts`), and its
@@ -38,7 +38,6 @@ const JOURNEY_SHAPE_SCORE_WEIGHTS: Readonly<Record<string, number>> =
     single_offer: 3,
     flat_escalating_trade: 2,
     escalating_reward_chain: 1,
-    shared_prefix_menu: 1,
     reward_after_trigger: 1,
     paired_return: 1.0,
   });

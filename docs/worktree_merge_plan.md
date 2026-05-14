@@ -43,7 +43,6 @@ Per-worktree extras vary; see the conflict matrix below.
 | commit_now_future_payoff | 9 | — |
 | curated_reward_trio | 42 | — |
 | random_allocation | 2 | test only |
-| shared_prefix_menu | 8 | test only |
 | escalating_reward_chain | 0 | fillers/treeBuilders.ts, test |
 | push_your_luck | 4 | fillers/treeBuilders.ts |
 | random_pool_draws | 4 | fillers/treeBuilders.ts |
@@ -150,8 +149,7 @@ diff size so each subsequent rebase has the smallest possible conflict.
 5. `same_reward_different_costs` (shared=2)
 6. `random_allocation` (shared=2)
 7. `now_vs_later` (shared=8)
-8. `shared_prefix_menu` (shared=8)
-9. `commit_now_future_payoff` (shared=9)
+8. `commit_now_future_payoff` (shared=9)
 
 ### Tier 3 — `fillers/treeBuilders.ts` cluster (3 merges)
 

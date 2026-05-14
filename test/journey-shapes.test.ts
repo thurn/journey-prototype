@@ -16,7 +16,6 @@ const expectedShapeIds = [
   "random_rewards",
   "same_cost_different_rewards",
   "same_reward_different_costs",
-  "shared_prefix_menu",
   "shop_row",
   "heterogeneous_pair",
   "random_trades",
@@ -74,7 +73,7 @@ describe("JOURNEY_SHAPES", () => {
     const actualShapeIds = JOURNEY_SHAPES.map((shape) => shape.id);
 
     expect(actualShapeIds).toEqual(expectedShapeIds);
-    expect(actualShapeIds).toHaveLength(23);
+    expect(actualShapeIds).toHaveLength(22);
     expect(new Set(actualShapeIds).size).toBe(actualShapeIds.length);
   });
 
@@ -82,10 +81,6 @@ describe("JOURNEY_SHAPES", () => {
     expect(getShapeDefinition("flat_escalating_trade")).toMatchObject({
       topology: "direct_menu",
       rootOptionCount: { min: 3, max: 4 },
-    });
-    expect(getShapeDefinition("shared_prefix_menu")).toMatchObject({
-      topology: "direct_menu",
-      rootOptionCount: { min: 3, max: 3 },
     });
     expect(isJourneyShapeId("return_row")).toBe(false);
     expect(
@@ -178,6 +173,18 @@ describe("JOURNEY_SHAPES", () => {
 
   it("does not expose the deleted probability_ladder shape", () => {
     const retiredShapeId = "probability_ladder";
+
+    expect(isJourneyShapeId(retiredShapeId)).toBe(false);
+    expect(() => getShapeDefinition(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+    expect(() => getShapePlugin(retiredShapeId)).toThrow(
+      `Unknown Journey shape ID: ${retiredShapeId}`,
+    );
+  });
+
+  it("does not expose the deleted shared_prefix_menu shape", () => {
+    const retiredShapeId = "shared_prefix_menu";
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(
@@ -313,7 +320,7 @@ describe("JOURNEY_SHAPES", () => {
     });
 
     expect(contentVersion).toMatch(
-      /^journey-shapes:v24;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
+      /^journey-shapes:v25;manifest:v2;renderer:v1;content:[0-9a-f]{16}$/,
     );
   });
 });

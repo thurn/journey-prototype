@@ -26,7 +26,6 @@ const MIGRATED_SHAPE_IDS = [
   "reward_after_trigger",
   "same_cost_different_rewards",
   "same_reward_different_costs",
-  "shared_prefix_menu",
   "shop_row",
   "single_offer",
   "single_random_outcome",

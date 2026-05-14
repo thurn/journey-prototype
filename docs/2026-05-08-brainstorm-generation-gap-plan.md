@@ -872,8 +872,6 @@ Candidate shapes:
 - `flat_escalating_trade`: flat root rows with increasing cost and increasing
   reward, for examples such as escalating omen purchases that should not be a
   decision tree.
-- `shared_prefix_menu`: every row starts with the same cost, burden, purge, or
-  cleanup prerequisite and then varies the payoff.
 - `return_row`: several sealed or borrowed objects with parallel future return
   scenes.
 - `compound_bundle_menu`: a workshop-style menu where each option is a small

@@ -15,7 +15,7 @@ export const commitNowFuturePayoffPlugin = defineShapePlugin({
     ],
     debugLabel: "Commit now, future payoff",
     versionContribution: {
-      catalogVersion: "journey-shapes:v24",
+      catalogVersion: "journey-shapes:v25",
       id: "commit_now_future_payoff",
       topology: "delayed_hook",
     },

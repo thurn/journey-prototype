@@ -52,8 +52,8 @@ Cache), `heterogeneous_named_card_operations` (One Card Three Fates),
 The shape catalog is built around "shared X / varied Y" axioms. Whenever a
 brainstorm has *no* shared axis — every row carries an independently chosen
 cost AND an independently chosen reward — no shape fits.
-`same_cost_different_rewards`, `same_reward_different_costs`, and
-`shared_prefix_menu` all force one shared element.
+`same_cost_different_rewards` and `same_reward_different_costs` both force one
+shared element.
 
 **Fix:** introduce one generic `independent_rows_menu` shape (rootOptionCount
 2-3) where each row independently draws from configured pools. The bespoke

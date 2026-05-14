@@ -15,7 +15,6 @@ import { randomPoolDrawsPlugin } from "./random_pool_draws/index.js";
 import { rewardAfterTriggerPlugin } from "./reward_after_trigger/index.js";
 import { sameCostDifferentRewardsPlugin } from "./same_cost_different_rewards/index.js";
 import { sameRewardDifferentCostsPlugin } from "./same_reward_different_costs/index.js";
-import { sharedPrefixMenuPlugin } from "./shared_prefix_menu/index.js";
 import { shopRowPlugin } from "./shop_row/index.js";
 import { singleOfferPlugin } from "./single_offer/index.js";
 import { singleRandomOutcomePlugin } from "./single_random_outcome/index.js";
@@ -33,7 +32,6 @@ const BUILTIN_SHAPE_PLUGINS = Object.freeze([
   randomRewardsPlugin,
   sameCostDifferentRewardsPlugin,
   sameRewardDifferentCostsPlugin,
-  sharedPrefixMenuPlugin,
   shopRowPlugin,
   heterogeneousPairPlugin,
   randomTradesPlugin,
