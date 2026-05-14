@@ -22,8 +22,18 @@ const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
 
+let contentContextPromise:
+  | ReturnType<typeof loadContentContext>
+  | undefined;
+
+async function contentContext() {
+  contentContextPromise ??= loadContentContext(process.cwd());
+
+  return contentContextPromise;
+}
+
 async function forcedPushYourLuckManifest(seed: string, stage: JourneyStage) {
-  const { content, contentVersion } = await loadContentContext(process.cwd());
+  const { content, contentVersion } = await contentContext();
   const state = createInitialJourneyState({ seed, content, contentVersion });
   simulateQuestStateForStage({
     state,
@@ -76,29 +86,40 @@ function runTreeValidator(tree: JourneyTree, bundle: TestContextBundle) {
 
 function pushBranches(tree: JourneyTree): JourneyTreeBranch[] {
   return tree.nodes.map((node) =>
-    node.branches.find((branch) => branch.label === "Push"),
+    node.branches.find((branch) => branch.label === "Attempt"),
   ).filter((branch): branch is JourneyTreeBranch => Boolean(branch));
 }
 
-function expectedRewardValue(branch: JourneyTreeBranch): number {
-  return branch.effectConvertedEssence * (branch.odds?.percent ?? 100) / 100;
+function primaryCostKind(branch: JourneyTreeBranch): string | undefined {
+  const primaryCost = branch.costs[0];
+
+  if (
+    primaryCost &&
+    typeof primaryCost === "object" &&
+    "kind" in primaryCost &&
+    typeof primaryCost.kind === "string"
+  ) {
+    return primaryCost.kind;
+  }
+
+  return undefined;
 }
 
 describe("push_your_luck fill", () => {
-  it("uses a shape-local decision-tree contract with visible random hazards", () => {
+  it("uses a shape-local decision-tree contract with repeated rising odds", () => {
     expect(pushYourLuckPlugin.definition).toMatchObject({
       topology: "decision_tree",
       rootOptionCount: { min: 0, max: 0 },
-      supportedTags: ["sequence", "risk", "random", "reward", "stop", "tree"],
+      supportedTags: ["sequence", "chance", "cost", "reward", "stop", "tree"],
       validationRules: [
         "tree_has_complete_visible_levels",
-        "push_failure_ends_journey",
-        "push_rewards_are_mechanically_connected",
+        "push_attempts_repeat_cost_and_reward",
+        "push_odds_rise_by_supported_step",
       ],
     });
   });
 
-  it("generates a complete stop-push-failure tree with connected rewards", async () => {
+  it("generates a repeated-cost chance tree with rising odds", async () => {
     const manifest = await forcedPushYourLuckManifest(
       "migration:push_your_luck:mid:01",
       "mid",
@@ -109,67 +130,75 @@ describe("push_your_luck fill", () => {
     expect(manifest.tree?.rootNodeId).toBe("level-1");
     expect(manifest.tree?.nodes).toHaveLength(3);
 
-    const rewardKinds = new Set<string>();
+    const attemptCosts: number[] = [];
+    const attemptRewardTexts: string[] = [];
+    const attemptRewardKinds = new Set<string>();
+    const attemptOdds: number[] = [];
 
     for (const [index, node] of (manifest.tree?.nodes ?? []).entries()) {
+      const level = index + 1;
       expect(node.id).toBe(`level-${index + 1}`);
-      expect(node.branches.map((branch) => branch.label)).toEqual(index === 0 ? [
-        "Stop",
-        "Push",
-        "Failure",
-      ] : [
-        "Stop",
-        "Push",
-        "Failure",
+      expect(node.branches.map((branch) => branch.label)).toEqual([
         "Leave",
+        "Attempt",
       ]);
 
-      const stop = node.branches[0]!;
-      const push = node.branches[1]!;
-      const failure = node.branches[2]!;
+      const [leave, attempt] = node.branches;
 
-      expect(stop.terminal?.outcome).toBe(index === 0 ? "leave" : "end");
-      expect(failure).toMatchObject({
-        kind: "random_chance",
-        terminal: expect.objectContaining({ outcome: "failure" }),
+      expect(leave).toMatchObject({
+        id: `level-${level}-leave`,
+        label: "Leave",
+        text: "Leave.",
+        terminal: { outcome: "leave", costs: [], effects: [] },
       });
-      expect(failure.nextNodeId).toBeUndefined();
-      expect(failure.odds?.percent).toBe(100 - (push.odds?.percent ?? 0));
 
-      if (index > 0) {
-        expect(node.branches[3]).toMatchObject({
-          id: `level-${index + 1}-leave`,
-          text: "Leave.",
-          terminal: { outcome: "leave" },
-        });
-      }
-
-      expect(push.kind).toBe("player_choice");
-      expect(push.effects.length).toBeGreaterThan(0);
-      expect(push.odds?.percent).toBeGreaterThan(0);
-      expect(push.odds?.percent).toBeLessThan(100);
-      rewardKinds.add(primaryEffectKind(push) ?? "missing");
+      expect(attempt).toMatchObject({
+        id: `level-${level}-attempt`,
+        label: "Attempt",
+        kind: "player_choice",
+      });
+      expect(attempt?.text).toMatch(
+        /^Pay \d+ essence\. \d+% chance to gain /u,
+      );
+      expect(attempt?.text).not.toMatch(/banked|failure|Bane|Paranoia|Despair|Oblivion/iu);
+      expect(attempt?.costs).toHaveLength(1);
+      expect(primaryCostKind(attempt!)).toBe("essence");
+      expect(attempt?.costConvertedEssence).toBeGreaterThan(0);
+      expect(attempt?.effects.length).toBeGreaterThan(0);
+      expect(attempt?.effectConvertedEssence).toBeGreaterThan(0);
+      expect(attempt?.burdens).toEqual([]);
+      expect(attempt?.odds?.percent).toBeGreaterThan(0);
+      expect(attempt?.odds?.percent).toBeLessThanOrEqual(95);
+      expect(attempt?.terminal?.outcome).toBe("claim");
 
       if (index < 2) {
-        expect(push.nextNodeId).toBe(`level-${index + 2}`);
-        expect(push.terminal).toBeUndefined();
+        expect(attempt?.nextNodeId).toBe(`level-${index + 2}`);
       } else {
-        expect(push.nextNodeId).toBeUndefined();
-        expect(push.terminal?.outcome).toBe("claim");
+        expect(attempt?.nextNodeId).toBeUndefined();
       }
+
+      attemptCosts.push(attempt!.costConvertedEssence);
+      attemptRewardTexts.push(attempt!.text.replace(/^Pay \d+ essence\. \d+% chance to /u, ""));
+      attemptRewardKinds.add(primaryEffectKind(attempt!) ?? "missing");
+      attemptOdds.push(attempt!.odds!.percent);
     }
 
-    expect(rewardKinds.size).toBe(1);
+    expect(new Set(attemptCosts).size).toBe(1);
+    expect(new Set(attemptRewardTexts).size).toBe(1);
+    expect(attemptRewardKinds.size).toBe(1);
+    expect(attemptOdds.slice(1).map((chance, index) => chance - attemptOdds[index]!))
+      .toSatisfy((steps: number[]) =>
+        steps.length > 0 &&
+        steps.every((step) => [10, 20, 25].includes(step)),
+      );
     expect(manifest.precommitted.random?.[0]).toMatchObject({
       kind: "push_choice",
       bounded: true,
-      hazard: {
-        branches: [
-          expect.objectContaining({ id: "level-1-failure" }),
-          expect.objectContaining({ id: "level-2-failure" }),
-          expect.objectContaining({ id: "level-3-failure" }),
-        ],
-      },
+      attempts: [
+        expect.objectContaining({ id: "level-1-attempt" }),
+        expect.objectContaining({ id: "level-2-attempt" }),
+        expect.objectContaining({ id: "level-3-attempt" }),
+      ],
       visibilityPolicy: expect.objectContaining({
         outcomeVisibility: "visible",
         playerVisible: true,
@@ -185,33 +214,38 @@ describe("push_your_luck fill", () => {
           stage,
         );
         const tree = manifest.tree!;
-        const rewardKinds = new Set(pushBranches(tree).map(primaryEffectKind));
-        const expectedValues = pushBranches(tree).map(expectedRewardValue);
+        const attempts = pushBranches(tree);
+        const rewardKinds = new Set(attempts.map(primaryEffectKind));
+        const costs = attempts.map((branch) => branch.costConvertedEssence);
+        const rewardTexts = attempts.map((branch) =>
+          branch.text.replace(/^Pay \d+ essence\. \d+% chance to /u, ""),
+        );
+        const oddsProgression = attempts.map((branch) => branch.odds!.percent);
 
         expect(manifest.shapeId).toBe("push_your_luck");
         expect(tree.nodes).toHaveLength(3);
+        expect(new Set(costs).size).toBe(1);
+        expect(new Set(rewardTexts).size).toBe(1);
         expect(rewardKinds.size).toBe(1);
-
-        for (let index = 1; index < expectedValues.length; index += 1) {
-          expect(expectedValues[index]).toBeGreaterThan(expectedValues[index - 1]!);
-        }
+        expect(oddsProgression.slice(1).map((chance, index) => chance - oddsProgression[index]!))
+          .toSatisfy((steps: number[]) =>
+            steps.every((step) => [10, 20, 25].includes(step)),
+          );
 
         for (const node of tree.nodes) {
-          const [stop, push, failure] = node.branches;
+          const [leave, attempt] = node.branches;
 
-          expect(stop?.text).toMatch(/banked rewards|banked Level/u);
-          expect(push?.text).not.toMatch(/\s,|,\s*,/u);
-          expect(push?.text).toMatch(/Risk immediate failure for a \d+% chance/u);
-          expect(push?.text).toMatch(/Success banks/u);
-          expect(failure?.text).toMatch(/banked|No rewards are banked/u);
+          expect(node.branches.map((branch) => branch.label)).toEqual([
+            "Leave",
+            "Attempt",
+          ]);
+          expect(leave?.text).toBe("Leave.");
+          expect(attempt?.text).not.toMatch(/\s,|,\s*,/u);
+          expect(attempt?.text).not.toMatch(/banked|failure|Bane|Paranoia|Despair|Oblivion/iu);
 
-          if (push?.text.includes("draft 1 of 4")) {
-            expect(push.text).toContain("draft pool");
-          }
-
-          if (push?.text.includes("Dreamsigns")) {
-            expect(push.text).toContain("including");
-          }
+          expect(attempt?.text).toMatch(
+            /^Pay \d+ essence\. \d+% chance to gain /u,
+          );
         }
       }
     }
@@ -231,39 +265,51 @@ describe("push_your_luck fill", () => {
     expect(second.precommitted).toEqual(first.precommitted);
   });
 
-  it("rejects push trees where a failure can continue", () => {
+  it("rejects push trees with visible failure branches", () => {
     const bundle = makeTestContext({ seed: "push-your-luck-validator" });
     const fill = pushYourLuckPlugin.fill(bundle);
     const tree = structuredClone(fill.tree!);
-    tree.nodes[0]!.branches[2] = {
-      ...tree.nodes[0]!.branches[2]!,
-      nextNodeId: "level-2",
-    };
+    tree.nodes[0]!.branches.push({
+      ...tree.nodes[0]!.branches[1]!,
+      id: "level-1-failure",
+      label: "Failure",
+      kind: "random_chance",
+      text: "End the Journey.",
+      effects: [],
+      costConvertedEssence: 0,
+      effectConvertedEssence: 0,
+      netConvertedEssence: 0,
+      terminal: {
+        text: "End the Journey.",
+        outcome: "failure",
+        operations: [],
+        costs: [],
+        effects: [],
+        burdens: [],
+        targets: [],
+        routeEffects: [],
+      },
+    });
 
     expect(runTreeValidator(tree, bundle)).toMatchObject({
       ok: false,
-      rule: "push_failure_must_end",
+      rule: "push_visible_branches_must_repeat",
     });
   });
 
-  it("rejects push trees with disconnected reward families", () => {
+  it("rejects push trees with changing costs or rewards", () => {
     const bundle = makeTestContext({ seed: "push-your-luck-disconnected" });
     const fill = pushYourLuckPlugin.fill(bundle);
     const tree = structuredClone(fill.tree!);
-    const firstPush = tree.nodes[0]!.branches[1]!;
     const secondPush = tree.nodes[1]!.branches[1]!;
-    tree.nodes[0]!.branches[1] = {
-      ...firstPush,
-      effects: [{ kind: "alpha_reward" }],
-    };
     tree.nodes[1]!.branches[1] = {
       ...secondPush,
-      effects: [{ kind: "beta_reward" }],
+      costConvertedEssence: secondPush.costConvertedEssence + 5,
     };
 
     expect(runTreeValidator(tree, bundle)).toMatchObject({
       ok: false,
-      rule: "push_rewards_must_connect",
+      rule: "push_attempts_must_repeat",
     });
   });
 });

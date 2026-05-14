@@ -649,6 +649,7 @@ export type RandomPrecommittedOutcome =
   | (RandomPrecommitBase & {
     kind: "push_choice";
     bounded: true;
+    attempts?: unknown;
     hazard: unknown;
     committedResult?: "success" | "failure";
   })

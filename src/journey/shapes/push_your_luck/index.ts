@@ -22,16 +22,31 @@ function primaryEffectKind(branch: JourneyTreeBranch): string | undefined {
   return undefined;
 }
 
+function primaryCostKind(branch: JourneyTreeBranch): string | undefined {
+  const primaryCost = branch.costs[0];
+
+  if (
+    primaryCost &&
+    typeof primaryCost === "object" &&
+    "kind" in primaryCost &&
+    typeof primaryCost.kind === "string"
+  ) {
+    return primaryCost.kind;
+  }
+
+  return undefined;
+}
+
 export const pushYourLuckPlugin = defineShapePlugin({
   definition: {
     id: "push_your_luck",
     topology: "decision_tree",
     rootOptionCount: { min: 0, max: 0 },
-    supportedTags: ["sequence", "risk", "random", "reward", "stop", "tree"],
+    supportedTags: ["sequence", "chance", "cost", "reward", "stop", "tree"],
     validationRules: [
       "tree_has_complete_visible_levels",
-      "push_failure_ends_journey",
-      "push_rewards_are_mechanically_connected",
+      "push_attempts_repeat_cost_and_reward",
+      "push_odds_rise_by_supported_step",
     ],
     debugLabel: "Push your luck",
     versionContribution: versionContribution("push_your_luck", "decision_tree"),
@@ -43,43 +58,55 @@ export const pushYourLuckPlugin = defineShapePlugin({
     }
 
     const pushRewardKinds = new Set<string>();
+    const pushCostKinds = new Set<string>();
+    const pushCosts = new Set<number>();
+    const pushRewardValues = new Set<number>();
+    const pushOdds: number[] = [];
 
     for (const [index, node] of manifest.tree.nodes.entries()) {
-      const failureBranches = node.branches.filter(
-        (branch) =>
-          branch.kind === "random_chance" &&
-          branch.terminal?.outcome === "failure" &&
-          !branch.nextNodeId,
-      );
-
-      if (failureBranches.length !== 1) {
+      if (
+        node.branches.length !== 2 ||
+        node.branches[0]?.label !== "Leave" ||
+        node.branches[1]?.label !== "Attempt"
+      ) {
         return fail(
-          "push_failure_must_end",
-          "Push-your-luck failures must end the Journey",
+          "push_visible_branches_must_repeat",
+          "Push-your-luck levels must expose Leave and Attempt branches",
         );
       }
 
-      const pushBranch = node.branches.find(
-        (branch) => branch.label === "Push" && branch.kind === "player_choice",
-      );
+      const leaveBranch = node.branches[0];
+      const pushBranch = node.branches[1];
 
-      if (!pushBranch) {
+      if (leaveBranch.terminal?.outcome !== "leave") {
         return fail(
-          "push_branch_required",
-          "Push-your-luck levels must expose a Push branch",
+          "push_leave_required",
+          "Push-your-luck levels must allow leaving",
         );
       }
 
+      if (pushBranch.kind !== "player_choice") {
+        return fail(
+          "push_attempt_required",
+          "Push-your-luck levels must expose a player attempt branch",
+        );
+      }
+
+      const costKind = primaryCostKind(pushBranch);
       const rewardKind = primaryEffectKind(pushBranch);
 
-      if (!rewardKind) {
+      if (!costKind || pushBranch.costConvertedEssence <= 0 || !rewardKind) {
         return fail(
-          "push_reward_required",
-          "Push-your-luck pushes must expose a mechanical reward",
+          "push_attempts_must_repeat",
+          "Push-your-luck attempts must expose a payable cost and mechanical reward",
         );
       }
 
+      pushCostKinds.add(costKind);
+      pushCosts.add(pushBranch.costConvertedEssence);
       pushRewardKinds.add(rewardKind);
+      pushRewardValues.add(pushBranch.effectConvertedEssence);
+      pushOdds.push(pushBranch.odds?.percent ?? 0);
 
       const expectedNextNodeId =
         index === manifest.tree.nodes.length - 1
@@ -89,16 +116,32 @@ export const pushYourLuckPlugin = defineShapePlugin({
       if (pushBranch.nextNodeId !== expectedNextNodeId) {
         return fail(
           "push_progression_must_continue",
-          "Push-your-luck successes must advance through the visible level chain",
+          "Push-your-luck failed attempts must advance through the visible level chain",
         );
       }
     }
 
-    if (pushRewardKinds.size > 1) {
+    if (
+      pushCostKinds.size !== 1 ||
+      pushCosts.size !== 1 ||
+      pushRewardKinds.size !== 1 ||
+      pushRewardValues.size !== 1
+    ) {
       return fail(
-        "push_rewards_must_connect",
-        "Push-your-luck rewards must stay mechanically connected across levels",
+        "push_attempts_must_repeat",
+        "Push-your-luck attempts must repeat the same cost and reward",
       );
+    }
+
+    for (let index = 1; index < pushOdds.length; index += 1) {
+      const step = pushOdds[index]! - pushOdds[index - 1]!;
+
+      if (![10, 20, 25].includes(step)) {
+        return fail(
+          "push_odds_step_must_be_supported",
+          "Push-your-luck odds must rise by a supported step",
+        );
+      }
     }
 
     return { ok: true };

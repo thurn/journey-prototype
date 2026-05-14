@@ -3,30 +3,37 @@ import { buildPrecommittedOperations } from "../../operationBuilders.js";
 import {
   buildPushYourLuckTree,
   odds,
-  pushYourLuckFailureBranches,
+  pushYourLuckAttemptBranches,
 } from "./tree.js";
 
 export function pushYourLuckFill(args: ShapeFillArgs): FilledJourney {
   const pushTree = buildPushYourLuckTree(args.context, args.drawContext);
-  const failureBranches = pushYourLuckFailureBranches(pushTree);
-  const firstFailure = failureBranches[0];
+  const attemptBranches = pushYourLuckAttemptBranches(pushTree);
+  const firstAttempt = attemptBranches[0];
   const precommitted = {
     random: [
       {
         kind: "push_choice",
         bounded: true,
-        odds: firstFailure?.odds ?? odds(50),
+        odds: firstAttempt?.odds ?? odds(50),
+        attempts: attemptBranches.map((branch) => ({
+          id: branch.id,
+          odds: branch.odds,
+          costs: branch.costs,
+          effects: branch.effects,
+        })),
         hazard: {
-          branches: failureBranches.map((branch) => ({
+          attempts: attemptBranches.map((branch) => ({
             id: branch.id,
             odds: branch.odds,
-            burdens: branch.burdens ?? [],
+            costs: branch.costs,
+            effects: branch.effects,
           })),
         },
         visibilityPolicy: {
           outcomeVisibility: "visible",
           disclosure:
-            "Push-your-luck failure odds and hazards are visible on each push branch.",
+            "Push-your-luck attempt odds, costs, and rewards are visible on each branch.",
           playerVisible: true,
         },
       },
