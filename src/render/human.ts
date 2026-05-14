@@ -146,8 +146,9 @@ function optionTone(option: JourneyOption): keyof typeof THEME {
 function optionLine(option: JourneyOption, options: RenderOptions): string {
   const symbols = displaySymbols(option);
   const prefix = `${color(`${option.number}.`, "optionNumber", options)}${symbols.length > 0 ? ` ${symbols}` : ""}`;
+  const text = color(option.text, optionTone(option), options).replace(/\n/gu, "\n   ");
 
-  return `${prefix} ${color(option.text, optionTone(option), options)}`;
+  return `${prefix} ${text}`;
 }
 
 function selectedLine(option: JourneyOption, options: RenderOptions): string {

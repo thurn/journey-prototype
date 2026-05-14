@@ -56,33 +56,68 @@ function fillFor(seed: string, stage: JourneyStage) {
 function randomEntry(
   entries: readonly RandomPrecommittedOutcome[] | undefined,
   kind: RandomPrecommittedOutcome["kind"],
-  optionNumber: number,
 ) {
-  return entries?.find(
-    (entry) => entry.kind === kind && entry.optionNumber === optionNumber,
-  );
+  return entries?.find((entry) => entry.kind === kind);
+}
+
+function visibleRewardLines(text: string): string[] {
+  const lines = text.split("\n");
+
+  expect(lines[0]).toMatch(/^Lose \d+ essence\. Gain one of the following at random:$/u);
+  return lines.slice(1);
 }
 
 describe("single_random_outcome fill", () => {
-  it("builds two choices backed by shared reward random metadata", () => {
+  it("declares one meaningful root option before automatic leave is applied", () => {
+    expect(singleRandomOutcomePlugin.definition).toMatchObject({
+      topology: "random_commit",
+      rootOptionCount: { min: 1, max: 1 },
+    });
+  });
+
+  it("builds one costed random reward option with three visible rewards", () => {
     const fill = singleRandomOutcomePlugin.fill({
       context: fakeContext(),
       drawContext: fakeDraw("shared-reward-random"),
       stage: "mid" as JourneyStage,
     });
 
-    expect(fill.options).toHaveLength(2);
-    expect(fill.precommitted.random?.length).toBeGreaterThanOrEqual(2);
+    expect(fill.options).toHaveLength(1);
+    expect(fill.rewardPool).toBeUndefined();
+    expect(fill.precommitted.random?.length).toBe(2);
 
-    for (const option of fill.options) {
-      expect(option.operations).toEqual([]);
-      expect(option.effects).toEqual([]);
-      expect(option.pickBehavior).toBe("record_and_generate_next");
-    }
+    const [option] = fill.options;
+    expect(option).toMatchObject({
+      number: 1,
+      symbols: ["cost", "random", "reward"],
+      operations: [],
+      effects: [],
+      pickBehavior: "record_and_generate_next",
+    });
+    expect(option!.costs).toHaveLength(1);
+    expect(option!.costConvertedEssence).toBeGreaterThan(0);
+    expect(option!.effectConvertedEssence).toBeGreaterThan(0);
+    expect(option!.uncertaintyConvertedEssence).toBeLessThan(0);
 
-    const serializedRandom = JSON.stringify(fill.precommitted.random);
-    expect(serializedRandom).toContain("shared_reward_template");
-    expect(serializedRandom).not.toContain("wheel-resource");
+    const rewardLines = visibleRewardLines(option!.text);
+    expect(rewardLines).toHaveLength(3);
+    expect(rewardLines.every((line) => /^- .+/u.test(line))).toBe(true);
+
+    const visiblePool = randomEntry(fill.precommitted.random, "visible_pool");
+    expect(visiblePool).toMatchObject({
+      kind: "visible_pool",
+      rewards: expect.any(Array),
+    });
+    expect(visiblePool?.rewards).toHaveLength(3);
+
+    const randomReward = randomEntry(fill.precommitted.random, "gain_one_random_reward");
+    expect(randomReward).toMatchObject({
+      kind: "gain_one_random_reward",
+      optionNumber: 1,
+      rewards: visiblePool?.rewards,
+      committedReward: expect.any(Array),
+      presentation: "single_random_outcome_gain_one_random_reward",
+    });
   });
 
   it("is deterministic for the same draw context", () => {
@@ -95,6 +130,7 @@ describe("single_random_outcome fill", () => {
     const first = singleRandomOutcomePlugin.fill(args);
     const second = singleRandomOutcomePlugin.fill(args);
 
+    expect(first.options).toHaveLength(1);
     expect(first.options).toEqual(second.options);
     expect(first.precommitted).toEqual(second.precommitted);
     expect(first.rewardPool).toEqual(second.rewardPool);
@@ -108,6 +144,7 @@ describe("single_random_outcome fill", () => {
     ];
 
     for (const fill of fills) {
+      expect(fill.options).toHaveLength(1);
       for (const option of fill.options) {
         expect(option.text).not.toMatch(/\bprecommitted\b/i);
         expect(option.text).not.toMatch(/\bcommitted outcome\b/i);
@@ -115,40 +152,19 @@ describe("single_random_outcome fill", () => {
     }
   });
 
-  it("gives the random reveal row extra pool draws to compete with selection", () => {
-    const fill = fillFor("audit:single_random_outcome:early:02", "early");
-    const [selectedRow, randomRow] = fill.options;
+  it("keeps the visible random reward list to exactly three rewards across audit seeds", () => {
+    const stages: readonly JourneyStage[] = ["early", "mid", "late"];
 
-    expect(selectedRow!.costConvertedEssence).toBeGreaterThan(0);
-    expect(randomRow!.text).toContain("Then gain 3 random rewards from the visible pool.");
-    expect(randomRow!.netConvertedEssence).toBeGreaterThan(selectedRow!.netConvertedEssence);
+    for (const stage of stages) {
+      for (let index = 1; index <= 10; index += 1) {
+        const seed = `audit:single_random_outcome:${stage}:${String(index).padStart(2, "0")}`;
+        const fill = fillFor(seed, stage);
+        const [option] = fill.options;
 
-    const bonusDraws = randomEntry(fill.precommitted.random, "repeated_pool_draws", 2);
-    expect(bonusDraws).toMatchObject({
-      kind: "repeated_pool_draws",
-      drawCount: 3,
-      replacement: "with_replacement",
-    });
-  });
-
-  it("balances wheel rows with visible wheel benefits and tied essence rolls", () => {
-    const fill = fillFor("audit:single_random_outcome:early:03", "early");
-    const [wheelRow, essenceRow] = fill.options;
-
-    expect(wheelRow!.text).toContain("Spin the visible wheel twice and gain both shown results,");
-    expect(wheelRow!.costConvertedEssence).toBeGreaterThan(0);
-    expect(wheelRow!.netConvertedEssence).toBeGreaterThan(0);
-
-    expect(essenceRow!.text).toMatch(
-      /^Lose \d+ essence\. Gain the better of two essence rolls, \d+ essence/,
-    );
-    expect(essenceRow!.text).not.toContain("random essence");
-    expect(essenceRow!.costConvertedEssence).toBeGreaterThan(0);
-
-    const range = randomEntry(fill.precommitted.random, "random_range", 2);
-    expect(range).toMatchObject({
-      kind: "random_range",
-      committedAmount: essenceRow!.effectConvertedEssence,
-    });
+        expect(fill.options, seed).toHaveLength(1);
+        expect(visibleRewardLines(option!.text), seed).toHaveLength(3);
+        expect(randomEntry(fill.precommitted.random, "visible_pool")?.rewards, seed).toHaveLength(3);
+      }
+    }
   });
 });

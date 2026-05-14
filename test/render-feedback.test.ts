@@ -297,6 +297,32 @@ describe("review feedback regressions", () => {
     expect(output).not.toContain("* >");
   });
 
+  it("indents multiline option text under the option row", () => {
+    const manifest: JourneyManifest = {
+      ...fixtureManifest(),
+      options: [
+        {
+          ...fixtureManifest().options[0]!,
+          symbols: ["cost", "random", "reward"],
+          text: "Lose 20 essence. Gain one of the following at random:\n- Gain 80 essence\n- Gain a card\n- Gain an omen",
+        },
+      ],
+    };
+
+    const output = renderJourneyHuman(fixtureState(), manifest, {
+      json: false,
+      debug: false,
+      color: false,
+    });
+
+    expect(output).toContain([
+      "1. $ * Lose 20 essence. Gain one of the following at random:",
+      "   - Gain 80 essence",
+      "   - Gain a card",
+      "   - Gain an omen",
+    ].join("\n"));
+  });
+
   it("renders state history effect simulation in human-readable text", () => {
     const state = fixtureState();
 

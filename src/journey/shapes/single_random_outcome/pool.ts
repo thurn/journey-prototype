@@ -1,6 +1,5 @@
 import type { JourneyContext } from "../../../quest/context.js";
 import {
-  drawInt,
   weightedChoice,
   type DrawContext,
 } from "../../../util/rng.js";
@@ -15,18 +14,6 @@ import type {
 import { getCost } from "../../shared/costs.js";
 import { REWARDS } from "../../shared/rewards.js";
 import type { Reward, TemplateParams } from "../../shared/types.js";
-
-const REVEAL_POOL_SIZE_BANDS = {
-  early: [4, 5],
-  mid: [5, 6],
-  late: [5, 6, 7],
-} as const satisfies Record<JourneyStage, readonly number[]>;
-
-const REVEAL_COUNT_BANDS = {
-  early: [2, 3],
-  mid: [2, 3, 4],
-  late: [3, 4, 5],
-} as const satisfies Record<JourneyStage, readonly number[]>;
 
 const PAY_ESSENCE_COST = getCost("pay_essence");
 
@@ -53,14 +40,6 @@ export type RandomPoolCandidate = {
   readonly value: number;
   readonly weight: number;
 };
-
-function pickVariant<T>(
-  draw: DrawContext,
-  label: string,
-  variants: readonly T[],
-): T {
-  return variants[drawInt(draw, label, 0, variants.length - 1)]!;
-}
 
 export function randomVisibility(
   outcomeVisibility: RandomOutcomeVisibility,
@@ -257,16 +236,13 @@ export function visibleRewardPool(args: {
   readonly drawContext: DrawContext;
   readonly label: string;
   readonly stage: JourneyStage;
-  readonly size?: number;
+  readonly size: number;
 }): {
   readonly candidates: RandomPoolCandidate[];
   readonly rewardPool: JourneyRewardPool;
   readonly visiblePoolEnvelope: RandomPrecommittedOutcome;
 } {
-  const poolSize =
-    args.size ??
-    pickVariant(args.drawContext, `${args.label}:pool-size`, REVEAL_POOL_SIZE_BANDS[args.stage]);
-  const candidates = weightedRewardPool({ ...args, size: poolSize });
+  const candidates = weightedRewardPool({ ...args, size: args.size });
   const rewards = flattenPayloads(candidates);
   const poolId = `${args.label}:visible-reward-pool`;
   const summary = `Randomly gain one of ${candidates
@@ -299,29 +275,6 @@ export function visibleRewardPool(args: {
       presentation: "visible_shared_reward_pool",
     },
   };
-}
-
-export function revealPoolSize(
-  drawContext: DrawContext,
-  label: string,
-  stage: JourneyStage,
-): number {
-  return pickVariant(drawContext, `${label}:reveal-pool-size`, REVEAL_POOL_SIZE_BANDS[stage]);
-}
-
-export function revealCount(args: {
-  readonly drawContext: DrawContext;
-  readonly label: string;
-  readonly stage: JourneyStage;
-  readonly candidateCount: number;
-}): number {
-  const desiredCount = pickVariant(
-    args.drawContext,
-    `${args.label}:reveal-count`,
-    REVEAL_COUNT_BANDS[args.stage],
-  );
-
-  return Math.max(1, Math.min(desiredCount, args.candidateCount));
 }
 
 export function essenceCost(
