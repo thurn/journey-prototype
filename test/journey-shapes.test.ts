@@ -138,7 +138,7 @@ describe("JOURNEY_SHAPES", () => {
   });
 
   it("does not expose the retired deterministic ladder branch shape", () => {
-    const retiredShapeId = ["prize", "ladder"].join("_");
+    const retiredShapeId = "prize_ladder";
 
     expect(isJourneyShapeId(retiredShapeId)).toBe(false);
     expect(() => getShapeDefinition(retiredShapeId)).toThrow(

@@ -115,7 +115,7 @@ describe("stateless command risk transitions", () => {
 
   it("rejects the retired deterministic ladder branch shape as unknown", async () => {
     await withTempState(async ({ statePath, options }) => {
-      const retiredShapeId = ["prize", "ladder"].join("_");
+      const retiredShapeId = "prize_ladder";
       const result = await handleJourney(options({
         seed: "qa",
         shape: retiredShapeId,

@@ -18,7 +18,6 @@ import type {
   JourneyOption,
   JourneyStage,
   JourneyTree,
-  JourneyTreeBranch,
   ManifestReferences,
   PrecommittedOutcomes,
   RandomPrecommittedOutcome,
@@ -103,37 +102,6 @@ function automaticLeaveOption(number: number): JourneyOption {
   };
 }
 
-function automaticLeaveBranch(nodeId: string): JourneyTreeBranch {
-  return {
-    id: `${nodeId}-leave`,
-    label: "Leave",
-    kind: "player_choice",
-    text: "Leave.",
-    operations: [],
-    costs: [],
-    effects: [],
-    burdens: [],
-    targets: [],
-    triggers: [],
-    routeEffects: [],
-    costConvertedEssence: 0,
-    effectConvertedEssence: 0,
-    burdenConvertedEssence: 0,
-    uncertaintyConvertedEssence: 0,
-    netConvertedEssence: 0,
-    terminal: {
-      text: "Leave.",
-      outcome: "leave",
-      operations: [],
-      costs: [],
-      effects: [],
-      burdens: [],
-      targets: [],
-      routeEffects: [],
-    },
-  };
-}
-
 function withAutomaticLeaveOptions(
   shapeId: JourneyShapeId,
   options: readonly JourneyOption[],
@@ -151,33 +119,6 @@ function withAutomaticLeaveOptions(
     ...meaningfulOptions,
     automaticLeaveOption(meaningfulOptions.length + 1),
   ];
-}
-
-function withAutomaticLeaveBranches(
-  shapeId: JourneyShapeId,
-  tree: JourneyTree | undefined,
-): JourneyTree | undefined {
-  if (!tree || !automaticLeaveEnabled(shapeId)) {
-    return tree;
-  }
-
-  return {
-    ...tree,
-    nodes: tree.nodes.map((node) => {
-      const hasLeaveBranch = node.branches.some((branch) =>
-        branch.terminal?.outcome === "leave"
-      );
-
-      if (hasLeaveBranch) {
-        return { ...node, branches: [...node.branches] };
-      }
-
-      return {
-        ...node,
-        branches: [...node.branches, automaticLeaveBranch(node.id)],
-      };
-    }),
-  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -364,7 +305,7 @@ export function buildJourneyForShape(args: BuildJourneyArgs): JourneyManifest {
     drawContext: args.drawContext,
     stage: args.stage,
   });
-  const tree = withAutomaticLeaveBranches(args.shapeId, filled.tree);
+  const tree = filled.tree;
   const options = withAutomaticLeaveOptions(
     args.shapeId,
     filled.options.slice(0, shape.rootOptionCount.max),
