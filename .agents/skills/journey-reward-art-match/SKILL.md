@@ -22,10 +22,13 @@ filename. If the image file cannot be opened, stop and report the error.
 
 - Art images: `/Users/dthurn/Documents/shutterstock/images_journeys`
 - Art descriptions: `/Users/dthurn/Documents/shutterstock/journey_urls.json`
+- Quest reward context: `docs/quests.md`
 - Reward pool: `docs/rewards.md`
 
-Load all 64 reward types from `docs/rewards.md`; the pool is small enough to
-review directly.
+Read the quest reward context before matching so terms like essence, omens,
+Dreamsigns, dreamscapes, sites, shop rerolls, starter cards, and draft rewards
+are interpreted as player-facing quest outcomes. Then load all 64 reward types
+from `docs/rewards.md`; the pool is small enough to review directly.
 
 ## Duplicate Tracking
 
@@ -109,7 +112,8 @@ Examples of reward constraints:
 
 ## Phase 3: Search the Reward Pool
 
-Read `docs/rewards.md` and compare the art's narrative anchor against all reward
+Read `docs/quests.md` for reward terminology and player meaning, then read
+`docs/rewards.md` and compare the art's narrative anchor against all reward
 types. Do not search for tide concepts or card-combat mechanics.
 
 For each plausible candidate, ask the "aha" test:
