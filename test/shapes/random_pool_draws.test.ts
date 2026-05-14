@@ -178,7 +178,19 @@ describe("random_pool_draws fill", () => {
       poolId: "random-pool-draws",
       rewards: fill.rewardPool?.rewards,
       replacement: fill.rewardPool?.replacement,
+      summary: expect.stringContaining(
+        "Reward outcomes are shown inline at each level.",
+      ),
+      visibilityPolicy: {
+        outcomeVisibility: "visible",
+        disclosure: "Reward outcomes are visible inline before drawing",
+        playerVisible: true,
+      },
     });
+    expect(random[0]?.summary).not.toContain("replacement policy");
+    expect(random[0]?.visibilityPolicy?.disclosure).not.toContain(
+      "replacement policy",
+    );
     expect(random[1]).toMatchObject({
       kind: "repeated_pool_draws",
       poolId: "random-pool-draws",

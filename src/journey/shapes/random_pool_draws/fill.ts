@@ -460,7 +460,7 @@ function visiblePoolDebugSummary(candidates: readonly PoolCandidate[]): string {
   return [
     "Randomly gain one of these outcomes.",
     ...candidates.map((candidate) => `${candidate.poolIndex}. ${stripTerminalPeriod(candidate.text)}`),
-    "The replacement policy is shown with the reward pool.",
+    "Reward outcomes are shown inline at each level.",
   ].join("\n");
 }
 
@@ -675,7 +675,7 @@ export function randomPoolDrawsFill(args: ShapeFillArgs): FilledJourney {
     visibilityPolicy: {
       outcomeVisibility: "visible",
       disclosure:
-        "The full reward pool and replacement policy are visible before drawing",
+        "Reward outcomes are visible inline before drawing",
       playerVisible: true,
     },
     expectedConvertedEssence: averageReward,
