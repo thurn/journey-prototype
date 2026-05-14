@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { loadContentContext } from "../../src/commands/shared.js";
 import { generateNextJourney } from "../../src/journey/generate.js";
-import type { JourneyStage } from "../../src/journey/manifest.js";
+import type {
+  HookTriggerSelector,
+  JourneyStage,
+} from "../../src/journey/manifest.js";
 import { getShapePlugin } from "../../src/journey/shapes.js";
 import { buildJourneyContext } from "../../src/quest/context.js";
 import {
@@ -15,11 +18,22 @@ const auditSeedNumbers = Array.from({ length: 10 }, (_entry, index) =>
   String(index + 1).padStart(2, "0"),
 );
 const legacyRewardIds = new Set(["gain_essence", "gain_omens"]);
+const validTriggerKinds = new Set<HookTriggerSelector["triggerKind"]>([
+  "battle",
+  "victory",
+  "each_battle",
+  "dreamscape",
+  "site_visit",
+  "named_card_play",
+  "dreamsign_trigger",
+  "card_added",
+  "essence_payment",
+  "future_shop",
+  "future_dream_journey",
+]);
 
 type DelayedHook = {
-  readonly triggerSelector?: {
-    readonly label?: string;
-  };
+  readonly triggerSelector?: HookTriggerSelector;
   readonly reward?: readonly [{
     readonly templateId?: string;
     readonly text?: string;
@@ -110,6 +124,10 @@ describe("reward_after_trigger fill", () => {
           expect(reward?.templateId, seed).toEqual(expect.any(String));
           expect(reward?.text, seed).toEqual(expect.any(String));
           expect(reward?.convertedEssence, seed).toEqual(expect.any(Number));
+          expect(
+            validTriggerKinds.has(hook.triggerSelector!.triggerKind),
+            seed,
+          ).toBe(true);
 
           rewardTemplateIds.add(reward!.templateId!);
           triggerLabels.add(hook.triggerSelector!.label!);

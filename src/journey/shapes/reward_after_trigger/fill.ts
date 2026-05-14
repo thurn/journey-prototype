@@ -4,7 +4,7 @@ import {
   weightedChoice,
   type DrawContext,
 } from "../../../util/rng.js";
-import type { JourneyOption } from "../../manifest.js";
+import type { HookTriggerSelector, JourneyOption } from "../../manifest.js";
 import {
   buildJourneyOptionOperations,
   buildPrecommittedOperations,
@@ -24,7 +24,7 @@ const STAGE_REWARD_CEILINGS = {
 type TriggerProfile = {
   readonly key: string;
   readonly optionPrefix: string;
-  readonly triggerSelector: Record<string, unknown>;
+  readonly triggerSelector: HookTriggerSelector;
   readonly duration: Record<string, unknown>;
   readonly expiration: Record<string, unknown>;
 };
@@ -114,7 +114,7 @@ const TRIGGERS: readonly TriggerProfile[] = [
     key: "next-card-draft",
     optionPrefix: "After you next draft a card",
     triggerSelector: {
-      triggerKind: "card_draft",
+      triggerKind: "card_added",
       label: "your next card draft",
       count: 1,
     },
@@ -132,7 +132,7 @@ const TRIGGERS: readonly TriggerProfile[] = [
     key: "next-dreamsign",
     optionPrefix: "After you next gain a Dreamsign",
     triggerSelector: {
-      triggerKind: "dreamsign_gain",
+      triggerKind: "dreamsign_trigger",
       label: "your next Dreamsign gain",
       count: 1,
     },
@@ -150,7 +150,7 @@ const TRIGGERS: readonly TriggerProfile[] = [
     key: "spend-essence",
     optionPrefix: "After you next spend essence",
     triggerSelector: {
-      triggerKind: "essence_spend",
+      triggerKind: "essence_payment",
       label: "your next essence spend",
       count: 1,
     },
@@ -200,24 +200,6 @@ const TRIGGERS: readonly TriggerProfile[] = [
     expiration: {
       policyKind: "forfeit_reward",
       label: "If no Purge appears in the next 2 dreamscapes, discard this hook with no reward.",
-    },
-  },
-  {
-    key: "next-omen",
-    optionPrefix: "After you next gain an omen",
-    triggerSelector: {
-      triggerKind: "omen_gain",
-      label: "your next omen gain",
-      count: 1,
-    },
-    duration: {
-      durationKind: "dreamscape_count",
-      label: "next 3 dreamscapes",
-      count: 3,
-    },
-    expiration: {
-      policyKind: "forfeit_reward",
-      label: "If you do not gain an omen in the next 3 dreamscapes, discard this hook with no reward.",
     },
   },
 ];
