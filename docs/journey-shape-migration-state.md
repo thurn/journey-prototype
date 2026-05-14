@@ -117,6 +117,7 @@ the target end state.
 | `single_rule_trial` | Complete | Complete |
 | `single_wager` | Complete | Complete |
 | `take_any_number` | Complete | Complete |
+
 Generic typed-contract plumbing still carries shape IDs for structured
 manifest kinds such as `probability_ladder`, `paired_return`, and
 `flat_escalating_trade`. Debug fixture metadata also carries shape filters for

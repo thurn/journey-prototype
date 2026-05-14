@@ -31,10 +31,6 @@ function sentenceCase(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
-function lowerFirst(text: string): string {
-  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
-}
-
 function indefiniteArticleFor(text: string): "a" | "an" {
   return /^[aeiou]/iu.test(text.trim()) ? "an" : "a";
 }
@@ -212,7 +208,7 @@ const gainRandomPredicateCards: Reward<GainRandomCardsParams> = {
     cardMatches(ctx, getPredicate(p.predicateId).cardPredicate ?? {}).length >= p.count,
   render: (p) => {
     const pred = getPredicate(p.predicateId);
-    const noun = lowerFirst(p.count === 1 ? pred.text.singular : pred.text.plural);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
     return `Gain ${p.count} random ${noun}`;
   },
 };
@@ -291,7 +287,7 @@ const applyNamedTransfigurationToChosenPredicateCards: Reward<ApplyNamedTransfig
     && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) => {
     const pred = getPredicate(p.predicateId);
-    const noun = lowerFirst(p.count === 1 ? pred.text.singular : pred.text.plural);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
     return `Apply ${p.transfiguration} to ${p.count} chosen ${noun}`;
   },
 };
@@ -344,7 +340,7 @@ const applyNamedTransfigurationToRandomPredicateCards: Reward<ApplyNamedTransfig
     && predicateAdmitsTransfiguration(ctx, p.predicateId, p.transfiguration),
   render: (p) => {
     const pred = getPredicate(p.predicateId);
-    const noun = lowerFirst(p.count === 1 ? pred.text.singular : pred.text.plural);
+    const noun = p.count === 1 ? pred.text.singular : pred.text.plural;
     return `Apply ${p.transfiguration} to ${p.count} random ${noun}`;
   },
 };
