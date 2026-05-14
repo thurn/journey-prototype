@@ -1,0 +1,4 @@
+interface:
+  display_name: "Journey Reward Art Batch"
+  short_description: "Batch match Journey art to rewards"
+  default_prompt: "Use $journey-reward-art-batch to match all Journey images to dream names and reward types in TOML."
