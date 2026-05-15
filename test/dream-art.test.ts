@@ -176,18 +176,32 @@ describe("selectDreamArt", () => {
     expect(selection.reviewFlags).toEqual([]);
   });
 
-  it("flags non-Leave options with no reward template ids", async () => {
+  it("borrows an arbitrary unused dream for reward-less options", async () => {
+    // Reward-less options (e.g. choose_your_loss losses) are intentional,
+    // not a coverage gap. The renderer should pick any unused ledger dream
+    // without emitting a review flag or a debug message — every option still
+    // gets distinct art.
     const manifest = syntheticManifest({
-      journeyId: "J-FLAG",
-      options: [rewardOption(1, []), leaveOption(2)],
+      journeyId: "J-LOSS",
+      options: [
+        rewardOption(1, []),
+        rewardOption(2, []),
+        rewardOption(3, []),
+        leaveOption(4),
+      ],
     });
 
     const selection = await selectDreamArt(manifest, PROJECT_ROOT);
 
-    expect(selection.assignments).toEqual([]);
-    expect(selection.reviewFlags).toEqual([
-      "Journey J-FLAG Option 1: no reward template ids",
+    expect(selection.assignments).toHaveLength(3);
+    expect(selection.assignments.map((a) => a.label)).toEqual([
+      "Option 1",
+      "Option 2",
+      "Option 3",
     ]);
+    const imageIds = selection.assignments.map((a) => a.imageId);
+    expect(new Set(imageIds).size).toBe(imageIds.length);
+    expect(selection.reviewFlags).toEqual([]);
     expect(selection.repeatFallbacks).toEqual([]);
   });
 

@@ -45,11 +45,16 @@ contention. If the ledger is fully exhausted (more options than total ledger
 entries), the affected option is reported on stderr as a review flag rather
 than receiving a repeat.
 
-Costs do not affect art matching. Any non-Leave option or non-Leave branch
-without reward template ids, with ids unknown to the catalog, or whose chosen
-reward type has zero ledger entries, is reported on stderr as a
-`Dream art: cases to investigate` list, naming the journey and option/branch
-for review.
+Reward-less options — `choose_your_loss` losses are the canonical case —
+carry an empty `rewardTemplateIds` by design. They draw an arbitrary unused
+dream from anywhere in the ledger, picked at random from the seeded RNG, and
+emit no review flag or debug message: there is no reward to match, just a
+visual to fill the slot.
+
+Costs do not affect art matching. Non-Leave options and branches with reward
+template ids unknown to the catalog, or whose chosen reward type has zero
+ledger entries, are reported on stderr as a `Dream art: cases to investigate`
+list, naming the journey and option/branch for review.
 
 ## Relevant files
 

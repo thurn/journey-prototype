@@ -205,6 +205,20 @@ function drawContextFor(manifest: JourneyManifest): DrawContext {
   };
 }
 
+/** Collect every ledger dream whose image id hasn't already been used. */
+function collectUnusedDreams(
+  ledger: ReadonlyMap<string, readonly DreamEntry[]>,
+  usedImageIds: ReadonlySet<string>,
+): DreamEntry[] {
+  const out: DreamEntry[] = [];
+  for (const entries of ledger.values()) {
+    for (const entry of entries) {
+      if (!usedImageIds.has(entry.imageId)) out.push(entry);
+    }
+  }
+  return out;
+}
+
 /**
  * Picks dream art for each non-Leave option / reward-bearing tree branch in
  * `manifest`, with per-journey image uniqueness. Returns review flags for any
@@ -233,10 +247,33 @@ export async function selectDreamArt(
   const order = shuffleDeterministic(draw, "dreamArt:order", considered);
 
   for (const item of order) {
+    // Reward-less options (e.g. choose_your_loss losses) carry no reward
+    // template ids by design. Borrow any unused dream from the ledger so the
+    // option still gets distinct art; image uniqueness within the journey is
+    // preserved. The art won't match a reward (there is none) but every
+    // option gets an image — no review flag is emitted because this is the
+    // shape's intended state, not a coverage gap.
     if (item.rewardTemplateIds.length === 0) {
-      reviewFlags.push(
-        `Journey ${manifest.journeyId} ${item.label}: no reward template ids`,
-      );
+      const unused = collectUnusedDreams(ledger, usedImageIds);
+      if (unused.length === 0) {
+        reviewFlags.push(
+          `Journey ${manifest.journeyId} ${item.label}: ledger fully exhausted, no unused dream available`,
+        );
+        continue;
+      }
+      const chosen = unused.length === 1
+        ? unused[0]!
+        : unused[drawInt(draw, `dreamArt:entry:${item.label}`, 0, unused.length - 1)]!;
+      usedImageIds.add(chosen.imageId);
+      assignments.push({
+        label: item.label,
+        imageId: chosen.imageId,
+        dreamName: chosen.dreamName,
+        rewardType: chosen.rewardType,
+        ...(resolveImagePath(chosen.imageId)
+          ? { imagePath: resolveImagePath(chosen.imageId)! }
+          : {}),
+      });
       continue;
     }
 
@@ -279,12 +316,7 @@ export async function selectDreamArt(
     if (sameTypeUnused.length > 0) {
       pool = sameTypeUnused;
     } else {
-      const crossTypeUnused: DreamEntry[] = [];
-      for (const entries of ledger.values()) {
-        for (const entry of entries) {
-          if (!usedImageIds.has(entry.imageId)) crossTypeUnused.push(entry);
-        }
-      }
+      const crossTypeUnused = collectUnusedDreams(ledger, usedImageIds);
       if (crossTypeUnused.length === 0) {
         // The ledger is fully consumed by this journey — extreme contention,
         // surface as a review flag (not debug-only) so it never goes silent.

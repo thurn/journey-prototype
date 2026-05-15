@@ -44,8 +44,9 @@ function lossOption(number: number, loss: RolledLoss): JourneyOption {
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: -loss.convertedEssence,
     pickBehavior: "record_and_generate_next",
-    // Loss-only options grant no reward, so they carry no dream art and are
-    // reported for review when dream art is rendered.
+    // Loss-only options grant no reward; the dream-art renderer borrows an
+    // arbitrary unused ledger dream for each of them so every option still
+    // gets distinct art.
     rewardTemplateIds: [],
   };
 }
