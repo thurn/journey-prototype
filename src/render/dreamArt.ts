@@ -150,9 +150,11 @@ export type DreamArtSelection = {
   readonly assignments: readonly DreamArtAssignment[];
   readonly reviewFlags: readonly string[];
   /**
-   * Messages describing options/branches that had to reuse an already-shown
-   * dream because the ledger pool for their reward type was exhausted within
-   * this journey. Surfaced only under `--debug` so the ledger can be expanded.
+   * Messages describing options/branches that had to borrow a dream from
+   * outside their chosen reward type because every dream of that reward type
+   * was already taken by an earlier option in the same journey. Image
+   * uniqueness within the journey is still preserved. Surfaced only under
+   * `--debug` so the ledger can be expanded to cover the contention.
    */
   readonly repeatFallbacks: readonly string[];
 };
@@ -262,21 +264,46 @@ export async function selectDreamArt(
       continue;
     }
 
-    // Prefer an unused dream so uniqueness holds within the journey, but fall
-    // back to the full pool (allowing a repeat) so every option/branch still
-    // gets art. When this happens, record a debug message so the ledger can
-    // grow to cover the contention.
-    const unused = allEntries.filter((entry) => !usedImageIds.has(entry.imageId));
-    const pool = unused.length > 0 ? unused : allEntries;
-    const isRepeat = unused.length === 0;
+    // Prefer an unused dream of the chosen reward type so the visual matches
+    // the option's reward. When every dream of that reward type has already
+    // been taken in this journey, borrow an unused dream from elsewhere in
+    // the ledger — image uniqueness within the journey is the stronger
+    // constraint, so we never reuse an image. Record a debug message when we
+    // leave the reward-type pool so the ledger can grow to cover the
+    // contention.
+    const sameTypeUnused = allEntries.filter(
+      (entry) => !usedImageIds.has(entry.imageId),
+    );
+    let pool: readonly DreamEntry[];
+    let borrowedAcrossTypes = false;
+    if (sameTypeUnused.length > 0) {
+      pool = sameTypeUnused;
+    } else {
+      const crossTypeUnused: DreamEntry[] = [];
+      for (const entries of ledger.values()) {
+        for (const entry of entries) {
+          if (!usedImageIds.has(entry.imageId)) crossTypeUnused.push(entry);
+        }
+      }
+      if (crossTypeUnused.length === 0) {
+        // The ledger is fully consumed by this journey — extreme contention,
+        // surface as a review flag (not debug-only) so it never goes silent.
+        reviewFlags.push(
+          `Journey ${manifest.journeyId} ${item.label}: ledger fully exhausted, no unused dream available`,
+        );
+        continue;
+      }
+      pool = crossTypeUnused;
+      borrowedAcrossTypes = true;
+    }
 
     const chosen = pool.length === 1
       ? pool[0]!
       : pool[drawInt(draw, `dreamArt:entry:${item.label}`, 0, pool.length - 1)]!;
     usedImageIds.add(chosen.imageId);
-    if (isRepeat) {
+    if (borrowedAcrossTypes) {
       repeatFallbacks.push(
-        `Journey ${manifest.journeyId} ${item.label}: reused dream "${chosen.dreamName}" — reward type "${chosenRewardType}" has only ${allEntries.length} dream(s) in the ledger`,
+        `Journey ${manifest.journeyId} ${item.label}: borrowed dream "${chosen.dreamName}" (reward type "${chosen.rewardType}") — reward type "${chosenRewardType}" has only ${allEntries.length} dream(s) in the ledger`,
       );
     }
     assignments.push({

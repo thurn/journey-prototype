@@ -191,9 +191,10 @@ describe("selectDreamArt", () => {
     expect(selection.repeatFallbacks).toEqual([]);
   });
 
-  it("reuses a dream and records a fallback when the ledger pool is exhausted", async () => {
+  it("borrows a dream from another reward type when the chosen pool is exhausted", async () => {
     // `card_cost_reduction_for_X_battles` has only two entries in the live
-    // ledger; three options sharing it force one to repeat.
+    // ledger; three options sharing it force one to draw from elsewhere in
+    // the ledger. Image uniqueness within the journey must still hold.
     const manifest = syntheticManifest({
       journeyId: "J-REPEAT",
       options: [
@@ -214,13 +215,14 @@ describe("selectDreamArt", () => {
     ]);
     expect(selection.repeatFallbacks).toHaveLength(1);
     expect(selection.repeatFallbacks[0]).toContain("Journey J-REPEAT");
+    expect(selection.repeatFallbacks[0]).toContain("borrowed dream");
     expect(selection.repeatFallbacks[0]).toContain(
       'reward type "Reduce the cost of <predicate> cards by X for the next X battles." has only 2 dream(s)',
     );
-    // The repeated image_id appears twice across assignments — exactly one
-    // assignment is a repeat.
+    // Every assignment uses a distinct image_id — uniqueness is a hard
+    // constraint, even when the chosen reward type's pool is exhausted.
     const imageIds = selection.assignments.map((a) => a.imageId);
-    expect(new Set(imageIds).size).toBe(2);
+    expect(new Set(imageIds).size).toBe(imageIds.length);
     expect(selection.reviewFlags).toEqual([]);
   });
 
