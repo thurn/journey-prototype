@@ -5,6 +5,7 @@ import { generateNextJourney } from "../journey/generate.js";
 import type { JourneyStage } from "../journey/manifest.js";
 import type { JourneyState } from "../state/schema.js";
 import { createInitialJourneyState, simulateQuestStateForStage } from "../quest/init.js";
+import { renderDreamArt } from "../render/dreamArt.js";
 import { renderJourneyHuman } from "../render/human.js";
 import {
   journeyBatchCommandPayload,
@@ -110,18 +111,41 @@ export async function handleJourney(
     }
     const first = generated[0]!;
 
+    if (options.json) {
+      return {
+        exitCode: ExitCode.Success,
+        stdout: renderCommandJson(
+          count === 1
+            ? journeyCommandPayload(first.state, first.manifest, command, options)
+            : journeyBatchCommandPayload(generated, command, options),
+        ),
+        stderr: "",
+      };
+    }
+
+    const renderedBlocks = await Promise.all(
+      generated.map(async (entry) => {
+        const human = renderJourneyHuman(
+          entry.state,
+          entry.manifest,
+          options,
+          loadedContent.content,
+        ).trimEnd();
+        const art = await renderDreamArt(entry.manifest, options.projectRoot);
+        const trailing = art.block.length > 0 ? `\n\n${art.block.trimEnd()}` : "";
+        return { text: `${human}${trailing}`, reviewFlags: art.reviewFlags };
+      }),
+    );
+    const stdout = `${renderedBlocks.map((block) => block.text).join("\n\n")}\n`;
+    const flags = renderedBlocks.flatMap((block) => block.reviewFlags);
+    const stderr = flags.length > 0
+      ? `Dream art: cases to investigate\n${flags.map((flag) => `  ${flag}`).join("\n")}\n`
+      : "";
+
     return {
       exitCode: ExitCode.Success,
-      stdout: options.json
-        ? renderCommandJson(
-            count === 1
-              ? journeyCommandPayload(first.state, first.manifest, command, options)
-              : journeyBatchCommandPayload(generated, command, options),
-          )
-        : generated.map((entry) =>
-            renderJourneyHuman(entry.state, entry.manifest, options, loadedContent.content).trimEnd()
-          ).join("\n\n") + "\n",
-      stderr: "",
+      stdout,
+      stderr,
     };
   } catch (error) {
     return setupErrorResult(error, options);

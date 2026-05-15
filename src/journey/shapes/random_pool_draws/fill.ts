@@ -536,6 +536,7 @@ function stopBranch(level: number): JourneyTreeBranch {
     burdenConvertedEssence: 0,
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: 0,
+    rewardTemplateIds: [],
     terminal: emptyTerminal("leave", "Leave."),
   };
 }
@@ -556,6 +557,13 @@ function drawBranch(args: {
     args.context,
   );
   const uncertaintyConvertedEssence = args.replacement === "with_replacement" ? -12 : -8;
+  // The pool's candidate template ids describe every reward that could land
+  // in this branch, so dream-art matching can pick from any of them.
+  const rewardTemplateIds = args.candidates.map((candidate) => candidate.template.id);
+  const claimTerminal = {
+    ...emptyTerminal("claim", "End the Journey."),
+    rewardTemplateIds: [...rewardTemplateIds],
+  };
 
   return {
     id: `level-${args.level}-draw`,
@@ -575,8 +583,9 @@ function drawBranch(args: {
     uncertaintyConvertedEssence,
     netConvertedEssence:
       args.averageReward - costConvertedEssence + uncertaintyConvertedEssence,
+    rewardTemplateIds,
     ...(final
-      ? { terminal: emptyTerminal("claim", "End the Journey.") }
+      ? { terminal: claimTerminal }
       : { nextNodeId: `level-${args.level + 1}` }),
   };
 }

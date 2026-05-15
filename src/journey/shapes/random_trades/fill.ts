@@ -56,6 +56,7 @@ function emptyOption(
   symbols: readonly string[],
   effectCec: number,
   costCec: number,
+  rewardTemplateIds: readonly string[],
 ): JourneyOption {
   const net = effectCec - costCec;
   return {
@@ -75,6 +76,7 @@ function emptyOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: net,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...rewardTemplateIds],
   };
 }
 
@@ -475,6 +477,7 @@ export function randomTradesFill(args: ShapeFillArgs): FilledJourney {
       row.cost ? ["cost", "reward"] : ["reward"],
       row.reward.cec,
       row.cost?.cec ?? 0,
+      [row.reward.template.id],
     );
   });
 

@@ -734,6 +734,12 @@ export type JourneyOption = {
   uncertaintyConvertedEssence: number;
   netConvertedEssence: number;
   pickBehavior: PickBehavior;
+  /**
+   * Catalog reward ids ("templateIds") for the rewards this option grants,
+   * used to match the option to its dream art. Empty for options that grant
+   * no reward (e.g. Leave).
+   */
+  rewardTemplateIds?: readonly string[];
 };
 
 export type JourneyPresentation = {
@@ -757,6 +763,7 @@ export type JourneyTreeTerminal = {
   burdens: unknown[];
   targets: unknown[];
   routeEffects: unknown[];
+  rewardTemplateIds?: readonly string[];
 };
 
 export type JourneyTreeBranch = {
@@ -781,6 +788,7 @@ export type JourneyTreeBranch = {
   burdenConvertedEssence: number;
   uncertaintyConvertedEssence: number;
   netConvertedEssence: number;
+  rewardTemplateIds?: readonly string[];
   nextNodeId?: string;
   terminal?: JourneyTreeTerminal;
 };

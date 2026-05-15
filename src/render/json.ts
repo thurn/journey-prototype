@@ -10,6 +10,7 @@ function optionJson(option: JourneyOption) {
     symbols: option.symbols,
     text: option.text,
     pickBehavior: option.pickBehavior,
+    rewardTemplateIds: option.rewardTemplateIds ?? [],
     operations: option.operations,
     costs: option.costs,
     effects: option.effects,

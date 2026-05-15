@@ -64,6 +64,7 @@ export function emptyOption(args: {
   readonly costConvertedEssence?: number;
   readonly effectConvertedEssence: number;
   readonly uncertaintyConvertedEssence?: number;
+  readonly rewardTemplateIds?: readonly string[];
 }): JourneyOption {
   const costConvertedEssence = args.costConvertedEssence ?? 0;
   const burdenConvertedEssence = 0;
@@ -90,6 +91,7 @@ export function emptyOption(args: {
       burdenConvertedEssence +
       uncertaintyConvertedEssence,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...(args.rewardTemplateIds ?? [])],
   };
 }
 

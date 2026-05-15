@@ -13,6 +13,7 @@ type PushReward = {
   effects: unknown[];
   targets?: unknown[];
   effect: number;
+  rewardTemplateIds: readonly string[];
 };
 
 const PUSH_REWARD_FAMILIES = [
@@ -38,6 +39,7 @@ type TreeBranchArgs = {
   uncertainty?: number;
   nextNodeId?: string;
   terminal?: Omit<NonNullable<JourneyTreeBranch["terminal"]>, "operations">;
+  rewardTemplateIds?: readonly string[];
 };
 
 function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
@@ -46,6 +48,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
   const burdens = args.burdens ?? [];
   const targets = args.targets ?? [];
   const routeEffects = args.routeEffects ?? [];
+  const rewardTemplateIds = args.rewardTemplateIds ?? [];
   const terminal = args.terminal
     ? {
         text: args.terminal.text,
@@ -56,6 +59,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
         burdens,
         targets,
         routeEffects,
+        rewardTemplateIds: [...rewardTemplateIds],
       }
     : undefined;
 
@@ -81,6 +85,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
       (args.cost ?? 0) +
       (args.burden ?? 0) +
       (args.uncertainty ?? 0),
+    rewardTemplateIds: [...rewardTemplateIds],
     ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
     ...(terminal ? { terminal } : {}),
   };
@@ -167,6 +172,7 @@ function sharedRewardPayload(
       },
     ],
     effect: convertedEssence,
+    rewardTemplateIds: [templateId],
   };
 }
 
@@ -247,6 +253,7 @@ export function buildPushYourLuckTree(
             cost: price,
             effect: reward.effect,
             nextNodeId,
+            rewardTemplateIds: reward.rewardTemplateIds,
             terminal: {
               text: "End the Journey.",
               outcome: "claim",

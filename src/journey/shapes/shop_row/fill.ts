@@ -505,6 +505,7 @@ function shopOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: reward.cec - costCec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [reward.template.id],
   };
 }
 

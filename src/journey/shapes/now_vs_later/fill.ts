@@ -255,6 +255,7 @@ function emptyOption(
   text: string,
   symbols: readonly string[],
   effectConvertedEssence: number,
+  rewardTemplateIds: readonly string[],
   uncertaintyConvertedEssence = 0,
 ): JourneyOption {
   const netConvertedEssence = effectConvertedEssence + uncertaintyConvertedEssence;
@@ -276,6 +277,7 @@ function emptyOption(
     uncertaintyConvertedEssence,
     netConvertedEssence,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...rewardTemplateIds],
   };
 }
 
@@ -367,12 +369,14 @@ export function nowVsLaterFill(args: ShapeFillArgs): FilledJourney {
         sentence(immediate.text),
         ["reward", "now"],
         immediate.cec,
+        [immediate.template.id],
       ),
       emptyOption(
         2,
         sentence(`${timing.optionPrefix}, ${lowerFirst(delayedRewardText(delayed))}`),
         ["reward", "delayed"],
         delayed.cec,
+        [delayed.template.id],
         delayedUncertainty,
       ),
     ],

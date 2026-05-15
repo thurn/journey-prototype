@@ -211,6 +211,7 @@ function takeOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: reward.cec - cost.cec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [reward.template.id],
   };
 }
 

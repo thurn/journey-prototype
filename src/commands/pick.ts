@@ -2,6 +2,7 @@ import type { CommandResult, CommonCommandOptions } from "./options.js";
 import { ExitCode } from "../util/exitCodes.js";
 import { advanceSequenceJourney, generateNextJourney } from "../journey/generate.js";
 import type { JourneyManifest } from "../journey/manifest.js";
+import { renderDreamArt } from "../render/dreamArt.js";
 import { renderJourneyHuman, renderSelectedHuman } from "../render/human.js";
 import { journeyCommandPayload, renderCommandJson } from "../render/json.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
@@ -25,6 +26,31 @@ function parsePickNumber(numberText: string): number | null {
   const parsed = Number(numberText);
 
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+type ContentBundle = Parameters<typeof renderJourneyHuman>[3];
+
+async function humanWithDreamArt(args: {
+  readonly state: JourneyState;
+  readonly manifest: JourneyManifest;
+  readonly selectedHuman: string;
+  readonly options: CommonCommandOptions;
+  readonly content?: ContentBundle;
+}): Promise<{ stdout: string; stderr: string }> {
+  const human = renderJourneyHuman(
+    args.state,
+    args.manifest,
+    args.options,
+    args.content,
+  );
+  const art = await renderDreamArt(args.manifest, args.options.projectRoot);
+  const humanTrailing = art.block.length > 0
+    ? `${human.trimEnd()}\n\n${art.block.trimEnd()}\n`
+    : human;
+  const stderr = art.reviewFlags.length > 0
+    ? `Dream art: cases to investigate\n${art.reviewFlags.map((flag) => `  ${flag}`).join("\n")}\n`
+    : "";
+  return { stdout: `${args.selectedHuman}${humanTrailing}`, stderr };
 }
 
 function historyEntry(
@@ -148,19 +174,26 @@ export async function handlePick(
         throw new Error("valid pick transition did not produce a pending Journey");
       }
 
+      if (options.json) {
+        return {
+          exitCode: ExitCode.Success,
+          stdout: renderCommandJson(
+            journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
+          ),
+          stderr: "",
+        };
+      }
+      const rendered = await humanWithDreamArt({
+        state: nextState,
+        manifest: nextManifest,
+        selectedHuman: renderSelectedHuman(selectedOption, options),
+        options,
+        content: loadedContent.content,
+      });
       return {
         exitCode: ExitCode.Success,
-        stdout: options.json
-          ? renderCommandJson(
-            journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
-          )
-          : `${renderSelectedHuman(selectedOption, options)}${renderJourneyHuman(
-            nextState,
-            nextManifest,
-            options,
-            loadedContent.content,
-          )}`,
-        stderr: "",
+        stdout: rendered.stdout,
+        stderr: rendered.stderr,
       };
     }
 
@@ -182,18 +215,25 @@ export async function handlePick(
 
     await writeJourneyStateAtomic(options.statePath, nextState);
 
+    if (options.json) {
+      return {
+        exitCode: ExitCode.Success,
+        stdout: renderCommandJson(
+          journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
+        ),
+        stderr: "",
+      };
+    }
+    const rendered = await humanWithDreamArt({
+      state: nextState,
+      manifest: nextManifest,
+      selectedHuman: renderSelectedHuman(selectedOption, options),
+      options,
+    });
     return {
       exitCode: ExitCode.Success,
-      stdout: options.json
-        ? renderCommandJson(
-          journeyCommandPayload(nextState, nextManifest, "pick", recordedPick),
-        )
-        : `${renderSelectedHuman(selectedOption, options)}${renderJourneyHuman(
-          nextState,
-          nextManifest,
-          options,
-        )}`,
-      stderr: "",
+      stdout: rendered.stdout,
+      stderr: rendered.stderr,
     };
   } catch (error) {
     return setupErrorResult(error, options);

@@ -315,6 +315,7 @@ function optionFor(args: {
     uncertaintyConvertedEssence: args.riskPremiumConvertedEssence,
     netConvertedEssence: netCec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [args.reward.template.id],
   };
 }
 

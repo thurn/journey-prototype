@@ -53,6 +53,7 @@ function optionFor(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: cec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [template.rewardTypeId],
   };
 }
 

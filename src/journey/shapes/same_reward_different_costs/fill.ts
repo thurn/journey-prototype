@@ -50,6 +50,7 @@ function emptyOption(
   text: string,
   effectCec: number,
   costCec: number,
+  rewardTemplateIds: readonly string[],
 ): JourneyOption {
   return {
     number,
@@ -68,6 +69,7 @@ function emptyOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: effectCec - costCec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...rewardTemplateIds],
   };
 }
 
@@ -376,6 +378,7 @@ export function sameRewardDifferentCostsFill(
     throw new Error(`${SHAPE_LABEL} fill could not roll a viable offer`);
   }
 
+  const sharedRewardTemplateIds = [offer.reward.template.id];
   return {
     options: offer.costs.map((cost, index) =>
       emptyOption(
@@ -383,6 +386,7 @@ export function sameRewardDifferentCostsFill(
         renderOption(cost, offer.reward, args.context),
         offer.reward.cec,
         cost.cec,
+        sharedRewardTemplateIds,
       ),
     ),
     precommitted: {},

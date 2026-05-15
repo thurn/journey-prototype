@@ -11,7 +11,13 @@ const TOLERANCE_WIDEN_STEP = 0.2;
 
 type RolledReward = { template: Reward; params: TemplateParams; cec: number };
 
-function emptyOption(number: number, text: string, symbols: readonly string[], cec: number): JourneyOption {
+function emptyOption(
+  number: number,
+  text: string,
+  symbols: readonly string[],
+  cec: number,
+  rewardTemplateIds: readonly string[],
+): JourneyOption {
   return {
     number,
     symbols: [...symbols],
@@ -29,6 +35,7 @@ function emptyOption(number: number, text: string, symbols: readonly string[], c
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: cec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...rewardTemplateIds],
   };
 }
 
@@ -123,9 +130,9 @@ export function randomRewardsFill(args: ShapeFillArgs): FilledJourney {
   const row3 = rollFurtherRow(3);
 
   const options: JourneyOption[] = [
-    emptyOption(1, row1.template.render(row1.params, context), ["reward"], row1.cec),
-    emptyOption(2, row2.template.render(row2.params, context), ["reward"], row2.cec),
-    emptyOption(3, row3.template.render(row3.params, context), ["reward"], row3.cec),
+    emptyOption(1, row1.template.render(row1.params, context), ["reward"], row1.cec, [row1.template.id]),
+    emptyOption(2, row2.template.render(row2.params, context), ["reward"], row2.cec, [row2.template.id]),
+    emptyOption(3, row3.template.render(row3.params, context), ["reward"], row3.cec, [row3.template.id]),
   ];
 
   return { options, precommitted: {} };

@@ -687,6 +687,7 @@ function commitmentOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: row.reward.cec - row.cost.cec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [row.reward.template.id],
   };
 }
 

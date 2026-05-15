@@ -12,6 +12,7 @@ type EscalatingReward = {
   readonly text: string;
   readonly effects: readonly unknown[];
   readonly effect: number;
+  readonly rewardTemplateIds: readonly string[];
 };
 
 type EscalatingRewardTemplateId =
@@ -42,6 +43,7 @@ type TreeBranchArgs = {
   cost?: number;
   effect?: number;
   nextNodeId?: string;
+  rewardTemplateIds?: readonly string[];
   terminal?: {
     readonly text: string;
     readonly outcome: NonNullable<JourneyTreeBranch["terminal"]>["outcome"];
@@ -225,6 +227,7 @@ function rewardProfile(
 function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
   const costs = [...(args.costs ?? [])];
   const effects = [...(args.effects ?? [])];
+  const rewardTemplateIds = [...(args.rewardTemplateIds ?? [])];
   const terminal = args.terminal
     ? {
         text: args.terminal.text,
@@ -235,6 +238,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
         burdens: [],
         targets: [],
         routeEffects: [],
+        rewardTemplateIds: [...rewardTemplateIds],
       }
     : undefined;
   const branch = {
@@ -254,6 +258,7 @@ function treeBranch(args: TreeBranchArgs): JourneyTreeBranch {
     burdenConvertedEssence: 0,
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: (args.effect ?? 0) - (args.cost ?? 0),
+    rewardTemplateIds: [...rewardTemplateIds],
     ...(args.nextNodeId ? { nextNodeId: args.nextNodeId } : {}),
     ...(terminal ? { terminal } : {}),
   };
@@ -317,6 +322,7 @@ function sharedRewardPayload(
       },
     ],
     effect: convertedEssence,
+    rewardTemplateIds: [templateId],
   };
 }
 
@@ -397,6 +403,7 @@ export function buildEscalatingRewardChainTree(
             effects: reward.effects,
             cost: price,
             effect: reward.effect,
+            rewardTemplateIds: reward.rewardTemplateIds,
             ...(isFinal
               ? {
                   terminal: {

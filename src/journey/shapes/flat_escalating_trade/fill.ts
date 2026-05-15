@@ -355,6 +355,7 @@ function tradeOption(args: {
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: effectConvertedEssence - args.price,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [args.profile.rewardId],
   };
 }
 

@@ -57,6 +57,7 @@ export function singleRandomOutcomeFill(args: ShapeFillArgs): FilledJourney {
     costConvertedEssence: entryCost.convertedEssence,
     effectConvertedEssence: averageValue(candidates),
     uncertaintyConvertedEssence: -8,
+    rewardTemplateIds: candidates.map((candidate) => candidate.payloads[0]!.templateId),
   });
   const visiblePool = {
     ...pool.visiblePoolEnvelope,

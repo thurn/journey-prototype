@@ -369,6 +369,7 @@ function optionFor(args: {
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: args.reward.convertedEssence,
     pickBehavior: "record_and_generate_next" as const,
+    rewardTemplateIds: [args.reward.template.id],
   };
 
   return {

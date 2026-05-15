@@ -395,6 +395,7 @@ function optionFor(number: number, reward: RolledRouteReward): JourneyOption {
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: reward.cec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [reward.template.id],
   };
 }
 

@@ -46,6 +46,7 @@ function emptyOption(
   text: string,
   effectCec: number,
   costCec: number,
+  rewardTemplateIds: readonly string[],
 ): JourneyOption {
   return {
     number,
@@ -64,6 +65,7 @@ function emptyOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: effectCec - costCec,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [...rewardTemplateIds],
   };
 }
 
@@ -523,6 +525,7 @@ export function sameCostDifferentRewardsFill(
         renderOption(bestOffer.sharedCost, reward, context),
         reward.cec,
         bestOffer.sharedCost.cec,
+        [reward.template.id],
       ),
     ),
     precommitted: {},

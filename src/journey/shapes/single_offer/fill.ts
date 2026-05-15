@@ -225,6 +225,7 @@ function offerOption(
     uncertaintyConvertedEssence: 0,
     netConvertedEssence: reward.convertedEssence - cost.convertedEssence,
     pickBehavior: "record_and_generate_next",
+    rewardTemplateIds: [reward.template.id],
   };
 }
 

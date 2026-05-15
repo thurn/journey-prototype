@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "commander": "^14.0.1",
+    "sharp": "^0.34.5",
     "smol-toml": "^1.4.2"
   },
   "devDependencies": {
