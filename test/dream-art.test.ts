@@ -188,6 +188,40 @@ describe("selectDreamArt", () => {
     expect(selection.reviewFlags).toEqual([
       "Journey J-FLAG Option 1: no reward template ids",
     ]);
+    expect(selection.repeatFallbacks).toEqual([]);
+  });
+
+  it("reuses a dream and records a fallback when the ledger pool is exhausted", async () => {
+    // `card_cost_reduction_for_X_battles` has only two entries in the live
+    // ledger; three options sharing it force one to repeat.
+    const manifest = syntheticManifest({
+      journeyId: "J-REPEAT",
+      options: [
+        rewardOption(1, ["card_cost_reduction_for_X_battles"]),
+        rewardOption(2, ["card_cost_reduction_for_X_battles"]),
+        rewardOption(3, ["card_cost_reduction_for_X_battles"]),
+        leaveOption(4),
+      ],
+    });
+
+    const selection = await selectDreamArt(manifest, PROJECT_ROOT);
+
+    expect(selection.assignments).toHaveLength(3);
+    expect(selection.assignments.map((a) => a.label)).toEqual([
+      "Option 1",
+      "Option 2",
+      "Option 3",
+    ]);
+    expect(selection.repeatFallbacks).toHaveLength(1);
+    expect(selection.repeatFallbacks[0]).toContain("Journey J-REPEAT");
+    expect(selection.repeatFallbacks[0]).toContain(
+      'reward type "Reduce the cost of <predicate> cards by X for the next X battles." has only 2 dream(s)',
+    );
+    // The repeated image_id appears twice across assignments — exactly one
+    // assignment is a repeat.
+    const imageIds = selection.assignments.map((a) => a.imageId);
+    expect(new Set(imageIds).size).toBe(2);
+    expect(selection.reviewFlags).toEqual([]);
   });
 
   it("is deterministic under a fixed seed", async () => {

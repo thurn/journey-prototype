@@ -33,11 +33,18 @@ string from `docs/rewards.md`, which keys the ledger.
 
 When an option offers multiple reward types, one is picked at random (seeded
 from the manifest seed). When multiple ledger dreams match the chosen reward
-type, one is picked at random. Within a single Journey no image is ever shown
-twice.
+type, one is picked at random. The renderer prefers unused dreams within a
+single Journey to keep each option's art distinct. When the ledger pool for a
+chosen reward type is fully consumed by earlier options in the same Journey,
+the renderer falls back to the full pool (allowing a repeat) so every option
+still gets an image; each such fallback is recorded as a
+`Dream art: ledger pool exhausted (debug)` line, surfaced on stderr in red
+only when `--debug` is set, so the ledger can be expanded to cover the
+contention.
 
 Costs do not affect art matching. Any non-Leave option or non-Leave branch
-without any reward template ids is reported on stderr as a
+without reward template ids, with ids unknown to the catalog, or whose chosen
+reward type has zero ledger entries, is reported on stderr as a
 `Dream art: cases to investigate` list, naming the journey and option/branch
 for review.
 

@@ -5,6 +5,7 @@ import type { JourneyManifest } from "../journey/manifest.js";
 import { renderDreamArt } from "../render/dreamArt.js";
 import { renderJourneyHuman, renderSelectedHuman } from "../render/human.js";
 import { journeyCommandPayload, renderCommandJson } from "../render/json.js";
+import { formatRepeatFallbacks, formatReviewFlags } from "./journey.js";
 import { readJourneyState, writeJourneyStateAtomic } from "../state/state.js";
 import type { JourneyState, PickHistoryEntry } from "../state/schema.js";
 import {
@@ -47,9 +48,8 @@ async function humanWithDreamArt(args: {
   const humanTrailing = art.block.length > 0
     ? `${human.trimEnd()}\n\n${art.block.trimEnd()}\n`
     : human;
-  const stderr = art.reviewFlags.length > 0
-    ? `Dream art: cases to investigate\n${art.reviewFlags.map((flag) => `  ${flag}`).join("\n")}\n`
-    : "";
+  const repeats = args.options.debug ? art.repeatFallbacks : [];
+  const stderr = `${formatReviewFlags(art.reviewFlags)}${formatRepeatFallbacks(repeats, args.options)}`;
   return { stdout: `${args.selectedHuman}${humanTrailing}`, stderr };
 }
 

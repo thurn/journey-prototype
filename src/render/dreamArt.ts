@@ -149,6 +149,12 @@ export type DreamArtAssignment = {
 export type DreamArtSelection = {
   readonly assignments: readonly DreamArtAssignment[];
   readonly reviewFlags: readonly string[];
+  /**
+   * Messages describing options/branches that had to reuse an already-shown
+   * dream because the ledger pool for their reward type was exhausted within
+   * this journey. Surfaced only under `--debug` so the ledger can be expanded.
+   */
+  readonly repeatFallbacks: readonly string[];
 };
 
 type OptionLike = {
@@ -210,13 +216,14 @@ export async function selectDreamArt(
     ? treeBranchesToConsider(manifest)
     : flatOptionsToConsider(manifest);
   if (considered.length === 0) {
-    return { assignments: [], reviewFlags: [] };
+    return { assignments: [], reviewFlags: [], repeatFallbacks: [] };
   }
 
   const ledger = await dreamLedger(projectRoot);
   const draw = drawContextFor(manifest);
   const assignments: DreamArtAssignment[] = [];
   const reviewFlags: string[] = [];
+  const repeatFallbacks: string[] = [];
   const usedImageIds = new Set<string>();
   // Process options/branches in a seeded shuffled order so contention for
   // small candidate sets resolves deterministically but not always biased
@@ -245,19 +252,33 @@ export async function selectDreamArt(
     const chosenRewardType = rewardTypes.length === 1
       ? rewardTypes[0]!
       : rewardTypes[drawInt(draw, `dreamArt:rewardType:${item.label}`, 0, rewardTypes.length - 1)]!;
-    const candidates = (ledger.get(chosenRewardType) ?? []).filter(
-      (entry) => !usedImageIds.has(entry.imageId),
-    );
-    if (candidates.length === 0) {
-      // No unused candidate for this option in this journey. Skip (no image)
-      // rather than repeat an already-shown image.
+    const allEntries = ledger.get(chosenRewardType) ?? [];
+    if (allEntries.length === 0) {
+      // The ledger has no dreams at all for this reward type — surface as a
+      // review flag so the catalog gap can be filled.
+      reviewFlags.push(
+        `Journey ${manifest.journeyId} ${item.label}: no dreams in ledger for reward type "${chosenRewardType}"`,
+      );
       continue;
     }
 
-    const chosen = candidates.length === 1
-      ? candidates[0]!
-      : candidates[drawInt(draw, `dreamArt:entry:${item.label}`, 0, candidates.length - 1)]!;
+    // Prefer an unused dream so uniqueness holds within the journey, but fall
+    // back to the full pool (allowing a repeat) so every option/branch still
+    // gets art. When this happens, record a debug message so the ledger can
+    // grow to cover the contention.
+    const unused = allEntries.filter((entry) => !usedImageIds.has(entry.imageId));
+    const pool = unused.length > 0 ? unused : allEntries;
+    const isRepeat = unused.length === 0;
+
+    const chosen = pool.length === 1
+      ? pool[0]!
+      : pool[drawInt(draw, `dreamArt:entry:${item.label}`, 0, pool.length - 1)]!;
     usedImageIds.add(chosen.imageId);
+    if (isRepeat) {
+      repeatFallbacks.push(
+        `Journey ${manifest.journeyId} ${item.label}: reused dream "${chosen.dreamName}" — reward type "${chosenRewardType}" has only ${allEntries.length} dream(s) in the ledger`,
+      );
+    }
     assignments.push({
       label: item.label,
       imageId: chosen.imageId,
@@ -277,7 +298,7 @@ export async function selectDreamArt(
       (labelOrder.get(left.label) ?? 0) - (labelOrder.get(right.label) ?? 0),
   );
 
-  return { assignments: ordered, reviewFlags };
+  return { assignments: ordered, reviewFlags, repeatFallbacks };
 }
 
 /** Crop the source image to a transparent-cornered circle PNG. */
@@ -303,17 +324,27 @@ export function inlineImageEscape(png: Buffer, heightCells = IMAGE_HEIGHT_CELLS)
 
 /**
  * Render the dream-art block for `manifest`. Returns the block to append to
- * the journey's stdout and a list of review flags for stderr. The block ends
- * with a newline when non-empty; an empty block (no assignments) returns "".
+ * the journey's stdout, a list of review flags for stderr, and a list of
+ * debug-only repeat-fallback notices for callers that want to surface them
+ * under `--debug`. The block ends with a newline when non-empty; an empty
+ * block (no assignments) returns "".
  */
 export async function renderDreamArt(
   manifest: JourneyManifest,
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
-): Promise<{ block: string; reviewFlags: readonly string[] }> {
+): Promise<{
+  block: string;
+  reviewFlags: readonly string[];
+  repeatFallbacks: readonly string[];
+}> {
   const selection = await selectDreamArt(manifest, projectRoot);
   if (selection.assignments.length === 0) {
-    return { block: "", reviewFlags: selection.reviewFlags };
+    return {
+      block: "",
+      reviewFlags: selection.reviewFlags,
+      repeatFallbacks: selection.repeatFallbacks,
+    };
   }
 
   const supportsImages = supportsInlineImages(env);
@@ -338,7 +369,11 @@ export async function renderDreamArt(
     lines.pop();
   }
 
-  return { block: `${lines.join("\n")}\n`, reviewFlags: selection.reviewFlags };
+  return {
+    block: `${lines.join("\n")}\n`,
+    reviewFlags: selection.reviewFlags,
+    repeatFallbacks: selection.repeatFallbacks,
+  };
 }
 
 /** Test helper: list every reward_type appearing in the ledger. */

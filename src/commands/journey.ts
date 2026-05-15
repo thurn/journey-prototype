@@ -12,6 +12,8 @@ import {
   journeyCommandPayload,
   renderCommandJson,
 } from "../render/json.js";
+import { THEME } from "../render/theme.js";
+import { ansiTruecolor } from "../util/ansi.js";
 import { drawInt } from "../util/rng.js";
 import { buildContext, loadContentContext, setupErrorResult } from "./shared.js";
 
@@ -59,6 +61,21 @@ type GeneratedJourney = {
   state: JourneyState;
   manifest: ReturnType<typeof generateNextJourney>;
 };
+
+export function formatReviewFlags(flags: readonly string[]): string {
+  if (flags.length === 0) return "";
+  return `Dream art: cases to investigate\n${flags.map((flag) => `  ${flag}`).join("\n")}\n`;
+}
+
+export function formatRepeatFallbacks(
+  fallbacks: readonly string[],
+  options: Pick<CommonCommandOptions, "stderrColor" | "json">,
+): string {
+  if (fallbacks.length === 0) return "";
+  const block = `Dream art: ledger pool exhausted (debug)\n${fallbacks.map((line) => `  ${line}`).join("\n")}\n`;
+  const enabled = options.stderrColor && !options.json;
+  return ansiTruecolor(block, THEME.error, enabled);
+}
 
 export async function handleJourney(
   options: CommonCommandOptions,
@@ -133,14 +150,19 @@ export async function handleJourney(
         ).trimEnd();
         const art = await renderDreamArt(entry.manifest, options.projectRoot);
         const trailing = art.block.length > 0 ? `\n\n${art.block.trimEnd()}` : "";
-        return { text: `${human}${trailing}`, reviewFlags: art.reviewFlags };
+        return {
+          text: `${human}${trailing}`,
+          reviewFlags: art.reviewFlags,
+          repeatFallbacks: art.repeatFallbacks,
+        };
       }),
     );
     const stdout = `${renderedBlocks.map((block) => block.text).join("\n\n")}\n`;
     const flags = renderedBlocks.flatMap((block) => block.reviewFlags);
-    const stderr = flags.length > 0
-      ? `Dream art: cases to investigate\n${flags.map((flag) => `  ${flag}`).join("\n")}\n`
-      : "";
+    const repeats = options.debug
+      ? renderedBlocks.flatMap((block) => block.repeatFallbacks)
+      : [];
+    const stderr = `${formatReviewFlags(flags)}${formatRepeatFallbacks(repeats, options)}`;
 
     return {
       exitCode: ExitCode.Success,
