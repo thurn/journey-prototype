@@ -23,7 +23,7 @@ inner `ESC` doubled, staying under tmux's 1 MB sequence limit, and even then
 rendering is flaky across tmux versions.
 
 The CLI does not do any of that. When running under tmux it skips inline
-rendering and falls back to printing the image path. Detection: `TERM` starts
+rendering. Detection: `TERM` starts
 with `tmux`, or `TERM_PROGRAM === 'tmux'`.
 
 ## Implementation
